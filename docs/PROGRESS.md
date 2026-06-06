@@ -28,8 +28,8 @@ Simple function Protos and zero-argument Lua calls are implemented. Closures,
 upvalues, and captured outer local reads are implemented. Anonymous vararg
 functions can receive call arguments and lower `...` for the first requested
 value. Fixed-count Lua calls can receive multiple return values. Named vararg
-tables, open-ended multiple-return behavior, full API, JIT, C API, conformance,
-and benchmark implementation work has not started.
+tables, full API, JIT, C API, conformance, and benchmark implementation work
+has not started.
 
 Current state:
 
@@ -73,7 +73,8 @@ In progress:
   - M7.4 Implement varargs and named vararg table.
     - Anonymous vararg argument passing and first-value `...` lowering are implemented.
     - Fixed-count multiple call results are implemented.
-    - Named vararg table support and open-ended multiple-return behavior remain.
+    - Open-ended vararg call/return results are implemented.
+    - Named vararg table support remains.
   - Standard library.
   - Rust API.
   - JIT.
@@ -392,6 +393,7 @@ Delivered so far:
 - Lua call arguments are placed in call registers and passed to child Protos.
 - The primitive interpreter executes simple `VARARG` reads with nil fill.
 - Fixed-count `CALL` results write all requested return registers with nil fill.
+- Open-ended `VARARG`, `CALL`, and `RETURN` propagate all available results.
 
 Recommended verification:
 
@@ -453,13 +455,13 @@ feat(runtime): support varargs
 - Captured outer local reads work through upvalue descriptors and runtime closure captures.
 - Anonymous vararg argument passing and first-value `...` lowering work in the compiler/interpreter path.
 - Fixed-count multiple call results work in the primitive interpreter.
+- Open-ended vararg call/return results work in the primitive interpreter.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M7
 
 - Finish M7.4 named vararg table support.
-- Add open-ended multiple-return behavior and tests for common vararg cases.
 
 ### Product Gaps
 
@@ -479,7 +481,7 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M7.4 fixed-count multiple vararg result sub-step verification passed:
+M7.4 open-ended vararg result sub-step verification passed:
 
 ```bash
 cargo fmt --all
@@ -493,10 +495,9 @@ cargo fmt --all -- --check
 Continue M7.4 from `docs/MILESTONES.md`:
 
 1. Add named vararg table support for current Lua.
-2. Add open-ended multiple-return behavior for common vararg cases.
-3. Run `cargo test -p elara-interp varargs`.
-4. Update this progress document.
-5. Commit with:
+2. Run `cargo test -p elara-interp varargs`.
+3. Update this progress document.
+4. Commit with:
 
 ```text
 feat(runtime): support varargs
@@ -543,7 +544,7 @@ feat(runtime): support varargs
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
-| Variables/scopes | In progress | Local variables, assignment basics, simple calls, captured outer local reads, anonymous vararg argument passing, and fixed-count multiple call results are implemented. |
+| Variables/scopes | In progress | Local variables, assignment basics, simple calls, captured outer local reads, anonymous vararg argument passing, and multiple call results are implemented. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

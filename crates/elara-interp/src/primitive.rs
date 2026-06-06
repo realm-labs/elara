@@ -43,6 +43,7 @@ fn execute_proto_with_upvalues(
         thread.push_value(Value::nil());
     }
     let mut closures = Vec::new();
+    let mut dynamic_top = 0;
 
     let mut pc = 0;
     while pc < proto.code.len() {
@@ -113,9 +114,17 @@ fn execute_proto_with_upvalues(
             Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
                 execute_arithmetic(&mut thread, instr)?
             }
-            Op::Vararg => execute_vararg(&mut thread, instr, varargs)?,
-            Op::Call => execute_call(proto, &mut thread, &closures, instr)?,
-            Op::Return => return collect_returns(&thread, instr),
+            Op::Vararg => {
+                if let Some(top) = execute_vararg(&mut thread, instr, varargs)? {
+                    dynamic_top = top;
+                }
+            }
+            Op::Call => {
+                if let Some(top) = execute_call(proto, &mut thread, &closures, instr)? {
+                    dynamic_top = top;
+                }
+            }
+            Op::Return => return collect_returns(&thread, instr, dynamic_top),
             op => return Err(RuntimeError::UnsupportedOpcode { op }),
         }
     }
@@ -166,15 +175,24 @@ fn capture_upvalues(
     Ok(captured)
 }
 
-fn execute_vararg(thread: &mut LuaThread, instr: Instr, varargs: &[Value]) -> RuntimeResult<()> {
-    for index in 0..instr.b() {
-        let value = varargs
-            .get(index as usize)
-            .copied()
-            .unwrap_or_else(Value::nil);
-        set_register(thread, usize::from(instr.a()) + index as usize, value)?;
+fn execute_vararg(
+    thread: &mut LuaThread,
+    instr: Instr,
+    varargs: &[Value],
+) -> RuntimeResult<Option<usize>> {
+    let base = usize::from(instr.a());
+    let count = if instr.b() == 0 {
+        varargs.len()
+    } else {
+        instr.b() as usize
+    };
+
+    for index in 0..count {
+        let value = varargs.get(index).copied().unwrap_or_else(Value::nil);
+        set_register(thread, base + index, value)?;
     }
-    Ok(())
+
+    Ok((instr.b() == 0).then_some(base + count))
 }
 
 fn execute_call(
@@ -182,7 +200,7 @@ fn execute_call(
     thread: &mut LuaThread,
     closures: &[RuntimeClosure],
     instr: Instr,
-) -> RuntimeResult<()> {
+) -> RuntimeResult<Option<usize>> {
     let callee = register(thread, instr.a().into())?;
     let closure_index = callee
         .as_closure_index()
@@ -199,15 +217,19 @@ fn execute_call(
     let args = collect_call_args(thread, instr)?;
     let returns = execute_proto_with_upvalues(child, &closure.upvalues, &args)?;
 
-    for index in 0..instr.c() {
-        let value = returns
-            .get(index as usize)
-            .copied()
-            .unwrap_or_else(Value::nil);
-        set_register(thread, usize::from(instr.a()) + index as usize, value)?;
+    let base = usize::from(instr.a());
+    let count = if instr.c() == 0 {
+        returns.len()
+    } else {
+        instr.c() as usize
+    };
+
+    for index in 0..count {
+        let value = returns.get(index).copied().unwrap_or_else(Value::nil);
+        set_register(thread, base + index, value)?;
     }
 
-    Ok(())
+    Ok((instr.c() == 0).then_some(base + count))
 }
 
 fn collect_call_args(thread: &LuaThread, instr: Instr) -> RuntimeResult<Vec<Value>> {
@@ -260,9 +282,17 @@ fn negate(value: Value) -> Option<Value> {
     Some(Value::float(-value.to_float()?))
 }
 
-fn collect_returns(thread: &LuaThread, instr: Instr) -> RuntimeResult<Vec<Value>> {
+fn collect_returns(
+    thread: &LuaThread,
+    instr: Instr,
+    dynamic_top: usize,
+) -> RuntimeResult<Vec<Value>> {
     let base = usize::from(instr.a());
-    let count = instr.b() as usize;
+    let count = if instr.b() == 0 {
+        dynamic_top.saturating_sub(base)
+    } else {
+        instr.b() as usize
+    };
     let mut values = Vec::with_capacity(count);
     for index in base..base + count {
         values.push(register(thread, index)?);
@@ -460,6 +490,29 @@ mod tests {
         parent.emit_abx(Op::LoadK, 2, u64::from(second));
         parent.emit_abc(Op::Call, 0, 3, 2);
         parent.emit_abc(Op::Return, 0, 2, 0);
+
+        assert_eq!(
+            execute_proto(&parent.finish()),
+            Ok(vec![Value::integer(42), Value::integer(99)])
+        );
+    }
+
+    #[test]
+    fn varargs_return_open_call_results() {
+        let mut child_builder = ProtoBuilder::new().with_signature(2, 0, true);
+        child_builder.emit_abc(Op::Vararg, 0, 0, 0);
+        child_builder.emit_abc(Op::Return, 0, 0, 0);
+        let child = child_builder.finish();
+
+        let mut parent = ProtoBuilder::new().with_signature(3, 0, false);
+        let first = parent.add_constant(Value::integer(42));
+        let second = parent.add_constant(Value::integer(99));
+        let child_index = parent.add_child(child);
+        parent.emit_abx(Op::Closure, 0, u64::from(child_index));
+        parent.emit_abx(Op::LoadK, 1, u64::from(first));
+        parent.emit_abx(Op::LoadK, 2, u64::from(second));
+        parent.emit_abc(Op::Call, 0, 3, 0);
+        parent.emit_abc(Op::Return, 0, 0, 0);
 
         assert_eq!(
             execute_proto(&parent.finish()),
