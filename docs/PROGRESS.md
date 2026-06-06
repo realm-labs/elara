@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M1 Language Specification and Test Harness  
-Current step: M1.3 Add test fixture layout
+Current step: M1.4 Add snapshot testing baseline
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -13,9 +13,10 @@ replace stale status with the current state instead of appending history.
 
 Elara has a Cargo workspace skeleton with project documentation, quality gates,
 documented crate boundaries, and a single current Lua language target in
-`elara-core`. Core source span and diagnostic primitives are available. Runtime,
-parser, compiler, bytecode, interpreter, API, JIT, C API, conformance, and
-benchmark implementation work has not started.
+`elara-core`. Core source span and diagnostic primitives are available, and the
+test fixture/conformance/differential directory layout exists. Runtime, parser,
+compiler, bytecode, interpreter, API, JIT, C API, conformance, and benchmark
+implementation work has not started.
 
 Current state:
 
@@ -30,9 +31,10 @@ Completed:
   - M0.3 Define crate-level module policies.
   - M1.1 Add spec module.
   - M1.2 Add diagnostic and source span primitives.
+  - M1.3 Add test fixture layout.
 
 Not started:
-  - M1.3 Add test fixture layout.
+  - M1.4 Add snapshot testing baseline.
   - Runtime core.
   - Parser.
   - Compiler.
@@ -111,25 +113,33 @@ Delivered:
 - `DiagnosticSeverity`, `DiagnosticLabel`, and `Diagnostic`.
 - Display formatting and focused tests for source spans and diagnostics.
 
-### Current Step: M1.3 Add test fixture layout
+### Completed Step: M1.3 Add test fixture layout
 
-Expected deliverables:
+Delivered:
 
 - `tests/fixtures/pass/`.
 - `tests/fixtures/fail/`.
 - `tests/conformance/`.
-- `tests/differential/` placeholder harness docs.
+- `tests/differential/`.
+- Placeholder harness docs for fixture, conformance, and differential areas.
+
+### Current Step: M1.4 Add snapshot testing baseline
+
+Expected deliverables:
+
+- Snapshot helper for AST/bytecode/diagnostics.
+- First trivial fixture: `return 42`.
 
 Recommended verification:
 
 ```bash
-cargo test --workspace
+cargo test --workspace snapshots
 ```
 
 Recommended commit:
 
 ```text
-test(harness): add lua fixture layout
+test(harness): add snapshot baseline
 ```
 
 ## Completed Content
@@ -156,12 +166,13 @@ test(harness): add lua fixture layout
 - Crate-level module docs describe boundary policies.
 - The current Lua target is declared once in `elara-core`.
 - Core source span and diagnostic primitives are available.
+- Test fixture, conformance, and differential directories are present.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M1
 
-- Add test fixture layout and snapshot baseline.
+- Add snapshot helper and baseline fixture.
 
 ### Product Gaps
 
@@ -185,26 +196,24 @@ All implementation work is still pending:
 
 ## Last Verification
 
-M1.2 verification passed:
+M1.3 verification passed:
 
 ```bash
-cargo fmt --all -- --check
-cargo clippy -p elara-core --all-targets -- -D warnings
-cargo test -p elara-core diagnostics
+cargo test --workspace
 ```
 
 ## Next Recommended Action
 
-Implement M1.3 from `docs/MILESTONES.md`:
+Implement M1.4 from `docs/MILESTONES.md`:
 
-1. Add `tests/fixtures/pass/` and `tests/fixtures/fail/`.
-2. Add `tests/conformance/` and `tests/differential/` placeholder harness docs.
-3. Run `cargo test --workspace`.
+1. Add a snapshot helper for diagnostics and future AST/bytecode snapshots.
+2. Add the first trivial fixture: `return 42`.
+3. Run `cargo test --workspace snapshots`.
 4. Update this progress document.
 5. Commit with:
 
 ```text
-test(harness): add lua fixture layout
+test(harness): add snapshot baseline
 ```
 
 ## Current Risk Notes
@@ -229,7 +238,8 @@ test(harness): add lua fixture layout
 | Crate boundary docs | Complete | Module docs describe crate responsibilities and dependencies. |
 | Lua spec | Complete | `elara-core` declares Lua 5.5 / 5.5.0 as the only current target. |
 | Diagnostics | Complete | Source spans and structured diagnostics are in `elara-core`. |
-| Test fixtures | Not started | Current step. |
+| Test fixtures | Complete | Fixture, conformance, and differential directories are present. |
+| Snapshots | Not started | Current step. |
 | Core runtime | Not started | Starts M2. |
 | Parser | Not started | Starts M4. |
 | Compiler | Not started | Starts M5. |
