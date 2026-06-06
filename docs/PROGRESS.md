@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M2 Runtime Value Model and Basic GC Skeleton  
-Current step: M2.1 Implement Value and primitive conversions
+Current step: M2.2 Add GC pointer and object header types
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -15,8 +15,9 @@ Elara has a Cargo workspace skeleton with project documentation, quality gates,
 documented crate boundaries, and a single current Lua language target in
 `elara-core`. Core source span and diagnostic primitives are available, and the
 test fixture/conformance/differential directory layout exists with a snapshot
-baseline. Runtime value, GC, parser, compiler, bytecode, interpreter, API, JIT,
-C API, conformance, and benchmark implementation work has not started.
+baseline. Primitive runtime values are implemented. GC, parser, compiler,
+bytecode, interpreter, API, JIT, C API, conformance, and benchmark
+implementation work has not started.
 
 Current state:
 
@@ -33,9 +34,10 @@ Completed:
   - M1.2 Add diagnostic and source span primitives.
   - M1.3 Add test fixture layout.
   - M1.4 Add snapshot testing baseline.
+  - M2.1 Implement Value and primitive conversions.
 
 Not started:
-  - M2.1 Implement Value and primitive conversions.
+  - M2.2 Add GC pointer and object header types.
   - Runtime core.
   - Parser.
   - Compiler.
@@ -135,25 +137,35 @@ Delivered:
 
 M1 is complete.
 
-### Current Step: M2.1 Implement Value and primitive conversions
+### Completed Step: M2.1 Implement Value and primitive conversions
+
+Delivered:
+
+- `Value` and `ValueTag`.
+- Nil, boolean, integer, and float constructors and accessors.
+- Primitive value equality, including integer/float numeric equality.
+- Numeric helpers for float and exact integer conversion.
+
+### Current Step: M2.2 Add GC pointer and object header types
 
 Expected deliverables:
 
-- `Value`, `ValueTag`, primitive constructors.
-- `Nil`, bool, integer, and float support.
-- Equality for primitive values.
-- Numeric helper functions.
+- `GcHeader`, `GcKind`, and `GcColor`.
+- `GcRef<T>` internal pointer wrapper.
+- No public raw GC pointer exposure.
+- Safety comments for unsafe pointer helpers.
 
 Recommended verification:
 
 ```bash
-cargo test -p elara-core value
+cargo test -p elara-core gc
+cargo clippy -p elara-core --all-targets -- -D warnings
 ```
 
 Recommended commit:
 
 ```text
-feat(core): add lua value primitives
+feat(core): add gc object header and references
 ```
 
 ## Completed Content
@@ -182,12 +194,12 @@ feat(core): add lua value primitives
 - Core source span and diagnostic primitives are available.
 - Test fixture, conformance, and differential directories are present.
 - Snapshot helpers and a `return 42` fixture baseline are present.
+- Primitive Lua values are available in `elara-core`.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M2
 
-- Add Lua primitive value representation and conversions.
 - Add GC object header and internal reference scaffolding.
 - Add a basic arena/list allocator.
 
@@ -213,26 +225,27 @@ All implementation work is still pending:
 
 ## Last Verification
 
-M1.4 verification passed:
+M2.1 verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy -p elara-test --all-targets -- -D warnings
-cargo test --workspace snapshots
+cargo clippy -p elara-core --all-targets -- -D warnings
+cargo test -p elara-core value
 ```
 
 ## Next Recommended Action
 
-Implement M2.1 from `docs/MILESTONES.md`:
+Implement M2.2 from `docs/MILESTONES.md`:
 
-1. Add primitive `Value` and `ValueTag` support in `elara-core`.
-2. Add constructors, conversions, primitive equality, and numeric helpers.
-3. Run `cargo test -p elara-core value`.
-4. Update this progress document.
-5. Commit with:
+1. Add `GcHeader`, `GcKind`, and `GcColor`.
+2. Add an internal `GcRef<T>` pointer wrapper with localized unsafe helpers.
+3. Run `cargo test -p elara-core gc`.
+4. Run `cargo clippy -p elara-core --all-targets -- -D warnings`.
+5. Update this progress document.
+6. Commit with:
 
 ```text
-feat(core): add lua value primitives
+feat(core): add gc object header and references
 ```
 
 ## Current Risk Notes
@@ -260,7 +273,8 @@ feat(core): add lua value primitives
 | Test fixtures | Complete | Fixture, conformance, and differential directories are present. |
 | Snapshots | Complete | Snapshot helper and `return 42` diagnostics baseline exist. |
 | Core runtime | Not started | Current milestone. |
-| Value primitives | Not started | Current step. |
+| Value primitives | Complete | Nil, bool, integer, and float values are implemented. |
+| GC headers | Not started | Current step. |
 | Parser | Not started | Starts M4. |
 | Compiler | Not started | Starts M5. |
 | Interpreter | Not started | Starts M6. |
