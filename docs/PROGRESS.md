@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M3 Strings and Tables  
-Current step: M3.3 Implement table hash storage
+Current step: M3.4 Add metatable field and table versioning
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -17,8 +17,9 @@ documented crate boundaries, and a single current Lua language target in
 test fixture/conformance/differential directory layout exists with a snapshot
 baseline. Primitive runtime values, the basic GC skeleton, and Lua strings with
 short-string interning are implemented. Table array storage is implemented.
-Table hash storage, parser, compiler, bytecode, interpreter, API, JIT, C API,
-conformance, and benchmark implementation work has not started.
+Table hash storage is implemented. Table metadata, parser, compiler, bytecode,
+interpreter, API, JIT, C API, conformance, and benchmark implementation work has
+not started.
 
 Current state:
 
@@ -41,9 +42,10 @@ Completed:
   - M2.4 Implement stop-the-world mark-sweep MVP.
   - M3.1 Implement Lua strings and interning.
   - M3.2 Implement table array storage.
+  - M3.3 Implement table hash storage.
 
 Not started:
-  - M3.3 Implement table hash storage.
+  - M3.4 Add metatable field and table versioning.
   - Parser.
   - Compiler.
   - Bytecode.
@@ -199,25 +201,34 @@ Delivered:
 - Nil assignment clears slots and trims trailing nils.
 - Array growth tests.
 
-### Current Step: M3.3 Implement table hash storage
+### Completed Step: M3.3 Implement table hash storage
+
+Delivered:
+
+- Hash part with canonical Lua `Value` keys.
+- Numeric key canonicalization for integer-like floats.
+- Nil and NaN key rejection.
+- Tests for string, integer, float, and boolean keys.
+
+### Current Step: M3.4 Add metatable field and table versioning
 
 Expected deliverables:
 
-- Hash part with Lua `Value` keys.
-- Numeric key canonicalization.
-- Rehash logic.
-- Tests for string, integer, float, and boolean keys.
+- Optional metatable pointer.
+- Meta flags placeholder.
+- Version bump on structural mutations.
+- Tests for version changes.
 
 Recommended verification:
 
 ```bash
-cargo test -p elara-core table_hash
+cargo test -p elara-core table_meta
 ```
 
 Recommended commit:
 
 ```text
-feat(core): add table hash storage
+feat(core): add table metadata versioning
 ```
 
 ## Completed Content
@@ -252,12 +263,13 @@ feat(core): add table hash storage
 - Stop-the-world mark-sweep MVP is available under tests.
 - Lua short strings, long strings, and short-string interning are available.
 - Table array storage is available in `elara-core`.
+- Table hash storage and numeric key canonicalization are available.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M3
 
-- Add table hash storage and numeric key canonicalization.
+- Add metatable field and table versioning.
 
 ### Product Gaps
 
@@ -281,27 +293,27 @@ All implementation work is still pending:
 
 ## Last Verification
 
-M3.2 verification passed:
+M3.3 verification passed:
 
 ```bash
 cargo fmt --all -- --check
 cargo clippy -p elara-core --all-targets -- -D warnings
-cargo test -p elara-core table_array
+cargo test -p elara-core table_hash
 ```
 
 ## Next Recommended Action
 
-Implement M3.3 from `docs/MILESTONES.md`:
+Implement M3.4 from `docs/MILESTONES.md`:
 
-1. Add table hash storage with Lua `Value` keys.
-2. Add numeric key canonicalization.
-3. Add tests for string, integer, float, and boolean keys.
-4. Run `cargo test -p elara-core table_hash`.
+1. Add optional metatable pointer.
+2. Add meta flags placeholder.
+3. Ensure table version bumps on structural mutations.
+4. Run `cargo test -p elara-core table_meta`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-feat(core): add table hash storage
+feat(core): add table metadata versioning
 ```
 
 ## Current Risk Notes
@@ -335,7 +347,8 @@ feat(core): add table hash storage
 | Mark-sweep GC | Complete | Root marking and allocation-list sweeping are implemented for tests. |
 | Strings | Complete | Short strings, long strings, and interning are implemented. |
 | Table array | Complete | Raw 1-based array get/set and nil clearing are implemented. |
-| Table hash | Not started | Current step. |
+| Table hash | Complete | Hash storage and numeric key canonicalization are implemented. |
+| Table metadata | Not started | Current step. |
 | Parser | Not started | Starts M4. |
 | Compiler | Not started | Starts M5. |
 | Interpreter | Not started | Starts M6. |

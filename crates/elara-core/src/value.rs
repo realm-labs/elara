@@ -1,5 +1,7 @@
 //! Lua value primitives.
 
+use crate::{GcRef, LongString, ShortString};
+
 /// Integer type used by the current Lua target.
 pub type LuaInteger = i64;
 
@@ -48,6 +50,8 @@ enum ValueRepr {
     Bool(bool),
     Integer(LuaInteger),
     Float(LuaFloat),
+    ShortString(GcRef<ShortString>),
+    LongString(GcRef<LongString>),
 }
 
 impl Value {
@@ -86,6 +90,22 @@ impl Value {
         }
     }
 
+    /// Creates a Lua short string value.
+    #[must_use]
+    pub const fn short_string(value: GcRef<ShortString>) -> Self {
+        Self {
+            repr: ValueRepr::ShortString(value),
+        }
+    }
+
+    /// Creates a Lua long string value.
+    #[must_use]
+    pub const fn long_string(value: GcRef<LongString>) -> Self {
+        Self {
+            repr: ValueRepr::LongString(value),
+        }
+    }
+
     /// Returns the value tag.
     #[must_use]
     pub const fn tag(self) -> ValueTag {
@@ -94,6 +114,8 @@ impl Value {
             ValueRepr::Bool(_) => ValueTag::Bool,
             ValueRepr::Integer(_) => ValueTag::Integer,
             ValueRepr::Float(_) => ValueTag::Float,
+            ValueRepr::ShortString(_) => ValueTag::ShortString,
+            ValueRepr::LongString(_) => ValueTag::LongString,
         }
     }
 
@@ -113,6 +135,15 @@ impl Value {
     #[must_use]
     pub const fn is_number(self) -> bool {
         matches!(self.repr, ValueRepr::Integer(_) | ValueRepr::Float(_))
+    }
+
+    /// Returns true for Lua strings.
+    #[must_use]
+    pub const fn is_string(self) -> bool {
+        matches!(
+            self.repr,
+            ValueRepr::ShortString(_) | ValueRepr::LongString(_)
+        )
     }
 
     /// Returns the boolean payload when this value is a boolean.
@@ -138,6 +169,24 @@ impl Value {
     pub const fn as_float(self) -> Option<LuaFloat> {
         match self.repr {
             ValueRepr::Float(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the short string payload when this value is a short string.
+    #[must_use]
+    pub const fn as_short_string(self) -> Option<GcRef<ShortString>> {
+        match self.repr {
+            ValueRepr::ShortString(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the long string payload when this value is a long string.
+    #[must_use]
+    pub const fn as_long_string(self) -> Option<GcRef<LongString>> {
+        match self.repr {
+            ValueRepr::LongString(value) => Some(value),
             _ => None,
         }
     }
@@ -190,6 +239,8 @@ impl PartialEq for Value {
             (ValueRepr::Float(left), ValueRepr::Float(right)) => left == right,
             (ValueRepr::Integer(left), ValueRepr::Float(right)) => integer_float_eq(left, right),
             (ValueRepr::Float(left), ValueRepr::Integer(right)) => integer_float_eq(right, left),
+            (ValueRepr::ShortString(left), ValueRepr::ShortString(right)) => left == right,
+            (ValueRepr::LongString(left), ValueRepr::LongString(right)) => left == right,
             _ => false,
         }
     }
