@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M4 Lexer and Parser  
-Current step: M4.2 Implement expression parser
+Current step: M4.3 Implement statement parser
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -16,9 +16,10 @@ documented crate boundaries, and a single current Lua language target in
 `elara-core`. Core source span and diagnostic primitives are available, and the
 test fixture/conformance/differential directory layout exists with a snapshot
 baseline. Primitive runtime values, the basic GC skeleton, Lua strings with
-short-string interning, table array/hash storage with metadata versioning, and
-Lua tokenization are implemented. Parser, compiler, bytecode, interpreter, API,
-JIT, C API, conformance, and benchmark implementation work has not started.
+short-string interning, table array/hash storage with metadata versioning, Lua
+tokenization, and expression parsing are implemented. Statement parsing,
+compiler, bytecode, interpreter, API, JIT, C API, conformance, and benchmark
+implementation work has not started.
 
 Current state:
 
@@ -44,10 +45,10 @@ Completed:
   - M3.3 Implement table hash storage.
   - M3.4 Add metatable field and table versioning.
   - M4.1 Implement lexer for tokens and literals.
+  - M4.2 Implement expression parser.
 
 Not started:
-  - M4.2 Implement expression parser.
-  - Parser.
+  - M4.3 Implement statement parser.
   - Compiler.
   - Bytecode.
   - Interpreter.
@@ -231,9 +232,9 @@ Delivered:
 - Comments and whitespace handling.
 - Error diagnostics for invalid tokens.
 
-### Current Step: M4.2 Implement expression parser
+### Completed Step: M4.2 Implement expression parser
 
-Expected deliverables:
+Delivered:
 
 - Operator precedence.
 - Unary and binary operators.
@@ -241,16 +242,27 @@ Expected deliverables:
 - Table constructors.
 - Vararg expression.
 
+### Current Step: M4.3 Implement statement parser
+
+Expected deliverables:
+
+- Assignment.
+- Local declarations.
+- Global declarations for current Lua.
+- Function declarations.
+- If/while/repeat/for.
+- Return/break/goto/labels where current Lua supports them.
+
 Recommended verification:
 
 ```bash
-cargo test -p elara-syntax expr
+cargo test -p elara-syntax stmt
 ```
 
 Recommended commit:
 
 ```text
-feat(syntax): parse lua expressions
+feat(syntax): parse lua statements
 ```
 
 ## Completed Content
@@ -288,12 +300,13 @@ feat(syntax): parse lua expressions
 - Table hash storage and numeric key canonicalization are available.
 - Table metatable metadata, meta flags, and structural versioning are available.
 - Lua tokenization with spans and lexical diagnostics is available in `elara-syntax`.
+- Lua expression AST and precedence parsing are available in `elara-syntax`.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M4
 
-- Add expression AST and parser.
+- Add statement AST and parser.
 
 ### Product Gaps
 
@@ -313,27 +326,27 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M4.1 verification passed:
+M4.2 verification passed:
 
 ```bash
 cargo fmt --all -- --check
 cargo clippy -p elara-syntax --all-targets -- -D warnings
-cargo test -p elara-syntax lexer
+cargo test -p elara-syntax expr
 ```
 
 ## Next Recommended Action
 
-Implement M4.2 from `docs/MILESTONES.md`:
+Implement M4.3 from `docs/MILESTONES.md`:
 
-1. Add expression AST nodes with spans.
-2. Implement precedence parsing for unary and binary operators.
-3. Parse function calls, table constructors, and vararg expressions.
-4. Run `cargo test -p elara-syntax expr`.
+1. Add statement AST nodes with spans.
+2. Parse assignment, local/global declarations, function declarations, control flow, return, break, goto, and labels.
+3. Keep statement parsing source-only, with no runtime execution semantics.
+4. Run `cargo test -p elara-syntax stmt`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-feat(syntax): parse lua expressions
+feat(syntax): parse lua statements
 ```
 
 ## Current Risk Notes
@@ -370,7 +383,8 @@ feat(syntax): parse lua expressions
 | Table hash | Complete | Hash storage and numeric key canonicalization are implemented. |
 | Table metadata | Complete | Metatable pointer, meta flags, and structural versioning are implemented. |
 | Lexer | Complete | Lua 5.5 tokens, literals, comments, and lexical diagnostics are implemented. |
-| Parser | Not started | Current milestone. |
+| Expression parser | Complete | Expression AST, precedence parsing, calls, table constructors, and varargs are implemented. |
+| Statement parser | Not started | Current step. |
 | Compiler | Not started | Starts M5. |
 | Interpreter | Not started | Starts M6. |
 | Rust API | Not started | Starts M12. |
