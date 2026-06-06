@@ -44,9 +44,10 @@ metamethod dispatch. Table-valued and function-valued `__index` and
 metamethods for the primitive interpreter's currently executed arithmetic
 opcodes work for table operands. Comparison opcodes execute with raw numeric
 comparison and table metamethod fallback. `LEN` executes for runtime tables with
-raw array length and `__len` closure fallback. Globals, `__call`/`__concat`
-metamethod dispatch, full API, JIT, C API, conformance, and benchmark
-implementation work has not started.
+raw array length and `__len` closure fallback. `CALL` can invoke function-valued
+`__call` fallback for table operands. Globals, `__concat` metamethod dispatch,
+full API, JIT, C API, conformance, and benchmark implementation work has not
+started.
 
 Current state:
 
@@ -108,6 +109,7 @@ In progress:
       metamethod closures for table operands.
     - `LEN` executes for runtime tables and can call `__len` metamethod
       closures.
+    - `CALL` can invoke function-valued `__call` fallback for table operands.
   - Standard library.
   - Rust API.
   - JIT.
@@ -576,12 +578,13 @@ Delivered:
 - Comparison opcodes and table metamethod closure fallback work in the
   primitive interpreter.
 - `LEN` works for runtime tables with `__len` closure fallback.
+- `CALL` works for runtime tables with `__call` closure fallback.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M9
 
-- Add `__call` and `__concat` metamethod dispatch.
+- Add `__concat` metamethod dispatch once concat bytecode exists.
 - Add bitwise opcode execution and corresponding metamethod dispatch when those
   opcodes are enabled in the primitive interpreter.
 
@@ -601,10 +604,11 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M9.3 length metamethod verification passed:
+M9.3 call metamethod verification passed:
 
 ```bash
 cargo test -p elara-interp metamethods
+cargo test -p elara-interp call
 cargo test -p elara-interp len
 cargo test -p elara-interp comparison
 cargo test -p elara-interp arithmetic
@@ -615,8 +619,8 @@ cargo clippy -p elara-interp --all-targets -- -D warnings
 
 ## Next Recommended Action
 
-Implement M9.3 `__call` and `__concat` dispatch, using Lua 5.5 VM and
-tag-method behavior as references.
+Implement M9.3 `__concat` support after adding concat bytecode, or proceed to
+M9.4 globals if concat bytecode is intentionally deferred.
 
 ## Current Risk Notes
 
@@ -661,7 +665,7 @@ tag-method behavior as references.
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
-| Tables/globals/metamethods | In progress | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, and `__len` execute. |
+| Tables/globals/metamethods | In progress | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, and `__call` execute. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

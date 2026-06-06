@@ -2,8 +2,8 @@ use elara_bytecode::{Instr, Op, ProtoBuilder};
 use elara_core::{LuaThread, Table, Value};
 
 use super::{
-    RuntimeClosure, RuntimeStrings, RuntimeTables, execute_arithmetic, execute_comparison,
-    execute_len,
+    RuntimeClosure, RuntimeStrings, RuntimeTables, execute_arithmetic, execute_call,
+    execute_comparison, execute_len,
 };
 
 fn constant_closure(value: Value) -> RuntimeClosure {
@@ -243,4 +243,33 @@ fn metamethods_len_calls_function_fallback() {
     .expect("__len should execute");
 
     assert_eq!(thread.stack_value(1), Some(Value::integer(77)));
+}
+
+#[test]
+fn metamethods_call_invokes_function_fallback() {
+    let mut strings = RuntimeStrings::new();
+    let mut tables = RuntimeTables::new();
+    let table = tables.push_table(Table::new());
+    let call_key = strings.intern_short_value("__call");
+    let mut metatable = Table::new();
+    assert!(metatable.raw_set_value(call_key, Value::closure_index(0)));
+    let metatable = tables.push_table(metatable);
+    tables
+        .set_metatable(table as usize, Some(metatable))
+        .expect("metatable link should be valid");
+    let mut closures = vec![constant_closure(Value::integer(123))];
+    let mut thread = LuaThread::new();
+    thread.push_value(Value::table_index(table));
+    thread.push_value(Value::integer(1));
+
+    execute_call(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Call, 0, 2, 1),
+        &mut tables,
+        &mut strings,
+    )
+    .expect("__call should execute");
+
+    assert_eq!(thread.stack_value(0), Some(Value::integer(123)));
 }

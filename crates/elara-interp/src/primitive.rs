@@ -327,10 +327,20 @@ fn execute_call(
     strings: &mut RuntimeStrings,
 ) -> RuntimeResult<Option<usize>> {
     let callee = register(thread, instr.a().into())?;
-    let closure_index = callee
-        .as_closure_index()
-        .ok_or(RuntimeError::NonCallableValue)? as usize;
-    let args = collect_call_args(thread, instr)?;
+    let (closure_index, args) = if let Some(closure_index) = callee.as_closure_index() {
+        (closure_index as usize, collect_call_args(thread, instr)?)
+    } else {
+        let Some(metamethod) = tables.metamethod_for_value(callee, "__call", strings)? else {
+            return Err(RuntimeError::NonCallableValue);
+        };
+        let Some(closure_index) = metamethod.as_closure_index() else {
+            return Err(RuntimeError::UnsupportedMetamethod { name: "__call" });
+        };
+        let mut args = Vec::with_capacity(instr.b() as usize);
+        args.push(callee);
+        args.extend(collect_call_args(thread, instr)?);
+        (closure_index as usize, args)
+    };
     let returns = call_closure(closures, closure_index, &args, tables, strings)?;
 
     let base = usize::from(instr.a());
