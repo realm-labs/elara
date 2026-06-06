@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M6 Interpreter MVP  
-Current step: M6.1 Add VM state and thread stack
+Current step: M6.2 Implement interpreter loop for constants and arithmetic
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -21,8 +21,8 @@ tokenization, expression parsing, statement parsing, and parser snapshot/error
 coverage are implemented. The initial bytecode prototype, instruction encoding,
 opcode set, constant pool, metadata placeholders, builder, and disassembler are
 implemented, along with initial bytecode verification and simple expression
-codegen. Interpreter, API, JIT, C API, conformance, and benchmark implementation
-work has not started.
+codegen. VM/thread stack primitives are implemented. Interpreter execution, API,
+JIT, C API, conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -55,11 +55,10 @@ Completed:
   - M5.2 Add bytecode builder and disassembler.
   - M5.3 Add bytecode verifier.
   - M5.4 Compile constants and arithmetic expressions.
+  - M6.1 Add VM state and thread stack.
 
 Not started:
-  - M6.1 Add VM state and thread stack.
-  - Bytecode.
-  - Interpreter.
+  - M6.2 Implement interpreter loop for constants and arithmetic.
   - Standard library.
   - Rust API.
   - JIT.
@@ -308,25 +307,33 @@ Delivered:
 
 M5 is complete.
 
-### Current Step: M6.1 Add VM state and thread stack
+### Completed Step: M6.1 Add VM state and thread stack
 
-Expected deliverables:
+Delivered:
 
 - `Vm` or `Runtime` state.
 - `LuaThread` stack.
 - Basic call frame.
 - Stack push/pop helpers.
 
+### Current Step: M6.2 Implement interpreter loop for constants and arithmetic
+
+Expected deliverables:
+
+- `LOAD_*`, `ADD`, `SUB`, `MUL`, `DIV`, `IDIV`, `RETURN`.
+- Primitive runtime errors.
+- Tests executing simple Protos.
+
 Recommended verification:
 
 ```bash
-cargo test -p elara-core thread_stack
+cargo test -p elara-interp arithmetic
 ```
 
 Recommended commit:
 
 ```text
-feat(core): add vm state and thread stack
+feat(interp): execute primitive arithmetic
 ```
 
 ## Completed Content
@@ -369,12 +376,13 @@ feat(core): add vm state and thread stack
 - Parser snapshots and malformed syntax diagnostics are covered.
 - Bytecode opcode, instruction encoding, prototype, constant pool, upvalue descriptor, debug placeholder, builder, disassembler, and verifier are available.
 - Simple return-expression bytecode codegen is available in `elara-compiler`.
+- VM state, Lua thread stack, call frames, and stack helpers are available in `elara-core`.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M6
 
-- Add VM state and thread stack primitives.
+- Add interpreter loop for constants and primitive arithmetic.
 
 ### Product Gaps
 
@@ -394,27 +402,27 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M5.4 verification passed:
+M6.1 verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy -p elara-compiler --all-targets -- -D warnings
-cargo test -p elara-compiler simple_expr
+cargo clippy -p elara-core --all-targets -- -D warnings
+cargo test -p elara-core thread_stack
 ```
 
 ## Next Recommended Action
 
-Implement M6.1 from `docs/MILESTONES.md`:
+Implement M6.2 from `docs/MILESTONES.md`:
 
-1. Add VM/runtime state and Lua thread stack primitives.
-2. Add a basic call frame representation.
-3. Add stack push/pop helper tests.
-4. Run `cargo test -p elara-core thread_stack`.
+1. Add interpreter execution over simple verified Protos.
+2. Implement constants, primitive arithmetic, and return handling.
+3. Add primitive runtime errors and arithmetic execution tests.
+4. Run `cargo test -p elara-interp arithmetic`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-feat(core): add vm state and thread stack
+feat(interp): execute primitive arithmetic
 ```
 
 ## Current Risk Notes
@@ -456,6 +464,7 @@ feat(core): add vm state and thread stack
 | Parser snapshots | Complete | Representative AST and malformed syntax diagnostic snapshots are implemented. |
 | Bytecode model | Initial model complete | Proto, instruction encoding, opcode set, constants, upvalues, debug placeholders, builder, disassembler, and verifier are implemented. |
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
+| VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | Not started | Current milestone. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |

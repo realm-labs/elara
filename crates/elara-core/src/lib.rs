@@ -12,6 +12,7 @@ pub mod gc;
 pub mod spec;
 pub mod string;
 pub mod table;
+pub mod thread;
 pub mod value;
 
 pub use diagnostics::{Diagnostic, DiagnosticLabel, DiagnosticSeverity, SourceId, Span, Spanned};
@@ -23,4 +24,5 @@ pub use string::{
     LongString, SHORT_STRING_MAX_BYTES, ShortString, StringInterner, hash_string_bytes,
 };
 pub use table::{MetaFlags, Table};
+pub use thread::{CallFrame, FrameFlags, LuaThread, ResultCount, StackIndex, ThreadStatus, Vm};
 pub use value::{LuaFloat, LuaInteger, Value, ValueTag, float_to_integer_exact};
