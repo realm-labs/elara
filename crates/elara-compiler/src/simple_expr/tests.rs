@@ -238,6 +238,22 @@ fn globals_compile_writes_through_local_env() {
 }
 
 #[test]
+fn globals_compile_global_function_declaration() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "global function answer()\n  return 42\nend\nreturn answer()",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+    let disassembly = disassemble(&proto);
+
+    assert!(disassembly.contains("CLOSURE"));
+    assert!(disassembly.contains("DECL_GLOBAL"));
+    assert!(disassembly.contains("SET_ENV"));
+    assert_eq!(proto.children.len(), 1);
+}
+
+#[test]
 fn globals_nested_if_declaration_does_not_escape_block() {
     let compiled = compile_simple_chunk(
         SourceId::new(0),

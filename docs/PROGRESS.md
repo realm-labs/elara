@@ -53,8 +53,10 @@ primitive interpreter keeps a shared runtime `_ENV` table across Lua closure
 calls. Global declarations in nested simple-compiler blocks are scoped to those
 blocks and can shadow outer collective declarations. Local and captured `_ENV`
 tables are used for global reads, writes, and declaration checks in the simple
-compiler. Full default `_ENV` upvalue behavior, standard library, full API, JIT,
-C API, conformance, and benchmark implementation work has not started.
+compiler. `global function` declarations compile and execute with
+declaration-time already-defined checks. Full default `_ENV` upvalue behavior,
+standard library, full API, JIT, C API, conformance, and benchmark
+implementation work has not started.
 
 Current state:
 
@@ -590,6 +592,8 @@ Delivered:
   and global declaration initialization checks.
 - `DECL_GLOBAL` now checks the already-loaded candidate value, matching the Lua
   check-before-store lowering shape.
+- `global function` declarations compile and execute through the global
+  declaration/store path, including already-defined runtime checks.
 
 ## Remaining Gaps
 
@@ -598,7 +602,6 @@ Delivered:
 - Finish M9.4 global declaration semantics:
   - default chunk `_ENV` upvalue behavior and diagnostics when `_ENV` itself is
     global;
-  - full global function declaration behavior;
   - complete global const/read-only assignment checks beyond the simple paths.
 
 ### Product Gaps
@@ -617,22 +620,19 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M9.4 `_ENV` global access sub-step verification passed:
+M9.4 global function declaration sub-step verification passed:
 
 ```bash
 cargo test -p elara-compiler globals
-cargo test -p elara-interp globals
 cargo test -p elara-api global
-cargo test -p elara-interp table_access
 cargo fmt --all -- --check
-cargo clippy -p elara-bytecode -p elara-compiler -p elara-interp -p elara-api --all-targets -- -D warnings
+cargo clippy -p elara-compiler -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M9.4 with remaining global declaration edge cases: `global function`
-lowering, `_ENV`-as-global diagnostics, and broader const/read-only assignment
-coverage.
+Continue M9.4 with remaining global declaration edge cases:
+`_ENV`-as-global diagnostics and broader const/read-only assignment coverage.
 
 ## Current Risk Notes
 

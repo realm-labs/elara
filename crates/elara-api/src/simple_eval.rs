@@ -220,6 +220,34 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_executes_global_function_declaration() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "global function answer()\n  return 42\nend\nreturn answer()",
+            ),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_rejects_global_function_when_defined() {
+        let error = eval_simple_source(
+            SourceId::new(0),
+            "answer = 1\nglobal function answer()\n  return 42\nend",
+        )
+        .unwrap_err();
+
+        match error {
+            EvalError::Runtime(RuntimeError::GlobalAlreadyDefined) => {}
+            EvalError::Runtime(error) => panic!("expected global error, got {error:?}"),
+            EvalError::Diagnostics(diagnostics) => {
+                panic!("expected runtime error, got diagnostics {diagnostics:?}")
+            }
+        }
+    }
+
+    #[test]
     fn eval_simple_reports_compile_diagnostics() {
         let error =
             eval_simple_source(SourceId::new(0), "global answer\nreturn missing").unwrap_err();
