@@ -137,6 +137,19 @@ fn closures_compile_outer_local_capture() {
 }
 
 #[test]
+fn conditionals_compile_if_else_branches() {
+    let compiled =
+        compile_simple_chunk(SourceId::new(0), "if false then return 1 else return 2 end");
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_BOOL     A=0 B=0 C=0\n0001 TEST          A=0 B=0 C=0\n0002 JMP           A=0 sBx=3\n0003 LOAD_K        A=1 Bx=0 ; 1\n0004 RETURN        A=1 B=1 C=0\n0005 JMP           A=0 sBx=2\n0006 LOAD_K        A=2 Bx=1 ; 2\n0007 RETURN        A=2 B=1 C=0\n",
+    );
+}
+
+#[test]
 fn varargs_compile_anonymous_vararg_call() {
     let compiled = compile_simple_chunk(
         SourceId::new(0),

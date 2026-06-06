@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M8 Control Flow and Iteration
-Current step: M8.1 Implement conditional branches
+Current step: M8.2 Implement while and repeat loops
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -30,8 +30,9 @@ functions can receive call arguments and lower `...` for the first requested
 value. Fixed-count Lua calls can receive multiple return values. Named vararg
 tables are compiled to `VARARG_TABLE` and executed through runtime-owned table
 storage. Recursive function self-references compile and evaluate through shared
-runtime closure storage. Control flow, full API, JIT, C API, conformance, and
-benchmark implementation work has not started.
+runtime closure storage. Conditional branches compile and execute through
+`TEST`/`JMP` bytecode. Loops, full API, JIT, C API, conformance, and benchmark
+implementation work has not started.
 
 Current state:
 
@@ -72,9 +73,10 @@ Completed:
   - M7.3 Implement closures and upvalues.
   - M7.4 Implement varargs and named vararg table.
   - M7 exit criteria validation.
+  - M8.1 Implement conditional branches.
 
 In progress:
-  - M8.1 Implement conditional branches.
+  - M8.2 Implement while and repeat loops.
   - Standard library.
   - Rust API.
   - JIT.
@@ -418,6 +420,16 @@ Delivered:
 
 M7 is complete.
 
+### Completed Step: M8.1 Implement conditional branches
+
+Delivered:
+
+- `TEST` and `JMP` execute in the primitive interpreter.
+- The bytecode builder can patch forward `JMP` offsets.
+- The verifier accepts jumps to the end-of-code boundary.
+- The simple compiler lowers `if`, `elseif`, and `else` blocks.
+- Source eval executes simple `if/else` chunks.
+
 ## Completed Content
 
 ### Planning Decisions
@@ -469,12 +481,13 @@ M7 is complete.
 - Open-ended vararg call/return results work in the primitive interpreter.
 - Named vararg tables compile and execute through runtime-owned table storage.
 - Recursive self-reference works through the compiler/interpreter/API path.
+- Conditional branches work through the compiler/interpreter/API path.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M8
 
-- Implement M8.1 conditional branches.
+- Implement M8.2 while and repeat loops.
 
 ### Product Gaps
 
@@ -494,26 +507,25 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M7 exit validation verification passed:
+M8.1 conditional branch verification passed:
 
 ```bash
 cargo fmt --all
-cargo test -p elara-compiler recursive
-cargo test -p elara-api recursive
-cargo test -p elara-interp calls
-cargo test -p elara-interp closures
+cargo test -p elara-bytecode jump
+cargo test -p elara-compiler conditionals
+cargo test -p elara-interp conditionals
+cargo test -p elara-api if_else
+cargo clippy -p elara-bytecode --all-targets -- -D warnings
 cargo clippy -p elara-compiler --all-targets -- -D warnings
 cargo clippy -p elara-interp --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check
 ```
 
 ## Next Recommended Action
 
-Implement M8.1 conditional branches from `docs/MILESTONES.md`, then run the
-focused compiler/interpreter branch tests and update this progress document.
+Implement M8.2 while and repeat loops from `docs/MILESTONES.md`, then run the
+focused compiler/interpreter loop tests and update this progress document.
 
 ## Current Risk Notes
 
@@ -557,6 +569,7 @@ focused compiler/interpreter branch tests and update this progress document.
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
+| Control flow | In progress | Conditional branches are implemented; loops are next. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

@@ -78,6 +78,10 @@ impl SimpleCompiler {
                 StmtKind::Function { scope, name, body } => {
                     self.compile_function(statement.span(), *scope, name.base, body);
                 }
+                StmtKind::If {
+                    clauses,
+                    else_block,
+                } => self.compile_if(clauses, else_block.as_ref()),
                 StmtKind::Return(values) => self.compile_return(values),
                 _ => self.diagnostics.push(
                     Diagnostic::error("unsupported statement in simple expression compiler")
@@ -122,6 +126,35 @@ impl SimpleCompiler {
         let child_index = self.builder.add_child(result.proto.expect("child proto"));
         self.builder
             .emit_abx(Op::Closure, register, u64::from(child_index));
+    }
+
+    fn compile_if(
+        &mut self,
+        clauses: &[elara_syntax::IfClause<'_>],
+        else_block: Option<&elara_syntax::Block<'_>>,
+    ) {
+        let mut end_jumps = Vec::new();
+
+        for (index, clause) in clauses.iter().enumerate() {
+            let condition = self.compile_expr(&clause.condition);
+            self.builder.emit_abc(Op::Test, condition, 0, 0);
+            let false_jump = self.emit_jump_placeholder();
+            self.compile_block(clause.block.statements());
+
+            let has_following_clause = index + 1 < clauses.len();
+            if has_following_clause || else_block.is_some() {
+                end_jumps.push(self.emit_jump_placeholder());
+            }
+            self.patch_jump_to_here(false_jump);
+        }
+
+        if let Some(block) = else_block {
+            self.compile_block(block.statements());
+        }
+
+        for jump in end_jumps {
+            self.patch_jump_to_here(jump);
+        }
     }
 
     fn define_named_vararg_table(&mut self, name: &str) {
@@ -396,6 +429,17 @@ impl SimpleCompiler {
             .expect("simple expression compiler register index must fit in u16");
         self.max_register = self.max_register.max(next);
         self.next_register = self.next_register.max(next);
+    }
+
+    fn emit_jump_placeholder(&mut self) -> usize {
+        self.builder.emit_asbx(Op::Jmp, 0, 0)
+    }
+
+    fn patch_jump_to_here(&mut self, offset: usize) {
+        let target = self.builder.code_len();
+        let sbx = i64::try_from(target).expect("jump target must fit in i64")
+            - i64::try_from(offset + 1).expect("jump origin must fit in i64");
+        self.builder.patch_asbx(offset, Op::Jmp, 0, sbx);
     }
 
     fn compile_unary(&mut self, expr: &Expr<'_>, op: UnaryOp) -> u16 {

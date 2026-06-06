@@ -92,6 +92,21 @@ impl ProtoBuilder {
         self.emit(Instr::asbx(op, a, sbx))
     }
 
+    /// Number of emitted instructions.
+    #[must_use]
+    pub fn code_len(&self) -> usize {
+        self.code.len()
+    }
+
+    /// Replaces an emitted AsBx instruction.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `offset` does not refer to an emitted instruction.
+    pub fn patch_asbx(&mut self, offset: usize, op: Op, a: u16, sbx: i64) {
+        self.code[offset] = Instr::asbx(op, a, sbx);
+    }
+
     /// Finishes the prototype.
     #[must_use]
     pub fn finish(self) -> Proto {

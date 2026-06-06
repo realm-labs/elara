@@ -59,6 +59,14 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_executes_if_else() {
+        assert_eq!(
+            eval_simple_source(SourceId::new(0), "if false then return 1 else return 2 end"),
+            Ok(vec![Value::integer(2)])
+        );
+    }
+
+    #[test]
     fn eval_simple_reports_compile_diagnostics() {
         let error = eval_simple_source(SourceId::new(0), "x = 1").unwrap_err();
 

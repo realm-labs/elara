@@ -211,7 +211,7 @@ impl Verifier<'_> {
 
     fn check_jump(&mut self, offset: usize, instr: Instr) {
         let target = offset as isize + 1 + instr.sbx() as isize;
-        if target < 0 || target >= self.proto.code.len() as isize {
+        if target < 0 || target > self.proto.code.len() as isize {
             self.errors.push(VerifyError {
                 offset,
                 kind: VerifyErrorKind::JumpOutOfBounds {
