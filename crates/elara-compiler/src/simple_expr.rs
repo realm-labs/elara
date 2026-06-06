@@ -4,7 +4,9 @@ use std::collections::HashMap;
 
 use elara_bytecode::{Op, Proto, ProtoBuilder, verify_proto};
 use elara_core::{Diagnostic, SourceId, Value};
-use elara_syntax::{BinaryOp, Expr, ExprKind, NameDecl, StmtKind, UnaryOp, parse_chunk};
+use elara_syntax::{
+    BinaryOp, Expr, ExprKind, FunctionBody, FunctionScope, NameDecl, StmtKind, UnaryOp, parse_chunk,
+};
 
 /// Result of compiling a chunk.
 #[derive(Clone, Debug, PartialEq)]
@@ -26,13 +28,7 @@ pub fn compile_simple_chunk(source: SourceId, input: &str) -> CompileResult {
         };
     }
 
-    let mut compiler = SimpleCompiler {
-        builder: ProtoBuilder::new(),
-        diagnostics: Vec::new(),
-        next_register: 0,
-        max_register: 0,
-        locals: HashMap::new(),
-    };
+    let mut compiler = SimpleCompiler::new();
     compiler.compile_block(parsed.block.statements());
     compiler.finish()
 }
@@ -46,6 +42,16 @@ struct SimpleCompiler {
 }
 
 impl SimpleCompiler {
+    fn new() -> Self {
+        Self {
+            builder: ProtoBuilder::new(),
+            diagnostics: Vec::new(),
+            next_register: 0,
+            max_register: 0,
+            locals: HashMap::new(),
+        }
+    }
+
     fn compile_block(&mut self, statements: &[elara_syntax::Stmt<'_>]) {
         for statement in statements {
             match statement.kind() {
@@ -55,6 +61,9 @@ impl SimpleCompiler {
                 StmtKind::Assign { targets, values } => {
                     self.compile_assignment(statement.span(), targets, values);
                 }
+                StmtKind::Function { scope, name, body } => {
+                    self.compile_function(statement.span(), *scope, name.base, body);
+                }
                 StmtKind::Return(values) => self.compile_return(values),
                 _ => self.diagnostics.push(
                     Diagnostic::error("unsupported statement in simple expression compiler")
@@ -62,6 +71,35 @@ impl SimpleCompiler {
                 ),
             }
         }
+    }
+
+    fn compile_function(
+        &mut self,
+        span: elara_core::Span,
+        _scope: FunctionScope,
+        name: &str,
+        body: &FunctionBody<'_>,
+    ) {
+        if !body.params.is_empty() {
+            self.diagnostics.push(
+                Diagnostic::error("function parameters are not supported yet")
+                    .with_primary_span(span),
+            );
+            return;
+        }
+
+        let mut child = SimpleCompiler::new();
+        child.compile_block(body.block.statements());
+        let result = child.finish();
+        if !result.diagnostics.is_empty() {
+            self.diagnostics.extend(result.diagnostics);
+            return;
+        }
+
+        let register = self.ensure_local(name);
+        let child_index = self.builder.add_child(result.proto.expect("child proto"));
+        self.builder
+            .emit_abx(Op::Closure, register, u64::from(child_index));
     }
 
     fn compile_return(&mut self, values: &[Expr<'_>]) {
@@ -163,6 +201,7 @@ impl SimpleCompiler {
             ExprKind::Integer(text) => self.compile_integer(expr, text),
             ExprKind::Float(text) => self.compile_float(expr, text),
             ExprKind::Name(name) => self.local_register(expr, name),
+            ExprKind::Call { callee, args, .. } => self.compile_call(expr, callee, args),
             ExprKind::Grouped(expr) => self.compile_expr(expr),
             ExprKind::Unary { op, expr } => self.compile_unary(expr, *op),
             ExprKind::Binary { op, left, right } => self.compile_binary(expr, *op, left, right),
@@ -216,6 +255,30 @@ impl SimpleCompiler {
         self.diagnostics
             .push(Diagnostic::error("unknown local variable").with_primary_span(expr.span()));
         self.alloc_register()
+    }
+
+    fn ensure_local(&mut self, name: &str) -> u16 {
+        if let Some(register) = self.locals.get(name).copied() {
+            return register;
+        }
+
+        let register = self.alloc_register();
+        self.locals.insert(name.to_owned(), register);
+        register
+    }
+
+    fn compile_call(&mut self, expr: &Expr<'_>, callee: &Expr<'_>, args: &[Expr<'_>]) -> u16 {
+        if !args.is_empty() {
+            self.diagnostics.push(
+                Diagnostic::error("function arguments are not supported yet")
+                    .with_primary_span(expr.span()),
+            );
+            return self.alloc_register();
+        }
+
+        let register = self.compile_expr(callee);
+        self.builder.emit_abc(Op::Call, register, 1, 1);
+        register
     }
 
     fn target_register(&mut self, target: &Expr<'_>) -> Option<u16> {
@@ -414,6 +477,33 @@ mod tests {
         assert_eq!(
             compiled.diagnostics[0].message(),
             "assignment target is not a declared local"
+        );
+    }
+
+    #[test]
+    fn functions_compile_local_function_call() {
+        let compiled = compile_simple_chunk(
+            SourceId::new(0),
+            "local function answer()\n  return 42\nend\nreturn answer()",
+        );
+        assert_eq!(compiled.diagnostics, Vec::new());
+        let proto = compiled.proto.expect("expected compiled proto");
+
+        assert_eq!(proto.children.len(), 1);
+        assert_snapshot_eq(
+            disassemble(&proto),
+            "0000 CLOSURE       A=0 Bx=0\n0001 CALL          A=0 B=1 C=1\n0002 RETURN        A=0 B=1 C=0\n",
+        );
+    }
+
+    #[test]
+    fn functions_reject_parameters_for_now() {
+        let compiled = compile_simple_chunk(SourceId::new(0), "local function id(x) return x end");
+
+        assert!(compiled.proto.is_none());
+        assert_eq!(
+            compiled.diagnostics[0].message(),
+            "function parameters are not supported yet"
         );
     }
 }

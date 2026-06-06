@@ -22,6 +22,8 @@ pub struct Proto {
     pub constants: Box<[Value]>,
     /// Upvalue descriptors.
     pub upvalues: Box<[UpvalueDesc]>,
+    /// Nested function prototypes.
+    pub children: Box<[Proto]>,
     /// Maximum stack slots required by this function.
     pub max_stack: u16,
     /// Fixed parameter count.
@@ -48,11 +50,19 @@ impl Proto {
             code: code.into(),
             constants: constants.into(),
             upvalues: upvalues.into(),
+            children: Box::new([]),
             max_stack,
             params,
             is_vararg,
             debug,
         }
+    }
+
+    /// Replaces nested child prototypes.
+    #[must_use]
+    pub fn with_children(mut self, children: impl Into<Box<[Proto]>>) -> Self {
+        self.children = children.into();
+        self
     }
 
     /// Number of instructions in the prototype.
@@ -136,6 +146,7 @@ mod tests {
         assert!(!proto.is_empty());
         assert_eq!(proto.constants[0], Value::integer(42));
         assert_eq!(proto.upvalues[0].name.as_deref(), Some("env"));
+        assert!(proto.children.is_empty());
         assert_eq!(proto.max_stack, 2);
         assert_eq!(proto.params, 1);
         assert!(!proto.is_vararg);

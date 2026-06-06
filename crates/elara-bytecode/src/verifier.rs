@@ -43,6 +43,13 @@ pub enum VerifyErrorKind {
         /// Constant pool length.
         constants: usize,
     },
+    /// Child prototype index is outside the child prototype list.
+    ChildOutOfBounds {
+        /// Child prototype index.
+        child: u64,
+        /// Child prototype count.
+        children: usize,
+    },
     /// Jump target does not land on an instruction boundary.
     JumpOutOfBounds {
         /// Computed target offset.
@@ -87,11 +94,14 @@ impl Verifier<'_> {
             | Op::Len
             | Op::Unm
             | Op::BNot
-            | Op::Closure
             | Op::Vararg
             | Op::VarargTable
             | Op::Close
             | Op::Tbc => self.check_register(offset, instr.a()),
+            Op::Closure => {
+                self.check_register(offset, instr.a());
+                self.check_child(offset, instr.bx());
+            }
             Op::LoadK | Op::DeclGlobal => {
                 self.check_register(offset, instr.a());
                 self.check_constant(offset, instr.bx());
@@ -159,6 +169,18 @@ impl Verifier<'_> {
                 kind: VerifyErrorKind::ConstantOutOfBounds {
                     constant,
                     constants: self.proto.constants.len(),
+                },
+            });
+        }
+    }
+
+    fn check_child(&mut self, offset: usize, child: u64) {
+        if child >= self.proto.children.len() as u64 {
+            self.errors.push(VerifyError {
+                offset,
+                kind: VerifyErrorKind::ChildOutOfBounds {
+                    child,
+                    children: self.proto.children.len(),
                 },
             });
         }

@@ -17,6 +17,10 @@ pub enum RuntimeError {
     RegisterOutOfBounds { register: usize },
     /// Arithmetic operand was not numeric.
     NonNumericOperand { op: Op },
+    /// Call operand was not callable.
+    NonCallableValue,
+    /// Closure referenced a missing child prototype.
+    ChildOutOfBounds { index: usize },
     /// Opcode is not supported by the primitive interpreter.
     UnsupportedOpcode { op: Op },
 }
@@ -70,9 +74,17 @@ pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
                 )?;
                 set_register(&mut thread, instr.a().into(), constant)?;
             }
+            Op::Closure => {
+                set_register(
+                    &mut thread,
+                    instr.a().into(),
+                    Value::closure_index(instr.bx() as u32),
+                )?;
+            }
             Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
                 execute_arithmetic(&mut thread, instr)?
             }
+            Op::Call => execute_call(proto, &mut thread, instr)?,
             Op::Return => return collect_returns(&thread, instr),
             op => return Err(RuntimeError::UnsupportedOpcode { op }),
         }
@@ -94,6 +106,25 @@ fn execute_arithmetic(thread: &mut LuaThread, instr: Instr) -> RuntimeResult<()>
     let result =
         binary_arithmetic(op, left, right).ok_or(RuntimeError::NonNumericOperand { op })?;
     set_register(thread, instr.a().into(), result)
+}
+
+fn execute_call(proto: &Proto, thread: &mut LuaThread, instr: Instr) -> RuntimeResult<()> {
+    let callee = register(thread, instr.a().into())?;
+    let child_index = callee
+        .as_closure_index()
+        .ok_or(RuntimeError::NonCallableValue)? as usize;
+    let child = proto
+        .children
+        .get(child_index)
+        .ok_or(RuntimeError::ChildOutOfBounds { index: child_index })?;
+    let returns = execute_proto(child)?;
+
+    if instr.c() != 0 {
+        let value = returns.first().copied().unwrap_or_else(Value::nil);
+        set_register(thread, instr.a().into(), value)?;
+    }
+
+    Ok(())
 }
 
 fn binary_arithmetic(op: Op, left: Value, right: Value) -> Option<Value> {
@@ -238,6 +269,39 @@ mod tests {
         assert_eq!(
             execute_proto(&builder.finish()),
             Ok(vec![Value::integer(9)])
+        );
+    }
+
+    #[test]
+    fn calls_execute_child_proto() {
+        let mut child_builder = ProtoBuilder::new().with_signature(1, 0, false);
+        let value = child_builder.add_constant(Value::integer(42));
+        child_builder.emit_abx(Op::LoadK, 0, u64::from(value));
+        child_builder.emit_abc(Op::Return, 0, 1, 0);
+        let child = child_builder.finish();
+
+        let mut parent = ProtoBuilder::new().with_signature(1, 0, false);
+        let child_index = parent.add_child(child);
+        parent.emit_abx(Op::Closure, 0, u64::from(child_index));
+        parent.emit_abc(Op::Call, 0, 1, 1);
+        parent.emit_abc(Op::Return, 0, 1, 0);
+
+        assert_eq!(
+            execute_proto(&parent.finish()),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
+    fn calls_report_non_callable_values() {
+        let mut builder = ProtoBuilder::new().with_signature(1, 0, false);
+        let value = builder.add_constant(Value::integer(1));
+        builder.emit_abx(Op::LoadK, 0, u64::from(value));
+        builder.emit_abc(Op::Call, 0, 1, 1);
+
+        assert_eq!(
+            execute_proto(&builder.finish()),
+            Err(RuntimeError::NonCallableValue)
         );
     }
 }

@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M7 Variables, Scopes, Closures, and Calls  
-Current step: M7.2 Implement function Protos and Lua calls
+Current step: M7.3 Implement closures and upvalues
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -24,8 +24,9 @@ implemented, along with initial bytecode verification and simple expression
 codegen. VM/thread stack primitives and primitive arithmetic bytecode execution
 are implemented, and simple source chunks can be evaluated through the compile
 and interpreter path. Local variables and assignment basics are implemented.
-Closures, Lua calls, full API, JIT, C API, conformance, and benchmark
-implementation work has not started.
+Simple function Protos and zero-argument Lua calls are implemented. Closures,
+upvalues, full API, JIT, C API, conformance, and benchmark implementation work
+has not started.
 
 Current state:
 
@@ -62,9 +63,10 @@ Completed:
   - M6.2 Implement interpreter loop for constants and arithmetic.
   - M6.3 Connect source compile and eval path.
   - M7.1 Implement local variables and assignment.
+  - M7.2 Implement function Protos and Lua calls.
 
 Not started:
-  - M7.2 Implement function Protos and Lua calls.
+  - M7.3 Implement closures and upvalues.
   - Standard library.
   - Rust API.
   - JIT.
@@ -349,26 +351,34 @@ Delivered:
 - Multiple assignment basics.
 - Tests for local variable behavior.
 
-### Current Step: M7.2 Implement function Protos and Lua calls
+### Completed Step: M7.2 Implement function Protos and Lua calls
 
-Expected deliverables:
+Delivered:
 
 - Function AST lowering.
 - Nested Proto emission.
 - `CALL` and `RETURN` basics.
 - Tests for simple function calls.
 
+### Current Step: M7.3 Implement closures and upvalues
+
+Expected deliverables:
+
+- Upvalue analysis.
+- Open/closed upvalue runtime.
+- Closure bytecode.
+- Tests for nested functions.
+
 Recommended verification:
 
 ```bash
-cargo test -p elara-compiler functions
-cargo test -p elara-interp calls
+cargo test -p elara-interp closures
 ```
 
 Recommended commit:
 
 ```text
-feat(runtime): support simple lua calls
+feat(runtime): implement closures and upvalues
 ```
 
 ## Completed Content
@@ -415,12 +425,13 @@ feat(runtime): support simple lua calls
 - Primitive bytecode execution for constants, arithmetic, and return values is available in `elara-interp`.
 - Simple source chunks can be compiled and evaluated through `elara-api`.
 - Local variable reads/writes and assignment basics are available in the compiler/interpreter path.
+- Simple nested Protos and zero-argument Lua calls are available.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M7
 
-- Implement function Protos and simple Lua calls.
+- Implement closures and upvalues.
 
 ### Product Gaps
 
@@ -440,29 +451,31 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M7.1 verification passed:
+M7.2 verification passed:
 
 ```bash
 cargo fmt --all -- --check
+cargo clippy -p elara-core --all-targets -- -D warnings
+cargo clippy -p elara-bytecode --all-targets -- -D warnings
 cargo clippy -p elara-compiler --all-targets -- -D warnings
 cargo clippy -p elara-interp --all-targets -- -D warnings
-cargo test -p elara-compiler locals
-cargo test -p elara-interp locals
+cargo test -p elara-compiler functions
+cargo test -p elara-interp calls
 ```
 
 ## Next Recommended Action
 
-Implement M7.2 from `docs/MILESTONES.md`:
+Implement M7.3 from `docs/MILESTONES.md`:
 
-1. Lower function AST nodes into nested Protos.
-2. Add `CALL` and `RETURN` basics.
-3. Add tests for simple function calls.
-4. Run `cargo test -p elara-compiler functions` and `cargo test -p elara-interp calls`.
+1. Add upvalue analysis.
+2. Add open/closed upvalue runtime support.
+3. Add closure bytecode support.
+4. Run `cargo test -p elara-interp closures`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-feat(runtime): support simple lua calls
+feat(runtime): implement closures and upvalues
 ```
 
 ## Current Risk Notes
@@ -506,7 +519,7 @@ feat(runtime): support simple lua calls
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
-| Variables/scopes | In progress | Local variables and assignment basics are implemented. |
+| Variables/scopes | In progress | Local variables, assignment basics, simple function Protos, and zero-argument calls are implemented. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

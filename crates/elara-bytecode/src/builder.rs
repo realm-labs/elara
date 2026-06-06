@@ -10,6 +10,7 @@ pub struct ProtoBuilder {
     code: Vec<Instr>,
     constants: Vec<Value>,
     upvalues: Vec<UpvalueDesc>,
+    children: Vec<Proto>,
     line_info: Vec<u32>,
     source_name: Option<Box<str>>,
     max_stack: u16,
@@ -56,6 +57,13 @@ impl ProtoBuilder {
         index
     }
 
+    /// Adds a child prototype and returns its index.
+    pub fn add_child(&mut self, proto: Proto) -> u32 {
+        let index = u32::try_from(self.children.len()).expect("child proto index must fit in u32");
+        self.children.push(proto);
+        index
+    }
+
     /// Emits an already-encoded instruction.
     pub fn emit(&mut self, instr: Instr) -> usize {
         self.emit_line(instr, 0)
@@ -99,5 +107,6 @@ impl ProtoBuilder {
                 line_info: self.line_info.into_boxed_slice(),
             },
         )
+        .with_children(self.children)
     }
 }

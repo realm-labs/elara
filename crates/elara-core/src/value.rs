@@ -52,6 +52,7 @@ enum ValueRepr {
     Float(LuaFloat),
     ShortString(GcRef<ShortString>),
     LongString(GcRef<LongString>),
+    Closure(u32),
 }
 
 impl Value {
@@ -106,6 +107,14 @@ impl Value {
         }
     }
 
+    /// Creates a temporary Lua closure value from a child prototype index.
+    #[must_use]
+    pub const fn closure_index(value: u32) -> Self {
+        Self {
+            repr: ValueRepr::Closure(value),
+        }
+    }
+
     /// Returns the value tag.
     #[must_use]
     pub const fn tag(self) -> ValueTag {
@@ -116,6 +125,7 @@ impl Value {
             ValueRepr::Float(_) => ValueTag::Float,
             ValueRepr::ShortString(_) => ValueTag::ShortString,
             ValueRepr::LongString(_) => ValueTag::LongString,
+            ValueRepr::Closure(_) => ValueTag::Closure,
         }
     }
 
@@ -144,6 +154,12 @@ impl Value {
             self.repr,
             ValueRepr::ShortString(_) | ValueRepr::LongString(_)
         )
+    }
+
+    /// Returns true for Lua closure placeholders.
+    #[must_use]
+    pub const fn is_closure(self) -> bool {
+        matches!(self.repr, ValueRepr::Closure(_))
     }
 
     /// Returns the boolean payload when this value is a boolean.
@@ -187,6 +203,15 @@ impl Value {
     pub const fn as_long_string(self) -> Option<GcRef<LongString>> {
         match self.repr {
             ValueRepr::LongString(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the child prototype index when this value is a closure placeholder.
+    #[must_use]
+    pub const fn as_closure_index(self) -> Option<u32> {
+        match self.repr {
+            ValueRepr::Closure(value) => Some(value),
             _ => None,
         }
     }
@@ -241,6 +266,7 @@ impl PartialEq for Value {
             (ValueRepr::Float(left), ValueRepr::Integer(right)) => integer_float_eq(right, left),
             (ValueRepr::ShortString(left), ValueRepr::ShortString(right)) => left == right,
             (ValueRepr::LongString(left), ValueRepr::LongString(right)) => left == right,
+            (ValueRepr::Closure(left), ValueRepr::Closure(right)) => left == right,
             _ => false,
         }
     }
