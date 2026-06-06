@@ -4,12 +4,14 @@ use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
 use elara_core::{GcArena, LuaFloat, LuaInteger, LuaThread, StringInterner, Value};
 
 mod loops;
+mod metamethod;
 mod table;
 
 use loops::{
     execute_generic_for_call, execute_generic_for_loop, execute_numeric_for_loop,
     prepare_numeric_for,
 };
+use metamethod::{execute_arithmetic, execute_comparison};
 pub use table::RuntimeTables;
 use table::{
     execute_get_index, execute_get_table, execute_new_table, execute_set_index, execute_set_table,
@@ -62,6 +64,8 @@ pub enum RuntimeError {
     StringOutOfBounds { index: usize },
     /// Arithmetic operand was not numeric.
     NonNumericOperand { op: Op },
+    /// Comparison operand was not comparable.
+    NonComparableOperand { op: Op },
     /// Table operation received a non-table receiver.
     NonTableValue,
     /// Table write used an invalid Lua key.
@@ -207,6 +211,9 @@ fn execute_proto_with_upvalues(
             Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
                 execute_arithmetic(&mut thread, closures, instr, tables, strings)?
             }
+            Op::Eq | Op::Lt | Op::Le => {
+                execute_comparison(&mut thread, closures, instr, tables, strings)?;
+            }
             Op::Jmp => pc = jump_target(pc, instr)?,
             Op::ForPrep => {
                 if prepare_numeric_for(&mut thread, instr)? {
@@ -250,36 +257,6 @@ fn execute_proto_with_upvalues(
     }
 
     Ok(Vec::new())
-}
-
-fn execute_arithmetic(
-    thread: &mut LuaThread,
-    closures: &mut Vec<RuntimeClosure>,
-    instr: Instr,
-    tables: &mut RuntimeTables,
-    strings: &mut RuntimeStrings,
-) -> RuntimeResult<()> {
-    let op = instr.op();
-    if op == Op::Unm {
-        let value = register(thread, instr.b() as usize)?;
-        let result = if let Some(result) = negate(value) {
-            result
-        } else {
-            call_unary_metamethod(op, value, closures, tables, strings)?
-                .ok_or(RuntimeError::NonNumericOperand { op })?
-        };
-        return set_register(thread, instr.a().into(), result);
-    }
-
-    let left = register(thread, instr.b() as usize)?;
-    let right = register(thread, instr.c() as usize)?;
-    let result = if let Some(result) = binary_arithmetic(op, left, right) {
-        result
-    } else {
-        call_binary_metamethod(op, left, right, closures, tables, strings)?
-            .ok_or(RuntimeError::NonNumericOperand { op })?
-    };
-    set_register(thread, instr.a().into(), result)
 }
 
 fn jump_target(pc: usize, instr: Instr) -> RuntimeResult<usize> {
@@ -397,114 +374,6 @@ fn collect_call_args(thread: &LuaThread, instr: Instr) -> RuntimeResult<Vec<Valu
         args.push(register(thread, base + index as usize)?);
     }
     Ok(args)
-}
-
-fn binary_arithmetic(op: Op, left: Value, right: Value) -> Option<Value> {
-    match (left.as_integer(), right.as_integer()) {
-        (Some(left), Some(right)) => integer_arithmetic(op, left, right),
-        _ => float_arithmetic(op, left.to_float()?, right.to_float()?),
-    }
-}
-
-fn integer_arithmetic(op: Op, left: LuaInteger, right: LuaInteger) -> Option<Value> {
-    match op {
-        Op::Add => left.checked_add(right).map(Value::integer),
-        Op::Sub => left.checked_sub(right).map(Value::integer),
-        Op::Mul => left.checked_mul(right).map(Value::integer),
-        Op::IDiv => (right != 0).then(|| Value::integer(left.div_euclid(right))),
-        Op::Mod => (right != 0).then(|| Value::integer(left.rem_euclid(right))),
-        Op::Div | Op::Pow => float_arithmetic(op, left as LuaFloat, right as LuaFloat),
-        _ => None,
-    }
-}
-
-fn float_arithmetic(op: Op, left: LuaFloat, right: LuaFloat) -> Option<Value> {
-    let value = match op {
-        Op::Add => left + right,
-        Op::Sub => left - right,
-        Op::Mul => left * right,
-        Op::Div => left / right,
-        Op::IDiv => (left / right).floor(),
-        Op::Mod => left - (left / right).floor() * right,
-        Op::Pow => left.powf(right),
-        _ => return None,
-    };
-    Some(Value::float(value))
-}
-
-fn negate(value: Value) -> Option<Value> {
-    if let Some(value) = value.as_integer() {
-        return value.checked_neg().map(Value::integer);
-    }
-    Some(Value::float(-value.to_float()?))
-}
-
-fn call_binary_metamethod(
-    op: Op,
-    left: Value,
-    right: Value,
-    closures: &mut Vec<RuntimeClosure>,
-    tables: &mut RuntimeTables,
-    strings: &mut RuntimeStrings,
-) -> RuntimeResult<Option<Value>> {
-    let Some(name) = binary_metamethod_name(op) else {
-        return Ok(None);
-    };
-
-    let metamethod = match tables.metamethod_for_value(left, name, strings)? {
-        Some(metamethod) => Some(metamethod),
-        None => tables.metamethod_for_value(right, name, strings)?,
-    };
-    let Some(metamethod) = metamethod else {
-        return Ok(None);
-    };
-    let Some(closure) = metamethod.as_closure_index() else {
-        return Err(RuntimeError::UnsupportedMetamethod { name });
-    };
-
-    let returns = call_closure(closures, closure as usize, &[left, right], tables, strings)?;
-    Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
-}
-
-fn call_unary_metamethod(
-    op: Op,
-    value: Value,
-    closures: &mut Vec<RuntimeClosure>,
-    tables: &mut RuntimeTables,
-    strings: &mut RuntimeStrings,
-) -> RuntimeResult<Option<Value>> {
-    let Some(name) = unary_metamethod_name(op) else {
-        return Ok(None);
-    };
-    let Some(metamethod) = tables.metamethod_for_value(value, name, strings)? else {
-        return Ok(None);
-    };
-    let Some(closure) = metamethod.as_closure_index() else {
-        return Err(RuntimeError::UnsupportedMetamethod { name });
-    };
-
-    let returns = call_closure(closures, closure as usize, &[value], tables, strings)?;
-    Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
-}
-
-fn binary_metamethod_name(op: Op) -> Option<&'static str> {
-    match op {
-        Op::Add => Some("__add"),
-        Op::Sub => Some("__sub"),
-        Op::Mul => Some("__mul"),
-        Op::Div => Some("__div"),
-        Op::IDiv => Some("__idiv"),
-        Op::Mod => Some("__mod"),
-        Op::Pow => Some("__pow"),
-        _ => None,
-    }
-}
-
-fn unary_metamethod_name(op: Op) -> Option<&'static str> {
-    match op {
-        Op::Unm => Some("__unm"),
-        _ => None,
-    }
 }
 
 fn collect_returns(
