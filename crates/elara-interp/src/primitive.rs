@@ -44,8 +44,9 @@ pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
 /// Executes a verified prototype and returns values plus runtime-owned tables.
 pub fn execute_proto_with_output(proto: &Proto) -> RuntimeResult<RuntimeOutput> {
     verify_proto(proto).map_err(RuntimeError::Verification)?;
+    let mut closures = Vec::new();
     let mut tables = Vec::new();
-    let values = execute_proto_with_upvalues(proto, &[], &[], &mut tables)?;
+    let values = execute_proto_with_upvalues(proto, &[], &[], &mut closures, &mut tables)?;
     Ok(RuntimeOutput { values, tables })
 }
 
@@ -53,13 +54,13 @@ fn execute_proto_with_upvalues(
     proto: &Proto,
     upvalues: &[Value],
     varargs: &[Value],
+    closures: &mut Vec<RuntimeClosure>,
     tables: &mut Vec<Table>,
 ) -> RuntimeResult<Vec<Value>> {
     let mut thread = LuaThread::new();
     for _ in 0..proto.max_stack {
         thread.push_value(Value::nil());
     }
-    let mut closures = Vec::new();
     let mut dynamic_top = 0;
 
     let mut pc = 0;
@@ -115,18 +116,20 @@ fn execute_proto_with_upvalues(
                 let child = proto
                     .children
                     .get(child_index)
+                    .cloned()
                     .ok_or(RuntimeError::ChildOutOfBounds { index: child_index })?;
-                let captured = capture_upvalues(child, &thread, upvalues)?;
                 let closure_index = closures.len();
                 closures.push(RuntimeClosure {
-                    child_index,
-                    upvalues: captured,
+                    proto: child.clone(),
+                    upvalues: Vec::new(),
                 });
                 set_register(
                     &mut thread,
                     instr.a().into(),
                     Value::closure_index(closure_index as u32),
                 )?;
+                let captured = capture_upvalues(&child, &thread, upvalues)?;
+                closures[closure_index].upvalues = captured;
             }
             Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
                 execute_arithmetic(&mut thread, instr)?
@@ -138,7 +141,7 @@ fn execute_proto_with_upvalues(
             }
             Op::VarargTable => execute_vararg_table(&mut thread, instr, varargs, tables)?,
             Op::Call => {
-                if let Some(top) = execute_call(proto, &mut thread, &closures, instr, tables)? {
+                if let Some(top) = execute_call(&mut thread, closures, instr, tables)? {
                     dynamic_top = top;
                 }
             }
@@ -167,7 +170,7 @@ fn execute_arithmetic(thread: &mut LuaThread, instr: Instr) -> RuntimeResult<()>
 
 #[derive(Clone, Debug)]
 struct RuntimeClosure {
-    child_index: usize,
+    proto: Proto,
     upvalues: Vec<Value>,
 }
 
@@ -232,9 +235,8 @@ fn execute_vararg_table(
 }
 
 fn execute_call(
-    proto: &Proto,
     thread: &mut LuaThread,
-    closures: &[RuntimeClosure],
+    closures: &mut Vec<RuntimeClosure>,
     instr: Instr,
     tables: &mut Vec<Table>,
 ) -> RuntimeResult<Option<usize>> {
@@ -244,15 +246,11 @@ fn execute_call(
         .ok_or(RuntimeError::NonCallableValue)? as usize;
     let closure = closures
         .get(closure_index)
+        .cloned()
         .ok_or(RuntimeError::NonCallableValue)?;
-    let child = proto
-        .children
-        .get(closure.child_index)
-        .ok_or(RuntimeError::ChildOutOfBounds {
-            index: closure.child_index,
-        })?;
     let args = collect_call_args(thread, instr)?;
-    let returns = execute_proto_with_upvalues(child, &closure.upvalues, &args, tables)?;
+    let returns =
+        execute_proto_with_upvalues(&closure.proto, &closure.upvalues, &args, closures, tables)?;
 
     let base = usize::from(instr.a());
     let count = if instr.c() == 0 {

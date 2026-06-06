@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M7 Variables, Scopes, Closures, and Calls  
-Current step: M7 exit criteria validation
+Current milestone: M8 Control Flow and Iteration
+Current step: M8.1 Implement conditional branches
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -29,8 +29,9 @@ upvalues, and captured outer local reads are implemented. Anonymous vararg
 functions can receive call arguments and lower `...` for the first requested
 value. Fixed-count Lua calls can receive multiple return values. Named vararg
 tables are compiled to `VARARG_TABLE` and executed through runtime-owned table
-storage. Full API, JIT, C API, conformance, and benchmark implementation work
-has not started.
+storage. Recursive function self-references compile and evaluate through shared
+runtime closure storage. Control flow, full API, JIT, C API, conformance, and
+benchmark implementation work has not started.
 
 Current state:
 
@@ -70,10 +71,10 @@ Completed:
   - M7.2 Implement function Protos and Lua calls.
   - M7.3 Implement closures and upvalues.
   - M7.4 Implement varargs and named vararg table.
+  - M7 exit criteria validation.
 
 In progress:
-  - M7 exit criteria validation.
-    - Recursive functions still need validation and, if necessary, implementation.
+  - M8.1 Implement conditional branches.
   - Standard library.
   - Rust API.
   - JIT.
@@ -405,6 +406,18 @@ Recommended commit:
 feat(runtime): support varargs
 ```
 
+### Completed Step: M7 Exit Criteria Validation
+
+Delivered:
+
+- Function bodies can capture their own local function binding.
+- Runtime closure storage is shared across nested executions so closure values
+  remain callable across frames.
+- Recursive self-reference works through the source compile/eval path.
+- Terminating recursive algorithms still need M8 conditional branches.
+
+M7 is complete.
+
 ## Completed Content
 
 ### Planning Decisions
@@ -455,12 +468,13 @@ feat(runtime): support varargs
 - Fixed-count multiple call results work in the primitive interpreter.
 - Open-ended vararg call/return results work in the primitive interpreter.
 - Named vararg tables compile and execute through runtime-owned table storage.
+- Recursive self-reference works through the compiler/interpreter/API path.
 
 ## Remaining Gaps
 
-### Immediate Gaps for M7
+### Immediate Gaps for M8
 
-- Validate and implement recursive function behavior required by M7 exit criteria.
+- Implement M8.1 conditional branches.
 
 ### Product Gaps
 
@@ -480,16 +494,17 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M7.4 named vararg table verification passed:
+M7 exit validation verification passed:
 
 ```bash
 cargo fmt --all
-cargo test -p elara-core table_placeholder
-cargo test -p elara-compiler varargs
-cargo test -p elara-interp varargs
-cargo clippy -p elara-core --all-targets -- -D warnings
+cargo test -p elara-compiler recursive
+cargo test -p elara-api recursive
+cargo test -p elara-interp calls
+cargo test -p elara-interp closures
 cargo clippy -p elara-compiler --all-targets -- -D warnings
 cargo clippy -p elara-interp --all-targets -- -D warnings
+cargo clippy -p elara-api --all-targets -- -D warnings
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check
@@ -497,9 +512,8 @@ cargo fmt --all -- --check
 
 ## Next Recommended Action
 
-Validate M7 exit criteria from `docs/MILESTONES.md`, starting with recursive
-functions. If recursive calls do not work, implement the smallest safe closure or
-upvalue runtime change needed before moving to M8.
+Implement M8.1 conditional branches from `docs/MILESTONES.md`, then run the
+focused compiler/interpreter branch tests and update this progress document.
 
 ## Current Risk Notes
 
@@ -542,7 +556,7 @@ upvalue runtime change needed before moving to M8.
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
-| Variables/scopes | In progress | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, and multiple call results are implemented. |
+| Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

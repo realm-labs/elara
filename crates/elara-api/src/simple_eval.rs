@@ -47,6 +47,18 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_returns_recursive_self_reference() {
+        let values = eval_simple_source(
+            SourceId::new(0),
+            "local function self()\n  return self\nend\nreturn self()",
+        )
+        .expect("eval should pass");
+
+        assert_eq!(values.len(), 1);
+        assert!(values[0].is_closure());
+    }
+
+    #[test]
     fn eval_simple_reports_compile_diagnostics() {
         let error = eval_simple_source(SourceId::new(0), "x = 1").unwrap_err();
 

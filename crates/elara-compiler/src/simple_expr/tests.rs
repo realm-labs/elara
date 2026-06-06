@@ -92,6 +92,23 @@ fn functions_compile_local_function_call() {
 }
 
 #[test]
+fn functions_compile_recursive_self_reference() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local function self()\n  return self\nend\nreturn self()",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_eq!(proto.children.len(), 1);
+    assert_eq!(proto.children[0].upvalues.len(), 1);
+    assert_snapshot_eq(
+        disassemble(&proto.children[0]),
+        "0000 GET_UPVALUE   A=0 B=0 C=0\n0001 RETURN        A=0 B=1 C=0\n",
+    );
+}
+
+#[test]
 fn functions_reject_parameters_for_now() {
     let compiled = compile_simple_chunk(SourceId::new(0), "local function id(x) return x end");
 

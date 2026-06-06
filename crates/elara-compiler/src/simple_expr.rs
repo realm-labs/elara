@@ -106,6 +106,7 @@ impl SimpleCompiler {
             }
         };
 
+        let register = self.ensure_local(name);
         let mut child = SimpleCompiler::new_child(self.locals.clone());
         child.is_vararg = named_vararg.is_some();
         if let Some(Some(name)) = named_vararg {
@@ -118,7 +119,6 @@ impl SimpleCompiler {
             return;
         }
 
-        let register = self.ensure_local(name);
         let child_index = self.builder.add_child(result.proto.expect("child proto"));
         self.builder
             .emit_abx(Op::Closure, register, u64::from(child_index));
