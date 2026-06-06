@@ -50,6 +50,13 @@ pub enum VerifyErrorKind {
         /// Child prototype count.
         children: usize,
     },
+    /// Upvalue index is outside the upvalue descriptor list.
+    UpvalueOutOfBounds {
+        /// Upvalue index.
+        upvalue: u32,
+        /// Upvalue descriptor count.
+        upvalues: usize,
+    },
     /// Jump target does not land on an instruction boundary.
     JumpOutOfBounds {
         /// Computed target offset.
@@ -106,7 +113,11 @@ impl Verifier<'_> {
                 self.check_register(offset, instr.a());
                 self.check_constant(offset, instr.bx());
             }
-            Op::GetUpvalue | Op::SetUpvalue | Op::GetEnv | Op::SetEnv => {
+            Op::GetUpvalue | Op::SetUpvalue => {
+                self.check_register(offset, instr.a());
+                self.check_upvalue(offset, instr.b());
+            }
+            Op::GetEnv | Op::SetEnv => {
                 self.check_register(offset, instr.a());
             }
             Op::GetIndex | Op::SetIndex => {
@@ -181,6 +192,18 @@ impl Verifier<'_> {
                 kind: VerifyErrorKind::ChildOutOfBounds {
                     child,
                     children: self.proto.children.len(),
+                },
+            });
+        }
+    }
+
+    fn check_upvalue(&mut self, offset: usize, upvalue: u32) {
+        if upvalue >= self.proto.upvalues.len() as u32 {
+            self.errors.push(VerifyError {
+                offset,
+                kind: VerifyErrorKind::UpvalueOutOfBounds {
+                    upvalue,
+                    upvalues: self.proto.upvalues.len(),
                 },
             });
         }

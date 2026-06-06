@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use elara_bytecode::{Op, Proto, ProtoBuilder, verify_proto};
+use elara_bytecode::{Op, Proto, ProtoBuilder, UpvalueDesc, verify_proto};
 use elara_core::{Diagnostic, SourceId, Value};
 use elara_syntax::{
     BinaryOp, Expr, ExprKind, FunctionBody, FunctionScope, NameDecl, StmtKind, UnaryOp, parse_chunk,
@@ -39,6 +39,8 @@ struct SimpleCompiler {
     next_register: u16,
     max_register: u16,
     locals: HashMap<String, u16>,
+    enclosing_locals: HashMap<String, u16>,
+    upvalues: HashMap<String, u16>,
 }
 
 impl SimpleCompiler {
@@ -49,6 +51,15 @@ impl SimpleCompiler {
             next_register: 0,
             max_register: 0,
             locals: HashMap::new(),
+            enclosing_locals: HashMap::new(),
+            upvalues: HashMap::new(),
+        }
+    }
+
+    fn new_child(enclosing_locals: HashMap<String, u16>) -> Self {
+        Self {
+            enclosing_locals,
+            ..Self::new()
         }
     }
 
@@ -88,7 +99,7 @@ impl SimpleCompiler {
             return;
         }
 
-        let mut child = SimpleCompiler::new();
+        let mut child = SimpleCompiler::new_child(self.locals.clone());
         child.compile_block(body.block.statements());
         let result = child.finish();
         if !result.diagnostics.is_empty() {
@@ -251,10 +262,29 @@ impl SimpleCompiler {
         if let Some(register) = self.locals.get(name).copied() {
             return register;
         }
+        if let Some(upvalue) = self.upvalue_index(name) {
+            let register = self.alloc_register();
+            self.builder
+                .emit_abc(Op::GetUpvalue, register, u32::from(upvalue), 0);
+            return register;
+        }
 
         self.diagnostics
             .push(Diagnostic::error("unknown local variable").with_primary_span(expr.span()));
         self.alloc_register()
+    }
+
+    fn upvalue_index(&mut self, name: &str) -> Option<u16> {
+        if let Some(index) = self.upvalues.get(name).copied() {
+            return Some(index);
+        }
+
+        let register = self.enclosing_locals.get(name).copied()?;
+        let index = self
+            .builder
+            .add_upvalue(UpvalueDesc::new(Some(name), true, register));
+        self.upvalues.insert(name.to_owned(), index);
+        Some(index)
     }
 
     fn ensure_local(&mut self, name: &str) -> u16 {
@@ -504,6 +534,23 @@ mod tests {
         assert_eq!(
             compiled.diagnostics[0].message(),
             "function parameters are not supported yet"
+        );
+    }
+
+    #[test]
+    fn closures_compile_outer_local_capture() {
+        let compiled = compile_simple_chunk(
+            SourceId::new(0),
+            "local x = 41\nlocal function answer()\n  return x + 1\nend\nreturn answer()",
+        );
+        assert_eq!(compiled.diagnostics, Vec::new());
+        let proto = compiled.proto.expect("expected compiled proto");
+
+        assert_eq!(proto.children.len(), 1);
+        assert_eq!(proto.children[0].upvalues.len(), 1);
+        assert_snapshot_eq(
+            disassemble(&proto.children[0]),
+            "0000 GET_UPVALUE   A=0 B=0 C=0\n0001 LOAD_K        A=1 Bx=0 ; 1\n0002 ADD           A=0 B=0 C=1\n0003 RETURN        A=0 B=1 C=0\n",
         );
     }
 }

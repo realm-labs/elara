@@ -21,6 +21,8 @@ pub enum RuntimeError {
     NonCallableValue,
     /// Closure referenced a missing child prototype.
     ChildOutOfBounds { index: usize },
+    /// Upvalue read referenced a missing captured value.
+    UpvalueOutOfBounds { index: usize },
     /// Opcode is not supported by the primitive interpreter.
     UnsupportedOpcode { op: Op },
 }
@@ -28,11 +30,15 @@ pub enum RuntimeError {
 /// Executes a verified prototype and returns the first return values.
 pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
     verify_proto(proto).map_err(RuntimeError::Verification)?;
+    execute_proto_with_upvalues(proto, &[])
+}
 
+fn execute_proto_with_upvalues(proto: &Proto, upvalues: &[Value]) -> RuntimeResult<Vec<Value>> {
     let mut thread = LuaThread::new();
     for _ in 0..proto.max_stack {
         thread.push_value(Value::nil());
     }
+    let mut closures = Vec::new();
 
     let mut pc = 0;
     while pc < proto.code.len() {
@@ -74,17 +80,36 @@ pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
                 )?;
                 set_register(&mut thread, instr.a().into(), constant)?;
             }
+            Op::GetUpvalue => {
+                let value = upvalues.get(instr.b() as usize).copied().ok_or(
+                    RuntimeError::UpvalueOutOfBounds {
+                        index: instr.b() as usize,
+                    },
+                )?;
+                set_register(&mut thread, instr.a().into(), value)?;
+            }
             Op::Closure => {
+                let child_index = instr.bx() as usize;
+                let child = proto
+                    .children
+                    .get(child_index)
+                    .ok_or(RuntimeError::ChildOutOfBounds { index: child_index })?;
+                let captured = capture_upvalues(child, &thread, upvalues)?;
+                let closure_index = closures.len();
+                closures.push(RuntimeClosure {
+                    child_index,
+                    upvalues: captured,
+                });
                 set_register(
                     &mut thread,
                     instr.a().into(),
-                    Value::closure_index(instr.bx() as u32),
+                    Value::closure_index(closure_index as u32),
                 )?;
             }
             Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
                 execute_arithmetic(&mut thread, instr)?
             }
-            Op::Call => execute_call(proto, &mut thread, instr)?,
+            Op::Call => execute_call(proto, &mut thread, &closures, instr)?,
             Op::Return => return collect_returns(&thread, instr),
             op => return Err(RuntimeError::UnsupportedOpcode { op }),
         }
@@ -108,16 +133,54 @@ fn execute_arithmetic(thread: &mut LuaThread, instr: Instr) -> RuntimeResult<()>
     set_register(thread, instr.a().into(), result)
 }
 
-fn execute_call(proto: &Proto, thread: &mut LuaThread, instr: Instr) -> RuntimeResult<()> {
+#[derive(Clone, Debug)]
+struct RuntimeClosure {
+    child_index: usize,
+    upvalues: Vec<Value>,
+}
+
+fn capture_upvalues(
+    child: &Proto,
+    thread: &LuaThread,
+    parent_upvalues: &[Value],
+) -> RuntimeResult<Vec<Value>> {
+    let mut captured = Vec::with_capacity(child.upvalues.len());
+    for upvalue in &child.upvalues {
+        let value = if upvalue.in_stack {
+            register(thread, usize::from(upvalue.index))?
+        } else {
+            parent_upvalues
+                .get(usize::from(upvalue.index))
+                .copied()
+                .ok_or(RuntimeError::UpvalueOutOfBounds {
+                    index: usize::from(upvalue.index),
+                })?
+        };
+        captured.push(value);
+    }
+    Ok(captured)
+}
+
+fn execute_call(
+    proto: &Proto,
+    thread: &mut LuaThread,
+    closures: &[RuntimeClosure],
+    instr: Instr,
+) -> RuntimeResult<()> {
     let callee = register(thread, instr.a().into())?;
-    let child_index = callee
+    let closure_index = callee
         .as_closure_index()
         .ok_or(RuntimeError::NonCallableValue)? as usize;
+    let closure = closures
+        .get(closure_index)
+        .ok_or(RuntimeError::NonCallableValue)?;
     let child = proto
         .children
-        .get(child_index)
-        .ok_or(RuntimeError::ChildOutOfBounds { index: child_index })?;
-    let returns = execute_proto(child)?;
+        .get(closure.child_index)
+        .ok_or(RuntimeError::ChildOutOfBounds {
+            index: closure.child_index,
+        })?;
+    let returns = execute_proto_with_upvalues(child, &closure.upvalues)?;
 
     if instr.c() != 0 {
         let value = returns.first().copied().unwrap_or_else(Value::nil);
@@ -302,6 +365,31 @@ mod tests {
         assert_eq!(
             execute_proto(&builder.finish()),
             Err(RuntimeError::NonCallableValue)
+        );
+    }
+
+    #[test]
+    fn closures_capture_parent_stack_values() {
+        let mut child_builder = ProtoBuilder::new().with_signature(2, 0, false);
+        child_builder.add_upvalue(elara_bytecode::UpvalueDesc::new(Some("x"), true, 0));
+        let one = child_builder.add_constant(Value::integer(1));
+        child_builder.emit_abc(Op::GetUpvalue, 0, 0, 0);
+        child_builder.emit_abx(Op::LoadK, 1, u64::from(one));
+        child_builder.emit_abc(Op::Add, 0, 0, 1);
+        child_builder.emit_abc(Op::Return, 0, 1, 0);
+        let child = child_builder.finish();
+
+        let mut parent = ProtoBuilder::new().with_signature(2, 0, false);
+        let value = parent.add_constant(Value::integer(41));
+        parent.emit_abx(Op::LoadK, 0, u64::from(value));
+        let child_index = parent.add_child(child);
+        parent.emit_abx(Op::Closure, 1, u64::from(child_index));
+        parent.emit_abc(Op::Call, 1, 1, 1);
+        parent.emit_abc(Op::Return, 1, 1, 0);
+
+        assert_eq!(
+            execute_proto(&parent.finish()),
+            Ok(vec![Value::integer(42)])
         );
     }
 }
