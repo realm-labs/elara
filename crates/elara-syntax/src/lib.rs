@@ -5,3 +5,9 @@
 //!
 //! It must not execute code or depend on runtime, standard library, interpreter,
 //! or JIT internals.
+
+pub mod lexer;
+pub mod token;
+
+pub use lexer::{Lexed, lex};
+pub use token::{Token, TokenKind};

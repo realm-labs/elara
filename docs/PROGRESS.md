@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M4 Lexer and Parser  
-Current step: M4.1 Implement lexer for tokens and literals
+Current step: M4.2 Implement expression parser
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -16,9 +16,9 @@ documented crate boundaries, and a single current Lua language target in
 `elara-core`. Core source span and diagnostic primitives are available, and the
 test fixture/conformance/differential directory layout exists with a snapshot
 baseline. Primitive runtime values, the basic GC skeleton, Lua strings with
-short-string interning, and table array/hash storage with metadata versioning are
-implemented. Parser, compiler, bytecode, interpreter, API, JIT, C API,
-conformance, and benchmark implementation work has not started.
+short-string interning, table array/hash storage with metadata versioning, and
+Lua tokenization are implemented. Parser, compiler, bytecode, interpreter, API,
+JIT, C API, conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -43,9 +43,10 @@ Completed:
   - M3.2 Implement table array storage.
   - M3.3 Implement table hash storage.
   - M3.4 Add metatable field and table versioning.
+  - M4.1 Implement lexer for tokens and literals.
 
 Not started:
-  - M4.1 Implement lexer for tokens and literals.
+  - M4.2 Implement expression parser.
   - Parser.
   - Compiler.
   - Bytecode.
@@ -221,25 +222,35 @@ Delivered:
 
 M3 is complete.
 
-### Current Step: M4.1 Implement lexer for tokens and literals
+### Completed Step: M4.1 Implement lexer for tokens and literals
 
-Expected deliverables:
+Delivered:
 
 - Keywords, identifiers, punctuation, and operators.
 - Integer, float, and string literal tokenization.
 - Comments and whitespace handling.
 - Error diagnostics for invalid tokens.
 
+### Current Step: M4.2 Implement expression parser
+
+Expected deliverables:
+
+- Operator precedence.
+- Unary and binary operators.
+- Function call expressions.
+- Table constructors.
+- Vararg expression.
+
 Recommended verification:
 
 ```bash
-cargo test -p elara-syntax lexer
+cargo test -p elara-syntax expr
 ```
 
 Recommended commit:
 
 ```text
-feat(syntax): add lua lexer
+feat(syntax): parse lua expressions
 ```
 
 ## Completed Content
@@ -276,12 +287,13 @@ feat(syntax): add lua lexer
 - Table array storage is available in `elara-core`.
 - Table hash storage and numeric key canonicalization are available.
 - Table metatable metadata, meta flags, and structural versioning are available.
+- Lua tokenization with spans and lexical diagnostics is available in `elara-syntax`.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M4
 
-- Add lexer tokens and literals.
+- Add expression AST and parser.
 
 ### Product Gaps
 
@@ -301,27 +313,27 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M3.4 verification passed:
+M4.1 verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy -p elara-core --all-targets -- -D warnings
-cargo test -p elara-core table_meta
+cargo clippy -p elara-syntax --all-targets -- -D warnings
+cargo test -p elara-syntax lexer
 ```
 
 ## Next Recommended Action
 
-Implement M4.1 from `docs/MILESTONES.md`:
+Implement M4.2 from `docs/MILESTONES.md`:
 
-1. Add lexer token kinds and token structs.
-2. Tokenize keywords, identifiers, punctuation, operators, literals, comments, and whitespace.
-3. Emit diagnostics for invalid tokens.
-4. Run `cargo test -p elara-syntax lexer`.
+1. Add expression AST nodes with spans.
+2. Implement precedence parsing for unary and binary operators.
+3. Parse function calls, table constructors, and vararg expressions.
+4. Run `cargo test -p elara-syntax expr`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-feat(syntax): add lua lexer
+feat(syntax): parse lua expressions
 ```
 
 ## Current Risk Notes
@@ -357,6 +369,7 @@ feat(syntax): add lua lexer
 | Table array | Complete | Raw 1-based array get/set and nil clearing are implemented. |
 | Table hash | Complete | Hash storage and numeric key canonicalization are implemented. |
 | Table metadata | Complete | Metatable pointer, meta flags, and structural versioning are implemented. |
+| Lexer | Complete | Lua 5.5 tokens, literals, comments, and lexical diagnostics are implemented. |
 | Parser | Not started | Current milestone. |
 | Compiler | Not started | Starts M5. |
 | Interpreter | Not started | Starts M6. |
