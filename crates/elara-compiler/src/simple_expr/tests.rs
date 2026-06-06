@@ -110,6 +110,18 @@ fn generic_for_compiles_iterator_protocol() {
 }
 
 #[test]
+fn table_constructor_compiles_array_record_and_keyed_fields() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "return { 1, named = 2, [3] = 4 }");
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 NEW_TABLE     A=0 B=1 C=2\n0001 LOAD_K        A=1 Bx=0 ; 1\n0002 LOAD_K        A=2 Bx=1 ; 1\n0003 SET_TABLE     A=0 B=1 C=2\n0004 LOAD_STRING   A=3 Bx=0 ; \"named\"\n0005 LOAD_K        A=4 Bx=2 ; 2\n0006 SET_TABLE     A=0 B=3 C=4\n0007 LOAD_K        A=5 Bx=3 ; 3\n0008 LOAD_K        A=6 Bx=4 ; 4\n0009 SET_TABLE     A=0 B=5 C=6\n0010 RETURN        A=0 B=1 C=0\n",
+    );
+}
+
+#[test]
 fn locals_compile_local_return() {
     let compiled = compile_simple_chunk(SourceId::new(0), "local x = 1 + 2\nreturn x");
     assert_eq!(compiled.diagnostics, Vec::new());

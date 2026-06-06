@@ -7,6 +7,9 @@ use crate::Instr;
 /// Index into a prototype constant pool.
 pub type ConstantIndex = u32;
 
+/// Index into a prototype string constant pool.
+pub type StringIndex = u32;
+
 /// Index into a prototype upvalue list.
 pub type UpvalueIndex = u16;
 
@@ -20,6 +23,8 @@ pub struct Proto {
     pub code: Box<[Instr]>,
     /// Constant pool.
     pub constants: Box<[Value]>,
+    /// String constant pool.
+    pub string_constants: Box<[Box<[u8]>]>,
     /// Upvalue descriptors.
     pub upvalues: Box<[UpvalueDesc]>,
     /// Nested function prototypes.
@@ -49,6 +54,7 @@ impl Proto {
         Self {
             code: code.into(),
             constants: constants.into(),
+            string_constants: Box::new([]),
             upvalues: upvalues.into(),
             children: Box::new([]),
             max_stack,
@@ -62,6 +68,13 @@ impl Proto {
     #[must_use]
     pub fn with_children(mut self, children: impl Into<Box<[Proto]>>) -> Self {
         self.children = children.into();
+        self
+    }
+
+    /// Replaces string constants.
+    #[must_use]
+    pub fn with_string_constants(mut self, strings: impl Into<Box<[Box<[u8]>]>>) -> Self {
+        self.string_constants = strings.into();
         self
     }
 
@@ -145,6 +158,7 @@ mod tests {
         assert_eq!(proto.len(), 2);
         assert!(!proto.is_empty());
         assert_eq!(proto.constants[0], Value::integer(42));
+        assert!(proto.string_constants.is_empty());
         assert_eq!(proto.upvalues[0].name.as_deref(), Some("env"));
         assert!(proto.children.is_empty());
         assert_eq!(proto.max_stack, 2);

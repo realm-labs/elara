@@ -309,6 +309,53 @@ fn generic_for_skips_body_on_nil_iterator_result() {
 }
 
 #[test]
+fn table_constructor_executes_array_record_and_keyed_fields() {
+    let mut builder = ProtoBuilder::new().with_signature(7, 0, false);
+    let one = builder.add_constant(Value::integer(1));
+    let two = builder.add_constant(Value::integer(2));
+    let three = builder.add_constant(Value::integer(3));
+    let four = builder.add_constant(Value::integer(4));
+    let name = builder.add_string_constant("named");
+    builder.emit_abc(Op::NewTable, 0, 1, 2);
+    builder.emit_abx(Op::LoadK, 1, u64::from(one));
+    builder.emit_abx(Op::LoadK, 2, u64::from(two));
+    builder.emit_abc(Op::SetTable, 0, 1, 2);
+    builder.emit_abx(Op::LoadString, 3, u64::from(name));
+    builder.emit_abx(Op::LoadK, 4, u64::from(three));
+    builder.emit_abc(Op::SetTable, 0, 3, 4);
+    builder.emit_abc(Op::LoadBool, 5, 1, 0);
+    builder.emit_abx(Op::LoadK, 6, u64::from(four));
+    builder.emit_abc(Op::SetTable, 0, 5, 6);
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    let mut output = execute_proto_with_output(&builder.finish()).expect("execution should pass");
+    let table_index = output.values[0]
+        .as_table_index()
+        .expect("expected table placeholder");
+    let name_key = output.strings.intern_short_value("named");
+    let table = &output.tables[table_index as usize];
+
+    assert_eq!(table.raw_get_integer(1), Value::integer(2));
+    assert_eq!(table.raw_get_value(name_key), Value::integer(3));
+    assert_eq!(table.raw_get_value(Value::boolean(true)), Value::integer(4));
+}
+
+#[test]
+fn table_constructor_rejects_nil_key() {
+    let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+    let value = builder.add_constant(Value::integer(1));
+    builder.emit_abc(Op::NewTable, 0, 0, 1);
+    builder.emit_abc(Op::LoadNil, 1, 0, 0);
+    builder.emit_abx(Op::LoadK, 2, u64::from(value));
+    builder.emit_abc(Op::SetTable, 0, 1, 2);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Err(RuntimeError::InvalidTableKey)
+    );
+}
+
+#[test]
 fn varargs_pass_call_arguments_to_child_proto() {
     let mut child_builder = ProtoBuilder::new().with_signature(1, 0, true);
     child_builder.emit_abc(Op::Vararg, 0, 1, 0);

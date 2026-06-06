@@ -1,7 +1,7 @@
 //! Control-flow lowering for the simple compiler.
 
 use elara_bytecode::Op;
-use elara_core::Diagnostic;
+use elara_core::{Diagnostic, Span};
 use elara_syntax::{Block, Expr, IfClause};
 
 use super::SimpleCompiler;
@@ -132,7 +132,7 @@ impl SimpleCompiler {
         self.restore_locals(previous_locals);
     }
 
-    pub(super) fn compile_break(&mut self, span: elara_core::Span) {
+    pub(super) fn compile_break(&mut self, span: Span) {
         let jump = self.emit_jump_placeholder();
         if let Some(loop_breaks) = self.loop_breaks.last_mut() {
             loop_breaks.push(jump);

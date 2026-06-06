@@ -57,6 +57,13 @@ pub enum VerifyErrorKind {
         /// Upvalue descriptor count.
         upvalues: usize,
     },
+    /// String index is outside the string constant pool.
+    StringOutOfBounds {
+        /// String constant index.
+        string: u64,
+        /// String constant count.
+        strings: usize,
+    },
     /// Jump target does not land on an instruction boundary.
     JumpOutOfBounds {
         /// Computed target offset.
@@ -108,6 +115,10 @@ impl Verifier<'_> {
             Op::Closure => {
                 self.check_register(offset, instr.a());
                 self.check_child(offset, instr.bx());
+            }
+            Op::LoadString => {
+                self.check_register(offset, instr.a());
+                self.check_string(offset, instr.bx());
             }
             Op::LoadK | Op::DeclGlobal => {
                 self.check_register(offset, instr.a());
@@ -192,6 +203,18 @@ impl Verifier<'_> {
                 kind: VerifyErrorKind::ConstantOutOfBounds {
                     constant,
                     constants: self.proto.constants.len(),
+                },
+            });
+        }
+    }
+
+    fn check_string(&mut self, offset: usize, string: u64) {
+        if string >= self.proto.string_constants.len() as u64 {
+            self.errors.push(VerifyError {
+                offset,
+                kind: VerifyErrorKind::StringOutOfBounds {
+                    string,
+                    strings: self.proto.string_constants.len(),
                 },
             });
         }
@@ -313,6 +336,21 @@ mod tests {
             VerifyErrorKind::ConstantOutOfBounds {
                 constant: 0,
                 constants: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn verifier_rejects_out_of_bounds_string_constants() {
+        let mut builder = ProtoBuilder::new().with_signature(1, 0, false);
+        builder.emit_abx(Op::LoadString, 0, 0);
+        let errors = verify_proto(&builder.finish()).unwrap_err();
+
+        assert_eq!(
+            errors[0].kind,
+            VerifyErrorKind::StringOutOfBounds {
+                string: 0,
+                strings: 0,
             }
         );
     }

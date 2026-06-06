@@ -128,6 +128,8 @@ pub enum Op {
     Close,
     /// Mark to-be-closed range.
     Tbc,
+    /// Load a string constant.
+    LoadString,
 }
 
 impl Op {
@@ -185,6 +187,7 @@ impl Op {
             47 => Some(Self::Closure),
             48 => Some(Self::Close),
             49 => Some(Self::Tbc),
+            50 => Some(Self::LoadString),
             _ => None,
         }
     }
@@ -243,6 +246,7 @@ impl Op {
             Self::Closure => "CLOSURE",
             Self::Close => "CLOSE",
             Self::Tbc => "TBC",
+            Self::LoadString => "LOAD_STRING",
         }
     }
 }
@@ -350,7 +354,8 @@ mod tests {
         assert_eq!(Op::from_byte(0), Some(Op::Move));
         assert_eq!(Op::from_byte(44), Some(Op::Return));
         assert_eq!(Op::from_byte(49), Some(Op::Tbc));
-        assert_eq!(Op::from_byte(50), None);
+        assert_eq!(Op::from_byte(50), Some(Op::LoadString));
+        assert_eq!(Op::from_byte(51), None);
     }
 
     #[test]

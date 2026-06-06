@@ -3,7 +3,10 @@
 use elara_bytecode::Instr;
 use elara_core::{LuaFloat, LuaInteger, LuaThread, Table, Value};
 
-use super::{RuntimeClosure, RuntimeError, RuntimeResult, call_closure, register, set_register};
+use super::{
+    RuntimeClosure, RuntimeError, RuntimeResult, RuntimeStrings, call_closure, register,
+    set_register,
+};
 
 pub(super) fn prepare_numeric_for(thread: &mut LuaThread, instr: Instr) -> RuntimeResult<bool> {
     let base = usize::from(instr.a());
@@ -155,6 +158,7 @@ pub(super) fn execute_generic_for_call(
     closures: &mut Vec<RuntimeClosure>,
     instr: Instr,
     tables: &mut Vec<Table>,
+    strings: &mut RuntimeStrings,
 ) -> RuntimeResult<()> {
     let base = usize::from(instr.a());
     let iterator = register(thread, base)?
@@ -162,7 +166,7 @@ pub(super) fn execute_generic_for_call(
         .ok_or(RuntimeError::NonCallableValue)? as usize;
     let state = register(thread, base + 1)?;
     let control = register(thread, base + 2)?;
-    let returns = call_closure(closures, iterator, &[state, control], tables)?;
+    let returns = call_closure(closures, iterator, &[state, control], tables, strings)?;
 
     for index in 0..instr.c() as usize {
         let value = returns.get(index).copied().unwrap_or_else(Value::nil);

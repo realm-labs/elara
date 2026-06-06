@@ -2,13 +2,14 @@
 
 use elara_core::Value;
 
-use crate::{ConstantIndex, DebugInfo, Instr, Op, Proto, UpvalueDesc, UpvalueIndex};
+use crate::{ConstantIndex, DebugInfo, Instr, Op, Proto, StringIndex, UpvalueDesc, UpvalueIndex};
 
 /// Incremental builder for a function prototype.
 #[derive(Debug, Default)]
 pub struct ProtoBuilder {
     code: Vec<Instr>,
     constants: Vec<Value>,
+    string_constants: Vec<Box<[u8]>>,
     upvalues: Vec<UpvalueDesc>,
     children: Vec<Proto>,
     line_info: Vec<u32>,
@@ -46,6 +47,14 @@ impl ProtoBuilder {
         let index = ConstantIndex::try_from(self.constants.len())
             .expect("constant pool index must fit in u32");
         self.constants.push(value);
+        index
+    }
+
+    /// Adds a string constant and returns its pool index.
+    pub fn add_string_constant(&mut self, value: impl AsRef<[u8]>) -> StringIndex {
+        let index = StringIndex::try_from(self.string_constants.len())
+            .expect("string constant pool index must fit in u32");
+        self.string_constants.push(value.as_ref().into());
         index
     }
 
@@ -123,5 +132,6 @@ impl ProtoBuilder {
             },
         )
         .with_children(self.children)
+        .with_string_constants(self.string_constants)
     }
 }

@@ -3,10 +3,10 @@
 use std::collections::HashMap;
 
 use elara_bytecode::{MAX_B, Op, Proto, ProtoBuilder, UpvalueDesc, verify_proto};
-use elara_core::{Diagnostic, SourceId, Value};
+use elara_core::{Diagnostic, SHORT_STRING_MAX_BYTES, SourceId, Span, Value};
 use elara_syntax::{
-    BinaryOp, Expr, ExprKind, FunctionBody, FunctionScope, NameDecl, Param, StmtKind, UnaryOp,
-    parse_chunk,
+    BinaryOp, Expr, ExprKind, FunctionBody, FunctionScope, NameDecl, Param, StmtKind, TableField,
+    TableFieldKind, UnaryOp, parse_chunk,
 };
 
 mod control;
@@ -112,7 +112,7 @@ impl SimpleCompiler {
 
     fn compile_function(
         &mut self,
-        span: elara_core::Span,
+        span: Span,
         _scope: FunctionScope,
         name: &str,
         body: &FunctionBody<'_>,
@@ -159,12 +159,7 @@ impl SimpleCompiler {
             .emit_abc(Op::Return, start, registers.len() as u32, 0);
     }
 
-    fn compile_local(
-        &mut self,
-        span: elara_core::Span,
-        names: &[NameDecl<'_>],
-        values: &[Expr<'_>],
-    ) {
+    fn compile_local(&mut self, span: Span, names: &[NameDecl<'_>], values: &[Expr<'_>]) {
         let value_registers = self.compile_expression_list(values);
         for (index, name) in names.iter().enumerate() {
             let register = self.alloc_register();
@@ -182,12 +177,7 @@ impl SimpleCompiler {
         }
     }
 
-    fn compile_assignment(
-        &mut self,
-        span: elara_core::Span,
-        targets: &[Expr<'_>],
-        values: &[Expr<'_>],
-    ) {
+    fn compile_assignment(&mut self, span: Span, targets: &[Expr<'_>], values: &[Expr<'_>]) {
         let value_registers = self.compile_expression_list(values);
         for (index, target) in targets.iter().enumerate() {
             let Some(register) = self.target_register(target) else {
@@ -250,9 +240,11 @@ impl SimpleCompiler {
             }
             ExprKind::Integer(text) => self.compile_integer(expr, text),
             ExprKind::Float(text) => self.compile_float(expr, text),
+            ExprKind::String(text) => self.compile_string_literal(expr, text),
             ExprKind::Name(name) => self.local_register(expr, name),
             ExprKind::Vararg => self.compile_vararg(expr),
             ExprKind::Call { callee, args, .. } => self.compile_call(expr, callee, args),
+            ExprKind::Table(fields) => self.compile_table_constructor(fields),
             ExprKind::Grouped(expr) => self.compile_expr(expr),
             ExprKind::Unary { op, expr } => self.compile_unary(expr, *op),
             ExprKind::Binary { op, left, right } => self.compile_binary(expr, *op, left, right),
@@ -303,11 +295,71 @@ impl SimpleCompiler {
         }
     }
 
+    fn compile_string_literal(&mut self, expr: &Expr<'_>, text: &str) -> u16 {
+        let Some(bytes) = string_literal_bytes(text) else {
+            self.diagnostics.push(
+                Diagnostic::error("unsupported string literal in simple expression compiler")
+                    .with_primary_span(expr.span()),
+            );
+            return self.alloc_register();
+        };
+        self.emit_string_constant(expr.span(), bytes)
+    }
+
+    fn compile_table_constructor(&mut self, fields: &[TableField<'_>]) -> u16 {
+        let table = self.alloc_register();
+        let array_count = fields
+            .iter()
+            .filter(|field| matches!(field.kind(), TableFieldKind::Array(_)))
+            .count();
+        let hash_count = fields.len().saturating_sub(array_count);
+        self.builder
+            .emit_abc(Op::NewTable, table, array_count as u32, hash_count as u32);
+
+        let mut array_index = 1_i64;
+        for field in fields {
+            let (key, value) = match field.kind() {
+                TableFieldKind::Array(value) => {
+                    let key = self.emit_constant(Value::integer(array_index));
+                    array_index += 1;
+                    (key, self.compile_expr(value))
+                }
+                TableFieldKind::Named { name, value } => {
+                    let key = self.emit_string_constant(field.span(), name.as_bytes());
+                    (key, self.compile_expr(value))
+                }
+                TableFieldKind::Keyed { key, value } => {
+                    (self.compile_expr(key), self.compile_expr(value))
+                }
+            };
+            self.builder
+                .emit_abc(Op::SetTable, table, u32::from(key), u32::from(value));
+        }
+
+        table
+    }
+
     fn emit_constant(&mut self, value: Value) -> u16 {
         let register = self.alloc_register();
         let constant = self.builder.add_constant(value);
         self.builder
             .emit_abx(Op::LoadK, register, u64::from(constant));
+        register
+    }
+
+    fn emit_string_constant(&mut self, span: Span, bytes: &[u8]) -> u16 {
+        let register = self.alloc_register();
+        if bytes.len() > SHORT_STRING_MAX_BYTES {
+            self.diagnostics.push(
+                Diagnostic::error("string literal exceeds current short-string support")
+                    .with_primary_span(span),
+            );
+            return register;
+        }
+
+        let constant = self.builder.add_string_constant(bytes);
+        self.builder
+            .emit_abx(Op::LoadString, register, u64::from(constant));
         register
     }
 
@@ -514,6 +566,19 @@ impl SimpleCompiler {
             diagnostics: Vec::new(),
         }
     }
+}
+
+fn string_literal_bytes(text: &str) -> Option<&[u8]> {
+    let bytes = text.as_bytes();
+    let quote = *bytes.first()?;
+    if !matches!(quote, b'\'' | b'"') || bytes.last().copied() != Some(quote) {
+        return None;
+    }
+    let inner = &bytes[1..bytes.len().checked_sub(1)?];
+    if inner.contains(&b'\\') {
+        return None;
+    }
+    Some(inner)
 }
 
 #[cfg(test)]

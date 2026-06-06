@@ -133,6 +133,15 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_returns_table_constructor() {
+        let values = eval_simple_source(SourceId::new(0), "return { 1, named = 2, [3] = 4 }")
+            .expect("eval should pass");
+
+        assert_eq!(values.len(), 1);
+        assert!(values[0].is_table());
+    }
+
+    #[test]
     fn eval_simple_reports_compile_diagnostics() {
         let error = eval_simple_source(SourceId::new(0), "x = 1").unwrap_err();
 

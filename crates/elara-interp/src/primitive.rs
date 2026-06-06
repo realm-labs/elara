@@ -1,7 +1,7 @@
 //! Primitive bytecode execution.
 
 use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
-use elara_core::{LuaFloat, LuaInteger, LuaThread, Table, Value};
+use elara_core::{GcArena, LuaFloat, LuaInteger, LuaThread, StringInterner, Table, Value};
 
 mod loops;
 
@@ -14,12 +14,33 @@ use loops::{
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
 
 /// Values and temporary runtime-owned tables produced by primitive execution.
-#[derive(Debug)]
 pub struct RuntimeOutput {
     /// Returned Lua values.
     pub values: Vec<Value>,
     /// Runtime table storage referenced by table placeholder values.
     pub tables: Vec<Table>,
+    /// Runtime string storage referenced by string values.
+    pub strings: RuntimeStrings,
+}
+
+/// Runtime-owned string storage for primitive execution output.
+#[derive(Default)]
+pub struct RuntimeStrings {
+    arena: GcArena,
+    interner: StringInterner,
+}
+
+impl RuntimeStrings {
+    /// Creates empty runtime string storage.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Interns a short string and returns it as a Lua value.
+    pub fn intern_short_value(&mut self, bytes: impl AsRef<[u8]>) -> Value {
+        Value::short_string(self.interner.intern_short(&mut self.arena, bytes))
+    }
 }
 
 /// Primitive interpreter runtime error.
@@ -31,8 +52,14 @@ pub enum RuntimeError {
     ConstantOutOfBounds { index: usize },
     /// Instruction tried to access an invalid register.
     RegisterOutOfBounds { register: usize },
+    /// Instruction tried to access an invalid string constant.
+    StringOutOfBounds { index: usize },
     /// Arithmetic operand was not numeric.
     NonNumericOperand { op: Op },
+    /// Table operation received a non-table receiver.
+    NonTableValue,
+    /// Table write used an invalid Lua key.
+    InvalidTableKey,
     /// Call operand was not callable.
     NonCallableValue,
     /// Closure referenced a missing child prototype.
@@ -61,8 +88,14 @@ pub fn execute_proto_with_output(proto: &Proto) -> RuntimeResult<RuntimeOutput> 
     verify_proto(proto).map_err(RuntimeError::Verification)?;
     let mut closures = Vec::new();
     let mut tables = Vec::new();
-    let values = execute_proto_with_upvalues(proto, &[], &[], &mut closures, &mut tables)?;
-    Ok(RuntimeOutput { values, tables })
+    let mut strings = RuntimeStrings::new();
+    let values =
+        execute_proto_with_upvalues(proto, &[], &[], &mut closures, &mut tables, &mut strings)?;
+    Ok(RuntimeOutput {
+        values,
+        tables,
+        strings,
+    })
 }
 
 fn execute_proto_with_upvalues(
@@ -71,6 +104,7 @@ fn execute_proto_with_upvalues(
     varargs: &[Value],
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut Vec<Table>,
+    strings: &mut RuntimeStrings,
 ) -> RuntimeResult<Vec<Value>> {
     let mut thread = LuaThread::new();
     for _ in 0..proto.max_stack {
@@ -118,6 +152,17 @@ fn execute_proto_with_upvalues(
                 )?;
                 set_register(&mut thread, instr.a().into(), constant)?;
             }
+            Op::LoadString => {
+                let string = proto.string_constants.get(instr.bx() as usize).ok_or(
+                    RuntimeError::StringOutOfBounds {
+                        index: instr.bx() as usize,
+                    },
+                )?;
+                let value = strings.intern_short_value(string);
+                set_register(&mut thread, instr.a().into(), value)?;
+            }
+            Op::NewTable => execute_new_table(&mut thread, instr, tables)?,
+            Op::SetTable => execute_set_table(&mut thread, instr, tables)?,
             Op::GetUpvalue => {
                 let value = upvalues.get(instr.b() as usize).copied().ok_or(
                     RuntimeError::UpvalueOutOfBounds {
@@ -161,7 +206,9 @@ fn execute_proto_with_upvalues(
                 }
             }
             Op::TForPrep => pc = jump_target(pc, instr)?,
-            Op::TForCall => execute_generic_for_call(&mut thread, closures, instr, tables)?,
+            Op::TForCall => {
+                execute_generic_for_call(&mut thread, closures, instr, tables, strings)?;
+            }
             Op::TForLoop => {
                 if execute_generic_for_loop(&mut thread, instr)? {
                     pc = jump_target(pc, instr)?;
@@ -180,7 +227,7 @@ fn execute_proto_with_upvalues(
             }
             Op::VarargTable => execute_vararg_table(&mut thread, instr, varargs, tables)?,
             Op::Call => {
-                if let Some(top) = execute_call(&mut thread, closures, instr, tables)? {
+                if let Some(top) = execute_call(&mut thread, closures, instr, tables, strings)? {
                     dynamic_top = top;
                 }
             }
@@ -282,18 +329,49 @@ fn execute_vararg_table(
     set_register(thread, instr.a().into(), Value::table_index(table_index))
 }
 
+fn execute_new_table(
+    thread: &mut LuaThread,
+    instr: Instr,
+    tables: &mut Vec<Table>,
+) -> RuntimeResult<()> {
+    let table_index = u32::try_from(tables.len()).expect("runtime table index must fit in u32");
+    tables.push(Table::new());
+    set_register(thread, instr.a().into(), Value::table_index(table_index))
+}
+
+fn execute_set_table(
+    thread: &mut LuaThread,
+    instr: Instr,
+    tables: &mut [Table],
+) -> RuntimeResult<()> {
+    let table_index = register(thread, instr.a().into())?
+        .as_table_index()
+        .ok_or(RuntimeError::NonTableValue)? as usize;
+    let key = register(thread, instr.b() as usize)?;
+    let value = register(thread, instr.c() as usize)?;
+    let table = tables
+        .get_mut(table_index)
+        .ok_or(RuntimeError::NonTableValue)?;
+    if table.raw_set_value(key, value) {
+        Ok(())
+    } else {
+        Err(RuntimeError::InvalidTableKey)
+    }
+}
+
 fn execute_call(
     thread: &mut LuaThread,
     closures: &mut Vec<RuntimeClosure>,
     instr: Instr,
     tables: &mut Vec<Table>,
+    strings: &mut RuntimeStrings,
 ) -> RuntimeResult<Option<usize>> {
     let callee = register(thread, instr.a().into())?;
     let closure_index = callee
         .as_closure_index()
         .ok_or(RuntimeError::NonCallableValue)? as usize;
     let args = collect_call_args(thread, instr)?;
-    let returns = call_closure(closures, closure_index, &args, tables)?;
+    let returns = call_closure(closures, closure_index, &args, tables, strings)?;
 
     let base = usize::from(instr.a());
     let count = if instr.c() == 0 {
@@ -315,12 +393,20 @@ fn call_closure(
     closure_index: usize,
     args: &[Value],
     tables: &mut Vec<Table>,
+    strings: &mut RuntimeStrings,
 ) -> RuntimeResult<Vec<Value>> {
     let closure = closures
         .get(closure_index)
         .cloned()
         .ok_or(RuntimeError::NonCallableValue)?;
-    execute_proto_with_upvalues(&closure.proto, &closure.upvalues, args, closures, tables)
+    execute_proto_with_upvalues(
+        &closure.proto,
+        &closure.upvalues,
+        args,
+        closures,
+        tables,
+        strings,
+    )
 }
 
 fn collect_call_args(thread: &LuaThread, instr: Instr) -> RuntimeResult<Vec<Value>> {

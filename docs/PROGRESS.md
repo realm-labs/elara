@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M9 Tables, Metamethods, and Globals
-Current step: M9.1 Compile and execute table constructors
+Current step: M9.2 Implement table get/set bytecode
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -34,8 +34,10 @@ runtime closure storage. Conditional branches compile and execute through
 `TEST`/`JMP` bytecode. `while`, `repeat`, and `break` compile and execute
 through branch bytecode. Numeric for loops compile and execute for integer and
 float control values with positive and negative steps. Generic for loops compile
-and execute through the iterator-call protocol. Table constructors, full API,
-JIT, C API, conformance, and benchmark implementation work has not started.
+and execute through the iterator-call protocol. Table constructors compile and
+execute with array, record, and keyed fields. General table access, globals,
+metamethods, full API, JIT, C API, conformance, and benchmark implementation
+work has not started.
 
 Current state:
 
@@ -81,9 +83,10 @@ Completed:
   - M8.3 Implement numeric for loops.
   - M8.4 Implement generic for loops.
   - M8 exit criteria validation.
+  - M9.1 Compile and execute table constructors.
 
 In progress:
-  - M9.1 Compile and execute table constructors.
+  - M9.2 Implement table get/set bytecode.
   - Standard library.
   - Rust API.
   - JIT.
@@ -474,6 +477,19 @@ Delivered:
 
 M8 is complete.
 
+### Completed Step: M9.1 Compile and execute table constructors
+
+Delivered:
+
+- Bytecode prototypes carry string constants for record-field keys.
+- The simple compiler lowers table constructors to `NEW_TABLE` and `SET_TABLE`.
+- Array fields use consecutive integer keys starting at 1.
+- Named fields use interned short-string keys.
+- Keyed fields compile and write their explicit key expressions.
+- The primitive interpreter executes `NEW_TABLE`, `LOAD_STRING`, and
+  constructor `SET_TABLE` writes into runtime-owned table storage.
+- Source eval can return table constructor values.
+
 ## Completed Content
 
 ### Planning Decisions
@@ -529,18 +545,18 @@ M8 is complete.
 - `while`, `repeat`, and `break` work through the compiler/interpreter/API path.
 - Numeric `for` loops work through the compiler/interpreter/API path.
 - Generic `for` loops work through the compiler/interpreter/API path.
+- Table constructors work through the compiler/interpreter/API path.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M9
 
-- Implement M9.1 table constructors.
+- Implement M9.2 table get/set bytecode.
 
 ### Product Gaps
 
 Major implementation work is still pending:
 
-- Table constructors.
 - Table get/set bytecode execution.
 - Global declaration behavior.
 - Metamethod dispatch.
@@ -554,21 +570,22 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M8.4 generic-for verification passed:
+M9.1 table-constructor verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-bytecode generic_for
-cargo test -p elara-compiler generic_for
-cargo test -p elara-interp generic_for
-cargo test -p elara-api generic_for
+cargo test -p elara-bytecode op_decodes
+cargo test -p elara-bytecode string_constants
+cargo test -p elara-compiler table_constructor
+cargo test -p elara-interp table_constructor
+cargo test -p elara-api table_constructor
 cargo clippy -p elara-bytecode -p elara-compiler -p elara-interp -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Implement M9.1 table constructors from `docs/MILESTONES.md`, then inspect the
-relevant Lua 5.5 parser/compiler/VM/table source, run focused table constructor
+Implement M9.2 table get/set bytecode from `docs/MILESTONES.md`, then inspect
+the relevant Lua 5.5 parser/compiler/VM/table source, run focused table access
 tests, and update this progress document.
 
 ## Current Risk Notes
@@ -614,7 +631,7 @@ tests, and update this progress document.
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
-| Tables/globals/metamethods | In progress | Table storage exists; table constructors are next. |
+| Tables/globals/metamethods | In progress | Table constructors execute; table access bytecode is next. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |
