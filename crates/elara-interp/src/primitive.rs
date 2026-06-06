@@ -199,9 +199,12 @@ fn execute_call(
     let args = collect_call_args(thread, instr)?;
     let returns = execute_proto_with_upvalues(child, &closure.upvalues, &args)?;
 
-    if instr.c() != 0 {
-        let value = returns.first().copied().unwrap_or_else(Value::nil);
-        set_register(thread, instr.a().into(), value)?;
+    for index in 0..instr.c() {
+        let value = returns
+            .get(index as usize)
+            .copied()
+            .unwrap_or_else(Value::nil);
+        set_register(thread, usize::from(instr.a()) + index as usize, value)?;
     }
 
     Ok(())
@@ -438,6 +441,29 @@ mod tests {
         assert_eq!(
             execute_proto(&parent.finish()),
             Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
+    fn varargs_return_multiple_requested_results() {
+        let mut child_builder = ProtoBuilder::new().with_signature(2, 0, true);
+        child_builder.emit_abc(Op::Vararg, 0, 2, 0);
+        child_builder.emit_abc(Op::Return, 0, 2, 0);
+        let child = child_builder.finish();
+
+        let mut parent = ProtoBuilder::new().with_signature(3, 0, false);
+        let first = parent.add_constant(Value::integer(42));
+        let second = parent.add_constant(Value::integer(99));
+        let child_index = parent.add_child(child);
+        parent.emit_abx(Op::Closure, 0, u64::from(child_index));
+        parent.emit_abx(Op::LoadK, 1, u64::from(first));
+        parent.emit_abx(Op::LoadK, 2, u64::from(second));
+        parent.emit_abc(Op::Call, 0, 3, 2);
+        parent.emit_abc(Op::Return, 0, 2, 0);
+
+        assert_eq!(
+            execute_proto(&parent.finish()),
+            Ok(vec![Value::integer(42), Value::integer(99)])
         );
     }
 }
