@@ -45,6 +45,10 @@ version = "0.1.0"
 [[package]]
 name = "elara-interp"
 version = "0.1.0"
+dependencies = [
+ "elara-bytecode",
+ "elara-core",
+]
 
 [[package]]
 name = "elara-jit"

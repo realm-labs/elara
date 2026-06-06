@@ -5,6 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+elara-bytecode.workspace = true
+elara-core.workspace = true
 
 [lints]
 workspace = true

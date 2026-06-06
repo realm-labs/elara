@@ -1,0 +1,225 @@
+//! Primitive bytecode execution.
+
+use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
+use elara_core::{LuaFloat, LuaInteger, LuaThread, Value};
+
+/// Result of executing one prototype.
+pub type RuntimeResult<T> = Result<T, RuntimeError>;
+
+/// Primitive interpreter runtime error.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RuntimeError {
+    /// Bytecode verifier rejected the prototype.
+    Verification(Vec<VerifyError>),
+    /// Instruction tried to read an invalid constant.
+    ConstantOutOfBounds { index: usize },
+    /// Instruction tried to access an invalid register.
+    RegisterOutOfBounds { register: usize },
+    /// Arithmetic operand was not numeric.
+    NonNumericOperand { op: Op },
+    /// Opcode is not supported by the primitive interpreter.
+    UnsupportedOpcode { op: Op },
+}
+
+/// Executes a verified prototype and returns the first return values.
+pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
+    verify_proto(proto).map_err(RuntimeError::Verification)?;
+
+    let mut thread = LuaThread::new();
+    for _ in 0..proto.max_stack {
+        thread.push_value(Value::nil());
+    }
+
+    let mut pc = 0;
+    while pc < proto.code.len() {
+        let instr = proto.code[pc];
+        pc += 1;
+
+        match instr.op() {
+            Op::LoadNil => set_register(&mut thread, instr.a().into(), Value::nil())?,
+            Op::LoadBool => {
+                set_register(
+                    &mut thread,
+                    instr.a().into(),
+                    Value::boolean(instr.b() != 0),
+                )?;
+            }
+            Op::LoadInt => {
+                set_register(
+                    &mut thread,
+                    instr.a().into(),
+                    Value::integer(LuaInteger::from(instr.b())),
+                )?;
+            }
+            Op::LoadFloat => {
+                set_register(
+                    &mut thread,
+                    instr.a().into(),
+                    Value::float(LuaFloat::from(instr.b())),
+                )?;
+            }
+            Op::LoadK => {
+                let constant = proto.constants.get(instr.bx() as usize).copied().ok_or(
+                    RuntimeError::ConstantOutOfBounds {
+                        index: instr.bx() as usize,
+                    },
+                )?;
+                set_register(&mut thread, instr.a().into(), constant)?;
+            }
+            Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
+                execute_arithmetic(&mut thread, instr)?
+            }
+            Op::Return => return collect_returns(&thread, instr),
+            op => return Err(RuntimeError::UnsupportedOpcode { op }),
+        }
+    }
+
+    Ok(Vec::new())
+}
+
+fn execute_arithmetic(thread: &mut LuaThread, instr: Instr) -> RuntimeResult<()> {
+    let op = instr.op();
+    if op == Op::Unm {
+        let value = register(thread, instr.b() as usize)?;
+        let result = negate(value).ok_or(RuntimeError::NonNumericOperand { op })?;
+        return set_register(thread, instr.a().into(), result);
+    }
+
+    let left = register(thread, instr.b() as usize)?;
+    let right = register(thread, instr.c() as usize)?;
+    let result =
+        binary_arithmetic(op, left, right).ok_or(RuntimeError::NonNumericOperand { op })?;
+    set_register(thread, instr.a().into(), result)
+}
+
+fn binary_arithmetic(op: Op, left: Value, right: Value) -> Option<Value> {
+    match (left.as_integer(), right.as_integer()) {
+        (Some(left), Some(right)) => integer_arithmetic(op, left, right),
+        _ => float_arithmetic(op, left.to_float()?, right.to_float()?),
+    }
+}
+
+fn integer_arithmetic(op: Op, left: LuaInteger, right: LuaInteger) -> Option<Value> {
+    match op {
+        Op::Add => left.checked_add(right).map(Value::integer),
+        Op::Sub => left.checked_sub(right).map(Value::integer),
+        Op::Mul => left.checked_mul(right).map(Value::integer),
+        Op::IDiv => (right != 0).then(|| Value::integer(left.div_euclid(right))),
+        Op::Mod => (right != 0).then(|| Value::integer(left.rem_euclid(right))),
+        Op::Div | Op::Pow => float_arithmetic(op, left as LuaFloat, right as LuaFloat),
+        _ => None,
+    }
+}
+
+fn float_arithmetic(op: Op, left: LuaFloat, right: LuaFloat) -> Option<Value> {
+    let value = match op {
+        Op::Add => left + right,
+        Op::Sub => left - right,
+        Op::Mul => left * right,
+        Op::Div => left / right,
+        Op::IDiv => (left / right).floor(),
+        Op::Mod => left - (left / right).floor() * right,
+        Op::Pow => left.powf(right),
+        _ => return None,
+    };
+    Some(Value::float(value))
+}
+
+fn negate(value: Value) -> Option<Value> {
+    if let Some(value) = value.as_integer() {
+        return value.checked_neg().map(Value::integer);
+    }
+    Some(Value::float(-value.to_float()?))
+}
+
+fn collect_returns(thread: &LuaThread, instr: Instr) -> RuntimeResult<Vec<Value>> {
+    let base = usize::from(instr.a());
+    let count = instr.b() as usize;
+    let mut values = Vec::with_capacity(count);
+    for index in base..base + count {
+        values.push(register(thread, index)?);
+    }
+    Ok(values)
+}
+
+fn register(thread: &LuaThread, index: usize) -> RuntimeResult<Value> {
+    thread
+        .stack_value(index)
+        .ok_or(RuntimeError::RegisterOutOfBounds { register: index })
+}
+
+fn set_register(thread: &mut LuaThread, index: usize, value: Value) -> RuntimeResult<()> {
+    if thread.set_stack_value(index, value) {
+        Ok(())
+    } else {
+        Err(RuntimeError::RegisterOutOfBounds { register: index })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use elara_bytecode::{Op, ProtoBuilder};
+    use elara_core::Value;
+
+    use crate::{RuntimeError, execute_proto};
+
+    #[test]
+    fn arithmetic_executes_integer_addition() {
+        let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+        let left = builder.add_constant(Value::integer(1));
+        let right = builder.add_constant(Value::integer(2));
+        builder.emit_abx(Op::LoadK, 0, u64::from(left));
+        builder.emit_abx(Op::LoadK, 1, u64::from(right));
+        builder.emit_abc(Op::Add, 2, 0, 1);
+        builder.emit_abc(Op::Return, 2, 1, 0);
+
+        assert_eq!(
+            execute_proto(&builder.finish()),
+            Ok(vec![Value::integer(3)])
+        );
+    }
+
+    #[test]
+    fn arithmetic_executes_float_division() {
+        let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+        let left = builder.add_constant(Value::integer(7));
+        let right = builder.add_constant(Value::integer(2));
+        builder.emit_abx(Op::LoadK, 0, u64::from(left));
+        builder.emit_abx(Op::LoadK, 1, u64::from(right));
+        builder.emit_abc(Op::Div, 2, 0, 1);
+        builder.emit_abc(Op::Return, 2, 1, 0);
+
+        assert_eq!(
+            execute_proto(&builder.finish()),
+            Ok(vec![Value::float(3.5)])
+        );
+    }
+
+    #[test]
+    fn arithmetic_executes_unary_minus() {
+        let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
+        let value = builder.add_constant(Value::integer(4));
+        builder.emit_abx(Op::LoadK, 0, u64::from(value));
+        builder.emit_abc(Op::Unm, 1, 0, 0);
+        builder.emit_abc(Op::Return, 1, 1, 0);
+
+        assert_eq!(
+            execute_proto(&builder.finish()),
+            Ok(vec![Value::integer(-4)])
+        );
+    }
+
+    #[test]
+    fn arithmetic_reports_non_numeric_operands() {
+        let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+        builder.emit_abc(Op::LoadBool, 0, 1, 0);
+        builder.emit_abc(Op::LoadBool, 1, 0, 0);
+        builder.emit_abc(Op::Add, 2, 0, 1);
+        builder.emit_abc(Op::Return, 2, 1, 0);
+
+        assert_eq!(
+            execute_proto(&builder.finish()),
+            Err(RuntimeError::NonNumericOperand { op: Op::Add })
+        );
+    }
+}

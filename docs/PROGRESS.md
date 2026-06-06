@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M6 Interpreter MVP  
-Current step: M6.2 Implement interpreter loop for constants and arithmetic
+Current step: M6.3 Connect source compile and eval path
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -21,8 +21,9 @@ tokenization, expression parsing, statement parsing, and parser snapshot/error
 coverage are implemented. The initial bytecode prototype, instruction encoding,
 opcode set, constant pool, metadata placeholders, builder, and disassembler are
 implemented, along with initial bytecode verification and simple expression
-codegen. VM/thread stack primitives are implemented. Interpreter execution, API,
-JIT, C API, conformance, and benchmark implementation work has not started.
+codegen. VM/thread stack primitives and primitive arithmetic bytecode execution
+are implemented. Source eval path, API, JIT, C API, conformance, and benchmark
+implementation work has not started.
 
 Current state:
 
@@ -56,9 +57,10 @@ Completed:
   - M5.3 Add bytecode verifier.
   - M5.4 Compile constants and arithmetic expressions.
   - M6.1 Add VM state and thread stack.
+  - M6.2 Implement interpreter loop for constants and arithmetic.
 
 Not started:
-  - M6.2 Implement interpreter loop for constants and arithmetic.
+  - M6.3 Connect source compile and eval path.
   - Standard library.
   - Rust API.
   - JIT.
@@ -316,24 +318,32 @@ Delivered:
 - Basic call frame.
 - Stack push/pop helpers.
 
-### Current Step: M6.2 Implement interpreter loop for constants and arithmetic
+### Completed Step: M6.2 Implement interpreter loop for constants and arithmetic
 
-Expected deliverables:
+Delivered:
 
 - `LOAD_*`, `ADD`, `SUB`, `MUL`, `DIV`, `IDIV`, `RETURN`.
 - Primitive runtime errors.
 - Tests executing simple Protos.
 
+### Current Step: M6.3 Connect source compile and eval path
+
+Expected deliverables:
+
+- Public internal function: source -> Proto -> interpreter.
+- Test `return 42` from source.
+- Test arithmetic source chunks.
+
 Recommended verification:
 
 ```bash
-cargo test -p elara-interp arithmetic
+cargo test --workspace eval_simple
 ```
 
 Recommended commit:
 
 ```text
-feat(interp): execute primitive arithmetic
+feat(runtime): evaluate simple lua chunks
 ```
 
 ## Completed Content
@@ -377,12 +387,13 @@ feat(interp): execute primitive arithmetic
 - Bytecode opcode, instruction encoding, prototype, constant pool, upvalue descriptor, debug placeholder, builder, disassembler, and verifier are available.
 - Simple return-expression bytecode codegen is available in `elara-compiler`.
 - VM state, Lua thread stack, call frames, and stack helpers are available in `elara-core`.
+- Primitive bytecode execution for constants, arithmetic, and return values is available in `elara-interp`.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M6
 
-- Add interpreter loop for constants and primitive arithmetic.
+- Connect source compile and eval path.
 
 ### Product Gaps
 
@@ -402,27 +413,27 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M6.1 verification passed:
+M6.2 verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy -p elara-core --all-targets -- -D warnings
-cargo test -p elara-core thread_stack
+cargo clippy -p elara-interp --all-targets -- -D warnings
+cargo test -p elara-interp arithmetic
 ```
 
 ## Next Recommended Action
 
-Implement M6.2 from `docs/MILESTONES.md`:
+Implement M6.3 from `docs/MILESTONES.md`:
 
-1. Add interpreter execution over simple verified Protos.
-2. Implement constants, primitive arithmetic, and return handling.
-3. Add primitive runtime errors and arithmetic execution tests.
-4. Run `cargo test -p elara-interp arithmetic`.
+1. Add public internal source -> Proto -> interpreter function.
+2. Test `return 42` from source.
+3. Test arithmetic source chunks.
+4. Run `cargo test --workspace eval_simple`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-feat(interp): execute primitive arithmetic
+feat(runtime): evaluate simple lua chunks
 ```
 
 ## Current Risk Notes
@@ -465,7 +476,7 @@ feat(interp): execute primitive arithmetic
 | Bytecode model | Initial model complete | Proto, instruction encoding, opcode set, constants, upvalues, debug placeholders, builder, disassembler, and verifier are implemented. |
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
-| Interpreter | Not started | Current milestone. |
+| Interpreter | In progress | Constants, primitive arithmetic, and return execution are implemented. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

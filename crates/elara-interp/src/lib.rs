@@ -4,3 +4,7 @@
 //! It executes verified Elara bytecode against runtime state from `elara-core`.
 //!
 //! It must not parse Lua source or depend on Cranelift internals.
+
+pub mod primitive;
+
+pub use primitive::{RuntimeError, RuntimeResult, execute_proto};
