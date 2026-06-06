@@ -40,8 +40,10 @@ executes for bracket and field syntax, generic table get/set bytecode, integer
 index fast paths, hash keys, and nil assignment clearing. Primitive runtime
 table storage is centralized and can store metatable links for upcoming
 metamethod dispatch. Table-valued and function-valued `__index` and
-`__newindex` chains work in the primitive runtime table slow path. Globals,
-operator metamethod dispatch, full API, JIT, C API, conformance, and benchmark
+`__newindex` chains work in the primitive runtime table slow path. Function
+metamethods for the primitive interpreter's currently executed arithmetic
+opcodes work for table operands. Globals, comparison/length/call/concat
+metamethod dispatch, full API, JIT, C API, conformance, and benchmark
 implementation work has not started.
 
 Current state:
@@ -98,6 +100,8 @@ In progress:
       slow path.
     - Function-valued `__index` and `__newindex` Lua closure calls work in the
       runtime table slow path.
+    - Arithmetic metamethod Lua closure calls work for the arithmetic opcodes
+      currently executed by the primitive interpreter.
   - Standard library.
   - Rust API.
   - JIT.
@@ -562,12 +566,15 @@ Delivered:
 - Table-valued `__index` and `__newindex` chains work in runtime table helpers.
 - Function-valued `__index` and `__newindex` Lua closure calls work in runtime
   table helpers.
+- Arithmetic metamethod Lua closure calls work in primitive arithmetic helpers.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M9
 
-- Add arithmetic, comparison, `__len`, `__call`, and `__concat` metamethod dispatch.
+- Add comparison, `__len`, `__call`, and `__concat` metamethod dispatch.
+- Add bitwise opcode execution and corresponding metamethod dispatch when those
+  opcodes are enabled in the primitive interpreter.
 
 ### Product Gaps
 
@@ -585,10 +592,11 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M9.3 table-access metamethod verification passed:
+M9.3 arithmetic metamethod verification passed:
 
 ```bash
 cargo test -p elara-interp metamethods
+cargo test -p elara-interp arithmetic
 cargo test -p elara-interp table_access
 cargo fmt --all -- --check
 cargo clippy -p elara-interp --all-targets -- -D warnings
@@ -596,8 +604,8 @@ cargo clippy -p elara-interp --all-targets -- -D warnings
 
 ## Next Recommended Action
 
-Implement M9.3 arithmetic and comparison metamethod dispatch, using Lua 5.5
-`luaT_trybinTM`, `luaT_callorderTM`, and VM opcode behavior as references.
+Implement M9.3 comparison metamethod dispatch, using Lua 5.5 `luaT_callorderTM`
+and VM comparison opcode behavior as references.
 
 ## Current Risk Notes
 
@@ -642,7 +650,7 @@ Implement M9.3 arithmetic and comparison metamethod dispatch, using Lua 5.5
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
-| Tables/globals/metamethods | In progress | Table constructors, raw table access, and table/function-valued `__index`/`__newindex` dispatch execute. |
+| Tables/globals/metamethods | In progress | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, and arithmetic metamethod dispatch execute. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

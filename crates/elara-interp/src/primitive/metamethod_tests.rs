@@ -1,0 +1,105 @@
+use elara_bytecode::{Instr, Op, ProtoBuilder};
+use elara_core::{LuaThread, Table, Value};
+
+use super::{RuntimeClosure, RuntimeStrings, RuntimeTables, execute_arithmetic};
+
+fn constant_closure(value: Value) -> RuntimeClosure {
+    let mut builder = ProtoBuilder::new().with_signature(1, 0, false);
+    let constant = builder.add_constant(value);
+    builder.emit_abx(Op::LoadK, 0, u64::from(constant));
+    builder.emit_abc(Op::Return, 0, 1, 0);
+    RuntimeClosure {
+        proto: builder.finish(),
+        upvalues: Vec::new(),
+    }
+}
+
+#[test]
+fn metamethods_arithmetic_calls_left_operand_add() {
+    let mut strings = RuntimeStrings::new();
+    let mut tables = RuntimeTables::new();
+    let table = tables.push_table(Table::new());
+    let add_key = strings.intern_short_value("__add");
+    let mut metatable = Table::new();
+    assert!(metatable.raw_set_value(add_key, Value::closure_index(0)));
+    let metatable = tables.push_table(metatable);
+    tables
+        .set_metatable(table as usize, Some(metatable))
+        .expect("metatable link should be valid");
+    let mut closures = vec![constant_closure(Value::integer(42))];
+    let mut thread = LuaThread::new();
+    thread.push_value(Value::table_index(table));
+    thread.push_value(Value::integer(1));
+    thread.push_value(Value::nil());
+
+    execute_arithmetic(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Add, 2, 0, 1),
+        &mut tables,
+        &mut strings,
+    )
+    .expect("__add should execute");
+
+    assert_eq!(thread.stack_value(2), Some(Value::integer(42)));
+}
+
+#[test]
+fn metamethods_arithmetic_calls_right_operand_add() {
+    let mut strings = RuntimeStrings::new();
+    let mut tables = RuntimeTables::new();
+    let left = tables.push_table(Table::new());
+    let right = tables.push_table(Table::new());
+    let add_key = strings.intern_short_value("__add");
+    let mut metatable = Table::new();
+    assert!(metatable.raw_set_value(add_key, Value::closure_index(0)));
+    let metatable = tables.push_table(metatable);
+    tables
+        .set_metatable(right as usize, Some(metatable))
+        .expect("metatable link should be valid");
+    let mut closures = vec![constant_closure(Value::integer(99))];
+    let mut thread = LuaThread::new();
+    thread.push_value(Value::table_index(left));
+    thread.push_value(Value::table_index(right));
+    thread.push_value(Value::nil());
+
+    execute_arithmetic(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Add, 2, 0, 1),
+        &mut tables,
+        &mut strings,
+    )
+    .expect("__add should execute");
+
+    assert_eq!(thread.stack_value(2), Some(Value::integer(99)));
+}
+
+#[test]
+fn metamethods_arithmetic_calls_unary_minus() {
+    let mut strings = RuntimeStrings::new();
+    let mut tables = RuntimeTables::new();
+    let table = tables.push_table(Table::new());
+    let unm_key = strings.intern_short_value("__unm");
+    let mut metatable = Table::new();
+    assert!(metatable.raw_set_value(unm_key, Value::closure_index(0)));
+    let metatable = tables.push_table(metatable);
+    tables
+        .set_metatable(table as usize, Some(metatable))
+        .expect("metatable link should be valid");
+    let mut closures = vec![constant_closure(Value::integer(-7))];
+    let mut thread = LuaThread::new();
+    thread.push_value(Value::table_index(table));
+    thread.push_value(Value::nil());
+
+    execute_arithmetic(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Unm, 1, 0, 0),
+        &mut tables,
+        &mut strings,
+    )
+    .expect("__unm should execute");
+
+    assert_eq!(thread.stack_value(1), Some(Value::integer(-7)));
+}

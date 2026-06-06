@@ -205,7 +205,7 @@ fn execute_proto_with_upvalues(
                 closures[closure_index].upvalues = captured;
             }
             Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
-                execute_arithmetic(&mut thread, instr)?
+                execute_arithmetic(&mut thread, closures, instr, tables, strings)?
             }
             Op::Jmp => pc = jump_target(pc, instr)?,
             Op::ForPrep => {
@@ -252,18 +252,33 @@ fn execute_proto_with_upvalues(
     Ok(Vec::new())
 }
 
-fn execute_arithmetic(thread: &mut LuaThread, instr: Instr) -> RuntimeResult<()> {
+fn execute_arithmetic(
+    thread: &mut LuaThread,
+    closures: &mut Vec<RuntimeClosure>,
+    instr: Instr,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<()> {
     let op = instr.op();
     if op == Op::Unm {
         let value = register(thread, instr.b() as usize)?;
-        let result = negate(value).ok_or(RuntimeError::NonNumericOperand { op })?;
+        let result = if let Some(result) = negate(value) {
+            result
+        } else {
+            call_unary_metamethod(op, value, closures, tables, strings)?
+                .ok_or(RuntimeError::NonNumericOperand { op })?
+        };
         return set_register(thread, instr.a().into(), result);
     }
 
     let left = register(thread, instr.b() as usize)?;
     let right = register(thread, instr.c() as usize)?;
-    let result =
-        binary_arithmetic(op, left, right).ok_or(RuntimeError::NonNumericOperand { op })?;
+    let result = if let Some(result) = binary_arithmetic(op, left, right) {
+        result
+    } else {
+        call_binary_metamethod(op, left, right, closures, tables, strings)?
+            .ok_or(RuntimeError::NonNumericOperand { op })?
+    };
     set_register(thread, instr.a().into(), result)
 }
 
@@ -424,6 +439,74 @@ fn negate(value: Value) -> Option<Value> {
     Some(Value::float(-value.to_float()?))
 }
 
+fn call_binary_metamethod(
+    op: Op,
+    left: Value,
+    right: Value,
+    closures: &mut Vec<RuntimeClosure>,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<Option<Value>> {
+    let Some(name) = binary_metamethod_name(op) else {
+        return Ok(None);
+    };
+
+    let metamethod = match tables.metamethod_for_value(left, name, strings)? {
+        Some(metamethod) => Some(metamethod),
+        None => tables.metamethod_for_value(right, name, strings)?,
+    };
+    let Some(metamethod) = metamethod else {
+        return Ok(None);
+    };
+    let Some(closure) = metamethod.as_closure_index() else {
+        return Err(RuntimeError::UnsupportedMetamethod { name });
+    };
+
+    let returns = call_closure(closures, closure as usize, &[left, right], tables, strings)?;
+    Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
+}
+
+fn call_unary_metamethod(
+    op: Op,
+    value: Value,
+    closures: &mut Vec<RuntimeClosure>,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<Option<Value>> {
+    let Some(name) = unary_metamethod_name(op) else {
+        return Ok(None);
+    };
+    let Some(metamethod) = tables.metamethod_for_value(value, name, strings)? else {
+        return Ok(None);
+    };
+    let Some(closure) = metamethod.as_closure_index() else {
+        return Err(RuntimeError::UnsupportedMetamethod { name });
+    };
+
+    let returns = call_closure(closures, closure as usize, &[value], tables, strings)?;
+    Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
+}
+
+fn binary_metamethod_name(op: Op) -> Option<&'static str> {
+    match op {
+        Op::Add => Some("__add"),
+        Op::Sub => Some("__sub"),
+        Op::Mul => Some("__mul"),
+        Op::Div => Some("__div"),
+        Op::IDiv => Some("__idiv"),
+        Op::Mod => Some("__mod"),
+        Op::Pow => Some("__pow"),
+        _ => None,
+    }
+}
+
+fn unary_metamethod_name(op: Op) -> Option<&'static str> {
+    match op {
+        Op::Unm => Some("__unm"),
+        _ => None,
+    }
+}
+
 fn collect_returns(
     thread: &LuaThread,
     instr: Instr,
@@ -456,5 +539,7 @@ fn set_register(thread: &mut LuaThread, index: usize, value: Value) -> RuntimeRe
     }
 }
 
+#[cfg(test)]
+mod metamethod_tests;
 #[cfg(test)]
 mod tests;

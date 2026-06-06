@@ -75,11 +75,25 @@ impl RuntimeTables {
         Ok(())
     }
 
-    fn push(&mut self, table: Table) -> u32 {
+    /// Adds a runtime-owned table and returns its placeholder index.
+    pub fn push_table(&mut self, table: Table) -> u32 {
         let table_index = u32::try_from(self.tables.len()).expect("runtime table index must fit");
         self.tables.push(table);
         self.metatables.push(None);
         table_index
+    }
+
+    /// Gets a metamethod by name for a Lua value when this runtime can model it.
+    pub(super) fn metamethod_for_value(
+        &mut self,
+        value: Value,
+        name: &'static str,
+        strings: &mut RuntimeStrings,
+    ) -> RuntimeResult<Option<Value>> {
+        let Some(table_index) = value.as_table_index() else {
+            return Ok(None);
+        };
+        self.metamethod(table_index as usize, name, strings)
     }
 
     fn raw_get(&self, table_index: usize, key: Value) -> RuntimeResult<Value> {
@@ -246,7 +260,7 @@ pub(super) fn execute_vararg_table(
         table.raw_set_integer(key, value);
     }
 
-    let table_index = tables.push(table);
+    let table_index = tables.push_table(table);
     set_register(thread, instr.a().into(), Value::table_index(table_index))
 }
 
@@ -255,7 +269,7 @@ pub(super) fn execute_new_table(
     instr: Instr,
     tables: &mut RuntimeTables,
 ) -> RuntimeResult<()> {
-    let table_index = tables.push(Table::new());
+    let table_index = tables.push_table(Table::new());
     set_register(thread, instr.a().into(), Value::table_index(table_index))
 }
 
@@ -339,8 +353,8 @@ mod tests {
     #[test]
     fn metamethods_runtime_tables_store_metatable_links() {
         let mut tables = RuntimeTables::new();
-        let table = tables.push(Table::new());
-        let metatable = tables.push(Table::new());
+        let table = tables.push_table(Table::new());
+        let metatable = tables.push_table(Table::new());
 
         tables
             .set_metatable(table as usize, Some(metatable))
@@ -352,7 +366,7 @@ mod tests {
     #[test]
     fn metamethods_runtime_tables_reject_missing_metatable_links() {
         let mut tables = RuntimeTables::new();
-        let table = tables.push(Table::new());
+        let table = tables.push_table(Table::new());
 
         assert_eq!(
             tables.set_metatable(table as usize, Some(99)),
@@ -368,13 +382,13 @@ mod tests {
         let index_key = strings.intern_short_value(INDEX_METAMETHOD);
 
         let mut tables = RuntimeTables::new();
-        let table = tables.push(Table::new());
+        let table = tables.push_table(Table::new());
         let mut fallback = Table::new();
         assert!(fallback.raw_set_value(key, Value::integer(42)));
-        let fallback = tables.push(fallback);
+        let fallback = tables.push_table(fallback);
         let mut metatable = Table::new();
         assert!(metatable.raw_set_value(index_key, Value::table_index(fallback)));
-        let metatable = tables.push(metatable);
+        let metatable = tables.push_table(metatable);
         tables
             .set_metatable(table as usize, Some(metatable))
             .expect("metatable link should be valid");
@@ -393,11 +407,11 @@ mod tests {
         let newindex_key = strings.intern_short_value(NEWINDEX_METAMETHOD);
 
         let mut tables = RuntimeTables::new();
-        let table = tables.push(Table::new());
-        let sink = tables.push(Table::new());
+        let table = tables.push_table(Table::new());
+        let sink = tables.push_table(Table::new());
         let mut metatable = Table::new();
         assert!(metatable.raw_set_value(newindex_key, Value::table_index(sink)));
-        let metatable = tables.push(metatable);
+        let metatable = tables.push_table(metatable);
         tables
             .set_metatable(table as usize, Some(metatable))
             .expect("metatable link should be valid");
@@ -426,11 +440,11 @@ mod tests {
         let mut tables = RuntimeTables::new();
         let mut table_value = Table::new();
         assert!(table_value.raw_set_value(key, Value::integer(1)));
-        let table = tables.push(table_value);
-        let sink = tables.push(Table::new());
+        let table = tables.push_table(table_value);
+        let sink = tables.push_table(Table::new());
         let mut metatable = Table::new();
         assert!(metatable.raw_set_value(newindex_key, Value::table_index(sink)));
-        let metatable = tables.push(metatable);
+        let metatable = tables.push_table(metatable);
         tables
             .set_metatable(table as usize, Some(metatable))
             .expect("metatable link should be valid");
@@ -466,10 +480,10 @@ mod tests {
             upvalues: Vec::new(),
         }];
         let mut tables = RuntimeTables::new();
-        let table = tables.push(Table::new());
+        let table = tables.push_table(Table::new());
         let mut metatable = Table::new();
         assert!(metatable.raw_set_value(index_key, Value::closure_index(0)));
-        let metatable = tables.push(metatable);
+        let metatable = tables.push_table(metatable);
         tables
             .set_metatable(table as usize, Some(metatable))
             .expect("metatable link should be valid");
@@ -487,8 +501,8 @@ mod tests {
         let newindex_key = strings.intern_short_value(NEWINDEX_METAMETHOD);
 
         let mut tables = RuntimeTables::new();
-        let table = tables.push(Table::new());
-        let sink = tables.push(Table::new());
+        let table = tables.push_table(Table::new());
+        let sink = tables.push_table(Table::new());
 
         let mut function = ProtoBuilder::new().with_signature(4, 0, true);
         function.add_upvalue(UpvalueDesc::new(Some("sink"), true, 0));
@@ -503,7 +517,7 @@ mod tests {
         }];
         let mut metatable = Table::new();
         assert!(metatable.raw_set_value(newindex_key, Value::closure_index(0)));
-        let metatable = tables.push(metatable);
+        let metatable = tables.push_table(metatable);
         tables
             .set_metatable(table as usize, Some(metatable))
             .expect("metatable link should be valid");
