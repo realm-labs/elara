@@ -171,7 +171,7 @@ fn globals_compile_declaration_assignment_and_read() {
 
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 LOAD_K        A=0 Bx=0 ; 41\n0001 DECL_GLOBAL   A=1 Bx=0 ; \"answer\"\n0002 SET_ENV       A=0 Bx=1 ; \"answer\"\n0003 GET_ENV       A=2 Bx=2 ; \"answer\"\n0004 LOAD_K        A=3 Bx=1 ; 1\n0005 ADD           A=2 B=2 C=3\n0006 SET_ENV       A=2 Bx=3 ; \"answer\"\n0007 GET_ENV       A=4 Bx=4 ; \"answer\"\n0008 RETURN        A=4 B=1 C=0\n",
+        "0000 LOAD_K        A=0 Bx=0 ; 41\n0001 GET_ENV       A=1 Bx=0 ; \"answer\"\n0002 DECL_GLOBAL   A=1 Bx=1 ; \"answer\"\n0003 SET_ENV       A=0 Bx=2 ; \"answer\"\n0004 GET_ENV       A=2 Bx=3 ; \"answer\"\n0005 LOAD_K        A=3 Bx=1 ; 1\n0006 ADD           A=2 B=2 C=3\n0007 SET_ENV       A=2 Bx=4 ; \"answer\"\n0008 GET_ENV       A=4 Bx=5 ; \"answer\"\n0009 RETURN        A=4 B=1 C=0\n",
     );
 }
 
@@ -207,6 +207,34 @@ fn globals_report_read_only_collective_assignment() {
         compiled.diagnostics[0].message(),
         "global variable 'answer' is read-only"
     );
+}
+
+#[test]
+fn globals_compile_reads_through_local_env() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local _ENV = { answer = 42 }\nreturn answer",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+    let disassembly = disassemble(&proto);
+
+    assert!(disassembly.contains("GET_TABLE"));
+    assert!(!disassembly.contains("GET_ENV"));
+}
+
+#[test]
+fn globals_compile_writes_through_local_env() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local _ENV = {}\nanswer = 42\nreturn _ENV.answer",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+    let disassembly = disassemble(&proto);
+
+    assert!(disassembly.contains("SET_TABLE"));
+    assert!(!disassembly.contains("SET_ENV"));
 }
 
 #[test]

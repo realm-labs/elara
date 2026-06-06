@@ -27,6 +27,7 @@ pub fn eval_simple_source(source: SourceId, input: &str) -> Result<Vec<Value>, E
 #[cfg(test)]
 mod tests {
     use elara_core::{SourceId, Value};
+    use elara_interp::RuntimeError;
 
     use crate::{EvalError, eval_simple_source};
 
@@ -177,6 +178,45 @@ mod tests {
             eval_simple_source(SourceId::new(0), "answer = 42\nreturn answer"),
             Ok(vec![Value::integer(42)])
         );
+    }
+
+    #[test]
+    fn eval_simple_executes_local_env_global_read() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "local _ENV = { answer = 42 }\nreturn answer"
+            ),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_executes_local_env_global_write() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "local _ENV = {}\nanswer = 42\nreturn _ENV.answer",
+            ),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_rejects_declared_global_init_in_defined_local_env() {
+        let error = eval_simple_source(
+            SourceId::new(0),
+            "local _ENV = { answer = 1 }\nglobal answer = 2\nreturn answer",
+        )
+        .unwrap_err();
+
+        match error {
+            EvalError::Runtime(RuntimeError::GlobalAlreadyDefined) => {}
+            EvalError::Runtime(error) => panic!("expected global error, got {error:?}"),
+            EvalError::Diagnostics(diagnostics) => {
+                panic!("expected runtime error, got diagnostics {diagnostics:?}")
+            }
+        }
     }
 
     #[test]

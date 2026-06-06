@@ -427,6 +427,7 @@ fn globals_declaration_rejects_existing_value() {
     let value = builder.add_constant(Value::integer(42));
     builder.emit_abx(Op::LoadK, 0, u64::from(value));
     builder.emit_abx(Op::SetEnv, 0, u64::from(name));
+    builder.emit_abx(Op::GetEnv, 1, u64::from(name));
     builder.emit_abx(Op::DeclGlobal, 1, u64::from(name));
     builder.emit_abc(Op::Return, 1, 1, 0);
 

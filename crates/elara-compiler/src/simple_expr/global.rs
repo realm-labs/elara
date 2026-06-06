@@ -82,6 +82,14 @@ impl SimpleCompiler {
     }
 
     pub(super) fn emit_set_global(&mut self, name: &str, value: u16) {
+        if let Some(env) = self.emit_env_register() {
+            if let Some(key) = self.emit_global_key_register(name) {
+                self.builder
+                    .emit_abc(Op::SetTable, env, u32::from(key), u32::from(value));
+            }
+            return;
+        }
+
         if let Some(name_index) = self.global_name_index(name) {
             self.builder
                 .emit_abx(Op::SetEnv, value, u64::from(name_index));
@@ -89,7 +97,7 @@ impl SimpleCompiler {
     }
 
     pub(super) fn emit_global_declaration_check(&mut self, name: &str) {
-        let check = self.alloc_register();
+        let check = self.emit_get_global(name);
         if let Some(name_index) = self.global_name_index(name) {
             self.builder
                 .emit_abx(Op::DeclGlobal, check, u64::from(name_index));
@@ -131,12 +139,40 @@ impl SimpleCompiler {
     }
 
     fn emit_get_global(&mut self, name: &str) -> u16 {
+        if let Some(env) = self.emit_env_register()
+            && let Some(key) = self.emit_global_key_register(name)
+        {
+            let register = self.alloc_register();
+            self.builder
+                .emit_abc(Op::GetTable, register, u32::from(env), u32::from(key));
+            return register;
+        }
+
         let register = self.alloc_register();
         if let Some(name_index) = self.global_name_index(name) {
             self.builder
                 .emit_abx(Op::GetEnv, register, u64::from(name_index));
         }
         register
+    }
+
+    fn emit_env_register(&mut self) -> Option<u16> {
+        if let Some(register) = self.locals.get("_ENV").copied() {
+            return Some(register);
+        }
+        let upvalue = self.upvalue_index("_ENV")?;
+        let register = self.alloc_register();
+        self.builder
+            .emit_abc(Op::GetUpvalue, register, u32::from(upvalue), 0);
+        Some(register)
+    }
+
+    fn emit_global_key_register(&mut self, name: &str) -> Option<u16> {
+        let register = self.alloc_register();
+        let name_index = self.global_name_index(name)?;
+        self.builder
+            .emit_abx(Op::LoadString, register, u64::from(name_index));
+        Some(register)
     }
 
     fn global_access(&self, name: &str) -> Option<GlobalAccess> {

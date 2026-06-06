@@ -60,12 +60,10 @@ pub(super) fn execute_decl_global(
     thread: &mut LuaThread,
     instr: Instr,
     name: &[u8],
-    globals: &RuntimeGlobals,
     strings: &mut RuntimeStrings,
 ) -> RuntimeResult<()> {
-    let key = global_key(name, strings)?;
-    let current = globals.get(key);
-    set_register(thread, instr.a().into(), current)?;
+    let _ = global_key(name, strings)?;
+    let current = super::register(thread, instr.a().into())?;
     if current.is_nil() {
         Ok(())
     } else {

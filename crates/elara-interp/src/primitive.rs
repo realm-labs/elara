@@ -214,7 +214,7 @@ fn execute_proto_with_upvalues(
             }
             Op::DeclGlobal => {
                 let name = string_constant(proto, instr)?;
-                execute_decl_global(&mut thread, instr, name, globals, strings)?;
+                execute_decl_global(&mut thread, instr, name, strings)?;
             }
             Op::NewTable => execute_new_table(&mut thread, instr, tables)?,
             Op::GetTable => {

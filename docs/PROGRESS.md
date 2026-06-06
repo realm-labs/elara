@@ -51,9 +51,10 @@ implicit global reads/writes through `GET_ENV`/`SET_ENV`, `DECL_GLOBAL` checks
 global declaration initialization against the runtime environment, and the
 primitive interpreter keeps a shared runtime `_ENV` table across Lua closure
 calls. Global declarations in nested simple-compiler blocks are scoped to those
-blocks and can shadow outer collective declarations. Full `_ENV` variable
-behavior, standard library, full API, JIT, C API, conformance, and benchmark
-implementation work has not started.
+blocks and can shadow outer collective declarations. Local and captured `_ENV`
+tables are used for global reads, writes, and declaration checks in the simple
+compiler. Full default `_ENV` upvalue behavior, standard library, full API, JIT,
+C API, conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -585,13 +586,18 @@ Delivered:
   block in the simple compiler.
 - Inner explicit global declarations can shadow an outer collective read-only
   global declaration in the simple compiler.
+- Local and captured `_ENV` tables are honored for global reads, global writes,
+  and global declaration initialization checks.
+- `DECL_GLOBAL` now checks the already-loaded candidate value, matching the Lua
+  check-before-store lowering shape.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M9
 
 - Finish M9.4 global declaration semantics:
-  - complete `_ENV` variable behavior;
+  - default chunk `_ENV` upvalue behavior and diagnostics when `_ENV` itself is
+    global;
   - full global function declaration behavior;
   - complete global const/read-only assignment checks beyond the simple paths.
 
@@ -611,18 +617,22 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M9.4 block-scoped global declaration sub-step verification passed:
+M9.4 `_ENV` global access sub-step verification passed:
 
 ```bash
 cargo test -p elara-compiler globals
+cargo test -p elara-interp globals
+cargo test -p elara-api global
+cargo test -p elara-interp table_access
 cargo fmt --all -- --check
-cargo clippy -p elara-compiler --all-targets -- -D warnings
+cargo clippy -p elara-bytecode -p elara-compiler -p elara-interp -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M9.4 by modeling `_ENV` as a normal lexical variable for global
-access, using the Lua 5.5 `buildglobal` behavior as the reference.
+Continue M9.4 with remaining global declaration edge cases: `global function`
+lowering, `_ENV`-as-global diagnostics, and broader const/read-only assignment
+coverage.
 
 ## Current Risk Notes
 
