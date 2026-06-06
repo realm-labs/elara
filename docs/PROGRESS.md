@@ -25,8 +25,10 @@ codegen. VM/thread stack primitives and primitive arithmetic bytecode execution
 are implemented, and simple source chunks can be evaluated through the compile
 and interpreter path. Local variables and assignment basics are implemented.
 Simple function Protos and zero-argument Lua calls are implemented. Closures,
-upvalues, and captured outer local reads are implemented. Varargs, full API, JIT,
-C API, conformance, and benchmark implementation work has not started.
+upvalues, and captured outer local reads are implemented. Anonymous vararg
+functions can receive call arguments and lower `...` for the first requested
+value. Named vararg tables, full multiple-return behavior, full API, JIT, C API,
+conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -66,8 +68,10 @@ Completed:
   - M7.2 Implement function Protos and Lua calls.
   - M7.3 Implement closures and upvalues.
 
-Not started:
+In progress:
   - M7.4 Implement varargs and named vararg table.
+    - Anonymous vararg argument passing and first-value `...` lowering are implemented.
+    - Named vararg table support and broader multiple-return behavior remain.
   - Standard library.
   - Rust API.
   - JIT.
@@ -379,6 +383,13 @@ Expected deliverables:
 - Named vararg table support for current Lua.
 - Multiple return tests.
 
+Delivered so far:
+
+- Anonymous vararg functions can be compiled with `Proto::is_vararg`.
+- `...` lowers to `VARARG` in anonymous vararg functions.
+- Lua call arguments are placed in call registers and passed to child Protos.
+- The primitive interpreter executes simple `VARARG` reads with nil fill.
+
 Recommended verification:
 
 ```bash
@@ -437,12 +448,14 @@ feat(runtime): support varargs
 - Local variable reads/writes and assignment basics are available in the compiler/interpreter path.
 - Simple nested Protos and zero-argument Lua calls are available.
 - Captured outer local reads work through upvalue descriptors and runtime closure captures.
+- Anonymous vararg argument passing and first-value `...` lowering work in the compiler/interpreter path.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M7
 
-- Implement varargs and named vararg table.
+- Finish M7.4 named vararg table support.
+- Add broader multiple-return behavior and tests for common vararg cases.
 
 ### Product Gaps
 
@@ -462,27 +475,28 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M7.3 verification passed:
+M7.4 anonymous vararg sub-step verification passed:
 
 ```bash
-cargo fmt --all -- --check
+cargo fmt --all
+cargo test -p elara-bytecode vararg
+cargo test -p elara-compiler varargs
+cargo test -p elara-interp varargs
 cargo clippy -p elara-bytecode --all-targets -- -D warnings
 cargo clippy -p elara-compiler --all-targets -- -D warnings
 cargo clippy -p elara-interp --all-targets -- -D warnings
-cargo test -p elara-compiler closures
-cargo test -p elara-interp closures
+cargo fmt --all -- --check
 ```
 
 ## Next Recommended Action
 
-Implement M7.4 from `docs/MILESTONES.md`:
+Continue M7.4 from `docs/MILESTONES.md`:
 
-1. Add vararg function handling.
-2. Lower `...`.
-3. Add named vararg table support for current Lua.
-4. Run `cargo test -p elara-interp varargs`.
-5. Update this progress document.
-6. Commit with:
+1. Add named vararg table support for current Lua.
+2. Add broader multiple-return behavior for common vararg cases.
+3. Run `cargo test -p elara-interp varargs`.
+4. Update this progress document.
+5. Commit with:
 
 ```text
 feat(runtime): support varargs
@@ -529,7 +543,7 @@ feat(runtime): support varargs
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
-| Variables/scopes | In progress | Local variables, assignment basics, simple calls, and captured outer local reads are implemented. |
+| Variables/scopes | In progress | Local variables, assignment basics, simple calls, captured outer local reads, and anonymous vararg argument passing are implemented. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

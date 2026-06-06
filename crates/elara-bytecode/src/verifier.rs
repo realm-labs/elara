@@ -101,10 +101,10 @@ impl Verifier<'_> {
             | Op::Len
             | Op::Unm
             | Op::BNot
-            | Op::Vararg
             | Op::VarargTable
             | Op::Close
             | Op::Tbc => self.check_register(offset, instr.a()),
+            Op::Vararg => self.check_vararg(offset, instr),
             Op::Closure => {
                 self.check_register(offset, instr.a());
                 self.check_child(offset, instr.bx());
@@ -233,6 +233,11 @@ impl Verifier<'_> {
         self.check_register_range(offset, instr.a(), instr.b());
     }
 
+    fn check_vararg(&mut self, offset: usize, instr: Instr) {
+        self.check_register(offset, u32::from(instr.a()));
+        self.check_register_range(offset, instr.a(), instr.b());
+    }
+
     fn check_register_range(&mut self, offset: usize, base: Register, count: u32) {
         if count == 0 {
             return;
@@ -327,6 +332,22 @@ mod tests {
                 base: 1,
                 count: 2,
                 max_stack: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn verifier_rejects_out_of_bounds_vararg_ranges() {
+        let mut builder = ProtoBuilder::new().with_signature(1, 0, true);
+        builder.emit_abc(Op::Vararg, 0, 2, 0);
+        let errors = verify_proto(&builder.finish()).unwrap_err();
+
+        assert_eq!(
+            errors[0].kind,
+            VerifyErrorKind::CallRangeOutOfBounds {
+                base: 0,
+                count: 2,
+                max_stack: 1,
             }
         );
     }

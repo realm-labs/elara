@@ -2,10 +2,11 @@
 
 use std::collections::HashMap;
 
-use elara_bytecode::{Op, Proto, ProtoBuilder, UpvalueDesc, verify_proto};
+use elara_bytecode::{MAX_B, Op, Proto, ProtoBuilder, UpvalueDesc, verify_proto};
 use elara_core::{Diagnostic, SourceId, Value};
 use elara_syntax::{
-    BinaryOp, Expr, ExprKind, FunctionBody, FunctionScope, NameDecl, StmtKind, UnaryOp, parse_chunk,
+    BinaryOp, Expr, ExprKind, FunctionBody, FunctionScope, NameDecl, Param, StmtKind, UnaryOp,
+    parse_chunk,
 };
 
 /// Result of compiling a chunk.
@@ -41,6 +42,7 @@ struct SimpleCompiler {
     locals: HashMap<String, u16>,
     enclosing_locals: HashMap<String, u16>,
     upvalues: HashMap<String, u16>,
+    is_vararg: bool,
 }
 
 impl SimpleCompiler {
@@ -53,6 +55,7 @@ impl SimpleCompiler {
             locals: HashMap::new(),
             enclosing_locals: HashMap::new(),
             upvalues: HashMap::new(),
+            is_vararg: false,
         }
     }
 
@@ -91,15 +94,20 @@ impl SimpleCompiler {
         name: &str,
         body: &FunctionBody<'_>,
     ) {
-        if !body.params.is_empty() {
-            self.diagnostics.push(
-                Diagnostic::error("function parameters are not supported yet")
-                    .with_primary_span(span),
-            );
-            return;
-        }
+        let is_vararg = match body.params.as_slice() {
+            [] => false,
+            [Param::Vararg(None)] => true,
+            _ => {
+                self.diagnostics.push(
+                    Diagnostic::error("function parameters are not supported yet")
+                        .with_primary_span(span),
+                );
+                return;
+            }
+        };
 
         let mut child = SimpleCompiler::new_child(self.locals.clone());
+        child.is_vararg = is_vararg;
         child.compile_block(body.block.statements());
         let result = child.finish();
         if !result.diagnostics.is_empty() {
@@ -212,6 +220,7 @@ impl SimpleCompiler {
             ExprKind::Integer(text) => self.compile_integer(expr, text),
             ExprKind::Float(text) => self.compile_float(expr, text),
             ExprKind::Name(name) => self.local_register(expr, name),
+            ExprKind::Vararg => self.compile_vararg(expr),
             ExprKind::Call { callee, args, .. } => self.compile_call(expr, callee, args),
             ExprKind::Grouped(expr) => self.compile_expr(expr),
             ExprKind::Unary { op, expr } => self.compile_unary(expr, *op),
@@ -224,6 +233,19 @@ impl SimpleCompiler {
                 self.alloc_register()
             }
         }
+    }
+
+    fn compile_vararg(&mut self, expr: &Expr<'_>) -> u16 {
+        let register = self.alloc_register();
+        if self.is_vararg {
+            self.builder.emit_abc(Op::Vararg, register, 1, 0);
+        } else {
+            self.diagnostics.push(
+                Diagnostic::error("vararg expression outside vararg function")
+                    .with_primary_span(expr.span()),
+            );
+        }
+        register
     }
 
     fn compile_integer(&mut self, expr: &Expr<'_>, text: &str) -> u16 {
@@ -298,16 +320,40 @@ impl SimpleCompiler {
     }
 
     fn compile_call(&mut self, expr: &Expr<'_>, callee: &Expr<'_>, args: &[Expr<'_>]) -> u16 {
-        if !args.is_empty() {
-            self.diagnostics.push(
-                Diagnostic::error("function arguments are not supported yet")
-                    .with_primary_span(expr.span()),
-            );
-            return self.alloc_register();
+        let register = self.compile_expr(callee);
+        let arg_count = match u32::try_from(args.len() + 1) {
+            Ok(count) => count,
+            Err(_) => {
+                self.diagnostics.push(
+                    Diagnostic::error("too many function arguments").with_primary_span(expr.span()),
+                );
+                return register;
+            }
+        };
+
+        for (index, arg) in args.iter().enumerate() {
+            let value = self.compile_expr(arg);
+            let Some(target) = u16::try_from(index + 1)
+                .ok()
+                .and_then(|offset| register.checked_add(offset))
+            else {
+                self.diagnostics.push(
+                    Diagnostic::error("too many function arguments").with_primary_span(expr.span()),
+                );
+                return register;
+            };
+            self.ensure_register_slot(target);
+            self.emit_move(target, value);
         }
 
-        let register = self.compile_expr(callee);
-        self.builder.emit_abc(Op::Call, register, 1, 1);
+        if arg_count > MAX_B {
+            self.diagnostics.push(
+                Diagnostic::error("too many function arguments").with_primary_span(expr.span()),
+            );
+            return register;
+        }
+
+        self.builder.emit_abc(Op::Call, register, arg_count, 1);
         register
     }
 
@@ -334,6 +380,14 @@ impl SimpleCompiler {
             self.builder
                 .emit_abc(Op::Move, target, u32::from(source), 0);
         }
+    }
+
+    fn ensure_register_slot(&mut self, register: u16) {
+        let next = register
+            .checked_add(1)
+            .expect("simple expression compiler register index must fit in u16");
+        self.max_register = self.max_register.max(next);
+        self.next_register = self.next_register.max(next);
     }
 
     fn compile_unary(&mut self, expr: &Expr<'_>, op: UnaryOp) -> u16 {
@@ -413,7 +467,7 @@ impl SimpleCompiler {
 
         let proto = self
             .builder
-            .with_signature(self.max_register.max(1), 0, false)
+            .with_signature(self.max_register.max(1), 0, self.is_vararg)
             .finish();
         if let Err(errors) = verify_proto(&proto) {
             return CompileResult {
@@ -432,125 +486,4 @@ impl SimpleCompiler {
 }
 
 #[cfg(test)]
-mod tests {
-    use elara_bytecode::{Op, disassemble};
-    use elara_core::SourceId;
-    use elara_test::assert_snapshot_eq;
-
-    use crate::compile_simple_chunk;
-
-    #[test]
-    fn simple_expr_compiles_return_arithmetic() {
-        let compiled = compile_simple_chunk(SourceId::new(0), "return 1 + 2 * 3");
-        assert_eq!(compiled.diagnostics, Vec::new());
-        let proto = compiled.proto.expect("expected compiled proto");
-
-        assert_eq!(proto.constants.len(), 3);
-        assert_eq!(proto.code.last().map(|instr| instr.op()), Some(Op::Return));
-        assert_snapshot_eq(
-            disassemble(&proto),
-            "0000 LOAD_K        A=0 Bx=0 ; 1\n0001 LOAD_K        A=1 Bx=1 ; 2\n0002 LOAD_K        A=2 Bx=2 ; 3\n0003 MUL           A=1 B=1 C=2\n0004 ADD           A=0 B=0 C=1\n0005 RETURN        A=0 B=1 C=0\n",
-        );
-    }
-
-    #[test]
-    fn simple_expr_compiles_unary_arithmetic() {
-        let compiled = compile_simple_chunk(SourceId::new(0), "return -1");
-        assert_eq!(compiled.diagnostics, Vec::new());
-        let proto = compiled.proto.expect("expected compiled proto");
-
-        assert_snapshot_eq(
-            disassemble(&proto),
-            "0000 LOAD_K        A=0 Bx=0 ; 1\n0001 UNM           A=0 B=0 C=0\n0002 RETURN        A=0 B=1 C=0\n",
-        );
-    }
-
-    #[test]
-    fn simple_expr_reports_unsupported_statement() {
-        let compiled = compile_simple_chunk(SourceId::new(0), "x = 1");
-
-        assert!(compiled.proto.is_none());
-        assert_eq!(
-            compiled.diagnostics[0].message(),
-            "unsupported statement in simple expression compiler"
-        );
-    }
-
-    #[test]
-    fn locals_compile_local_return() {
-        let compiled = compile_simple_chunk(SourceId::new(0), "local x = 1 + 2\nreturn x");
-        assert_eq!(compiled.diagnostics, Vec::new());
-        let proto = compiled.proto.expect("expected compiled proto");
-
-        assert_eq!(proto.constants.len(), 2);
-        assert_eq!(proto.code.last().map(|instr| instr.op()), Some(Op::Return));
-        assert!(disassemble(&proto).contains("MOVE"));
-    }
-
-    #[test]
-    fn locals_compile_assignment() {
-        let compiled = compile_simple_chunk(SourceId::new(0), "local x = 1\nx = x + 2\nreturn x");
-        assert_eq!(compiled.diagnostics, Vec::new());
-        let proto = compiled.proto.expect("expected compiled proto");
-
-        assert_snapshot_eq(
-            disassemble(&proto),
-            "0000 LOAD_K        A=0 Bx=0 ; 1\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_K        A=2 Bx=1 ; 2\n0003 ADD           A=1 B=1 C=2\n0004 RETURN        A=1 B=1 C=0\n",
-        );
-    }
-
-    #[test]
-    fn locals_report_unknown_assignment_target() {
-        let compiled = compile_simple_chunk(SourceId::new(0), "x = 1\nreturn x");
-
-        assert!(compiled.proto.is_none());
-        assert_eq!(
-            compiled.diagnostics[0].message(),
-            "assignment target is not a declared local"
-        );
-    }
-
-    #[test]
-    fn functions_compile_local_function_call() {
-        let compiled = compile_simple_chunk(
-            SourceId::new(0),
-            "local function answer()\n  return 42\nend\nreturn answer()",
-        );
-        assert_eq!(compiled.diagnostics, Vec::new());
-        let proto = compiled.proto.expect("expected compiled proto");
-
-        assert_eq!(proto.children.len(), 1);
-        assert_snapshot_eq(
-            disassemble(&proto),
-            "0000 CLOSURE       A=0 Bx=0\n0001 CALL          A=0 B=1 C=1\n0002 RETURN        A=0 B=1 C=0\n",
-        );
-    }
-
-    #[test]
-    fn functions_reject_parameters_for_now() {
-        let compiled = compile_simple_chunk(SourceId::new(0), "local function id(x) return x end");
-
-        assert!(compiled.proto.is_none());
-        assert_eq!(
-            compiled.diagnostics[0].message(),
-            "function parameters are not supported yet"
-        );
-    }
-
-    #[test]
-    fn closures_compile_outer_local_capture() {
-        let compiled = compile_simple_chunk(
-            SourceId::new(0),
-            "local x = 41\nlocal function answer()\n  return x + 1\nend\nreturn answer()",
-        );
-        assert_eq!(compiled.diagnostics, Vec::new());
-        let proto = compiled.proto.expect("expected compiled proto");
-
-        assert_eq!(proto.children.len(), 1);
-        assert_eq!(proto.children[0].upvalues.len(), 1);
-        assert_snapshot_eq(
-            disassemble(&proto.children[0]),
-            "0000 GET_UPVALUE   A=0 B=0 C=0\n0001 LOAD_K        A=1 Bx=0 ; 1\n0002 ADD           A=0 B=0 C=1\n0003 RETURN        A=0 B=1 C=0\n",
-        );
-    }
-}
+mod tests;

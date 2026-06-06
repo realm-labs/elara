@@ -30,10 +30,14 @@ pub enum RuntimeError {
 /// Executes a verified prototype and returns the first return values.
 pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
     verify_proto(proto).map_err(RuntimeError::Verification)?;
-    execute_proto_with_upvalues(proto, &[])
+    execute_proto_with_upvalues(proto, &[], &[])
 }
 
-fn execute_proto_with_upvalues(proto: &Proto, upvalues: &[Value]) -> RuntimeResult<Vec<Value>> {
+fn execute_proto_with_upvalues(
+    proto: &Proto,
+    upvalues: &[Value],
+    varargs: &[Value],
+) -> RuntimeResult<Vec<Value>> {
     let mut thread = LuaThread::new();
     for _ in 0..proto.max_stack {
         thread.push_value(Value::nil());
@@ -109,6 +113,7 @@ fn execute_proto_with_upvalues(proto: &Proto, upvalues: &[Value]) -> RuntimeResu
             Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
                 execute_arithmetic(&mut thread, instr)?
             }
+            Op::Vararg => execute_vararg(&mut thread, instr, varargs)?,
             Op::Call => execute_call(proto, &mut thread, &closures, instr)?,
             Op::Return => return collect_returns(&thread, instr),
             op => return Err(RuntimeError::UnsupportedOpcode { op }),
@@ -161,6 +166,17 @@ fn capture_upvalues(
     Ok(captured)
 }
 
+fn execute_vararg(thread: &mut LuaThread, instr: Instr, varargs: &[Value]) -> RuntimeResult<()> {
+    for index in 0..instr.b() {
+        let value = varargs
+            .get(index as usize)
+            .copied()
+            .unwrap_or_else(Value::nil);
+        set_register(thread, usize::from(instr.a()) + index as usize, value)?;
+    }
+    Ok(())
+}
+
 fn execute_call(
     proto: &Proto,
     thread: &mut LuaThread,
@@ -180,7 +196,8 @@ fn execute_call(
         .ok_or(RuntimeError::ChildOutOfBounds {
             index: closure.child_index,
         })?;
-    let returns = execute_proto_with_upvalues(child, &closure.upvalues)?;
+    let args = collect_call_args(thread, instr)?;
+    let returns = execute_proto_with_upvalues(child, &closure.upvalues, &args)?;
 
     if instr.c() != 0 {
         let value = returns.first().copied().unwrap_or_else(Value::nil);
@@ -188,6 +205,16 @@ fn execute_call(
     }
 
     Ok(())
+}
+
+fn collect_call_args(thread: &LuaThread, instr: Instr) -> RuntimeResult<Vec<Value>> {
+    let count = instr.b().saturating_sub(1);
+    let mut args = Vec::with_capacity(count as usize);
+    let base = usize::from(instr.a()) + 1;
+    for index in 0..count {
+        args.push(register(thread, base + index as usize)?);
+    }
+    Ok(args)
 }
 
 fn binary_arithmetic(op: Op, left: Value, right: Value) -> Option<Value> {
@@ -386,6 +413,27 @@ mod tests {
         parent.emit_abx(Op::Closure, 1, u64::from(child_index));
         parent.emit_abc(Op::Call, 1, 1, 1);
         parent.emit_abc(Op::Return, 1, 1, 0);
+
+        assert_eq!(
+            execute_proto(&parent.finish()),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
+    fn varargs_pass_call_arguments_to_child_proto() {
+        let mut child_builder = ProtoBuilder::new().with_signature(1, 0, true);
+        child_builder.emit_abc(Op::Vararg, 0, 1, 0);
+        child_builder.emit_abc(Op::Return, 0, 1, 0);
+        let child = child_builder.finish();
+
+        let mut parent = ProtoBuilder::new().with_signature(2, 0, false);
+        let value = parent.add_constant(Value::integer(42));
+        let child_index = parent.add_child(child);
+        parent.emit_abx(Op::Closure, 0, u64::from(child_index));
+        parent.emit_abx(Op::LoadK, 1, u64::from(value));
+        parent.emit_abc(Op::Call, 0, 2, 1);
+        parent.emit_abc(Op::Return, 0, 1, 0);
 
         assert_eq!(
             execute_proto(&parent.finish()),
