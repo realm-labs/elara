@@ -1,11 +1,11 @@
 //! Loop opcode helpers for the primitive interpreter.
 
 use elara_bytecode::Instr;
-use elara_core::{LuaFloat, LuaInteger, LuaThread, Table, Value};
+use elara_core::{LuaFloat, LuaInteger, LuaThread, Value};
 
 use super::{
-    RuntimeClosure, RuntimeError, RuntimeResult, RuntimeStrings, call_closure, register,
-    set_register,
+    RuntimeClosure, RuntimeError, RuntimeResult, RuntimeStrings, RuntimeTables, call_closure,
+    register, set_register,
 };
 
 pub(super) fn prepare_numeric_for(thread: &mut LuaThread, instr: Instr) -> RuntimeResult<bool> {
@@ -157,7 +157,7 @@ pub(super) fn execute_generic_for_call(
     thread: &mut LuaThread,
     closures: &mut Vec<RuntimeClosure>,
     instr: Instr,
-    tables: &mut Vec<Table>,
+    tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
 ) -> RuntimeResult<()> {
     let base = usize::from(instr.a());

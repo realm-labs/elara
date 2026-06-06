@@ -1,13 +1,19 @@
 //! Primitive bytecode execution.
 
 use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
-use elara_core::{GcArena, LuaFloat, LuaInteger, LuaThread, StringInterner, Table, Value};
+use elara_core::{GcArena, LuaFloat, LuaInteger, LuaThread, StringInterner, Value};
 
 mod loops;
+mod table;
 
 use loops::{
     execute_generic_for_call, execute_generic_for_loop, execute_numeric_for_loop,
     prepare_numeric_for,
+};
+pub use table::RuntimeTables;
+use table::{
+    execute_get_index, execute_get_table, execute_new_table, execute_set_index, execute_set_table,
+    execute_vararg_table,
 };
 
 /// Result of executing one prototype.
@@ -18,7 +24,7 @@ pub struct RuntimeOutput {
     /// Returned Lua values.
     pub values: Vec<Value>,
     /// Runtime table storage referenced by table placeholder values.
-    pub tables: Vec<Table>,
+    pub tables: RuntimeTables,
     /// Runtime string storage referenced by string values.
     pub strings: RuntimeStrings,
 }
@@ -87,7 +93,7 @@ pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
 pub fn execute_proto_with_output(proto: &Proto) -> RuntimeResult<RuntimeOutput> {
     verify_proto(proto).map_err(RuntimeError::Verification)?;
     let mut closures = Vec::new();
-    let mut tables = Vec::new();
+    let mut tables = RuntimeTables::new();
     let mut strings = RuntimeStrings::new();
     let values =
         execute_proto_with_upvalues(proto, &[], &[], &mut closures, &mut tables, &mut strings)?;
@@ -103,7 +109,7 @@ fn execute_proto_with_upvalues(
     upvalues: &[Value],
     varargs: &[Value],
     closures: &mut Vec<RuntimeClosure>,
-    tables: &mut Vec<Table>,
+    tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
 ) -> RuntimeResult<Vec<Value>> {
     let mut thread = LuaThread::new();
@@ -314,97 +320,11 @@ fn execute_vararg(
     Ok((instr.b() == 0).then_some(base + count))
 }
 
-fn execute_vararg_table(
-    thread: &mut LuaThread,
-    instr: Instr,
-    varargs: &[Value],
-    tables: &mut Vec<Table>,
-) -> RuntimeResult<()> {
-    let mut table = Table::new();
-    for (index, value) in varargs.iter().copied().enumerate() {
-        let key =
-            LuaInteger::try_from(index + 1).expect("vararg table index must fit in LuaInteger");
-        table.raw_set_integer(key, value);
-    }
-
-    let table_index = u32::try_from(tables.len()).expect("runtime table index must fit in u32");
-    tables.push(table);
-    set_register(thread, instr.a().into(), Value::table_index(table_index))
-}
-
-fn execute_new_table(
-    thread: &mut LuaThread,
-    instr: Instr,
-    tables: &mut Vec<Table>,
-) -> RuntimeResult<()> {
-    let table_index = u32::try_from(tables.len()).expect("runtime table index must fit in u32");
-    tables.push(Table::new());
-    set_register(thread, instr.a().into(), Value::table_index(table_index))
-}
-
-fn execute_set_table(
-    thread: &mut LuaThread,
-    instr: Instr,
-    tables: &mut [Table],
-) -> RuntimeResult<()> {
-    let table_index = register(thread, instr.a().into())?
-        .as_table_index()
-        .ok_or(RuntimeError::NonTableValue)? as usize;
-    let key = register(thread, instr.b() as usize)?;
-    let value = register(thread, instr.c() as usize)?;
-    let table = tables
-        .get_mut(table_index)
-        .ok_or(RuntimeError::NonTableValue)?;
-    if table.raw_set_value(key, value) {
-        Ok(())
-    } else {
-        Err(RuntimeError::InvalidTableKey)
-    }
-}
-
-fn execute_get_table(thread: &mut LuaThread, instr: Instr, tables: &[Table]) -> RuntimeResult<()> {
-    let table_index = register(thread, instr.b() as usize)?
-        .as_table_index()
-        .ok_or(RuntimeError::NonTableValue)? as usize;
-    let key = register(thread, instr.c() as usize)?;
-    let table = tables.get(table_index).ok_or(RuntimeError::NonTableValue)?;
-    let value = table.raw_get_value(key);
-    set_register(thread, instr.a().into(), value)
-}
-
-fn execute_get_index(thread: &mut LuaThread, instr: Instr, tables: &[Table]) -> RuntimeResult<()> {
-    let table_index = register(thread, instr.b() as usize)?
-        .as_table_index()
-        .ok_or(RuntimeError::NonTableValue)? as usize;
-    let table = tables.get(table_index).ok_or(RuntimeError::NonTableValue)?;
-    let value = table.raw_get_integer(LuaInteger::from(instr.c()));
-    set_register(thread, instr.a().into(), value)
-}
-
-fn execute_set_index(
-    thread: &mut LuaThread,
-    instr: Instr,
-    tables: &mut [Table],
-) -> RuntimeResult<()> {
-    let table_index = register(thread, instr.a().into())?
-        .as_table_index()
-        .ok_or(RuntimeError::NonTableValue)? as usize;
-    let value = register(thread, instr.c() as usize)?;
-    let table = tables
-        .get_mut(table_index)
-        .ok_or(RuntimeError::NonTableValue)?;
-    if table.raw_set_integer(LuaInteger::from(instr.b()), value) {
-        Ok(())
-    } else {
-        Err(RuntimeError::InvalidTableKey)
-    }
-}
-
 fn execute_call(
     thread: &mut LuaThread,
     closures: &mut Vec<RuntimeClosure>,
     instr: Instr,
-    tables: &mut Vec<Table>,
+    tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
 ) -> RuntimeResult<Option<usize>> {
     let callee = register(thread, instr.a().into())?;
@@ -433,7 +353,7 @@ fn call_closure(
     closures: &mut Vec<RuntimeClosure>,
     closure_index: usize,
     args: &[Value],
-    tables: &mut Vec<Table>,
+    tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
 ) -> RuntimeResult<Vec<Value>> {
     let closure = closures
