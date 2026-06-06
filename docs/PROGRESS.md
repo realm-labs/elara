@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M8 Control Flow and Iteration
-Current step: M8.2 Implement while and repeat loops
+Current step: M8.3 Implement numeric for loops
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -31,8 +31,9 @@ value. Fixed-count Lua calls can receive multiple return values. Named vararg
 tables are compiled to `VARARG_TABLE` and executed through runtime-owned table
 storage. Recursive function self-references compile and evaluate through shared
 runtime closure storage. Conditional branches compile and execute through
-`TEST`/`JMP` bytecode. Loops, full API, JIT, C API, conformance, and benchmark
-implementation work has not started.
+`TEST`/`JMP` bytecode. `while`, `repeat`, and `break` compile and execute
+through branch bytecode. Numeric for loops, generic for loops, full API, JIT,
+C API, conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -74,9 +75,10 @@ Completed:
   - M7.4 Implement varargs and named vararg table.
   - M7 exit criteria validation.
   - M8.1 Implement conditional branches.
+  - M8.2 Implement while and repeat loops.
 
 In progress:
-  - M8.2 Implement while and repeat loops.
+  - M8.3 Implement numeric for loops.
   - Standard library.
   - Rust API.
   - JIT.
@@ -416,7 +418,7 @@ Delivered:
 - Runtime closure storage is shared across nested executions so closure values
   remain callable across frames.
 - Recursive self-reference works through the source compile/eval path.
-- Terminating recursive algorithms still need M8 conditional branches.
+- Recursive self-reference exit criteria are validated through source eval.
 
 M7 is complete.
 
@@ -429,6 +431,17 @@ Delivered:
 - The verifier accepts jumps to the end-of-code boundary.
 - The simple compiler lowers `if`, `elseif`, and `else` blocks.
 - Source eval executes simple `if/else` chunks.
+
+### Completed Step: M8.2 Implement while and repeat loops
+
+Delivered:
+
+- The simple compiler lowers `while` loops with false-condition exits and back
+  jumps.
+- The simple compiler lowers `repeat` loops with post-body condition checks.
+- `break` statements inside loops patch to the loop exit.
+- `break` outside a loop reports a compile diagnostic.
+- Source eval executes simple `while`/`break` and `repeat` chunks.
 
 ## Completed Content
 
@@ -482,21 +495,20 @@ Delivered:
 - Named vararg tables compile and execute through runtime-owned table storage.
 - Recursive self-reference works through the compiler/interpreter/API path.
 - Conditional branches work through the compiler/interpreter/API path.
+- `while`, `repeat`, and `break` work through the compiler/interpreter/API path.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M8
 
-- Implement M8.2 while and repeat loops.
+- Implement M8.3 numeric for loops.
 
 ### Product Gaps
 
 Major implementation work is still pending:
 
-- Parser and diagnostics.
-- Bytecode format and verifier.
-- Compiler.
-- Interpreter.
+- Numeric for loops.
+- Generic for loops.
 - Standard library.
 - Rust API.
 - Cranelift JIT.
@@ -507,25 +519,23 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M8.1 conditional branch verification passed:
+M8.2 loop verification passed:
 
 ```bash
 cargo fmt --all
-cargo test -p elara-bytecode jump
-cargo test -p elara-compiler conditionals
-cargo test -p elara-interp conditionals
-cargo test -p elara-api if_else
-cargo clippy -p elara-bytecode --all-targets -- -D warnings
-cargo clippy -p elara-compiler --all-targets -- -D warnings
-cargo clippy -p elara-interp --all-targets -- -D warnings
-cargo clippy -p elara-api --all-targets -- -D warnings
 cargo fmt --all -- --check
+cargo test -p elara-compiler loops
+cargo test -p elara-interp loops
+cargo test -p elara-api eval_simple_executes
+cargo test -p elara-compiler simple_expr_reports_unsupported_statement
+cargo clippy -p elara-compiler -p elara-interp -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Implement M8.2 while and repeat loops from `docs/MILESTONES.md`, then run the
-focused compiler/interpreter loop tests and update this progress document.
+Implement M8.3 numeric for loops from `docs/MILESTONES.md`, then inspect the
+relevant Lua 5.5 parser/compiler/VM source, run focused numeric-for tests, and
+update this progress document.
 
 ## Current Risk Notes
 
@@ -569,7 +579,7 @@ focused compiler/interpreter loop tests and update this progress document.
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
-| Control flow | In progress | Conditional branches are implemented; loops are next. |
+| Control flow | In progress | Conditional branches plus `while`, `repeat`, and `break` are implemented; numeric for loops are next. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

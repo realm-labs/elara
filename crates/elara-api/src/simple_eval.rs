@@ -67,6 +67,28 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_executes_while_break() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "local x = 0\nwhile true do\n  x = x + 1\n  break\nend\nreturn x",
+            ),
+            Ok(vec![Value::integer(1)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_executes_repeat_until() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "local x = 0\nrepeat\n  x = x + 1\nuntil true\nreturn x",
+            ),
+            Ok(vec![Value::integer(1)])
+        );
+    }
+
+    #[test]
     fn eval_simple_reports_compile_diagnostics() {
         let error = eval_simple_source(SourceId::new(0), "x = 1").unwrap_err();
 

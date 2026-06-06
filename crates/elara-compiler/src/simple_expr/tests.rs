@@ -32,13 +32,51 @@ fn simple_expr_compiles_unary_arithmetic() {
 
 #[test]
 fn simple_expr_reports_unsupported_statement() {
-    let compiled = compile_simple_chunk(SourceId::new(0), "while true do end");
+    let compiled = compile_simple_chunk(SourceId::new(0), "::again::");
 
     assert!(compiled.proto.is_none());
     assert_eq!(
         compiled.diagnostics[0].message(),
         "unsupported statement in simple expression compiler"
     );
+}
+
+#[test]
+fn loops_compile_while_with_break() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local x = 0\nwhile true do\n  x = x + 1\n  break\nend\nreturn x",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_K        A=0 Bx=0 ; 0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_BOOL     A=2 B=1 C=0\n0003 TEST          A=2 B=0 C=0\n0004 JMP           A=0 sBx=4\n0005 LOAD_K        A=3 Bx=1 ; 1\n0006 ADD           A=1 B=1 C=3\n0007 JMP           A=0 sBx=1\n0008 JMP           A=0 sBx=-7\n0009 RETURN        A=1 B=1 C=0\n",
+    );
+}
+
+#[test]
+fn loops_compile_repeat_until_condition() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local x = 0\nrepeat\n  x = x + 1\nuntil true\nreturn x",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_K        A=0 Bx=0 ; 0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_K        A=2 Bx=1 ; 1\n0003 ADD           A=1 B=1 C=2\n0004 LOAD_BOOL     A=3 B=1 C=0\n0005 TEST          A=3 B=0 C=0\n0006 JMP           A=0 sBx=-5\n0007 RETURN        A=1 B=1 C=0\n",
+    );
+}
+
+#[test]
+fn loops_report_break_outside_loop() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "break");
+
+    assert!(compiled.proto.is_none());
+    assert_eq!(compiled.diagnostics[0].message(), "break outside loop");
 }
 
 #[test]

@@ -155,6 +155,27 @@ fn conditionals_execute_test_and_jump() {
 }
 
 #[test]
+fn loops_execute_backward_jump_until_break() {
+    let mut builder = ProtoBuilder::new().with_signature(4, 0, false);
+    let zero = builder.add_constant(Value::integer(0));
+    let one = builder.add_constant(Value::integer(1));
+    builder.emit_abx(Op::LoadK, 0, u64::from(zero));
+    builder.emit_abc(Op::LoadBool, 1, 1, 0);
+    builder.emit_abc(Op::Test, 1, 0, 0);
+    builder.emit_asbx(Op::Jmp, 0, 4);
+    builder.emit_abx(Op::LoadK, 2, u64::from(one));
+    builder.emit_abc(Op::Add, 0, 0, 2);
+    builder.emit_asbx(Op::Jmp, 0, 1);
+    builder.emit_asbx(Op::Jmp, 0, -7);
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Ok(vec![Value::integer(1)])
+    );
+}
+
+#[test]
 fn varargs_pass_call_arguments_to_child_proto() {
     let mut child_builder = ProtoBuilder::new().with_signature(1, 0, true);
     child_builder.emit_abc(Op::Vararg, 0, 1, 0);
