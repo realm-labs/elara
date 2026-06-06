@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M5 Bytecode Model and Compiler MVP  
-Current step: M5.1 Define Proto, Instr, and opcode encoding
+Current step: M5.2 Add bytecode builder and disassembler
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -18,8 +18,10 @@ test fixture/conformance/differential directory layout exists with a snapshot
 baseline. Primitive runtime values, the basic GC skeleton, Lua strings with
 short-string interning, table array/hash storage with metadata versioning, Lua
 tokenization, expression parsing, statement parsing, and parser snapshot/error
-coverage are implemented. Compiler, bytecode, interpreter, API, JIT, C API,
-conformance, and benchmark implementation work has not started.
+coverage are implemented. The initial bytecode prototype, instruction encoding,
+opcode set, constant pool, and metadata placeholders are implemented. Compiler,
+interpreter, API, JIT, C API, conformance, and benchmark implementation work has
+not started.
 
 Current state:
 
@@ -48,9 +50,10 @@ Completed:
   - M4.2 Implement expression parser.
   - M4.3 Implement statement parser.
   - M4.4 Implement parser snapshots and error tests.
+  - M5.1 Define Proto, Instr, and opcode encoding.
 
 Not started:
-  - M5.1 Define Proto, Instr, and opcode encoding.
+  - M5.2 Add bytecode builder and disassembler.
   - Compiler.
   - Bytecode.
   - Interpreter.
@@ -265,25 +268,33 @@ Delivered:
 
 M4 is complete.
 
-### Current Step: M5.1 Define Proto, Instr, and opcode encoding
+### Completed Step: M5.1 Define Proto, Instr, and opcode encoding
 
-Expected deliverables:
+Delivered:
 
 - `Proto`, `Instr`, and `Op`.
 - Constant pool.
 - Upvalue descriptors placeholder.
 - Debug info placeholder.
 
+### Current Step: M5.2 Add bytecode builder and disassembler
+
+Expected deliverables:
+
+- Builder API.
+- Human-readable disassembly.
+- Tests for simple instruction sequences.
+
 Recommended verification:
 
 ```bash
-cargo test -p elara-bytecode op
+cargo test -p elara-bytecode disasm
 ```
 
 Recommended commit:
 
 ```text
-feat(bytecode): define proto and instructions
+feat(bytecode): add builder and disassembler
 ```
 
 ## Completed Content
@@ -324,12 +335,13 @@ feat(bytecode): define proto and instructions
 - Lua expression AST and precedence parsing are available in `elara-syntax`.
 - Lua statement AST and block parsing are available in `elara-syntax`.
 - Parser snapshots and malformed syntax diagnostics are covered.
+- Bytecode opcode, instruction encoding, prototype, constant pool, upvalue descriptor, and debug placeholder types are available.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M5
 
-- Define bytecode proto, instruction, opcode, and constant-pool types.
+- Add bytecode builder and disassembler.
 
 ### Product Gaps
 
@@ -349,27 +361,27 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M4.4 verification passed:
+M5.1 verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy -p elara-syntax --all-targets -- -D warnings
-cargo test -p elara-syntax
+cargo clippy -p elara-bytecode --all-targets -- -D warnings
+cargo test -p elara-bytecode op
 ```
 
 ## Next Recommended Action
 
-Implement M5.1 from `docs/MILESTONES.md`:
+Implement M5.2 from `docs/MILESTONES.md`:
 
-1. Add bytecode `Proto`, `Instr`, and `Op` types.
-2. Add constant-pool and placeholder upvalue/debug metadata types.
-3. Add opcode/instruction tests.
-4. Run `cargo test -p elara-bytecode op`.
+1. Add a bytecode builder API.
+2. Add human-readable disassembly.
+3. Add tests for simple instruction sequences.
+4. Run `cargo test -p elara-bytecode disasm`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-feat(bytecode): define proto and instructions
+feat(bytecode): add builder and disassembler
 ```
 
 ## Current Risk Notes
@@ -409,7 +421,7 @@ feat(bytecode): define proto and instructions
 | Expression parser | Complete | Expression AST, precedence parsing, calls, table constructors, and varargs are implemented. |
 | Statement parser | Complete | Declarations, assignments, control flow, function declarations, labels, and returns are implemented. |
 | Parser snapshots | Complete | Representative AST and malformed syntax diagnostic snapshots are implemented. |
-| Bytecode model | Not started | Current milestone. |
+| Bytecode model | In progress | Proto, instruction encoding, opcode set, constants, upvalues, and debug placeholders are implemented. |
 | Compiler | Not started | Starts M5. |
 | Interpreter | Not started | Starts M6. |
 | Rust API | Not started | Starts M12. |

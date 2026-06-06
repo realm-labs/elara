@@ -20,6 +20,9 @@ version = "0.1.0"
 [[package]]
 name = "elara-bytecode"
 version = "0.1.0"
+dependencies = [
+ "elara-core",
+]
 
 [[package]]
 name = "elara-capi"
