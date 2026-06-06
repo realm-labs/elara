@@ -1,10 +1,3 @@
-[package]
-name = "elara"
-version = "0.1.0"
-edition = "2024"
-description = "Rust-native implementation of the latest stable Lua VM."
-license = "MIT OR Apache-2.0"
-
 [workspace]
 resolver = "3"
 members = [
@@ -36,5 +29,3 @@ elara-interp = { path = "crates/elara-interp" }
 elara-jit = { path = "crates/elara-jit" }
 elara-stdlib = { path = "crates/elara-stdlib" }
 elara-syntax = { path = "crates/elara-syntax" }
-
-[dependencies]

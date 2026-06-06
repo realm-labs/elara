@@ -111,7 +111,7 @@ chore(ci): add workspace quality gates
 
 ### Workspace Bootstrap
 
-- Root `elara` crate exists.
+- The repository root is a virtual Cargo workspace.
 - Workspace uses placeholder member crates for the architecture-defined layers.
 - Each placeholder crate has a minimal manifest and `src/lib.rs`.
 - Root README describes project positioning and workspace layout.
@@ -184,7 +184,7 @@ chore(ci): add workspace quality gates
 | Architecture docs | Drafted | Present in `docs/`. |
 | Milestone plan | Drafted | Present in `docs/`. |
 | Codex goal | Drafted | Present in `docs/`. |
-| Workspace | Complete | Root package and placeholder member crates exist. |
+| Workspace | Complete | Virtual workspace and placeholder member crates exist. |
 | CI and lints | Not started | Current step. |
 | Crate boundary docs | Not started | Planned for M0.3. |
 | Core runtime | Not started | Starts M2. |

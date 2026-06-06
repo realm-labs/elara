@@ -3,10 +3,6 @@
 version = 4
 
 [[package]]
-name = "elara"
-version = "0.1.0"
-
-[[package]]
 name = "elara-api"
 version = "0.1.0"
 
