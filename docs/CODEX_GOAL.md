@@ -11,13 +11,36 @@ Use this prompt when starting or resuming Codex work in the Elara repository.
 /goal
 You are working on Elara, a Rust-native implementation of the latest stable Lua VM with a high-level Rust embedding API and optional Cranelift JIT.
 
-Before changing code, read these documents:
+This is a long-running project goal. Continue implementing the project step by
+step until every milestone in `docs/MILESTONES.md` is complete.
 
-1. docs/ARCHITECTURE.md
-2. docs/MILESTONES.md
-3. docs/PROGRESS.md
+Before changing code at the start of each work cycle, read:
+
+1. docs/PROGRESS.md
+2. the relevant section of docs/MILESTONES.md
+3. the relevant architecture boundaries in docs/ARCHITECTURE.md
 
 Your task is to continue from the current position described in docs/PROGRESS.md, following the architecture in docs/ARCHITECTURE.md and the step plan in docs/MILESTONES.md.
+
+Execution policy:
+
+- Treat docs/MILESTONES.md as the implementation roadmap.
+- Use docs/PROGRESS.md to determine the current milestone and next incomplete step.
+- Implement exactly one verifiable step at a time, or a smaller sub-step if the listed step is too large.
+- After each step:
+  - add or update tests for changed behavior,
+  - run the narrowest meaningful verification,
+  - run broader workspace checks when the codebase is ready,
+  - update docs/PROGRESS.md as a rolling status document,
+  - commit with a conventional commit message.
+- After committing a clean step, continue to the next incomplete step automatically.
+- Do not stop merely because one step or one milestone is complete.
+- Stop only when:
+  - all milestones are complete,
+  - you are blocked and cannot make meaningful progress without user input,
+  - verification fails and you cannot safely fix it,
+  - continuing would require a risky architecture decision not covered by the docs,
+  - or the user explicitly asks you to stop.
 
 Project constraints:
 
@@ -41,7 +64,7 @@ Project constraints:
 - Public APIs must not expose unrooted raw GC pointers.
 - JIT must remain optional and semantically equivalent to the interpreter for supported paths.
 
-Workflow:
+Workflow for each step:
 
 1. Read docs/PROGRESS.md and identify the current milestone and next incomplete step.
 2. Read the relevant section in docs/MILESTONES.md.
@@ -51,7 +74,13 @@ Workflow:
 6. Run formatting and the narrowest meaningful tests.
 7. Update docs/PROGRESS.md with current milestone, completed content, and remaining gaps.
 8. Commit using a conventional commit message.
-9. Stop after a clean, reviewable unit of progress.
+9. Continue to the next incomplete step unless a stop condition from the execution policy applies.
+
+Important goal-status rule:
+
+- Do not mark this `/goal` complete after finishing a single step.
+- Mark this `/goal` complete only when every milestone in docs/MILESTONES.md is complete.
+- At the end of each assistant turn, report the step completed, the commit made, the verification run, and the next step to continue from.
 ```
 
 ## Secondary `/goal` Prompt for Focused Steps
