@@ -172,10 +172,10 @@ fn execute_proto_with_upvalues(
                 set_register(&mut thread, instr.a().into(), value)?;
             }
             Op::NewTable => execute_new_table(&mut thread, instr, tables)?,
-            Op::GetTable => execute_get_table(&mut thread, instr, tables, strings)?,
-            Op::SetTable => execute_set_table(&mut thread, instr, tables, strings)?,
-            Op::GetIndex => execute_get_index(&mut thread, instr, tables, strings)?,
-            Op::SetIndex => execute_set_index(&mut thread, instr, tables, strings)?,
+            Op::GetTable => execute_get_table(&mut thread, closures, instr, tables, strings)?,
+            Op::SetTable => execute_set_table(&mut thread, closures, instr, tables, strings)?,
+            Op::GetIndex => execute_get_index(&mut thread, closures, instr, tables, strings)?,
+            Op::SetIndex => execute_set_index(&mut thread, closures, instr, tables, strings)?,
             Op::GetUpvalue => {
                 let value = upvalues.get(instr.b() as usize).copied().ok_or(
                     RuntimeError::UpvalueOutOfBounds {
