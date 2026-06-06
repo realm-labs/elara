@@ -98,6 +98,26 @@ fn expr_parses_method_call_arguments() {
 }
 
 #[test]
+fn table_access_parses_index_suffixes() {
+    let expr = parse("table[key].field");
+
+    let ExprKind::Index { table, key } = expr.kind() else {
+        panic!("expected field index expression");
+    };
+    assert!(matches!(key.kind(), ExprKind::StringKey("field")));
+
+    let ExprKind::Index {
+        table: inner_table,
+        key: inner_key,
+    } = table.kind()
+    else {
+        panic!("expected bracket index expression");
+    };
+    assert!(matches!(inner_table.kind(), ExprKind::Name("table")));
+    assert!(matches!(inner_key.kind(), ExprKind::Name("key")));
+}
+
+#[test]
 fn expr_parses_table_and_string_call_sugar() {
     let table_call = parse("f { x = 1 }");
     let ExprKind::Call { args, .. } = table_call.kind() else {

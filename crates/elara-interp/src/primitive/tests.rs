@@ -356,6 +356,55 @@ fn table_constructor_rejects_nil_key() {
 }
 
 #[test]
+fn table_access_executes_generic_hash_get_and_set() {
+    let mut builder = ProtoBuilder::new().with_signature(4, 0, false);
+    let key = builder.add_string_constant("answer");
+    let value = builder.add_constant(Value::integer(42));
+    builder.emit_abc(Op::NewTable, 0, 0, 1);
+    builder.emit_abx(Op::LoadString, 1, u64::from(key));
+    builder.emit_abx(Op::LoadK, 2, u64::from(value));
+    builder.emit_abc(Op::SetTable, 0, 1, 2);
+    builder.emit_abc(Op::GetTable, 3, 0, 1);
+    builder.emit_abc(Op::Return, 3, 1, 0);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Ok(vec![Value::integer(42)])
+    );
+}
+
+#[test]
+fn table_access_executes_integer_index_fast_path() {
+    let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+    let value = builder.add_constant(Value::integer(42));
+    builder.emit_abc(Op::NewTable, 0, 1, 0);
+    builder.emit_abx(Op::LoadK, 1, u64::from(value));
+    builder.emit_abc(Op::SetIndex, 0, 1, 1);
+    builder.emit_abc(Op::GetIndex, 2, 0, 1);
+    builder.emit_abc(Op::Return, 2, 1, 0);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Ok(vec![Value::integer(42)])
+    );
+}
+
+#[test]
+fn table_access_nil_assignment_clears_integer_slot() {
+    let mut builder = ProtoBuilder::new().with_signature(4, 0, false);
+    let value = builder.add_constant(Value::integer(42));
+    builder.emit_abc(Op::NewTable, 0, 1, 0);
+    builder.emit_abx(Op::LoadK, 1, u64::from(value));
+    builder.emit_abc(Op::SetIndex, 0, 1, 1);
+    builder.emit_abc(Op::LoadNil, 2, 0, 0);
+    builder.emit_abc(Op::SetIndex, 0, 1, 2);
+    builder.emit_abc(Op::GetIndex, 3, 0, 1);
+    builder.emit_abc(Op::Return, 3, 1, 0);
+
+    assert_eq!(execute_proto(&builder.finish()), Ok(vec![Value::nil()]));
+}
+
+#[test]
 fn varargs_pass_call_arguments_to_child_proto() {
     let mut child_builder = ProtoBuilder::new().with_signature(1, 0, true);
     child_builder.emit_abc(Op::Vararg, 0, 1, 0);

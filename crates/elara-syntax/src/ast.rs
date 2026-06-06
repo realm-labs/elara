@@ -44,6 +44,8 @@ pub enum ExprKind<'src> {
     Float(&'src str),
     /// String literal source text.
     String(&'src str),
+    /// Parser-produced string key for field syntax such as `table.name`.
+    StringKey(&'src str),
     /// Name expression.
     Name(&'src str),
     /// Vararg expression, `...`.
@@ -74,6 +76,13 @@ pub enum ExprKind<'src> {
         method: Option<&'src str>,
         /// Call arguments.
         args: Vec<Expr<'src>>,
+    },
+    /// Table index expression.
+    Index {
+        /// Table expression.
+        table: Box<Expr<'src>>,
+        /// Key expression.
+        key: Box<Expr<'src>>,
     },
     /// Table constructor.
     Table(Vec<TableField<'src>>),

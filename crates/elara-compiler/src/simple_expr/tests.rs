@@ -122,6 +122,33 @@ fn table_constructor_compiles_array_record_and_keyed_fields() {
 }
 
 #[test]
+fn table_access_compiles_index_read_and_write() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "local t = {}\nt[1] = 42\nreturn t[1]");
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 NEW_TABLE     A=0 B=0 C=0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_K        A=2 Bx=0 ; 42\n0003 LOAD_K        A=3 Bx=1 ; 1\n0004 SET_TABLE     A=1 B=3 C=2\n0005 LOAD_K        A=4 Bx=2 ; 1\n0006 GET_TABLE     A=5 B=1 C=4\n0007 RETURN        A=5 B=1 C=0\n",
+    );
+}
+
+#[test]
+fn table_access_compiles_field_read_and_write() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local t = {}\nt.answer = 42\nreturn t.answer",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 NEW_TABLE     A=0 B=0 C=0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_K        A=2 Bx=0 ; 42\n0003 LOAD_STRING   A=3 Bx=0 ; \"answer\"\n0004 SET_TABLE     A=1 B=3 C=2\n0005 LOAD_STRING   A=4 Bx=1 ; \"answer\"\n0006 GET_TABLE     A=5 B=1 C=4\n0007 RETURN        A=5 B=1 C=0\n",
+    );
+}
+
+#[test]
 fn locals_compile_local_return() {
     let compiled = compile_simple_chunk(SourceId::new(0), "local x = 1 + 2\nreturn x");
     assert_eq!(compiled.diagnostics, Vec::new());

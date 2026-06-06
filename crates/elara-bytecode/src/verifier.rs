@@ -131,9 +131,13 @@ impl Verifier<'_> {
             Op::GetEnv | Op::SetEnv => {
                 self.check_register(offset, instr.a());
             }
-            Op::GetIndex | Op::SetIndex => {
+            Op::GetIndex => {
                 self.check_register(offset, instr.a());
                 self.check_register(offset, instr.b());
+            }
+            Op::SetIndex => {
+                self.check_register(offset, instr.a());
+                self.check_register(offset, instr.c());
             }
             Op::GetTable
             | Op::SetTable
@@ -398,6 +402,21 @@ mod tests {
                 base: 0,
                 count: 2,
                 max_stack: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn verifier_rejects_out_of_bounds_table_access_registers() {
+        let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
+        builder.emit_abc(Op::SetIndex, 0, 1, 2);
+        let errors = verify_proto(&builder.finish()).unwrap_err();
+
+        assert_eq!(
+            errors[0].kind,
+            VerifyErrorKind::RegisterOutOfBounds {
+                register: 2,
+                max_stack: 2,
             }
         );
     }

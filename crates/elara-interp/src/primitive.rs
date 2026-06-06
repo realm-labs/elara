@@ -162,7 +162,10 @@ fn execute_proto_with_upvalues(
                 set_register(&mut thread, instr.a().into(), value)?;
             }
             Op::NewTable => execute_new_table(&mut thread, instr, tables)?,
+            Op::GetTable => execute_get_table(&mut thread, instr, tables)?,
             Op::SetTable => execute_set_table(&mut thread, instr, tables)?,
+            Op::GetIndex => execute_get_index(&mut thread, instr, tables)?,
+            Op::SetIndex => execute_set_index(&mut thread, instr, tables)?,
             Op::GetUpvalue => {
                 let value = upvalues.get(instr.b() as usize).copied().ok_or(
                     RuntimeError::UpvalueOutOfBounds {
@@ -353,6 +356,44 @@ fn execute_set_table(
         .get_mut(table_index)
         .ok_or(RuntimeError::NonTableValue)?;
     if table.raw_set_value(key, value) {
+        Ok(())
+    } else {
+        Err(RuntimeError::InvalidTableKey)
+    }
+}
+
+fn execute_get_table(thread: &mut LuaThread, instr: Instr, tables: &[Table]) -> RuntimeResult<()> {
+    let table_index = register(thread, instr.b() as usize)?
+        .as_table_index()
+        .ok_or(RuntimeError::NonTableValue)? as usize;
+    let key = register(thread, instr.c() as usize)?;
+    let table = tables.get(table_index).ok_or(RuntimeError::NonTableValue)?;
+    let value = table.raw_get_value(key);
+    set_register(thread, instr.a().into(), value)
+}
+
+fn execute_get_index(thread: &mut LuaThread, instr: Instr, tables: &[Table]) -> RuntimeResult<()> {
+    let table_index = register(thread, instr.b() as usize)?
+        .as_table_index()
+        .ok_or(RuntimeError::NonTableValue)? as usize;
+    let table = tables.get(table_index).ok_or(RuntimeError::NonTableValue)?;
+    let value = table.raw_get_integer(LuaInteger::from(instr.c()));
+    set_register(thread, instr.a().into(), value)
+}
+
+fn execute_set_index(
+    thread: &mut LuaThread,
+    instr: Instr,
+    tables: &mut [Table],
+) -> RuntimeResult<()> {
+    let table_index = register(thread, instr.a().into())?
+        .as_table_index()
+        .ok_or(RuntimeError::NonTableValue)? as usize;
+    let value = register(thread, instr.c() as usize)?;
+    let table = tables
+        .get_mut(table_index)
+        .ok_or(RuntimeError::NonTableValue)?;
+    if table.raw_set_integer(LuaInteger::from(instr.b()), value) {
         Ok(())
     } else {
         Err(RuntimeError::InvalidTableKey)

@@ -3,13 +3,14 @@
 use std::collections::HashMap;
 
 use elara_bytecode::{MAX_B, Op, Proto, ProtoBuilder, UpvalueDesc, verify_proto};
-use elara_core::{Diagnostic, SHORT_STRING_MAX_BYTES, SourceId, Span, Value};
+use elara_core::{Diagnostic, SourceId, Span, Value};
 use elara_syntax::{
-    BinaryOp, Expr, ExprKind, FunctionBody, FunctionScope, NameDecl, Param, StmtKind, TableField,
-    TableFieldKind, UnaryOp, parse_chunk,
+    BinaryOp, Expr, ExprKind, FunctionBody, FunctionScope, NameDecl, Param, StmtKind, UnaryOp,
+    parse_chunk,
 };
 
 mod control;
+mod table;
 
 /// Result of compiling a chunk.
 #[derive(Clone, Debug, PartialEq)]
@@ -180,15 +181,11 @@ impl SimpleCompiler {
     fn compile_assignment(&mut self, span: Span, targets: &[Expr<'_>], values: &[Expr<'_>]) {
         let value_registers = self.compile_expression_list(values);
         for (index, target) in targets.iter().enumerate() {
-            let Some(register) = self.target_register(target) else {
-                continue;
-            };
-
-            if let Some(value) = value_registers.get(index).copied() {
-                self.emit_move(register, value);
-            } else {
-                self.builder.emit_abc(Op::LoadNil, register, 0, 0);
-            }
+            let value = value_registers
+                .get(index)
+                .copied()
+                .unwrap_or_else(|| self.emit_nil());
+            self.compile_assignment_target(target, value);
         }
 
         if targets.is_empty() {
@@ -241,9 +238,11 @@ impl SimpleCompiler {
             ExprKind::Integer(text) => self.compile_integer(expr, text),
             ExprKind::Float(text) => self.compile_float(expr, text),
             ExprKind::String(text) => self.compile_string_literal(expr, text),
+            ExprKind::StringKey(text) => self.compile_string_key(expr.span(), text),
             ExprKind::Name(name) => self.local_register(expr, name),
             ExprKind::Vararg => self.compile_vararg(expr),
             ExprKind::Call { callee, args, .. } => self.compile_call(expr, callee, args),
+            ExprKind::Index { table, key } => self.compile_table_get(table, key),
             ExprKind::Table(fields) => self.compile_table_constructor(fields),
             ExprKind::Grouped(expr) => self.compile_expr(expr),
             ExprKind::Unary { op, expr } => self.compile_unary(expr, *op),
@@ -295,50 +294,6 @@ impl SimpleCompiler {
         }
     }
 
-    fn compile_string_literal(&mut self, expr: &Expr<'_>, text: &str) -> u16 {
-        let Some(bytes) = string_literal_bytes(text) else {
-            self.diagnostics.push(
-                Diagnostic::error("unsupported string literal in simple expression compiler")
-                    .with_primary_span(expr.span()),
-            );
-            return self.alloc_register();
-        };
-        self.emit_string_constant(expr.span(), bytes)
-    }
-
-    fn compile_table_constructor(&mut self, fields: &[TableField<'_>]) -> u16 {
-        let table = self.alloc_register();
-        let array_count = fields
-            .iter()
-            .filter(|field| matches!(field.kind(), TableFieldKind::Array(_)))
-            .count();
-        let hash_count = fields.len().saturating_sub(array_count);
-        self.builder
-            .emit_abc(Op::NewTable, table, array_count as u32, hash_count as u32);
-
-        let mut array_index = 1_i64;
-        for field in fields {
-            let (key, value) = match field.kind() {
-                TableFieldKind::Array(value) => {
-                    let key = self.emit_constant(Value::integer(array_index));
-                    array_index += 1;
-                    (key, self.compile_expr(value))
-                }
-                TableFieldKind::Named { name, value } => {
-                    let key = self.emit_string_constant(field.span(), name.as_bytes());
-                    (key, self.compile_expr(value))
-                }
-                TableFieldKind::Keyed { key, value } => {
-                    (self.compile_expr(key), self.compile_expr(value))
-                }
-            };
-            self.builder
-                .emit_abc(Op::SetTable, table, u32::from(key), u32::from(value));
-        }
-
-        table
-    }
-
     fn emit_constant(&mut self, value: Value) -> u16 {
         let register = self.alloc_register();
         let constant = self.builder.add_constant(value);
@@ -347,19 +302,9 @@ impl SimpleCompiler {
         register
     }
 
-    fn emit_string_constant(&mut self, span: Span, bytes: &[u8]) -> u16 {
+    fn emit_nil(&mut self) -> u16 {
         let register = self.alloc_register();
-        if bytes.len() > SHORT_STRING_MAX_BYTES {
-            self.diagnostics.push(
-                Diagnostic::error("string literal exceeds current short-string support")
-                    .with_primary_span(span),
-            );
-            return register;
-        }
-
-        let constant = self.builder.add_string_constant(bytes);
-        self.builder
-            .emit_abx(Op::LoadString, register, u64::from(constant));
+        self.builder.emit_abc(Op::LoadNil, register, 0, 0);
         register
     }
 
@@ -438,24 +383,6 @@ impl SimpleCompiler {
 
         self.builder.emit_abc(Op::Call, register, arg_count, 1);
         register
-    }
-
-    fn target_register(&mut self, target: &Expr<'_>) -> Option<u16> {
-        if let ExprKind::Name(name) = target.kind() {
-            if let Some(register) = self.locals.get(*name).copied() {
-                return Some(register);
-            }
-            self.diagnostics.push(
-                Diagnostic::error("assignment target is not a declared local")
-                    .with_primary_span(target.span()),
-            );
-            return None;
-        }
-
-        self.diagnostics.push(
-            Diagnostic::error("unsupported assignment target").with_primary_span(target.span()),
-        );
-        None
     }
 
     fn emit_move(&mut self, target: u16, source: u16) {
@@ -566,19 +493,6 @@ impl SimpleCompiler {
             diagnostics: Vec::new(),
         }
     }
-}
-
-fn string_literal_bytes(text: &str) -> Option<&[u8]> {
-    let bytes = text.as_bytes();
-    let quote = *bytes.first()?;
-    if !matches!(quote, b'\'' | b'"') || bytes.last().copied() != Some(quote) {
-        return None;
-    }
-    let inner = &bytes[1..bytes.len().checked_sub(1)?];
-    if inner.contains(&b'\\') {
-        return None;
-    }
-    Some(inner)
 }
 
 #[cfg(test)]

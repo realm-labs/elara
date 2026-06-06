@@ -142,6 +142,25 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_executes_table_access_by_index() {
+        assert_eq!(
+            eval_simple_source(SourceId::new(0), "local t = {}\nt[1] = 42\nreturn t[1]"),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_executes_table_access_by_field() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "local t = {}\nt.answer = 42\nreturn t.answer",
+            ),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
     fn eval_simple_reports_compile_diagnostics() {
         let error = eval_simple_source(SourceId::new(0), "x = 1").unwrap_err();
 

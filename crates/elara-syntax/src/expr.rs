@@ -137,6 +137,33 @@ impl<'src> Parser<'src> {
                     },
                     merge_spans(start_span, end_span),
                 );
+            } else if self.match_kind(TokenKind::LeftBracket) {
+                let key = self.parse_expression(1);
+                let close = self.expect(TokenKind::RightBracket, "expected ']' after table key");
+                let start_span = expr.span();
+                let end_span = close.map_or_else(|| key.span(), |token| token.span());
+                expr = Expr::new(
+                    ExprKind::Index {
+                        table: Box::new(expr),
+                        key: Box::new(key),
+                    },
+                    merge_spans(start_span, end_span),
+                );
+            } else if self.match_kind(TokenKind::Dot) {
+                let field = self.expect(TokenKind::Identifier, "expected field name");
+                let start_span = expr.span();
+                let Some(field) = field else {
+                    expr = Expr::new(ExprKind::Error, start_span);
+                    continue;
+                };
+                let key = Expr::new(ExprKind::StringKey(field.lexeme()), field.span());
+                expr = Expr::new(
+                    ExprKind::Index {
+                        table: Box::new(expr),
+                        key: Box::new(key),
+                    },
+                    merge_spans(start_span, field.span()),
+                );
             } else {
                 break;
             }
