@@ -1,0 +1,40 @@
+[package]
+name = "elara"
+version = "0.1.0"
+edition = "2024"
+description = "Rust-native implementation of the latest stable Lua VM."
+license = "MIT OR Apache-2.0"
+
+[workspace]
+resolver = "3"
+members = [
+    "crates/elara-api",
+    "crates/elara-bench",
+    "crates/elara-bytecode",
+    "crates/elara-capi",
+    "crates/elara-compiler",
+    "crates/elara-core",
+    "crates/elara-interp",
+    "crates/elara-jit",
+    "crates/elara-stdlib",
+    "crates/elara-syntax",
+    "crates/elara-test",
+]
+
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+version = "0.1.0"
+
+[workspace.dependencies]
+elara-api = { path = "crates/elara-api" }
+elara-bytecode = { path = "crates/elara-bytecode" }
+elara-capi = { path = "crates/elara-capi" }
+elara-compiler = { path = "crates/elara-compiler" }
+elara-core = { path = "crates/elara-core" }
+elara-interp = { path = "crates/elara-interp" }
+elara-jit = { path = "crates/elara-jit" }
+elara-stdlib = { path = "crates/elara-stdlib" }
+elara-syntax = { path = "crates/elara-syntax" }
+
+[dependencies]
