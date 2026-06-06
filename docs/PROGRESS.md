@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M3 Strings and Tables  
-Current step: M3.2 Implement table array storage
+Current step: M3.3 Implement table hash storage
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -16,9 +16,9 @@ documented crate boundaries, and a single current Lua language target in
 `elara-core`. Core source span and diagnostic primitives are available, and the
 test fixture/conformance/differential directory layout exists with a snapshot
 baseline. Primitive runtime values, the basic GC skeleton, and Lua strings with
-short-string interning are implemented. Tables, parser, compiler, bytecode,
-interpreter, API, JIT, C API, conformance, and benchmark implementation work has
-not started.
+short-string interning are implemented. Table array storage is implemented.
+Table hash storage, parser, compiler, bytecode, interpreter, API, JIT, C API,
+conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -40,9 +40,10 @@ Completed:
   - M2.3 Implement basic arena/list allocator.
   - M2.4 Implement stop-the-world mark-sweep MVP.
   - M3.1 Implement Lua strings and interning.
+  - M3.2 Implement table array storage.
 
 Not started:
-  - M3.2 Implement table array storage.
+  - M3.3 Implement table hash storage.
   - Parser.
   - Compiler.
   - Bytecode.
@@ -189,25 +190,34 @@ Delivered:
 - `StringInterner` for rooted interned short strings.
 - String equality and hashing tests.
 
-### Current Step: M3.2 Implement table array storage
+### Completed Step: M3.2 Implement table array storage
+
+Delivered:
+
+- `Table` GC object with array part storage.
+- Raw 1-based integer array get/set helpers.
+- Nil assignment clears slots and trims trailing nils.
+- Array growth tests.
+
+### Current Step: M3.3 Implement table hash storage
 
 Expected deliverables:
 
-- `Table` with array part.
-- Raw get/set integer index helpers.
-- Nil assignment behavior.
-- Array growth tests.
+- Hash part with Lua `Value` keys.
+- Numeric key canonicalization.
+- Rehash logic.
+- Tests for string, integer, float, and boolean keys.
 
 Recommended verification:
 
 ```bash
-cargo test -p elara-core table_array
+cargo test -p elara-core table_hash
 ```
 
 Recommended commit:
 
 ```text
-feat(core): add table array storage
+feat(core): add table hash storage
 ```
 
 ## Completed Content
@@ -241,12 +251,12 @@ feat(core): add table array storage
 - Basic GC allocation list, stats, roots, and drop cleanup are available.
 - Stop-the-world mark-sweep MVP is available under tests.
 - Lua short strings, long strings, and short-string interning are available.
+- Table array storage is available in `elara-core`.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M3
 
-- Add table array storage.
 - Add table hash storage and numeric key canonicalization.
 
 ### Product Gaps
@@ -271,27 +281,27 @@ All implementation work is still pending:
 
 ## Last Verification
 
-M3.1 verification passed:
+M3.2 verification passed:
 
 ```bash
 cargo fmt --all -- --check
 cargo clippy -p elara-core --all-targets -- -D warnings
-cargo test -p elara-core string
+cargo test -p elara-core table_array
 ```
 
 ## Next Recommended Action
 
-Implement M3.2 from `docs/MILESTONES.md`:
+Implement M3.3 from `docs/MILESTONES.md`:
 
-1. Add a `Table` with array part storage.
-2. Add raw integer index get/set helpers.
-3. Implement nil assignment behavior for array slots.
-4. Run `cargo test -p elara-core table_array`.
+1. Add table hash storage with Lua `Value` keys.
+2. Add numeric key canonicalization.
+3. Add tests for string, integer, float, and boolean keys.
+4. Run `cargo test -p elara-core table_hash`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-feat(core): add table array storage
+feat(core): add table hash storage
 ```
 
 ## Current Risk Notes
@@ -324,7 +334,8 @@ feat(core): add table array storage
 | GC allocation | Complete | Arena allocation list, stats, roots, and drop cleanup are implemented. |
 | Mark-sweep GC | Complete | Root marking and allocation-list sweeping are implemented for tests. |
 | Strings | Complete | Short strings, long strings, and interning are implemented. |
-| Table array | Not started | Current step. |
+| Table array | Complete | Raw 1-based array get/set and nil clearing are implemented. |
+| Table hash | Not started | Current step. |
 | Parser | Not started | Starts M4. |
 | Compiler | Not started | Starts M5. |
 | Interpreter | Not started | Starts M6. |

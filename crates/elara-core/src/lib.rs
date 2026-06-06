@@ -11,6 +11,7 @@ pub mod diagnostics;
 pub mod gc;
 pub mod spec;
 pub mod string;
+pub mod table;
 pub mod value;
 
 pub use diagnostics::{Diagnostic, DiagnosticLabel, DiagnosticSeverity, SourceId, Span, Spanned};
@@ -21,4 +22,5 @@ pub use spec::{LUA_SPEC, LUA_VERSION, LuaSpec, LuaVersion};
 pub use string::{
     LongString, SHORT_STRING_MAX_BYTES, ShortString, StringInterner, hash_string_bytes,
 };
+pub use table::Table;
 pub use value::{LuaFloat, LuaInteger, Value, ValueTag, float_to_integer_exact};
