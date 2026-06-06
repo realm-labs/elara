@@ -1,0 +1,11 @@
+[package]
+name = "elara"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+elara-api.workspace = true
+
+[lints]
+workspace = true

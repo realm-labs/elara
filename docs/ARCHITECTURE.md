@@ -98,6 +98,7 @@ elara/
     CODEX_GOAL.md
     PROGRESS.md
   crates/
+    elara/
     elara-core/
     elara-syntax/
     elara-compiler/
@@ -121,6 +122,7 @@ elara/
 
 | Crate | Responsibility | May Depend On | Must Not Depend On |
 |---|---|---|---|
+| `elara` | Stable public facade crate for Rust embedders | api | core internals, syntax, compiler, interpreter, bytecode, stdlib, JIT, C API internals |
 | `elara-core` | Runtime objects, GC, Value, Table, String, Closure, Thread, errors | small utility crates | syntax, compiler, JIT |
 | `elara-syntax` | Lexer, parser, AST for current Lua | core diagnostics only | runtime execution, JIT |
 | `elara-compiler` | AST to HIR to bytecode | syntax, bytecode, core types | interpreter internals, JIT internals |

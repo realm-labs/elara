@@ -14,6 +14,7 @@ compatibility modes.
 The repository is organized as a Cargo workspace:
 
 - `elara-core`: runtime values, GC, tables, strings, closures, and threads.
+- `elara`: stable public facade for embedders.
 - `elara-syntax`: lexer, parser, AST, and source diagnostics.
 - `elara-compiler`: semantic analysis and lowering to bytecode.
 - `elara-bytecode`: internal opcodes, prototypes, verifier, and disassembler.

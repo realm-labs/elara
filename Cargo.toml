@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "crates/elara",
     "crates/elara-api",
     "crates/elara-bench",
     "crates/elara-bytecode",
@@ -20,6 +21,7 @@ license = "MIT OR Apache-2.0"
 version = "0.1.0"
 
 [workspace.dependencies]
+elara = { path = "crates/elara" }
 elara-api = { path = "crates/elara-api" }
 elara-bytecode = { path = "crates/elara-bytecode" }
 elara-capi = { path = "crates/elara-capi" }

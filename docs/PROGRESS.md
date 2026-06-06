@@ -3,17 +3,18 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M0 Repository Bootstrap  
-Current step: M0.3 Define crate-level module policies
+Current milestone: M1 Language Specification and Test Harness  
+Current step: M1.1 Add spec module
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
 
 ## Current Snapshot
 
-Elara has a Cargo workspace skeleton with project documentation and empty crate
-boundaries. Runtime, parser, compiler, bytecode, interpreter, API, JIT, C API,
-conformance, and benchmark implementation work has not started.
+Elara has a Cargo workspace skeleton with project documentation, quality gates,
+and documented crate boundaries. Runtime, parser, compiler, bytecode,
+interpreter, API, JIT, C API, conformance, and benchmark implementation work has
+not started.
 
 Current state:
 
@@ -25,11 +26,10 @@ Completed:
   - Documentation drafts prepared.
   - M0.1 Create workspace skeleton.
   - M0.2 Add lint, formatting, and CI configuration.
-
-In progress:
   - M0.3 Define crate-level module policies.
 
 Not started:
+  - M1.1 Add spec module.
   - Runtime core.
   - Parser.
   - Compiler.
@@ -82,24 +82,34 @@ Delivered:
 - Root `.rustfmt.toml`.
 - GitHub Actions CI for fmt, clippy, and tests.
 
-### Current Step: M0.3 Define crate-level module policies
+### Completed Step: M0.3 Define crate-level module policies
+
+Delivered:
+
+- Each workspace crate has `lib.rs` module-level boundary docs.
+- `elara` facade crate exists under `crates/elara`.
+- `elara` re-exports only the stable public API placeholder module from `elara-api`.
+
+M0 is complete.
+
+### Current Step: M1.1 Add spec module
 
 Expected deliverables:
 
-- Each crate has `lib.rs` with module-level docs.
-- `elara` top-level crate re-exports only stable public API placeholders.
-- `docs/PROGRESS.md` says M0 is in progress or complete.
+- `elara-core` exposes `LuaVersion` and `LUA_SPEC`.
+- Constants for current language target.
+- No `LuaDialect` enum for old versions.
 
 Recommended verification:
 
 ```bash
-cargo test --workspace
+cargo test -p elara-core
 ```
 
 Recommended commit:
 
 ```text
-docs(workspace): document crate boundaries
+feat(core): define current lua spec
 ```
 
 ## Completed Content
@@ -119,15 +129,19 @@ docs(workspace): document crate boundaries
 
 - The repository root is a virtual Cargo workspace.
 - Workspace uses placeholder member crates for the architecture-defined layers.
+- `crates/elara` is the public facade crate and depends only on `elara-api`.
 - Each placeholder crate has a minimal manifest and `src/lib.rs`.
 - Root README describes project positioning and workspace layout.
 - Workspace quality gates are configured through Cargo lints, rustfmt, and GitHub Actions.
+- Crate-level module docs describe boundary policies.
 
 ## Remaining Gaps
 
-### Immediate Gaps for M0
+### Immediate Gaps for M1
 
-- Add crate boundary docs in M0.3.
+- Add a single current Lua spec module in `elara-core`.
+- Add source span and diagnostic primitives.
+- Add test fixture layout and snapshot baseline.
 
 ### Product Gaps
 
@@ -151,7 +165,7 @@ All implementation work is still pending:
 
 ## Last Verification
 
-M0.2 verification passed:
+M0.3 verification passed:
 
 ```bash
 cargo fmt --all -- --check
@@ -161,16 +175,16 @@ cargo test --workspace
 
 ## Next Recommended Action
 
-Implement M0.3 from `docs/MILESTONES.md`:
+Implement M1.1 from `docs/MILESTONES.md`:
 
-1. Expand crate-level module docs to state boundaries and responsibilities.
-2. Ensure the virtual root workspace remains aligned with the architecture.
-3. Run `cargo test --workspace`.
+1. Add current Lua version/spec constants in `elara-core`.
+2. Avoid any old-version dialect enum or compatibility flags.
+3. Run `cargo test -p elara-core`.
 4. Update this progress document.
 5. Commit with:
 
 ```text
-docs(workspace): document crate boundaries
+feat(core): define current lua spec
 ```
 
 ## Current Risk Notes
@@ -192,7 +206,8 @@ docs(workspace): document crate boundaries
 | Codex goal | Drafted | Present in `docs/`. |
 | Workspace | Complete | Virtual workspace and placeholder member crates exist. |
 | CI and lints | Complete | Cargo lints, rustfmt, and GitHub Actions are configured. |
-| Crate boundary docs | Not started | Current step. |
+| Crate boundary docs | Complete | Module docs describe crate responsibilities and dependencies. |
+| Lua spec | Not started | Current step. |
 | Core runtime | Not started | Starts M2. |
 | Parser | Not started | Starts M4. |
 | Compiler | Not started | Starts M5. |
