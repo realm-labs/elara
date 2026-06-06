@@ -210,6 +210,48 @@ fn globals_report_read_only_collective_assignment() {
 }
 
 #[test]
+fn globals_nested_if_declaration_does_not_escape_block() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "global answer\nif true then\n  global hidden = 42\nend\nreturn hidden",
+    );
+
+    assert!(compiled.proto.is_none());
+    assert_eq!(
+        compiled.diagnostics[0].message(),
+        "variable 'hidden' not declared"
+    );
+}
+
+#[test]
+fn globals_nested_loop_declaration_does_not_escape_block() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "global answer\nwhile false do\n  global hidden = 42\nend\nreturn hidden",
+    );
+
+    assert!(compiled.proto.is_none());
+    assert_eq!(
+        compiled.diagnostics[0].message(),
+        "variable 'hidden' not declared"
+    );
+}
+
+#[test]
+fn globals_inner_declaration_shadows_collective_read_only_scope() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "global<const> *\nif true then\n  global answer\n  answer = 42\nend\nanswer = 99",
+    );
+
+    assert!(compiled.proto.is_none());
+    assert_eq!(
+        compiled.diagnostics[0].message(),
+        "global variable 'answer' is read-only"
+    );
+}
+
+#[test]
 fn locals_compile_local_return() {
     let compiled = compile_simple_chunk(SourceId::new(0), "local x = 1 + 2\nreturn x");
     assert_eq!(compiled.diagnostics, Vec::new());

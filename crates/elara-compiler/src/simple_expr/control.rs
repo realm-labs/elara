@@ -14,7 +14,9 @@ impl SimpleCompiler {
             let condition = self.compile_expr(&clause.condition);
             self.builder.emit_abc(Op::Test, condition, 0, 0);
             let false_jump = self.emit_jump_placeholder();
+            let global_scope = self.snapshot_global_scope();
             self.compile_block(clause.block.statements());
+            self.restore_global_scope(global_scope);
 
             let has_following_clause = index + 1 < clauses.len();
             if has_following_clause || else_block.is_some() {
@@ -24,7 +26,9 @@ impl SimpleCompiler {
         }
 
         if let Some(block) = else_block {
+            let global_scope = self.snapshot_global_scope();
             self.compile_block(block.statements());
+            self.restore_global_scope(global_scope);
         }
 
         for jump in end_jumps {
@@ -39,7 +43,9 @@ impl SimpleCompiler {
         let exit_jump = self.emit_jump_placeholder();
 
         self.push_loop();
+        let global_scope = self.snapshot_global_scope();
         self.compile_block(body.statements());
+        self.restore_global_scope(global_scope);
         let breaks = self.pop_loop();
 
         self.emit_jump_to(loop_start);
@@ -51,10 +57,11 @@ impl SimpleCompiler {
         let loop_start = self.builder.code_len();
 
         self.push_loop();
+        let global_scope = self.snapshot_global_scope();
         self.compile_block(body.statements());
-        let breaks = self.pop_loop();
-
         let condition = self.compile_expr(condition);
+        self.restore_global_scope(global_scope);
+        let breaks = self.pop_loop();
         self.builder.emit_abc(Op::Test, condition, 0, 0);
         self.emit_jump_to(loop_start);
         self.patch_breaks(breaks);
@@ -86,7 +93,9 @@ impl SimpleCompiler {
         let body_start = self.builder.code_len();
 
         self.push_loop();
+        let global_scope = self.snapshot_global_scope();
         self.compile_block(body.statements());
+        self.restore_global_scope(global_scope);
         let breaks = self.pop_loop();
 
         self.emit_for_jump_to(Op::ForLoop, base, body_start);
@@ -120,7 +129,9 @@ impl SimpleCompiler {
         let body_start = self.builder.code_len();
 
         self.push_loop();
+        let global_scope = self.snapshot_global_scope();
         self.compile_block(body.statements());
+        self.restore_global_scope(global_scope);
         let breaks = self.pop_loop();
 
         let call_start = self.builder.code_len();

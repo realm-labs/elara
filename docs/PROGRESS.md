@@ -50,9 +50,10 @@ can invoke `__concat` closure fallback. The simple compiler lowers declared and
 implicit global reads/writes through `GET_ENV`/`SET_ENV`, `DECL_GLOBAL` checks
 global declaration initialization against the runtime environment, and the
 primitive interpreter keeps a shared runtime `_ENV` table across Lua closure
-calls. Full block-scoped global declaration semantics, standard library, full
-API, JIT, C API, conformance, and benchmark implementation work has not
-started.
+calls. Global declarations in nested simple-compiler blocks are scoped to those
+blocks and can shadow outer collective declarations. Full `_ENV` variable
+behavior, standard library, full API, JIT, C API, conformance, and benchmark
+implementation work has not started.
 
 Current state:
 
@@ -580,13 +581,16 @@ Delivered:
   already non-nil.
 - `global<const> *` blocks assignment to implicit read-only globals in the
   simple compiler.
+- Global declarations in nested `if` and loop blocks do not leak out of the
+  block in the simple compiler.
+- Inner explicit global declarations can shadow an outer collective read-only
+  global declaration in the simple compiler.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M9
 
 - Finish M9.4 global declaration semantics:
-  - block-scoped declaration lifetime and shadowing;
   - complete `_ENV` variable behavior;
   - full global function declaration behavior;
   - complete global const/read-only assignment checks beyond the simple paths.
@@ -607,24 +611,18 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M9.4 global declaration sub-step verification passed:
+M9.4 block-scoped global declaration sub-step verification passed:
 
 ```bash
 cargo test -p elara-compiler globals
-cargo test -p elara-interp globals
-cargo test -p elara-api global
-cargo test -p elara-bytecode
-cargo test -p elara-interp metamethods
-cargo test -p elara-interp table_access
-cargo test -p elara-interp generic_for
 cargo fmt --all -- --check
-cargo clippy -p elara-bytecode -p elara-compiler -p elara-interp -p elara-api --all-targets -- -D warnings
+cargo clippy -p elara-compiler --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M9.4 by adding block-scoped global declaration lifetime and shadowing,
-using the Lua 5.5 `searchvar`/`buildvar` behavior as the reference.
+Continue M9.4 by modeling `_ENV` as a normal lexical variable for global
+access, using the Lua 5.5 `buildglobal` behavior as the reference.
 
 ## Current Risk Notes
 

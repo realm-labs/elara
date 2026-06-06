@@ -6,7 +6,24 @@ use elara_syntax::{Expr, GlobalDecl, NameDecl};
 
 use super::{GlobalAccess, GlobalDefault, SimpleCompiler};
 
+pub(super) struct GlobalScopeSnapshot {
+    globals: std::collections::HashMap<String, GlobalAccess>,
+    global_default: GlobalDefault,
+}
+
 impl SimpleCompiler {
+    pub(super) fn snapshot_global_scope(&self) -> GlobalScopeSnapshot {
+        GlobalScopeSnapshot {
+            globals: self.globals.clone(),
+            global_default: self.global_default,
+        }
+    }
+
+    pub(super) fn restore_global_scope(&mut self, snapshot: GlobalScopeSnapshot) {
+        self.globals = snapshot.globals;
+        self.global_default = snapshot.global_default;
+    }
+
     pub(super) fn compile_global(&mut self, span: Span, decl: &GlobalDecl<'_>) {
         match decl {
             GlobalDecl::Names { names, values } => self.compile_global_names(span, names, values),
