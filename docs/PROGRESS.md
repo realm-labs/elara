@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M1 Language Specification and Test Harness  
-Current step: M1.2 Add diagnostic and source span primitives
+Current step: M1.3 Add test fixture layout
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -13,8 +13,9 @@ replace stale status with the current state instead of appending history.
 
 Elara has a Cargo workspace skeleton with project documentation, quality gates,
 documented crate boundaries, and a single current Lua language target in
-`elara-core`. Runtime, parser, compiler, bytecode, interpreter, API, JIT, C API,
-conformance, and benchmark implementation work has not started.
+`elara-core`. Core source span and diagnostic primitives are available. Runtime,
+parser, compiler, bytecode, interpreter, API, JIT, C API, conformance, and
+benchmark implementation work has not started.
 
 Current state:
 
@@ -28,9 +29,10 @@ Completed:
   - M0.2 Add lint, formatting, and CI configuration.
   - M0.3 Define crate-level module policies.
   - M1.1 Add spec module.
+  - M1.2 Add diagnostic and source span primitives.
 
 Not started:
-  - M1.2 Add diagnostic and source span primitives.
+  - M1.3 Add test fixture layout.
   - Runtime core.
   - Parser.
   - Compiler.
@@ -101,24 +103,33 @@ Delivered:
 - The current target is Lua 5.5 / Lua 5.5.0.
 - No old-version `LuaDialect` enum or compatibility flag was added.
 
-### Current Step: M1.2 Add diagnostic and source span primitives
+### Completed Step: M1.2 Add diagnostic and source span primitives
+
+Delivered:
+
+- `SourceId`, `Span`, and `Spanned<T>`.
+- `DiagnosticSeverity`, `DiagnosticLabel`, and `Diagnostic`.
+- Display formatting and focused tests for source spans and diagnostics.
+
+### Current Step: M1.3 Add test fixture layout
 
 Expected deliverables:
 
-- `SourceId`, `Span`, and `Spanned<T>`.
-- Diagnostic severity and structured messages.
-- Basic display tests.
+- `tests/fixtures/pass/`.
+- `tests/fixtures/fail/`.
+- `tests/conformance/`.
+- `tests/differential/` placeholder harness docs.
 
 Recommended verification:
 
 ```bash
-cargo test -p elara-core diagnostics
+cargo test --workspace
 ```
 
 Recommended commit:
 
 ```text
-feat(core): add source spans and diagnostics
+test(harness): add lua fixture layout
 ```
 
 ## Completed Content
@@ -144,12 +155,12 @@ feat(core): add source spans and diagnostics
 - Workspace quality gates are configured through Cargo lints, rustfmt, and GitHub Actions.
 - Crate-level module docs describe boundary policies.
 - The current Lua target is declared once in `elara-core`.
+- Core source span and diagnostic primitives are available.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M1
 
-- Add source span and diagnostic primitives.
 - Add test fixture layout and snapshot baseline.
 
 ### Product Gaps
@@ -174,26 +185,26 @@ All implementation work is still pending:
 
 ## Last Verification
 
-M1.1 verification passed:
+M1.2 verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-core
+cargo clippy -p elara-core --all-targets -- -D warnings
+cargo test -p elara-core diagnostics
 ```
 
 ## Next Recommended Action
 
-Implement M1.2 from `docs/MILESTONES.md`:
+Implement M1.3 from `docs/MILESTONES.md`:
 
-1. Add `SourceId`, `Span`, and `Spanned<T>` in `elara-core`.
-2. Add diagnostic severity and structured diagnostic messages.
-3. Add focused display tests.
-4. Run `cargo test -p elara-core diagnostics`.
-5. Update this progress document.
-6. Commit with:
+1. Add `tests/fixtures/pass/` and `tests/fixtures/fail/`.
+2. Add `tests/conformance/` and `tests/differential/` placeholder harness docs.
+3. Run `cargo test --workspace`.
+4. Update this progress document.
+5. Commit with:
 
 ```text
-feat(core): add source spans and diagnostics
+test(harness): add lua fixture layout
 ```
 
 ## Current Risk Notes
@@ -217,7 +228,8 @@ feat(core): add source spans and diagnostics
 | CI and lints | Complete | Cargo lints, rustfmt, and GitHub Actions are configured. |
 | Crate boundary docs | Complete | Module docs describe crate responsibilities and dependencies. |
 | Lua spec | Complete | `elara-core` declares Lua 5.5 / 5.5.0 as the only current target. |
-| Diagnostics | Not started | Current step. |
+| Diagnostics | Complete | Source spans and structured diagnostics are in `elara-core`. |
+| Test fixtures | Not started | Current step. |
 | Core runtime | Not started | Starts M2. |
 | Parser | Not started | Starts M4. |
 | Compiler | Not started | Starts M5. |

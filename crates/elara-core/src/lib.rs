@@ -7,6 +7,8 @@
 //! It must remain independent from syntax parsing, compilation, standard library
 //! policy, and JIT lowering details.
 
+pub mod diagnostics;
 pub mod spec;
 
+pub use diagnostics::{Diagnostic, DiagnosticLabel, DiagnosticSeverity, SourceId, Span, Spanned};
 pub use spec::{LUA_SPEC, LUA_VERSION, LuaSpec, LuaVersion};
