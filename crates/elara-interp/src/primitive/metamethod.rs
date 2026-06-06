@@ -56,6 +56,31 @@ pub(super) fn execute_comparison(
     set_register(thread, instr.a().into(), Value::boolean(result))
 }
 
+pub(super) fn execute_len(
+    thread: &mut LuaThread,
+    closures: &mut Vec<RuntimeClosure>,
+    instr: Instr,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<()> {
+    let value = register(thread, instr.b() as usize)?;
+    let result = if let Some(result) =
+        call_named_unary_metamethod("__len", value, closures, tables, strings)?
+    {
+        result
+    } else if let Some(table_index) = value.as_table_index() {
+        let table = tables
+            .get(table_index as usize)
+            .ok_or(RuntimeError::NonTableValue)?;
+        Value::integer(
+            LuaInteger::try_from(table.array_len()).expect("table length must fit in LuaInteger"),
+        )
+    } else {
+        return Err(RuntimeError::NonLengthOperand);
+    };
+    set_register(thread, instr.a().into(), result)
+}
+
 fn binary_arithmetic(op: Op, left: Value, right: Value) -> Option<Value> {
     match (left.as_integer(), right.as_integer()) {
         (Some(left), Some(right)) => integer_arithmetic(op, left, right),
@@ -136,12 +161,7 @@ fn call_unary_metamethod(
     let Some(metamethod) = tables.metamethod_for_value(value, name, strings)? else {
         return Ok(None);
     };
-    let Some(closure) = metamethod.as_closure_index() else {
-        return Err(RuntimeError::UnsupportedMetamethod { name });
-    };
-
-    let returns = call_closure(closures, closure as usize, &[value], tables, strings)?;
-    Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
+    call_unary_closure_metamethod(name, metamethod, value, closures, tables, strings)
 }
 
 fn binary_metamethod_name(op: Op) -> Option<&'static str> {
@@ -162,6 +182,35 @@ fn unary_metamethod_name(op: Op) -> Option<&'static str> {
         Op::Unm => Some("__unm"),
         _ => None,
     }
+}
+
+fn call_named_unary_metamethod(
+    name: &'static str,
+    value: Value,
+    closures: &mut Vec<RuntimeClosure>,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<Option<Value>> {
+    let Some(metamethod) = tables.metamethod_for_value(value, name, strings)? else {
+        return Ok(None);
+    };
+    call_unary_closure_metamethod(name, metamethod, value, closures, tables, strings)
+}
+
+fn call_unary_closure_metamethod(
+    name: &'static str,
+    metamethod: Value,
+    value: Value,
+    closures: &mut Vec<RuntimeClosure>,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<Option<Value>> {
+    let Some(closure) = metamethod.as_closure_index() else {
+        return Err(RuntimeError::UnsupportedMetamethod { name });
+    };
+
+    let returns = call_closure(closures, closure as usize, &[value], tables, strings)?;
+    Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
 }
 
 fn equality_comparison(

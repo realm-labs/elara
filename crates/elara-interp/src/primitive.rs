@@ -11,7 +11,7 @@ use loops::{
     execute_generic_for_call, execute_generic_for_loop, execute_numeric_for_loop,
     prepare_numeric_for,
 };
-use metamethod::{execute_arithmetic, execute_comparison};
+use metamethod::{execute_arithmetic, execute_comparison, execute_len};
 pub use table::RuntimeTables;
 use table::{
     execute_get_index, execute_get_table, execute_new_table, execute_set_index, execute_set_table,
@@ -66,6 +66,8 @@ pub enum RuntimeError {
     NonNumericOperand { op: Op },
     /// Comparison operand was not comparable.
     NonComparableOperand { op: Op },
+    /// Length operator received a value without primitive length or `__len`.
+    NonLengthOperand,
     /// Table operation received a non-table receiver.
     NonTableValue,
     /// Table write used an invalid Lua key.
@@ -211,6 +213,7 @@ fn execute_proto_with_upvalues(
             Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
                 execute_arithmetic(&mut thread, closures, instr, tables, strings)?
             }
+            Op::Len => execute_len(&mut thread, closures, instr, tables, strings)?,
             Op::Eq | Op::Lt | Op::Le => {
                 execute_comparison(&mut thread, closures, instr, tables, strings)?;
             }

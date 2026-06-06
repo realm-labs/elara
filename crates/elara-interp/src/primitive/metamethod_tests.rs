@@ -3,6 +3,7 @@ use elara_core::{LuaThread, Table, Value};
 
 use super::{
     RuntimeClosure, RuntimeStrings, RuntimeTables, execute_arithmetic, execute_comparison,
+    execute_len,
 };
 
 fn constant_closure(value: Value) -> RuntimeClosure {
@@ -188,4 +189,58 @@ fn metamethods_comparison_calls_less_than() {
     .expect("__lt should execute");
 
     assert_eq!(thread.stack_value(2), Some(Value::boolean(true)));
+}
+
+#[test]
+fn metamethods_len_executes_raw_table_length() {
+    let mut closures = Vec::new();
+    let mut strings = RuntimeStrings::new();
+    let mut tables = RuntimeTables::new();
+    let mut table_value = Table::new();
+    assert!(table_value.raw_set_integer(1, Value::integer(10)));
+    assert!(table_value.raw_set_integer(2, Value::integer(20)));
+    let table = tables.push_table(table_value);
+    let mut thread = LuaThread::new();
+    thread.push_value(Value::table_index(table));
+    thread.push_value(Value::nil());
+
+    execute_len(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Len, 1, 0, 0),
+        &mut tables,
+        &mut strings,
+    )
+    .expect("raw table length should execute");
+
+    assert_eq!(thread.stack_value(1), Some(Value::integer(2)));
+}
+
+#[test]
+fn metamethods_len_calls_function_fallback() {
+    let mut strings = RuntimeStrings::new();
+    let mut tables = RuntimeTables::new();
+    let table = tables.push_table(Table::new());
+    let len_key = strings.intern_short_value("__len");
+    let mut metatable = Table::new();
+    assert!(metatable.raw_set_value(len_key, Value::closure_index(0)));
+    let metatable = tables.push_table(metatable);
+    tables
+        .set_metatable(table as usize, Some(metatable))
+        .expect("metatable link should be valid");
+    let mut closures = vec![constant_closure(Value::integer(77))];
+    let mut thread = LuaThread::new();
+    thread.push_value(Value::table_index(table));
+    thread.push_value(Value::nil());
+
+    execute_len(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Len, 1, 0, 0),
+        &mut tables,
+        &mut strings,
+    )
+    .expect("__len should execute");
+
+    assert_eq!(thread.stack_value(1), Some(Value::integer(77)));
 }
