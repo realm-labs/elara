@@ -4,12 +4,47 @@ use std::collections::HashMap;
 
 use crate::{GcHeader, GcKind, GcObject, GcRef, LuaFloat, LuaInteger, ShortString, Value};
 
-/// Lua table with array storage.
+/// Placeholder cache flags for table metatable lookups.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct MetaFlags {
+    bits: u16,
+}
+
+impl MetaFlags {
+    /// Empty metadata cache flags.
+    pub const EMPTY: Self = Self { bits: 0 };
+
+    /// Creates empty metadata cache flags.
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self::EMPTY
+    }
+
+    /// Raw flag bits.
+    #[must_use]
+    pub const fn bits(self) -> u16 {
+        self.bits
+    }
+
+    /// Returns true when no metadata cache flags are set.
+    #[must_use]
+    pub const fn is_empty(self) -> bool {
+        self.bits == 0
+    }
+
+    fn clear_missing_cache(&mut self) {
+        self.bits = 0;
+    }
+}
+
+/// Lua table with split array/hash storage and metadata.
 #[derive(Debug)]
 pub struct Table {
     header: GcHeader,
     array: Vec<Value>,
     hash: HashMap<TableKey, Value>,
+    metatable: Option<GcRef<Table>>,
+    flags: MetaFlags,
     version: u32,
 }
 
@@ -21,6 +56,8 @@ impl Table {
             header: GcHeader::new(GcKind::Table),
             array: Vec::new(),
             hash: HashMap::new(),
+            metatable: None,
+            flags: MetaFlags::empty(),
             version: 0,
         }
     }
@@ -49,10 +86,45 @@ impl Table {
         self.hash.capacity()
     }
 
-    /// Table version, incremented on raw array mutations.
+    /// Metatable cache flags.
+    #[must_use]
+    pub const fn flags(&self) -> MetaFlags {
+        self.flags
+    }
+
+    /// Returns true when this table has a metatable.
+    #[must_use]
+    pub const fn has_metatable(&self) -> bool {
+        self.metatable.is_some()
+    }
+
+    /// Table version, incremented on structural mutations.
     #[must_use]
     pub const fn version(&self) -> u32 {
         self.version
+    }
+
+    /// Current metatable reference, if present.
+    ///
+    /// The returned reference is a low-level GC reference and does not root the
+    /// metatable.
+    #[must_use]
+    pub const fn metatable(&self) -> Option<GcRef<Table>> {
+        self.metatable
+    }
+
+    /// Updates the metatable reference.
+    ///
+    /// This invalidates metatable cache flags and bumps the table version only
+    /// when the reference changes.
+    pub fn set_metatable(&mut self, metatable: Option<GcRef<Table>>) {
+        if self.metatable == metatable {
+            return;
+        }
+
+        self.metatable = metatable;
+        self.flags.clear_missing_cache();
+        self.bump_version();
     }
 
     /// Gets a value from the array part using a Lua integer key.
@@ -76,9 +148,17 @@ impl Table {
 
         if value.is_nil() {
             if offset < self.array.len() {
+                let previous_len = self.array.len();
+                let previous = self.array[offset];
+                if previous.is_nil() && offset + 1 != previous_len {
+                    return true;
+                }
+
                 self.array[offset] = Value::nil();
                 self.trim_trailing_nil();
-                self.bump_version();
+                if previous != Value::nil() || self.array.len() != previous_len {
+                    self.bump_version();
+                }
             }
             return true;
         }
@@ -93,6 +173,10 @@ impl Table {
                 return false;
             }
             self.array.resize(new_len, Value::nil());
+        }
+
+        if self.array[offset] == value {
+            return true;
         }
 
         self.array[offset] = value;
@@ -384,5 +468,102 @@ mod tests {
 
         assert_eq!(table.hash_len(), 63);
         assert!(table.hash_capacity() > initial_capacity);
+    }
+
+    #[test]
+    fn table_meta_new_table_has_empty_metadata() {
+        let table = Table::new();
+
+        assert!(!table.has_metatable());
+        assert_eq!(table.metatable(), None);
+        assert_eq!(table.flags().bits(), 0);
+        assert!(table.flags().is_empty());
+        assert_eq!(table.version(), 0);
+    }
+
+    #[test]
+    fn table_meta_set_metatable_updates_pointer_and_version() {
+        let mut arena = GcArena::new();
+        let metatable = arena.allocate(Table::new());
+        let mut table = Table::new();
+
+        table.set_metatable(Some(metatable));
+
+        assert!(table.has_metatable());
+        assert_eq!(table.metatable(), Some(metatable));
+        assert!(table.flags().is_empty());
+        assert_eq!(table.version(), 1);
+    }
+
+    #[test]
+    fn table_meta_setting_same_metatable_does_not_bump_version() {
+        let mut arena = GcArena::new();
+        let metatable = arena.allocate(Table::new());
+        let mut table = Table::new();
+
+        table.set_metatable(Some(metatable));
+        let version = table.version();
+        table.set_metatable(Some(metatable));
+
+        assert_eq!(table.metatable(), Some(metatable));
+        assert_eq!(table.version(), version);
+    }
+
+    #[test]
+    fn table_meta_clearing_metatable_bumps_version_once() {
+        let mut arena = GcArena::new();
+        let metatable = arena.allocate(Table::new());
+        let mut table = Table::new();
+
+        table.set_metatable(Some(metatable));
+        table.set_metatable(None);
+        let version = table.version();
+        table.set_metatable(None);
+
+        assert!(!table.has_metatable());
+        assert_eq!(table.metatable(), None);
+        assert_eq!(table.version(), version);
+        assert_eq!(version, 2);
+    }
+
+    #[test]
+    fn table_meta_array_version_changes_only_for_mutations() {
+        let mut table = Table::new();
+
+        assert!(table.raw_set_integer(1, Value::integer(7)));
+        assert_eq!(table.version(), 1);
+
+        assert!(table.raw_set_integer(1, Value::integer(7)));
+        assert_eq!(table.version(), 1);
+
+        assert!(table.raw_set_integer(3, Value::integer(9)));
+        assert_eq!(table.version(), 2);
+
+        assert!(table.raw_set_integer(2, Value::nil()));
+        assert_eq!(table.version(), 2);
+
+        assert!(table.raw_set_integer(3, Value::nil()));
+        assert_eq!(table.version(), 3);
+        assert_eq!(table.array_len(), 1);
+    }
+
+    #[test]
+    fn table_meta_hash_version_changes_only_for_mutations() {
+        let mut table = Table::new();
+
+        assert!(table.raw_set_value(Value::boolean(true), Value::integer(1)));
+        assert_eq!(table.version(), 1);
+
+        assert!(table.raw_set_value(Value::boolean(true), Value::integer(1)));
+        assert_eq!(table.version(), 1);
+
+        assert!(table.raw_set_value(Value::boolean(true), Value::integer(2)));
+        assert_eq!(table.version(), 2);
+
+        assert!(table.raw_set_value(Value::boolean(true), Value::nil()));
+        assert_eq!(table.version(), 3);
+
+        assert!(table.raw_set_value(Value::boolean(true), Value::nil()));
+        assert_eq!(table.version(), 3);
     }
 }

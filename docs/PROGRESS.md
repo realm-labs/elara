@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M3 Strings and Tables  
-Current step: M3.4 Add metatable field and table versioning
+Current milestone: M4 Lexer and Parser  
+Current step: M4.1 Implement lexer for tokens and literals
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -15,11 +15,10 @@ Elara has a Cargo workspace skeleton with project documentation, quality gates,
 documented crate boundaries, and a single current Lua language target in
 `elara-core`. Core source span and diagnostic primitives are available, and the
 test fixture/conformance/differential directory layout exists with a snapshot
-baseline. Primitive runtime values, the basic GC skeleton, and Lua strings with
-short-string interning are implemented. Table array storage is implemented.
-Table hash storage is implemented. Table metadata, parser, compiler, bytecode,
-interpreter, API, JIT, C API, conformance, and benchmark implementation work has
-not started.
+baseline. Primitive runtime values, the basic GC skeleton, Lua strings with
+short-string interning, and table array/hash storage with metadata versioning are
+implemented. Parser, compiler, bytecode, interpreter, API, JIT, C API,
+conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -43,9 +42,10 @@ Completed:
   - M3.1 Implement Lua strings and interning.
   - M3.2 Implement table array storage.
   - M3.3 Implement table hash storage.
+  - M3.4 Add metatable field and table versioning.
 
 Not started:
-  - M3.4 Add metatable field and table versioning.
+  - M4.1 Implement lexer for tokens and literals.
   - Parser.
   - Compiler.
   - Bytecode.
@@ -210,25 +210,36 @@ Delivered:
 - Nil and NaN key rejection.
 - Tests for string, integer, float, and boolean keys.
 
-### Current Step: M3.4 Add metatable field and table versioning
+### Completed Step: M3.4 Add metatable field and table versioning
 
-Expected deliverables:
+Delivered:
 
 - Optional metatable pointer.
 - Meta flags placeholder.
 - Version bump on structural mutations.
 - Tests for version changes.
 
+M3 is complete.
+
+### Current Step: M4.1 Implement lexer for tokens and literals
+
+Expected deliverables:
+
+- Keywords, identifiers, punctuation, and operators.
+- Integer, float, and string literal tokenization.
+- Comments and whitespace handling.
+- Error diagnostics for invalid tokens.
+
 Recommended verification:
 
 ```bash
-cargo test -p elara-core table_meta
+cargo test -p elara-syntax lexer
 ```
 
 Recommended commit:
 
 ```text
-feat(core): add table metadata versioning
+feat(syntax): add lua lexer
 ```
 
 ## Completed Content
@@ -264,21 +275,18 @@ feat(core): add table metadata versioning
 - Lua short strings, long strings, and short-string interning are available.
 - Table array storage is available in `elara-core`.
 - Table hash storage and numeric key canonicalization are available.
+- Table metatable metadata, meta flags, and structural versioning are available.
 
 ## Remaining Gaps
 
-### Immediate Gaps for M3
+### Immediate Gaps for M4
 
-- Add metatable field and table versioning.
+- Add lexer tokens and literals.
 
 ### Product Gaps
 
-All implementation work is still pending:
+Major implementation work is still pending:
 
-- Value representation.
-- GC object model.
-- String interning.
-- Table array/hash storage.
 - Parser and diagnostics.
 - Bytecode format and verifier.
 - Compiler.
@@ -293,27 +301,27 @@ All implementation work is still pending:
 
 ## Last Verification
 
-M3.3 verification passed:
+M3.4 verification passed:
 
 ```bash
 cargo fmt --all -- --check
 cargo clippy -p elara-core --all-targets -- -D warnings
-cargo test -p elara-core table_hash
+cargo test -p elara-core table_meta
 ```
 
 ## Next Recommended Action
 
-Implement M3.4 from `docs/MILESTONES.md`:
+Implement M4.1 from `docs/MILESTONES.md`:
 
-1. Add optional metatable pointer.
-2. Add meta flags placeholder.
-3. Ensure table version bumps on structural mutations.
-4. Run `cargo test -p elara-core table_meta`.
+1. Add lexer token kinds and token structs.
+2. Tokenize keywords, identifiers, punctuation, operators, literals, comments, and whitespace.
+3. Emit diagnostics for invalid tokens.
+4. Run `cargo test -p elara-syntax lexer`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-feat(core): add table metadata versioning
+feat(syntax): add lua lexer
 ```
 
 ## Current Risk Notes
@@ -340,7 +348,7 @@ feat(core): add table metadata versioning
 | Diagnostics | Complete | Source spans and structured diagnostics are in `elara-core`. |
 | Test fixtures | Complete | Fixture, conformance, and differential directories are present. |
 | Snapshots | Complete | Snapshot helper and `return 42` diagnostics baseline exist. |
-| Core runtime | Not started | Current milestone. |
+| Core runtime | Initial foundation complete | Value, GC, string, and table foundations are implemented. |
 | Value primitives | Complete | Nil, bool, integer, and float values are implemented. |
 | GC headers | Complete | Headers, colors, kinds, and typed refs are implemented. |
 | GC allocation | Complete | Arena allocation list, stats, roots, and drop cleanup are implemented. |
@@ -348,8 +356,8 @@ feat(core): add table metadata versioning
 | Strings | Complete | Short strings, long strings, and interning are implemented. |
 | Table array | Complete | Raw 1-based array get/set and nil clearing are implemented. |
 | Table hash | Complete | Hash storage and numeric key canonicalization are implemented. |
-| Table metadata | Not started | Current step. |
-| Parser | Not started | Starts M4. |
+| Table metadata | Complete | Metatable pointer, meta flags, and structural versioning are implemented. |
+| Parser | Not started | Current milestone. |
 | Compiler | Not started | Starts M5. |
 | Interpreter | Not started | Starts M6. |
 | Rust API | Not started | Starts M12. |
