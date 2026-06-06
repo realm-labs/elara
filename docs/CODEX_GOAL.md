@@ -5,91 +5,25 @@ Purpose: prompt and operating rules for Codex or another coding agent working on
 
 ## Primary `/goal` Prompt
 
-Use this prompt when starting or resuming Codex work in the Elara repository.
+Use this compact prompt when starting or resuming Codex work in the Elara
+repository. The prompt intentionally references this document for detailed rules
+instead of copying every rule into the `/goal` body.
 
 ```text
 /goal
 You are working on Elara, a Rust-native implementation of the latest stable Lua VM with a high-level Rust embedding API and optional Cranelift JIT.
 
-This is a long-running project goal. Continue implementing the project step by
-step until every milestone in `docs/MILESTONES.md` is complete.
+Continue implementing the project step by step until every milestone in `docs/MILESTONES.md` is complete.
 
-Before changing code at the start of each work cycle, read:
+At the start of each work cycle, read `docs/PROGRESS.md`, the relevant section of `docs/MILESTONES.md`, the relevant architecture boundaries in `docs/ARCHITECTURE.md`, and the operating rules in `docs/CODEX_GOAL.md`.
 
-1. docs/PROGRESS.md
-2. the relevant section of docs/MILESTONES.md
-3. the relevant architecture boundaries in docs/ARCHITECTURE.md
+When a step changes Lua semantics, inspect the relevant official Lua 5.5 source files under `~/Downloads/lua-lua-a5522f0` before designing the change. Use the source and Lua 5.5 manual as behavior references, while preserving Elara's Rust-native layered architecture and custom bytecode.
 
-When implementing Lua language behavior, also consult the official Lua 5.5
-source tree at `~/Downloads/lua-lua-a5522f0`. Use it together with the Lua 5.5
-manual to understand exact semantics, especially for parser, compiler, VM,
-table, GC, error, coroutine, and standard-library edge cases. The source is a
-behavior reference, not a requirement to copy Lua's bytecode format or abandon
-Elara's Rust-native layered architecture.
+Implement exactly one verifiable step at a time, or a smaller sub-step when needed. After each clean step, add/update tests, run the narrowest meaningful verification, update `docs/PROGRESS.md`, commit with a conventional commit message, and continue automatically to the next incomplete step.
 
-Your task is to continue from the current position described in docs/PROGRESS.md, following the architecture in docs/ARCHITECTURE.md and the step plan in docs/MILESTONES.md.
+Do not stop after one step or one milestone. Stop only when all milestones are complete, you are truly blocked, verification cannot be safely fixed, a required architecture decision is not covered by the docs, or the user explicitly asks you to stop.
 
-Execution policy:
-
-- Treat docs/MILESTONES.md as the implementation roadmap.
-- Use docs/PROGRESS.md to determine the current milestone and next incomplete step.
-- Use `~/Downloads/lua-lua-a5522f0` as the local official Lua 5.5 source reference for actual behavior when a step implements Lua semantics.
-- Implement exactly one verifiable step at a time, or a smaller sub-step if the listed step is too large.
-- After each step:
-  - add or update tests for changed behavior,
-  - run the narrowest meaningful verification,
-  - run broader workspace checks when the codebase is ready,
-  - update docs/PROGRESS.md as a rolling status document,
-  - commit with a conventional commit message.
-- After committing a clean step, continue to the next incomplete step automatically.
-- Do not stop merely because one step or one milestone is complete.
-- Stop only when:
-  - all milestones are complete,
-  - you are blocked and cannot make meaningful progress without user input,
-  - verification fails and you cannot safely fix it,
-  - continuing would require a risky architecture decision not covered by the docs,
-  - or the user explicitly asks you to stop.
-
-Project constraints:
-
-- Keep the architecture clean and layered.
-- Do not add compatibility flags for old Lua versions unless docs/ARCHITECTURE.md is explicitly revised.
-- Use conventional commit messages.
-- Commit by verifiable step, not by whole milestone.
-- A milestone may require several commits.
-- Avoid large working-tree changes.
-- Keep the project structured.
-- Do not pile more than 1000 lines into a single source file.
-- Prefer modules below 600 lines when practical.
-- Keep tests near the code they verify.
-- Run the narrowest meaningful verification command before every commit.
-- Run broader workspace checks when the codebase is ready for them.
-- Update docs/PROGRESS.md after each completed step.
-- docs/PROGRESS.md is a rolling status document, not a changelog.
-- Do not append historical logs to docs/PROGRESS.md.
-- Do not mix unrelated refactors with feature work.
-- Unsafe Rust must be localized and documented with SAFETY comments.
-- Public APIs must not expose unrooted raw GC pointers.
-- JIT must remain optional and semantically equivalent to the interpreter for supported paths.
-
-Workflow for each step:
-
-1. Read docs/PROGRESS.md and identify the current milestone and next incomplete step.
-2. Read the relevant section in docs/MILESTONES.md.
-3. Check docs/ARCHITECTURE.md for boundaries and invariants.
-4. For Lua semantic behavior, inspect the relevant files in `~/Downloads/lua-lua-a5522f0` before designing the change.
-5. Implement only the next verifiable step, or a smaller sub-step if the step is too large.
-6. Add or update tests for the behavior changed by this step.
-7. Run formatting and the narrowest meaningful tests.
-8. Update docs/PROGRESS.md with current milestone, completed content, and remaining gaps.
-9. Commit using a conventional commit message.
-10. Continue to the next incomplete step unless a stop condition from the execution policy applies.
-
-Important goal-status rule:
-
-- Do not mark this `/goal` complete after finishing a single step.
-- Mark this `/goal` complete only when every milestone in docs/MILESTONES.md is complete.
-- At the end of each assistant turn, report the step completed, the commit made, the verification run, and the next step to continue from.
+Do not mark this `/goal` complete until every milestone in `docs/MILESTONES.md` is complete. At the end of each assistant turn, report the completed step, commit, verification, and next step.
 ```
 
 ## Secondary `/goal` Prompt for Focused Steps
@@ -100,16 +34,9 @@ Use this when Codex should work on one specific step.
 /goal
 Continue Elara by implementing exactly one verifiable step from docs/MILESTONES.md.
 
-Read:
+Read `docs/ARCHITECTURE.md`, `docs/MILESTONES.md`, `docs/PROGRESS.md`, and the operating rules in `docs/CODEX_GOAL.md`. When the step changes Lua semantics, inspect the relevant official Lua 5.5 source files under `~/Downloads/lua-lua-a5522f0`.
 
-- docs/ARCHITECTURE.md
-- docs/MILESTONES.md
-- docs/PROGRESS.md
-- The relevant official Lua 5.5 source files under `~/Downloads/lua-lua-a5522f0` when the step changes Lua semantics
-
-Then choose the next incomplete step from docs/PROGRESS.md. Keep the change small, add tests, run the narrowest useful verification command, update docs/PROGRESS.md, and commit with a conventional commit message.
-
-Do not implement unrelated future steps. Do not produce a milestone-sized commit. Preserve clean crate boundaries and avoid files over 1000 lines.
+Choose the next incomplete step from `docs/PROGRESS.md`. Keep the change small, add tests, run the narrowest useful verification command, update `docs/PROGRESS.md`, and commit with a conventional commit message. Do not implement unrelated future steps.
 ```
 
 ## Emergency `/goal` Prompt for Cleanup
@@ -120,21 +47,9 @@ Use this when the repository has drifted, tests are broken, or changes became to
 /goal
 Stabilize the Elara repository without adding new features.
 
-Read:
+Read `docs/ARCHITECTURE.md`, `docs/MILESTONES.md`, `docs/PROGRESS.md`, and the cleanup rules in `docs/CODEX_GOAL.md`. If behavior correctness is involved, inspect the relevant Lua 5.5 source files under `~/Downloads/lua-lua-a5522f0`.
 
-- docs/ARCHITECTURE.md
-- docs/MILESTONES.md
-- docs/PROGRESS.md
-- Relevant official Lua 5.5 source files under `~/Downloads/lua-lua-a5522f0` if behavior correctness is part of the cleanup
-
-Focus only on restoring a clean, reviewable state:
-
-- Run formatting and the smallest useful failing test.
-- Fix compilation or test failures.
-- Split oversized files or misplaced modules only when necessary.
-- Do not add new architecture or features.
-- Update docs/PROGRESS.md to reflect the accurate current state and remaining gaps.
-- Commit with a conventional commit message such as fix(...), test(...), refactor(...), or docs(progress).
+Focus only on restoring a clean, reviewable state: run formatting and the smallest useful failing test, fix compilation or test failures, split oversized files only when necessary, update `docs/PROGRESS.md`, and commit with a conventional cleanup message.
 ```
 
 ## Commit Rules
