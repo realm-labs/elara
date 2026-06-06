@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M2 Runtime Value Model and Basic GC Skeleton  
-Current step: M2.3 Implement basic arena/list allocator
+Current step: M2.4 Implement stop-the-world mark-sweep MVP
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -15,9 +15,10 @@ Elara has a Cargo workspace skeleton with project documentation, quality gates,
 documented crate boundaries, and a single current Lua language target in
 `elara-core`. Core source span and diagnostic primitives are available, and the
 test fixture/conformance/differential directory layout exists with a snapshot
-baseline. Primitive runtime values and GC headers/references are implemented.
-GC allocation, parser, compiler, bytecode, interpreter, API, JIT, C API,
-conformance, and benchmark implementation work has not started.
+baseline. Primitive runtime values, GC headers/references, and a basic GC
+allocation list are implemented. Mark-sweep collection, parser, compiler,
+bytecode, interpreter, API, JIT, C API, conformance, and benchmark
+implementation work has not started.
 
 Current state:
 
@@ -36,9 +37,10 @@ Completed:
   - M1.4 Add snapshot testing baseline.
   - M2.1 Implement Value and primitive conversions.
   - M2.2 Add GC pointer and object header types.
+  - M2.3 Implement basic arena/list allocator.
 
 Not started:
-  - M2.3 Implement basic arena/list allocator.
+  - M2.4 Implement stop-the-world mark-sweep MVP.
   - Runtime core.
   - Parser.
   - Compiler.
@@ -157,25 +159,34 @@ Delivered:
 - Unsafe pointer helpers are localized and documented with SAFETY comments.
 - No public raw GC pointer accessor was added.
 
-### Current Step: M2.3 Implement basic arena/list allocator
+### Completed Step: M2.3 Implement basic arena/list allocator
+
+Delivered:
+
+- Runtime-owned `GcArena` allocation list.
+- `GcStats` allocation/root counters.
+- `GcRoot` placeholder root handles.
+- Drop cleanup for arena-owned objects.
+
+### Current Step: M2.4 Implement stop-the-world mark-sweep MVP
 
 Expected deliverables:
 
-- Runtime-owned allocation list.
-- Allocation stats.
-- Simple root set placeholder.
-- Basic drop cleanup for all allocated objects.
+- Mark phase over roots.
+- Sweep phase over allocated object list.
+- Root API for tests.
+- Tests for reachable/unreachable collection.
 
 Recommended verification:
 
 ```bash
-cargo test -p elara-core gc_alloc
+cargo test -p elara-core gc_mark_sweep
 ```
 
 Recommended commit:
 
 ```text
-feat(core): add gc allocation list
+feat(core): implement mark sweep gc skeleton
 ```
 
 ## Completed Content
@@ -206,12 +217,13 @@ feat(core): add gc allocation list
 - Snapshot helpers and a `return 42` fixture baseline are present.
 - Primitive Lua values are available in `elara-core`.
 - GC object headers and typed references are available in `elara-core`.
+- Basic GC allocation list, stats, roots, and drop cleanup are available.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M2
 
-- Add a basic arena/list allocator.
+- Add stop-the-world mark-sweep MVP.
 
 ### Product Gaps
 
@@ -235,27 +247,27 @@ All implementation work is still pending:
 
 ## Last Verification
 
-M2.2 verification passed:
+M2.3 verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-core gc
+cargo test -p elara-core gc_alloc
 cargo clippy -p elara-core --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Implement M2.3 from `docs/MILESTONES.md`:
+Implement M2.4 from `docs/MILESTONES.md`:
 
-1. Add a runtime-owned GC allocation list.
-2. Add allocation stats and a simple root set placeholder.
-3. Ensure allocated objects are dropped during runtime cleanup.
-4. Run `cargo test -p elara-core gc_alloc`.
+1. Add mark phase over roots.
+2. Add sweep phase over the allocation list.
+3. Add tests for reachable and unreachable collection.
+4. Run `cargo test -p elara-core gc_mark_sweep`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-feat(core): add gc allocation list
+feat(core): implement mark sweep gc skeleton
 ```
 
 ## Current Risk Notes
@@ -285,7 +297,8 @@ feat(core): add gc allocation list
 | Core runtime | Not started | Current milestone. |
 | Value primitives | Complete | Nil, bool, integer, and float values are implemented. |
 | GC headers | Complete | Headers, colors, kinds, and typed refs are implemented. |
-| GC allocation | Not started | Current step. |
+| GC allocation | Complete | Arena allocation list, stats, roots, and drop cleanup are implemented. |
+| Mark-sweep GC | Not started | Current step. |
 | Parser | Not started | Starts M4. |
 | Compiler | Not started | Starts M5. |
 | Interpreter | Not started | Starts M6. |

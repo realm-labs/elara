@@ -78,11 +78,13 @@ impl GcHeader {
 
 /// Trait implemented by GC-managed object payloads.
 pub trait GcObject {
-    /// Static object kind for this payload type.
-    const KIND: GcKind;
-
     /// Embedded GC header.
     fn header(&self) -> &GcHeader;
+
+    /// Runtime object kind from the embedded header.
+    fn kind(&self) -> GcKind {
+        self.header().kind()
+    }
 }
 
 /// Typed reference to a GC-managed object.
@@ -179,11 +181,150 @@ impl<T> Hash for GcRef<T> {
     }
 }
 
+/// Opaque root handle returned by the GC arena.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct GcRoot {
+    id: u64,
+}
+
+impl GcRoot {
+    /// Stable root identifier.
+    #[must_use]
+    pub const fn id(self) -> u64 {
+        self.id
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct RootEntry {
+    root: GcRoot,
+    ptr: NonNull<()>,
+}
+
+/// Allocation statistics for a GC arena.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct GcStats {
+    /// Number of currently allocated objects.
+    pub live_objects: usize,
+    /// Number of allocations made by this arena since creation.
+    pub total_allocations: usize,
+    /// Number of placeholder roots currently registered.
+    pub roots: usize,
+}
+
+/// Runtime-owned list of GC allocations.
+#[derive(Default)]
+pub struct GcArena {
+    objects: Vec<Box<dyn GcObject>>,
+    roots: Vec<RootEntry>,
+    total_allocations: usize,
+    next_root_id: u64,
+}
+
+impl GcArena {
+    /// Creates an empty GC arena.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            objects: Vec::new(),
+            roots: Vec::new(),
+            total_allocations: 0,
+            next_root_id: 0,
+        }
+    }
+
+    /// Allocates a GC object and returns an unrooted typed reference to it.
+    pub fn allocate<T>(&mut self, object: T) -> GcRef<T>
+    where
+        T: GcObject + 'static,
+    {
+        let boxed = Box::new(object);
+        let ptr = NonNull::from(boxed.as_ref());
+
+        self.objects.push(boxed);
+        self.total_allocations += 1;
+
+        // SAFETY: `ptr` points into a Box now owned by `self.objects`. The Box
+        // allocation is stable until this arena drops or later sweep logic
+        // removes it. The returned reference is intentionally unrooted.
+        unsafe { GcRef::from_non_null(ptr) }
+    }
+
+    /// Adds a placeholder root for a GC reference.
+    pub fn add_root<T>(&mut self, reference: GcRef<T>) -> GcRoot {
+        let root = GcRoot {
+            id: self.next_root_id,
+        };
+        self.next_root_id += 1;
+        self.roots.push(RootEntry {
+            root,
+            ptr: reference.ptr.cast(),
+        });
+        root
+    }
+
+    /// Removes a placeholder root.
+    pub fn remove_root(&mut self, root: GcRoot) -> bool {
+        if let Some(index) = self.roots.iter().position(|entry| entry.root == root) {
+            self.roots.swap_remove(index);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns true if the root handle is currently registered.
+    #[must_use]
+    pub fn contains_root(&self, root: GcRoot) -> bool {
+        self.roots.iter().any(|entry| entry.root == root)
+    }
+
+    /// Returns true if the root handle currently points to `reference`.
+    #[must_use]
+    pub fn contains_root_for<T>(&self, root: GcRoot, reference: GcRef<T>) -> bool {
+        self.roots
+            .iter()
+            .any(|entry| entry.root == root && entry.ptr == reference.ptr.cast())
+    }
+
+    /// Number of currently allocated objects.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.objects.len()
+    }
+
+    /// Returns true if no objects are allocated.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.objects.is_empty()
+    }
+
+    /// Number of placeholder roots.
+    #[must_use]
+    pub fn root_count(&self) -> usize {
+        self.roots.len()
+    }
+
+    /// Current allocation statistics.
+    #[must_use]
+    pub fn stats(&self) -> GcStats {
+        GcStats {
+            live_objects: self.objects.len(),
+            total_allocations: self.total_allocations,
+            roots: self.roots.len(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use core::ptr::NonNull;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
 
-    use super::{GcColor, GcHeader, GcKind, GcObject, GcRef};
+    use super::{GcArena, GcColor, GcHeader, GcKind, GcObject, GcRef, GcStats};
 
     #[derive(Debug)]
     struct TestObject {
@@ -193,14 +334,38 @@ mod tests {
     impl TestObject {
         fn new() -> Self {
             Self {
-                header: GcHeader::new(Self::KIND),
+                header: GcHeader::new(GcKind::Table),
             }
         }
     }
 
     impl GcObject for TestObject {
-        const KIND: GcKind = GcKind::Table;
+        fn header(&self) -> &GcHeader {
+            &self.header
+        }
+    }
 
+    struct DropObject {
+        header: GcHeader,
+        drops: Arc<AtomicUsize>,
+    }
+
+    impl DropObject {
+        fn new(drops: Arc<AtomicUsize>) -> Self {
+            Self {
+                header: GcHeader::new(GcKind::UserData),
+                drops,
+            }
+        }
+    }
+
+    impl Drop for DropObject {
+        fn drop(&mut self) {
+            self.drops.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    impl GcObject for DropObject {
         fn header(&self) -> &GcHeader {
             &self.header
         }
@@ -252,5 +417,64 @@ mod tests {
         // SAFETY: `object` is still alive and has not moved.
         let header = unsafe { reference.header() };
         assert_eq!(header.kind(), GcKind::Table);
+    }
+
+    #[test]
+    fn gc_alloc_arena_allocates_objects_and_tracks_stats() {
+        let mut arena = GcArena::new();
+
+        assert!(arena.is_empty());
+        assert_eq!(arena.stats(), GcStats::default());
+
+        let reference = arena.allocate(TestObject::new());
+
+        assert_eq!(arena.len(), 1);
+        assert_eq!(
+            arena.stats(),
+            GcStats {
+                live_objects: 1,
+                total_allocations: 1,
+                roots: 0,
+            }
+        );
+
+        // SAFETY: The arena owns the allocated object and is still alive.
+        let object = unsafe { reference.as_ref() };
+        assert_eq!(object.kind(), GcKind::Table);
+    }
+
+    #[test]
+    fn gc_alloc_root_placeholder_tracks_registered_roots() {
+        let mut arena = GcArena::new();
+        let reference = arena.allocate(TestObject::new());
+
+        let root = arena.add_root(reference);
+
+        assert_eq!(root.id(), 0);
+        assert_eq!(arena.root_count(), 1);
+        assert!(arena.contains_root(root));
+        assert!(arena.contains_root_for(root, reference));
+        assert_eq!(arena.stats().roots, 1);
+
+        assert!(arena.remove_root(root));
+        assert!(!arena.contains_root(root));
+        assert_eq!(arena.root_count(), 0);
+        assert!(!arena.remove_root(root));
+    }
+
+    #[test]
+    fn gc_alloc_arena_drops_owned_objects() {
+        let drops = Arc::new(AtomicUsize::new(0));
+
+        {
+            let mut arena = GcArena::new();
+            arena.allocate(DropObject::new(Arc::clone(&drops)));
+            arena.allocate(DropObject::new(Arc::clone(&drops)));
+
+            assert_eq!(drops.load(Ordering::SeqCst), 0);
+            assert_eq!(arena.stats().live_objects, 2);
+        }
+
+        assert_eq!(drops.load(Ordering::SeqCst), 2);
     }
 }
