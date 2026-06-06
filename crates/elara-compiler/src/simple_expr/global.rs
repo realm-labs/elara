@@ -89,6 +89,9 @@ impl SimpleCompiler {
             }
             return;
         }
+        if self.report_global_env_access(name) {
+            return;
+        }
 
         if let Some(name_index) = self.global_name_index(name) {
             self.builder
@@ -149,6 +152,9 @@ impl SimpleCompiler {
         }
 
         let register = self.alloc_register();
+        if self.report_global_env_access(name) {
+            return register;
+        }
         if let Some(name_index) = self.global_name_index(name) {
             self.builder
                 .emit_abx(Op::GetEnv, register, u64::from(name_index));
@@ -173,6 +179,22 @@ impl SimpleCompiler {
         self.builder
             .emit_abx(Op::LoadString, register, u64::from(name_index));
         Some(register)
+    }
+
+    fn report_global_env_access(&mut self, name: &str) -> bool {
+        if !self.globals.contains_key("_ENV") || self.lexical_env_available() {
+            return false;
+        }
+        self.diagnostics.push(Diagnostic::error(format!(
+            "_ENV is global when accessing variable '{name}'"
+        )));
+        true
+    }
+
+    fn lexical_env_available(&self) -> bool {
+        self.locals.contains_key("_ENV")
+            || self.upvalues.contains_key("_ENV")
+            || self.enclosing_locals.contains_key("_ENV")
     }
 
     fn global_access(&self, name: &str) -> Option<GlobalAccess> {

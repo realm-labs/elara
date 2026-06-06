@@ -54,7 +54,9 @@ calls. Global declarations in nested simple-compiler blocks are scoped to those
 blocks and can shadow outer collective declarations. Local and captured `_ENV`
 tables are used for global reads, writes, and declaration checks in the simple
 compiler. `global function` declarations compile and execute with
-declaration-time already-defined checks. Full default `_ENV` upvalue behavior,
+declaration-time already-defined checks. The simple compiler reports Lua-style
+diagnostics when `_ENV` is itself declared global and another global access
+would need it as the environment. Full default `_ENV` upvalue behavior,
 standard library, full API, JIT, C API, conformance, and benchmark
 implementation work has not started.
 
@@ -594,15 +596,18 @@ Delivered:
   check-before-store lowering shape.
 - `global function` declarations compile and execute through the global
   declaration/store path, including already-defined runtime checks.
+- Named and collective read-only global declarations reject direct assignment in
+  the simple compiler.
+- Explicitly global `_ENV` declarations report a diagnostic when another global
+  access would need `_ENV`.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M9
 
 - Finish M9.4 global declaration semantics:
-  - default chunk `_ENV` upvalue behavior and diagnostics when `_ENV` itself is
-    global;
-  - complete global const/read-only assignment checks beyond the simple paths.
+  - default chunk `_ENV` upvalue behavior and public/runtime environment
+    representation.
 
 ### Product Gaps
 
@@ -620,19 +625,18 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M9.4 global function declaration sub-step verification passed:
+M9.4 global `_ENV` diagnostics/read-only coverage verification passed:
 
 ```bash
 cargo test -p elara-compiler globals
-cargo test -p elara-api global
 cargo fmt --all -- --check
-cargo clippy -p elara-compiler -p elara-api --all-targets -- -D warnings
+cargo clippy -p elara-compiler --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M9.4 with remaining global declaration edge cases:
-`_ENV`-as-global diagnostics and broader const/read-only assignment coverage.
+Decide the runtime representation for the default chunk `_ENV` value so M9.4 can
+expose `_ENV` itself while keeping public APIs free of unrooted raw GC pointers.
 
 ## Current Risk Notes
 

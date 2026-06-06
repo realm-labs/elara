@@ -210,6 +210,17 @@ fn globals_report_read_only_collective_assignment() {
 }
 
 #[test]
+fn globals_report_read_only_named_assignment() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "global answer<const>\nanswer = 42");
+
+    assert!(compiled.proto.is_none());
+    assert_eq!(
+        compiled.diagnostics[0].message(),
+        "global variable 'answer' is read-only"
+    );
+}
+
+#[test]
 fn globals_compile_reads_through_local_env() {
     let compiled = compile_simple_chunk(
         SourceId::new(0),
@@ -292,6 +303,28 @@ fn globals_inner_declaration_shadows_collective_read_only_scope() {
     assert_eq!(
         compiled.diagnostics[0].message(),
         "global variable 'answer' is read-only"
+    );
+}
+
+#[test]
+fn globals_report_global_env_on_read() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "global _ENV, answer\nreturn answer");
+
+    assert!(compiled.proto.is_none());
+    assert_eq!(
+        compiled.diagnostics[0].message(),
+        "_ENV is global when accessing variable 'answer'"
+    );
+}
+
+#[test]
+fn globals_report_global_env_on_write() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "global _ENV, answer\nanswer = 42");
+
+    assert!(compiled.proto.is_none());
+    assert_eq!(
+        compiled.diagnostics[0].message(),
+        "_ENV is global when accessing variable 'answer'"
     );
 }
 
