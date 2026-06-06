@@ -156,7 +156,8 @@ impl Verifier<'_> {
             | Op::TestSet
             | Op::Eq
             | Op::Lt
-            | Op::Le => {
+            | Op::Le
+            | Op::Concat => {
                 self.check_register(offset, instr.a());
                 self.check_register(offset, instr.b());
                 self.check_register(offset, instr.c());

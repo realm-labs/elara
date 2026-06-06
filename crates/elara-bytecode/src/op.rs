@@ -130,6 +130,8 @@ pub enum Op {
     Tbc,
     /// Load a string constant.
     LoadString,
+    /// Concatenate values.
+    Concat,
 }
 
 impl Op {
@@ -188,6 +190,7 @@ impl Op {
             48 => Some(Self::Close),
             49 => Some(Self::Tbc),
             50 => Some(Self::LoadString),
+            51 => Some(Self::Concat),
             _ => None,
         }
     }
@@ -247,6 +250,7 @@ impl Op {
             Self::Close => "CLOSE",
             Self::Tbc => "TBC",
             Self::LoadString => "LOAD_STRING",
+            Self::Concat => "CONCAT",
         }
     }
 }
@@ -355,7 +359,8 @@ mod tests {
         assert_eq!(Op::from_byte(44), Some(Op::Return));
         assert_eq!(Op::from_byte(49), Some(Op::Tbc));
         assert_eq!(Op::from_byte(50), Some(Op::LoadString));
-        assert_eq!(Op::from_byte(51), None);
+        assert_eq!(Op::from_byte(51), Some(Op::Concat));
+        assert_eq!(Op::from_byte(52), None);
     }
 
     #[test]

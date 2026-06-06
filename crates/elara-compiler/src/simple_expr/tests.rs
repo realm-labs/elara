@@ -31,6 +31,18 @@ fn simple_expr_compiles_unary_arithmetic() {
 }
 
 #[test]
+fn simple_expr_compiles_concat() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "return \"a\" .. \"b\"");
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_STRING   A=0 Bx=0 ; \"a\"\n0001 LOAD_STRING   A=1 Bx=1 ; \"b\"\n0002 CONCAT        A=0 B=0 C=1\n0003 RETURN        A=0 B=1 C=0\n",
+    );
+}
+
+#[test]
 fn simple_expr_reports_unsupported_statement() {
     let compiled = compile_simple_chunk(SourceId::new(0), "::again::");
 

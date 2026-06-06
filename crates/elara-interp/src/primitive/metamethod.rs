@@ -1,7 +1,7 @@
 //! Arithmetic and comparison helpers with metamethod fallback.
 
 use elara_bytecode::{Instr, Op};
-use elara_core::{LuaFloat, LuaInteger, LuaThread, Value};
+use elara_core::{LuaFloat, LuaInteger, LuaThread, SHORT_STRING_MAX_BYTES, Value};
 
 use super::{
     RuntimeClosure, RuntimeError, RuntimeResult, RuntimeStrings, RuntimeTables, call_closure,
@@ -81,6 +81,24 @@ pub(super) fn execute_len(
     set_register(thread, instr.a().into(), result)
 }
 
+pub(super) fn execute_concat(
+    thread: &mut LuaThread,
+    closures: &mut Vec<RuntimeClosure>,
+    instr: Instr,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<()> {
+    let left = register(thread, instr.b() as usize)?;
+    let right = register(thread, instr.c() as usize)?;
+    let result = if let Some(result) = raw_concat(left, right, strings)? {
+        result
+    } else {
+        call_named_binary_metamethod("__concat", left, right, closures, tables, strings)?
+            .ok_or(RuntimeError::NonConcatOperand)?
+    };
+    set_register(thread, instr.a().into(), result)
+}
+
 fn binary_arithmetic(op: Op, left: Value, right: Value) -> Option<Value> {
     match (left.as_integer(), right.as_integer()) {
         (Some(left), Some(right)) => integer_arithmetic(op, left, right),
@@ -132,7 +150,17 @@ fn call_binary_metamethod(
     let Some(name) = binary_metamethod_name(op) else {
         return Ok(None);
     };
+    call_named_binary_metamethod(name, left, right, closures, tables, strings)
+}
 
+fn call_named_binary_metamethod(
+    name: &'static str,
+    left: Value,
+    right: Value,
+    closures: &mut Vec<RuntimeClosure>,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<Option<Value>> {
     let metamethod = match tables.metamethod_for_value(left, name, strings)? {
         Some(metamethod) => Some(metamethod),
         None => tables.metamethod_for_value(right, name, strings)?,
@@ -146,6 +174,30 @@ fn call_binary_metamethod(
 
     let returns = call_closure(closures, closure as usize, &[left, right], tables, strings)?;
     Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
+}
+
+fn raw_concat(
+    left: Value,
+    right: Value,
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<Option<Value>> {
+    let Some(left) = strings.short_string_bytes(left) else {
+        return Ok(None);
+    };
+    let Some(right) = strings.short_string_bytes(right) else {
+        return Ok(None);
+    };
+    let len = left
+        .len()
+        .checked_add(right.len())
+        .ok_or(RuntimeError::StringConcatTooLong)?;
+    if len > SHORT_STRING_MAX_BYTES {
+        return Err(RuntimeError::StringConcatTooLong);
+    }
+    let mut bytes = Vec::with_capacity(len);
+    bytes.extend_from_slice(left);
+    bytes.extend_from_slice(right);
+    Ok(Some(strings.intern_short_value(bytes)))
 }
 
 fn call_unary_metamethod(

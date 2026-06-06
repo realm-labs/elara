@@ -440,6 +440,7 @@ impl SimpleCompiler {
             BinaryOp::BitXor => Op::BXor,
             BinaryOp::ShiftLeft => Op::Shl,
             BinaryOp::ShiftRight => Op::Shr,
+            BinaryOp::Concat => Op::Concat,
             _ => {
                 self.diagnostics.push(
                     Diagnostic::error("unsupported binary operator in simple expression compiler")

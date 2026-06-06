@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M9 Tables, Metamethods, and Globals
-Current step: M9.3 Implement metatable and metamethod dispatch
+Current step: M9.4 Implement global declaration semantics
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -45,9 +45,9 @@ metamethods for the primitive interpreter's currently executed arithmetic
 opcodes work for table operands. Comparison opcodes execute with raw numeric
 comparison and table metamethod fallback. `LEN` executes for runtime tables with
 raw array length and `__len` closure fallback. `CALL` can invoke function-valued
-`__call` fallback for table operands. Globals, `__concat` metamethod dispatch,
-full API, JIT, C API, conformance, and benchmark implementation work has not
-started.
+`__call` fallback for table operands. `CONCAT` executes for short strings and
+can invoke `__concat` closure fallback. Globals, full API, JIT, C API,
+conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -95,21 +95,10 @@ Completed:
   - M8 exit criteria validation.
   - M9.1 Compile and execute table constructors.
   - M9.2 Implement table get/set bytecode.
+  - M9.3 Implement metatable and metamethod dispatch.
 
 In progress:
-  - M9.3 Implement metatable and metamethod dispatch.
-    - Runtime table storage is centralized with metatable sidecar links.
-    - Table-valued `__index` and `__newindex` chains work in the runtime table
-      slow path.
-    - Function-valued `__index` and `__newindex` Lua closure calls work in the
-      runtime table slow path.
-    - Arithmetic metamethod Lua closure calls work for the arithmetic opcodes
-      currently executed by the primitive interpreter.
-    - Comparison opcodes execute and can call `__eq`, `__lt`, and `__le`
-      metamethod closures for table operands.
-    - `LEN` executes for runtime tables and can call `__len` metamethod
-      closures.
-    - `CALL` can invoke function-valued `__call` fallback for table operands.
+  - M9.4 Implement global declaration semantics.
   - Standard library.
   - Rust API.
   - JIT.
@@ -579,21 +568,20 @@ Delivered:
   primitive interpreter.
 - `LEN` works for runtime tables with `__len` closure fallback.
 - `CALL` works for runtime tables with `__call` closure fallback.
+- `CONCAT` works for short strings with `__concat` closure fallback.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M9
 
-- Add `__concat` metamethod dispatch once concat bytecode exists.
-- Add bitwise opcode execution and corresponding metamethod dispatch when those
-  opcodes are enabled in the primitive interpreter.
+- Implement M9.4 global declaration semantics.
 
 ### Product Gaps
 
 Major implementation work is still pending:
 
 - Global declaration behavior.
-- Metamethod dispatch.
+- Bitwise opcode execution and corresponding metamethod dispatch.
 - Standard library.
 - Rust API.
 - Cranelift JIT.
@@ -604,23 +592,27 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M9.3 call metamethod verification passed:
+M9.3 concat/metamethod verification passed:
 
 ```bash
 cargo test -p elara-interp metamethods
+cargo test -p elara-interp concat
+cargo test -p elara-bytecode op_decodes
+cargo test -p elara-compiler concat
 cargo test -p elara-interp call
 cargo test -p elara-interp len
 cargo test -p elara-interp comparison
 cargo test -p elara-interp arithmetic
 cargo test -p elara-interp table_access
 cargo fmt --all -- --check
-cargo clippy -p elara-interp --all-targets -- -D warnings
+cargo clippy -p elara-bytecode -p elara-compiler -p elara-interp --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Implement M9.3 `__concat` support after adding concat bytecode, or proceed to
-M9.4 globals if concat bytecode is intentionally deferred.
+Implement M9.4 global declaration semantics from `docs/MILESTONES.md`,
+including current Lua global declaration validation, `_ENV` access modeling, and
+global get/set lowering.
 
 ## Current Risk Notes
 
@@ -665,7 +657,7 @@ M9.4 globals if concat bytecode is intentionally deferred.
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
-| Tables/globals/metamethods | In progress | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, and `__call` execute. |
+| Tables/globals/metamethods | In progress | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, and `__concat` execute; globals are next. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

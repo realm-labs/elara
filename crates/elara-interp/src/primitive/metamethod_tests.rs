@@ -3,7 +3,7 @@ use elara_core::{LuaThread, Table, Value};
 
 use super::{
     RuntimeClosure, RuntimeStrings, RuntimeTables, execute_arithmetic, execute_call,
-    execute_comparison, execute_len,
+    execute_comparison, execute_concat, execute_len,
 };
 
 fn constant_closure(value: Value) -> RuntimeClosure {
@@ -272,4 +272,59 @@ fn metamethods_call_invokes_function_fallback() {
     .expect("__call should execute");
 
     assert_eq!(thread.stack_value(0), Some(Value::integer(123)));
+}
+
+#[test]
+fn metamethods_concat_executes_raw_short_strings() {
+    let mut closures = Vec::new();
+    let mut tables = RuntimeTables::new();
+    let mut strings = RuntimeStrings::new();
+    let left = strings.intern_short_value("a");
+    let right = strings.intern_short_value("b");
+    let mut thread = LuaThread::new();
+    thread.push_value(left);
+    thread.push_value(right);
+    thread.push_value(Value::nil());
+
+    execute_concat(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Concat, 2, 0, 1),
+        &mut tables,
+        &mut strings,
+    )
+    .expect("raw short-string concat should execute");
+
+    let expected = strings.intern_short_value("ab");
+    assert_eq!(thread.stack_value(2), Some(expected));
+}
+
+#[test]
+fn metamethods_concat_calls_function_fallback() {
+    let mut strings = RuntimeStrings::new();
+    let mut tables = RuntimeTables::new();
+    let table = tables.push_table(Table::new());
+    let concat_key = strings.intern_short_value("__concat");
+    let mut metatable = Table::new();
+    assert!(metatable.raw_set_value(concat_key, Value::closure_index(0)));
+    let metatable = tables.push_table(metatable);
+    tables
+        .set_metatable(table as usize, Some(metatable))
+        .expect("metatable link should be valid");
+    let mut closures = vec![constant_closure(Value::integer(321))];
+    let mut thread = LuaThread::new();
+    thread.push_value(Value::table_index(table));
+    thread.push_value(Value::integer(1));
+    thread.push_value(Value::nil());
+
+    execute_concat(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Concat, 2, 0, 1),
+        &mut tables,
+        &mut strings,
+    )
+    .expect("__concat should execute");
+
+    assert_eq!(thread.stack_value(2), Some(Value::integer(321)));
 }
