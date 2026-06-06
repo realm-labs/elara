@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M7 Variables, Scopes, Closures, and Calls  
-Current step: M7.1 Implement local variables and assignment
+Current step: M7.2 Implement function Protos and Lua calls
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -23,8 +23,9 @@ opcode set, constant pool, metadata placeholders, builder, and disassembler are
 implemented, along with initial bytecode verification and simple expression
 codegen. VM/thread stack primitives and primitive arithmetic bytecode execution
 are implemented, and simple source chunks can be evaluated through the compile
-and interpreter path. Variables, scopes, closures, full API, JIT, C API,
-conformance, and benchmark implementation work has not started.
+and interpreter path. Local variables and assignment basics are implemented.
+Closures, Lua calls, full API, JIT, C API, conformance, and benchmark
+implementation work has not started.
 
 Current state:
 
@@ -60,9 +61,10 @@ Completed:
   - M6.1 Add VM state and thread stack.
   - M6.2 Implement interpreter loop for constants and arithmetic.
   - M6.3 Connect source compile and eval path.
+  - M7.1 Implement local variables and assignment.
 
 Not started:
-  - M7.1 Implement local variables and assignment.
+  - M7.2 Implement function Protos and Lua calls.
   - Standard library.
   - Rust API.
   - JIT.
@@ -338,26 +340,35 @@ Delivered:
 
 M6 is complete.
 
-### Current Step: M7.1 Implement local variables and assignment
+### Completed Step: M7.1 Implement local variables and assignment
 
-Expected deliverables:
+Delivered:
 
 - Scope resolution.
 - Register allocation for locals.
 - Multiple assignment basics.
 - Tests for local variable behavior.
 
+### Current Step: M7.2 Implement function Protos and Lua calls
+
+Expected deliverables:
+
+- Function AST lowering.
+- Nested Proto emission.
+- `CALL` and `RETURN` basics.
+- Tests for simple function calls.
+
 Recommended verification:
 
 ```bash
-cargo test -p elara-compiler locals
-cargo test -p elara-interp locals
+cargo test -p elara-compiler functions
+cargo test -p elara-interp calls
 ```
 
 Recommended commit:
 
 ```text
-feat(compiler): lower local variables
+feat(runtime): support simple lua calls
 ```
 
 ## Completed Content
@@ -403,12 +414,13 @@ feat(compiler): lower local variables
 - VM state, Lua thread stack, call frames, and stack helpers are available in `elara-core`.
 - Primitive bytecode execution for constants, arithmetic, and return values is available in `elara-interp`.
 - Simple source chunks can be compiled and evaluated through `elara-api`.
+- Local variable reads/writes and assignment basics are available in the compiler/interpreter path.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M7
 
-- Implement local variables and assignment.
+- Implement function Protos and simple Lua calls.
 
 ### Product Gaps
 
@@ -428,27 +440,29 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M6.3 verification passed:
+M7.1 verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy -p elara-api --all-targets -- -D warnings
-cargo test --workspace eval_simple
+cargo clippy -p elara-compiler --all-targets -- -D warnings
+cargo clippy -p elara-interp --all-targets -- -D warnings
+cargo test -p elara-compiler locals
+cargo test -p elara-interp locals
 ```
 
 ## Next Recommended Action
 
-Implement M7.1 from `docs/MILESTONES.md`:
+Implement M7.2 from `docs/MILESTONES.md`:
 
-1. Add scope resolution and register allocation for locals.
-2. Lower local variables and multiple assignment basics.
-3. Add compiler and interpreter tests for local variable behavior.
-4. Run `cargo test -p elara-compiler locals` and `cargo test -p elara-interp locals`.
+1. Lower function AST nodes into nested Protos.
+2. Add `CALL` and `RETURN` basics.
+3. Add tests for simple function calls.
+4. Run `cargo test -p elara-compiler functions` and `cargo test -p elara-interp calls`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-feat(compiler): lower local variables
+feat(runtime): support simple lua calls
 ```
 
 ## Current Risk Notes
@@ -492,7 +506,7 @@ feat(compiler): lower local variables
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
-| Variables/scopes | Not started | Current milestone. |
+| Variables/scopes | In progress | Local variables and assignment basics are implemented. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

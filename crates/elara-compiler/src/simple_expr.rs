@@ -1,8 +1,10 @@
 //! Simple expression bytecode lowering.
 
+use std::collections::HashMap;
+
 use elara_bytecode::{Op, Proto, ProtoBuilder, verify_proto};
 use elara_core::{Diagnostic, SourceId, Value};
-use elara_syntax::{BinaryOp, Expr, ExprKind, StmtKind, UnaryOp, parse_chunk};
+use elara_syntax::{BinaryOp, Expr, ExprKind, NameDecl, StmtKind, UnaryOp, parse_chunk};
 
 /// Result of compiling a chunk.
 #[derive(Clone, Debug, PartialEq)]
@@ -29,6 +31,7 @@ pub fn compile_simple_chunk(source: SourceId, input: &str) -> CompileResult {
         diagnostics: Vec::new(),
         next_register: 0,
         max_register: 0,
+        locals: HashMap::new(),
     };
     compiler.compile_block(parsed.block.statements());
     compiler.finish()
@@ -39,12 +42,19 @@ struct SimpleCompiler {
     diagnostics: Vec<Diagnostic>,
     next_register: u16,
     max_register: u16,
+    locals: HashMap<String, u16>,
 }
 
 impl SimpleCompiler {
     fn compile_block(&mut self, statements: &[elara_syntax::Stmt<'_>]) {
         for statement in statements {
             match statement.kind() {
+                StmtKind::Local { names, values } => {
+                    self.compile_local(statement.span(), names, values)
+                }
+                StmtKind::Assign { targets, values } => {
+                    self.compile_assignment(statement.span(), targets, values);
+                }
                 StmtKind::Return(values) => self.compile_return(values),
                 _ => self.diagnostics.push(
                     Diagnostic::error("unsupported statement in simple expression compiler")
@@ -55,12 +65,86 @@ impl SimpleCompiler {
     }
 
     fn compile_return(&mut self, values: &[Expr<'_>]) {
-        let start = values.first().map_or(0, |_| self.next_register);
-        for value in values {
-            self.compile_expr(value);
-        }
+        let registers = self.compile_expression_list(values);
+        let start = self.contiguous_return_start(&registers);
         self.builder
-            .emit_abc(Op::Return, start, values.len() as u32, 0);
+            .emit_abc(Op::Return, start, registers.len() as u32, 0);
+    }
+
+    fn compile_local(
+        &mut self,
+        span: elara_core::Span,
+        names: &[NameDecl<'_>],
+        values: &[Expr<'_>],
+    ) {
+        let value_registers = self.compile_expression_list(values);
+        for (index, name) in names.iter().enumerate() {
+            let register = self.alloc_register();
+            self.locals.insert(name.name.to_owned(), register);
+            if let Some(value) = value_registers.get(index).copied() {
+                self.emit_move(register, value);
+            } else {
+                self.builder.emit_abc(Op::LoadNil, register, 0, 0);
+            }
+        }
+
+        if names.is_empty() {
+            self.diagnostics
+                .push(Diagnostic::error("local declaration has no names").with_primary_span(span));
+        }
+    }
+
+    fn compile_assignment(
+        &mut self,
+        span: elara_core::Span,
+        targets: &[Expr<'_>],
+        values: &[Expr<'_>],
+    ) {
+        let value_registers = self.compile_expression_list(values);
+        for (index, target) in targets.iter().enumerate() {
+            let Some(register) = self.target_register(target) else {
+                continue;
+            };
+
+            if let Some(value) = value_registers.get(index).copied() {
+                self.emit_move(register, value);
+            } else {
+                self.builder.emit_abc(Op::LoadNil, register, 0, 0);
+            }
+        }
+
+        if targets.is_empty() {
+            self.diagnostics
+                .push(Diagnostic::error("assignment has no targets").with_primary_span(span));
+        }
+    }
+
+    fn compile_expression_list(&mut self, values: &[Expr<'_>]) -> Vec<u16> {
+        values
+            .iter()
+            .map(|value| self.compile_expr(value))
+            .collect()
+    }
+
+    fn contiguous_return_start(&mut self, registers: &[u16]) -> u16 {
+        let Some((&first, rest)) = registers.split_first() else {
+            return 0;
+        };
+
+        if rest
+            .iter()
+            .enumerate()
+            .all(|(index, register)| *register == first + index as u16 + 1)
+        {
+            return first;
+        }
+
+        let start = self.next_register;
+        for register in registers {
+            let target = self.alloc_register();
+            self.emit_move(target, *register);
+        }
+        start
     }
 
     fn compile_expr(&mut self, expr: &Expr<'_>) -> u16 {
@@ -78,6 +162,7 @@ impl SimpleCompiler {
             }
             ExprKind::Integer(text) => self.compile_integer(expr, text),
             ExprKind::Float(text) => self.compile_float(expr, text),
+            ExprKind::Name(name) => self.local_register(expr, name),
             ExprKind::Grouped(expr) => self.compile_expr(expr),
             ExprKind::Unary { op, expr } => self.compile_unary(expr, *op),
             ExprKind::Binary { op, left, right } => self.compile_binary(expr, *op, left, right),
@@ -121,6 +206,41 @@ impl SimpleCompiler {
         self.builder
             .emit_abx(Op::LoadK, register, u64::from(constant));
         register
+    }
+
+    fn local_register(&mut self, expr: &Expr<'_>, name: &str) -> u16 {
+        if let Some(register) = self.locals.get(name).copied() {
+            return register;
+        }
+
+        self.diagnostics
+            .push(Diagnostic::error("unknown local variable").with_primary_span(expr.span()));
+        self.alloc_register()
+    }
+
+    fn target_register(&mut self, target: &Expr<'_>) -> Option<u16> {
+        if let ExprKind::Name(name) = target.kind() {
+            if let Some(register) = self.locals.get(*name).copied() {
+                return Some(register);
+            }
+            self.diagnostics.push(
+                Diagnostic::error("assignment target is not a declared local")
+                    .with_primary_span(target.span()),
+            );
+            return None;
+        }
+
+        self.diagnostics.push(
+            Diagnostic::error("unsupported assignment target").with_primary_span(target.span()),
+        );
+        None
+    }
+
+    fn emit_move(&mut self, target: u16, source: u16) {
+        if target != source {
+            self.builder
+                .emit_abc(Op::Move, target, u32::from(source), 0);
+        }
     }
 
     fn compile_unary(&mut self, expr: &Expr<'_>, op: UnaryOp) -> u16 {
@@ -260,6 +380,40 @@ mod tests {
         assert_eq!(
             compiled.diagnostics[0].message(),
             "unsupported statement in simple expression compiler"
+        );
+    }
+
+    #[test]
+    fn locals_compile_local_return() {
+        let compiled = compile_simple_chunk(SourceId::new(0), "local x = 1 + 2\nreturn x");
+        assert_eq!(compiled.diagnostics, Vec::new());
+        let proto = compiled.proto.expect("expected compiled proto");
+
+        assert_eq!(proto.constants.len(), 2);
+        assert_eq!(proto.code.last().map(|instr| instr.op()), Some(Op::Return));
+        assert!(disassemble(&proto).contains("MOVE"));
+    }
+
+    #[test]
+    fn locals_compile_assignment() {
+        let compiled = compile_simple_chunk(SourceId::new(0), "local x = 1\nx = x + 2\nreturn x");
+        assert_eq!(compiled.diagnostics, Vec::new());
+        let proto = compiled.proto.expect("expected compiled proto");
+
+        assert_snapshot_eq(
+            disassemble(&proto),
+            "0000 LOAD_K        A=0 Bx=0 ; 1\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_K        A=2 Bx=1 ; 2\n0003 ADD           A=1 B=1 C=2\n0004 RETURN        A=1 B=1 C=0\n",
+        );
+    }
+
+    #[test]
+    fn locals_report_unknown_assignment_target() {
+        let compiled = compile_simple_chunk(SourceId::new(0), "x = 1\nreturn x");
+
+        assert!(compiled.proto.is_none());
+        assert_eq!(
+            compiled.diagnostics[0].message(),
+            "assignment target is not a declared local"
         );
     }
 }

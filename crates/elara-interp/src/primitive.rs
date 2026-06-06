@@ -36,6 +36,10 @@ pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
         pc += 1;
 
         match instr.op() {
+            Op::Move => {
+                let value = register(&thread, instr.b() as usize)?;
+                set_register(&mut thread, instr.a().into(), value)?;
+            }
             Op::LoadNil => set_register(&mut thread, instr.a().into(), Value::nil())?,
             Op::LoadBool => {
                 set_register(
@@ -220,6 +224,20 @@ mod tests {
         assert_eq!(
             execute_proto(&builder.finish()),
             Err(RuntimeError::NonNumericOperand { op: Op::Add })
+        );
+    }
+
+    #[test]
+    fn locals_move_values_between_registers() {
+        let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
+        let value = builder.add_constant(Value::integer(9));
+        builder.emit_abx(Op::LoadK, 0, u64::from(value));
+        builder.emit_abc(Op::Move, 1, 0, 0);
+        builder.emit_abc(Op::Return, 1, 1, 0);
+
+        assert_eq!(
+            execute_proto(&builder.finish()),
+            Ok(vec![Value::integer(9)])
         );
     }
 }
