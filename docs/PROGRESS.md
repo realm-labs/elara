@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M3 Strings and Tables  
-Current step: M3.1 Implement Lua strings and interning
+Current step: M3.2 Implement table array storage
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -15,9 +15,10 @@ Elara has a Cargo workspace skeleton with project documentation, quality gates,
 documented crate boundaries, and a single current Lua language target in
 `elara-core`. Core source span and diagnostic primitives are available, and the
 test fixture/conformance/differential directory layout exists with a snapshot
-baseline. Primitive runtime values and the basic GC skeleton are implemented.
-Strings, tables, parser, compiler, bytecode, interpreter, API, JIT, C API,
-conformance, and benchmark implementation work has not started.
+baseline. Primitive runtime values, the basic GC skeleton, and Lua strings with
+short-string interning are implemented. Tables, parser, compiler, bytecode,
+interpreter, API, JIT, C API, conformance, and benchmark implementation work has
+not started.
 
 Current state:
 
@@ -38,9 +39,10 @@ Completed:
   - M2.2 Add GC pointer and object header types.
   - M2.3 Implement basic arena/list allocator.
   - M2.4 Implement stop-the-world mark-sweep MVP.
+  - M3.1 Implement Lua strings and interning.
 
 Not started:
-  - M3.1 Implement Lua strings and interning.
+  - M3.2 Implement table array storage.
   - Parser.
   - Compiler.
   - Bytecode.
@@ -178,25 +180,34 @@ Delivered:
 
 M2 is complete.
 
-### Current Step: M3.1 Implement Lua strings and interning
+### Completed Step: M3.1 Implement Lua strings and interning
+
+Delivered:
+
+- `ShortString` and `LongString` GC objects.
+- Deterministic byte hashing for Lua strings.
+- `StringInterner` for rooted interned short strings.
+- String equality and hashing tests.
+
+### Current Step: M3.2 Implement table array storage
 
 Expected deliverables:
 
-- Short string type.
-- Long string type.
-- String interner in VM state.
-- String equality and hashing.
+- `Table` with array part.
+- Raw get/set integer index helpers.
+- Nil assignment behavior.
+- Array growth tests.
 
 Recommended verification:
 
 ```bash
-cargo test -p elara-core string
+cargo test -p elara-core table_array
 ```
 
 Recommended commit:
 
 ```text
-feat(core): add lua strings and interning
+feat(core): add table array storage
 ```
 
 ## Completed Content
@@ -229,13 +240,12 @@ feat(core): add lua strings and interning
 - GC object headers and typed references are available in `elara-core`.
 - Basic GC allocation list, stats, roots, and drop cleanup are available.
 - Stop-the-world mark-sweep MVP is available under tests.
+- Lua short strings, long strings, and short-string interning are available.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M3
 
-- Add short and long string objects.
-- Add a string interner in runtime state.
 - Add table array storage.
 - Add table hash storage and numeric key canonicalization.
 
@@ -261,28 +271,27 @@ All implementation work is still pending:
 
 ## Last Verification
 
-M2.4 verification passed:
+M3.1 verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-core gc_mark_sweep
 cargo clippy -p elara-core --all-targets -- -D warnings
-cargo test --workspace
+cargo test -p elara-core string
 ```
 
 ## Next Recommended Action
 
-Implement M3.1 from `docs/MILESTONES.md`:
+Implement M3.2 from `docs/MILESTONES.md`:
 
-1. Add short and long string types.
-2. Add string interning in runtime state.
-3. Add string equality and hashing tests.
-4. Run `cargo test -p elara-core string`.
+1. Add a `Table` with array part storage.
+2. Add raw integer index get/set helpers.
+3. Implement nil assignment behavior for array slots.
+4. Run `cargo test -p elara-core table_array`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-feat(core): add lua strings and interning
+feat(core): add table array storage
 ```
 
 ## Current Risk Notes
@@ -314,7 +323,8 @@ feat(core): add lua strings and interning
 | GC headers | Complete | Headers, colors, kinds, and typed refs are implemented. |
 | GC allocation | Complete | Arena allocation list, stats, roots, and drop cleanup are implemented. |
 | Mark-sweep GC | Complete | Root marking and allocation-list sweeping are implemented for tests. |
-| Strings | Not started | Current step. |
+| Strings | Complete | Short strings, long strings, and interning are implemented. |
+| Table array | Not started | Current step. |
 | Parser | Not started | Starts M4. |
 | Compiler | Not started | Starts M5. |
 | Interpreter | Not started | Starts M6. |
