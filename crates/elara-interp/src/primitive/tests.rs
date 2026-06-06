@@ -405,6 +405,38 @@ fn table_access_nil_assignment_clears_integer_slot() {
 }
 
 #[test]
+fn globals_execute_set_get_env() {
+    let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
+    let name = builder.add_string_constant("answer");
+    let value = builder.add_constant(Value::integer(42));
+    builder.emit_abx(Op::LoadK, 0, u64::from(value));
+    builder.emit_abx(Op::SetEnv, 0, u64::from(name));
+    builder.emit_abx(Op::GetEnv, 1, u64::from(name));
+    builder.emit_abc(Op::Return, 1, 1, 0);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Ok(vec![Value::integer(42)])
+    );
+}
+
+#[test]
+fn globals_declaration_rejects_existing_value() {
+    let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
+    let name = builder.add_string_constant("answer");
+    let value = builder.add_constant(Value::integer(42));
+    builder.emit_abx(Op::LoadK, 0, u64::from(value));
+    builder.emit_abx(Op::SetEnv, 0, u64::from(name));
+    builder.emit_abx(Op::DeclGlobal, 1, u64::from(name));
+    builder.emit_abc(Op::Return, 1, 1, 0);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Err(RuntimeError::GlobalAlreadyDefined)
+    );
+}
+
+#[test]
 fn varargs_pass_call_arguments_to_child_proto() {
     let mut child_builder = ProtoBuilder::new().with_signature(1, 0, true);
     child_builder.emit_abc(Op::Vararg, 0, 1, 0);

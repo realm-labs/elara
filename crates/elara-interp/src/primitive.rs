@@ -3,10 +3,12 @@
 use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
 use elara_core::{GcArena, LuaFloat, LuaInteger, LuaThread, StringInterner, Value};
 
+mod global;
 mod loops;
 mod metamethod;
 mod table;
 
+use global::{RuntimeGlobals, execute_decl_global, execute_get_env, execute_set_env};
 use loops::{
     execute_generic_for_call, execute_generic_for_loop, execute_numeric_for_loop,
     prepare_numeric_for,
@@ -80,6 +82,10 @@ pub enum RuntimeError {
     NonConcatOperand,
     /// Short-string concatenation exceeded current runtime string storage.
     StringConcatTooLong,
+    /// Global declaration initialization found an already-defined global.
+    GlobalAlreadyDefined,
+    /// Global name exceeded current runtime short-string storage.
+    GlobalNameTooLong,
     /// Table operation received a non-table receiver.
     NonTableValue,
     /// Table write used an invalid Lua key.
@@ -117,8 +123,16 @@ pub fn execute_proto_with_output(proto: &Proto) -> RuntimeResult<RuntimeOutput> 
     let mut closures = Vec::new();
     let mut tables = RuntimeTables::new();
     let mut strings = RuntimeStrings::new();
-    let values =
-        execute_proto_with_upvalues(proto, &[], &[], &mut closures, &mut tables, &mut strings)?;
+    let mut globals = RuntimeGlobals::new();
+    let values = execute_proto_with_upvalues(
+        proto,
+        &[],
+        &[],
+        &mut closures,
+        &mut tables,
+        &mut strings,
+        &mut globals,
+    )?;
     Ok(RuntimeOutput {
         values,
         tables,
@@ -133,6 +147,7 @@ fn execute_proto_with_upvalues(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Vec<Value>> {
     let mut thread = LuaThread::new();
     for _ in 0..proto.max_stack {
@@ -189,11 +204,31 @@ fn execute_proto_with_upvalues(
                 let value = strings.intern_short_value(string);
                 set_register(&mut thread, instr.a().into(), value)?;
             }
+            Op::GetEnv => {
+                let name = string_constant(proto, instr)?;
+                execute_get_env(&mut thread, instr, name, globals, strings)?;
+            }
+            Op::SetEnv => {
+                let name = string_constant(proto, instr)?;
+                execute_set_env(&thread, instr, name, globals, strings)?;
+            }
+            Op::DeclGlobal => {
+                let name = string_constant(proto, instr)?;
+                execute_decl_global(&mut thread, instr, name, globals, strings)?;
+            }
             Op::NewTable => execute_new_table(&mut thread, instr, tables)?,
-            Op::GetTable => execute_get_table(&mut thread, closures, instr, tables, strings)?,
-            Op::SetTable => execute_set_table(&mut thread, closures, instr, tables, strings)?,
-            Op::GetIndex => execute_get_index(&mut thread, closures, instr, tables, strings)?,
-            Op::SetIndex => execute_set_index(&mut thread, closures, instr, tables, strings)?,
+            Op::GetTable => {
+                execute_get_table(&mut thread, closures, instr, tables, strings, globals)?
+            }
+            Op::SetTable => {
+                execute_set_table(&mut thread, closures, instr, tables, strings, globals)?
+            }
+            Op::GetIndex => {
+                execute_get_index(&mut thread, closures, instr, tables, strings, globals)?
+            }
+            Op::SetIndex => {
+                execute_set_index(&mut thread, closures, instr, tables, strings, globals)?
+            }
             Op::GetUpvalue => {
                 let value = upvalues.get(instr.b() as usize).copied().ok_or(
                     RuntimeError::UpvalueOutOfBounds {
@@ -223,12 +258,12 @@ fn execute_proto_with_upvalues(
                 closures[closure_index].upvalues = captured;
             }
             Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
-                execute_arithmetic(&mut thread, closures, instr, tables, strings)?
+                execute_arithmetic(&mut thread, closures, instr, tables, strings, globals)?
             }
-            Op::Len => execute_len(&mut thread, closures, instr, tables, strings)?,
-            Op::Concat => execute_concat(&mut thread, closures, instr, tables, strings)?,
+            Op::Len => execute_len(&mut thread, closures, instr, tables, strings, globals)?,
+            Op::Concat => execute_concat(&mut thread, closures, instr, tables, strings, globals)?,
             Op::Eq | Op::Lt | Op::Le => {
-                execute_comparison(&mut thread, closures, instr, tables, strings)?;
+                execute_comparison(&mut thread, closures, instr, tables, strings, globals)?;
             }
             Op::Jmp => pc = jump_target(pc, instr)?,
             Op::ForPrep => {
@@ -243,7 +278,7 @@ fn execute_proto_with_upvalues(
             }
             Op::TForPrep => pc = jump_target(pc, instr)?,
             Op::TForCall => {
-                execute_generic_for_call(&mut thread, closures, instr, tables, strings)?;
+                execute_generic_for_call(&mut thread, closures, instr, tables, strings, globals)?;
             }
             Op::TForLoop => {
                 if execute_generic_for_loop(&mut thread, instr)? {
@@ -263,7 +298,9 @@ fn execute_proto_with_upvalues(
             }
             Op::VarargTable => execute_vararg_table(&mut thread, instr, varargs, tables)?,
             Op::Call => {
-                if let Some(top) = execute_call(&mut thread, closures, instr, tables, strings)? {
+                if let Some(top) =
+                    execute_call(&mut thread, closures, instr, tables, strings, globals)?
+                {
                     dynamic_top = top;
                 }
             }
@@ -278,6 +315,16 @@ fn execute_proto_with_upvalues(
 fn jump_target(pc: usize, instr: Instr) -> RuntimeResult<usize> {
     let target = pc as isize + instr.sbx() as isize;
     usize::try_from(target).map_err(|_| RuntimeError::JumpOutOfBounds { target })
+}
+
+fn string_constant(proto: &Proto, instr: Instr) -> RuntimeResult<&[u8]> {
+    proto
+        .string_constants
+        .get(instr.bx() as usize)
+        .map(Box::as_ref)
+        .ok_or(RuntimeError::StringOutOfBounds {
+            index: instr.bx() as usize,
+        })
 }
 
 fn is_truthy(value: Value) -> bool {
@@ -338,6 +385,7 @@ fn execute_call(
     instr: Instr,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<usize>> {
     let callee = register(thread, instr.a().into())?;
     let (closure_index, args) = if let Some(closure_index) = callee.as_closure_index() {
@@ -354,7 +402,7 @@ fn execute_call(
         args.extend(collect_call_args(thread, instr)?);
         (closure_index as usize, args)
     };
-    let returns = call_closure(closures, closure_index, &args, tables, strings)?;
+    let returns = call_closure(closures, closure_index, &args, tables, strings, globals)?;
 
     let base = usize::from(instr.a());
     let count = if instr.c() == 0 {
@@ -377,6 +425,7 @@ fn call_closure(
     args: &[Value],
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Vec<Value>> {
     let closure = closures
         .get(closure_index)
@@ -389,6 +438,7 @@ fn call_closure(
         closures,
         tables,
         strings,
+        globals,
     )
 }
 

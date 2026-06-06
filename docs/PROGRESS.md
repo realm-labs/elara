@@ -46,8 +46,13 @@ opcodes work for table operands. Comparison opcodes execute with raw numeric
 comparison and table metamethod fallback. `LEN` executes for runtime tables with
 raw array length and `__len` closure fallback. `CALL` can invoke function-valued
 `__call` fallback for table operands. `CONCAT` executes for short strings and
-can invoke `__concat` closure fallback. Globals, full API, JIT, C API,
-conformance, and benchmark implementation work has not started.
+can invoke `__concat` closure fallback. The simple compiler lowers declared and
+implicit global reads/writes through `GET_ENV`/`SET_ENV`, `DECL_GLOBAL` checks
+global declaration initialization against the runtime environment, and the
+primitive interpreter keeps a shared runtime `_ENV` table across Lua closure
+calls. Full block-scoped global declaration semantics, standard library, full
+API, JIT, C API, conformance, and benchmark implementation work has not
+started.
 
 Current state:
 
@@ -569,12 +574,22 @@ Delivered:
 - `LEN` works for runtime tables with `__len` closure fallback.
 - `CALL` works for runtime tables with `__call` closure fallback.
 - `CONCAT` works for short strings with `__concat` closure fallback.
+- Declared and implicit global reads/writes compile and execute through runtime
+  `_ENV` bytecode.
+- Global declaration initialization raises a runtime error when the global is
+  already non-nil.
+- `global<const> *` blocks assignment to implicit read-only globals in the
+  simple compiler.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M9
 
-- Implement M9.4 global declaration semantics.
+- Finish M9.4 global declaration semantics:
+  - block-scoped declaration lifetime and shadowing;
+  - complete `_ENV` variable behavior;
+  - full global function declaration behavior;
+  - complete global const/read-only assignment checks beyond the simple paths.
 
 ### Product Gaps
 
@@ -592,27 +607,24 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M9.3 concat/metamethod verification passed:
+M9.4 global declaration sub-step verification passed:
 
 ```bash
+cargo test -p elara-compiler globals
+cargo test -p elara-interp globals
+cargo test -p elara-api global
+cargo test -p elara-bytecode
 cargo test -p elara-interp metamethods
-cargo test -p elara-interp concat
-cargo test -p elara-bytecode op_decodes
-cargo test -p elara-compiler concat
-cargo test -p elara-interp call
-cargo test -p elara-interp len
-cargo test -p elara-interp comparison
-cargo test -p elara-interp arithmetic
 cargo test -p elara-interp table_access
+cargo test -p elara-interp generic_for
 cargo fmt --all -- --check
-cargo clippy -p elara-bytecode -p elara-compiler -p elara-interp --all-targets -- -D warnings
+cargo clippy -p elara-bytecode -p elara-compiler -p elara-interp -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Implement M9.4 global declaration semantics from `docs/MILESTONES.md`,
-including current Lua global declaration validation, `_ENV` access modeling, and
-global get/set lowering.
+Continue M9.4 by adding block-scoped global declaration lifetime and shadowing,
+using the Lua 5.5 `searchvar`/`buildvar` behavior as the reference.
 
 ## Current Risk Notes
 

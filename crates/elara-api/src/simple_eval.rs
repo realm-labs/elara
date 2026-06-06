@@ -161,15 +161,32 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_executes_declared_global_access() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "global answer = 41\nanswer = answer + 1\nreturn answer",
+            ),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_executes_implicit_global_access() {
+        assert_eq!(
+            eval_simple_source(SourceId::new(0), "answer = 42\nreturn answer"),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
     fn eval_simple_reports_compile_diagnostics() {
-        let error = eval_simple_source(SourceId::new(0), "x = 1").unwrap_err();
+        let error =
+            eval_simple_source(SourceId::new(0), "global answer\nreturn missing").unwrap_err();
 
         match error {
             EvalError::Diagnostics(diagnostics) => {
-                assert_eq!(
-                    diagnostics[0].message(),
-                    "assignment target is not a declared local"
-                );
+                assert_eq!(diagnostics[0].message(), "variable 'missing' not declared");
             }
             EvalError::Runtime(error) => panic!("expected diagnostics, got {error:?}"),
         }

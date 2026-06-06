@@ -4,8 +4,8 @@ use elara_bytecode::{Instr, Op};
 use elara_core::{LuaFloat, LuaInteger, LuaThread, SHORT_STRING_MAX_BYTES, Value};
 
 use super::{
-    RuntimeClosure, RuntimeError, RuntimeResult, RuntimeStrings, RuntimeTables, call_closure,
-    is_truthy, register, set_register,
+    RuntimeClosure, RuntimeError, RuntimeGlobals, RuntimeResult, RuntimeStrings, RuntimeTables,
+    call_closure, is_truthy, register, set_register,
 };
 
 pub(super) fn execute_arithmetic(
@@ -14,6 +14,7 @@ pub(super) fn execute_arithmetic(
     instr: Instr,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<()> {
     let op = instr.op();
     if op == Op::Unm {
@@ -21,7 +22,7 @@ pub(super) fn execute_arithmetic(
         let result = if let Some(result) = negate(value) {
             result
         } else {
-            call_unary_metamethod(op, value, closures, tables, strings)?
+            call_unary_metamethod(op, value, closures, tables, strings, globals)?
                 .ok_or(RuntimeError::NonNumericOperand { op })?
         };
         return set_register(thread, instr.a().into(), result);
@@ -32,7 +33,7 @@ pub(super) fn execute_arithmetic(
     let result = if let Some(result) = binary_arithmetic(op, left, right) {
         result
     } else {
-        call_binary_metamethod(op, left, right, closures, tables, strings)?
+        call_binary_metamethod(op, left, right, closures, tables, strings, globals)?
             .ok_or(RuntimeError::NonNumericOperand { op })?
     };
     set_register(thread, instr.a().into(), result)
@@ -44,13 +45,14 @@ pub(super) fn execute_comparison(
     instr: Instr,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<()> {
     let op = instr.op();
     let left = register(thread, instr.b() as usize)?;
     let right = register(thread, instr.c() as usize)?;
     let result = match op {
-        Op::Eq => equality_comparison(left, right, closures, tables, strings)?,
-        Op::Lt | Op::Le => order_comparison(op, left, right, closures, tables, strings)?,
+        Op::Eq => equality_comparison(left, right, closures, tables, strings, globals)?,
+        Op::Lt | Op::Le => order_comparison(op, left, right, closures, tables, strings, globals)?,
         _ => return Err(RuntimeError::UnsupportedOpcode { op }),
     };
     set_register(thread, instr.a().into(), Value::boolean(result))
@@ -62,10 +64,11 @@ pub(super) fn execute_len(
     instr: Instr,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<()> {
     let value = register(thread, instr.b() as usize)?;
     let result = if let Some(result) =
-        call_named_unary_metamethod("__len", value, closures, tables, strings)?
+        call_named_unary_metamethod("__len", value, closures, tables, strings, globals)?
     {
         result
     } else if let Some(table_index) = value.as_table_index() {
@@ -87,13 +90,14 @@ pub(super) fn execute_concat(
     instr: Instr,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<()> {
     let left = register(thread, instr.b() as usize)?;
     let right = register(thread, instr.c() as usize)?;
     let result = if let Some(result) = raw_concat(left, right, strings)? {
         result
     } else {
-        call_named_binary_metamethod("__concat", left, right, closures, tables, strings)?
+        call_named_binary_metamethod("__concat", left, right, closures, tables, strings, globals)?
             .ok_or(RuntimeError::NonConcatOperand)?
     };
     set_register(thread, instr.a().into(), result)
@@ -146,11 +150,12 @@ fn call_binary_metamethod(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<Value>> {
     let Some(name) = binary_metamethod_name(op) else {
         return Ok(None);
     };
-    call_named_binary_metamethod(name, left, right, closures, tables, strings)
+    call_named_binary_metamethod(name, left, right, closures, tables, strings, globals)
 }
 
 fn call_named_binary_metamethod(
@@ -160,6 +165,7 @@ fn call_named_binary_metamethod(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<Value>> {
     let metamethod = match tables.metamethod_for_value(left, name, strings)? {
         Some(metamethod) => Some(metamethod),
@@ -172,7 +178,14 @@ fn call_named_binary_metamethod(
         return Err(RuntimeError::UnsupportedMetamethod { name });
     };
 
-    let returns = call_closure(closures, closure as usize, &[left, right], tables, strings)?;
+    let returns = call_closure(
+        closures,
+        closure as usize,
+        &[left, right],
+        tables,
+        strings,
+        globals,
+    )?;
     Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
 }
 
@@ -206,6 +219,7 @@ fn call_unary_metamethod(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<Value>> {
     let Some(name) = unary_metamethod_name(op) else {
         return Ok(None);
@@ -213,7 +227,7 @@ fn call_unary_metamethod(
     let Some(metamethod) = tables.metamethod_for_value(value, name, strings)? else {
         return Ok(None);
     };
-    call_unary_closure_metamethod(name, metamethod, value, closures, tables, strings)
+    call_unary_closure_metamethod(name, metamethod, value, closures, tables, strings, globals)
 }
 
 fn binary_metamethod_name(op: Op) -> Option<&'static str> {
@@ -242,11 +256,12 @@ fn call_named_unary_metamethod(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<Value>> {
     let Some(metamethod) = tables.metamethod_for_value(value, name, strings)? else {
         return Ok(None);
     };
-    call_unary_closure_metamethod(name, metamethod, value, closures, tables, strings)
+    call_unary_closure_metamethod(name, metamethod, value, closures, tables, strings, globals)
 }
 
 fn call_unary_closure_metamethod(
@@ -256,12 +271,20 @@ fn call_unary_closure_metamethod(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<Value>> {
     let Some(closure) = metamethod.as_closure_index() else {
         return Err(RuntimeError::UnsupportedMetamethod { name });
     };
 
-    let returns = call_closure(closures, closure as usize, &[value], tables, strings)?;
+    let returns = call_closure(
+        closures,
+        closure as usize,
+        &[value],
+        tables,
+        strings,
+        globals,
+    )?;
     Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
 }
 
@@ -271,6 +294,7 @@ fn equality_comparison(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<bool> {
     if left == right {
         return Ok(true);
@@ -278,7 +302,8 @@ fn equality_comparison(
     if left.tag() != right.tag() {
         return Ok(false);
     }
-    let Some(result) = call_comparison_metamethod("__eq", left, right, closures, tables, strings)?
+    let Some(result) =
+        call_comparison_metamethod("__eq", left, right, closures, tables, strings, globals)?
     else {
         return Ok(false);
     };
@@ -292,6 +317,7 @@ fn order_comparison(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<bool> {
     if let Some(result) = raw_order_comparison(op, left, right) {
         return Ok(result);
@@ -302,7 +328,8 @@ fn order_comparison(
         Op::Le => "__le",
         _ => return Err(RuntimeError::UnsupportedOpcode { op }),
     };
-    let Some(result) = call_comparison_metamethod(name, left, right, closures, tables, strings)?
+    let Some(result) =
+        call_comparison_metamethod(name, left, right, closures, tables, strings, globals)?
     else {
         return Err(RuntimeError::NonComparableOperand { op });
     };
@@ -334,6 +361,7 @@ fn call_comparison_metamethod(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<Value>> {
     let metamethod = match tables.metamethod_for_value(left, name, strings)? {
         Some(metamethod) => Some(metamethod),
@@ -346,6 +374,13 @@ fn call_comparison_metamethod(
         return Err(RuntimeError::UnsupportedMetamethod { name });
     };
 
-    let returns = call_closure(closures, closure as usize, &[left, right], tables, strings)?;
+    let returns = call_closure(
+        closures,
+        closure as usize,
+        &[left, right],
+        tables,
+        strings,
+        globals,
+    )?;
     Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
 }

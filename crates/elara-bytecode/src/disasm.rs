@@ -35,8 +35,10 @@ fn write_instruction(output: &mut String, offset: usize, instr: Instr, proto: &P
         && let Some(value) = proto.constants.get(instr.bx() as usize)
     {
         let _ = write!(output, " ; {}", display_value(*value));
-    } else if instr.op() == Op::LoadString
-        && let Some(value) = proto.string_constants.get(instr.bx() as usize)
+    } else if matches!(
+        instr.op(),
+        Op::LoadString | Op::GetEnv | Op::SetEnv | Op::DeclGlobal
+    ) && let Some(value) = proto.string_constants.get(instr.bx() as usize)
     {
         let _ = write!(output, " ; {:?}", String::from_utf8_lossy(value));
     }
@@ -60,7 +62,9 @@ fn display_value(value: Value) -> String {
 
 fn instr_format(op: Op) -> InstrFormat {
     match op {
-        Op::LoadK | Op::LoadString | Op::Closure | Op::DeclGlobal => InstrFormat::Abx,
+        Op::LoadK | Op::LoadString | Op::Closure | Op::GetEnv | Op::SetEnv | Op::DeclGlobal => {
+            InstrFormat::Abx
+        }
         Op::Jmp | Op::ForPrep | Op::ForLoop | Op::TForPrep | Op::TForLoop => InstrFormat::Asbx,
         _ => InstrFormat::Abc,
     }

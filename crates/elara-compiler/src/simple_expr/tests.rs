@@ -161,6 +161,55 @@ fn table_access_compiles_field_read_and_write() {
 }
 
 #[test]
+fn globals_compile_declaration_assignment_and_read() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "global answer = 41\nanswer = answer + 1\nreturn answer",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_K        A=0 Bx=0 ; 41\n0001 DECL_GLOBAL   A=1 Bx=0 ; \"answer\"\n0002 SET_ENV       A=0 Bx=1 ; \"answer\"\n0003 GET_ENV       A=2 Bx=2 ; \"answer\"\n0004 LOAD_K        A=3 Bx=1 ; 1\n0005 ADD           A=2 B=2 C=3\n0006 SET_ENV       A=2 Bx=3 ; \"answer\"\n0007 GET_ENV       A=4 Bx=4 ; \"answer\"\n0008 RETURN        A=4 B=1 C=0\n",
+    );
+}
+
+#[test]
+fn globals_compile_implicit_preambular_global_access() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "answer = 42\nreturn answer");
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_K        A=0 Bx=0 ; 42\n0001 SET_ENV       A=0 Bx=0 ; \"answer\"\n0002 GET_ENV       A=1 Bx=1 ; \"answer\"\n0003 RETURN        A=1 B=1 C=0\n",
+    );
+}
+
+#[test]
+fn globals_report_undeclared_name_after_declaration() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "global answer\nreturn missing");
+
+    assert!(compiled.proto.is_none());
+    assert_eq!(
+        compiled.diagnostics[0].message(),
+        "variable 'missing' not declared"
+    );
+}
+
+#[test]
+fn globals_report_read_only_collective_assignment() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "global<const> *\nanswer = 42");
+
+    assert!(compiled.proto.is_none());
+    assert_eq!(
+        compiled.diagnostics[0].message(),
+        "global variable 'answer' is read-only"
+    );
+}
+
+#[test]
 fn locals_compile_local_return() {
     let compiled = compile_simple_chunk(SourceId::new(0), "local x = 1 + 2\nreturn x");
     assert_eq!(compiled.diagnostics, Vec::new());

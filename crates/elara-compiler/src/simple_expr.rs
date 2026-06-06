@@ -10,6 +10,7 @@ use elara_syntax::{
 };
 
 mod control;
+mod global;
 mod table;
 
 /// Result of compiling a chunk.
@@ -45,8 +46,23 @@ struct SimpleCompiler {
     locals: HashMap<String, u16>,
     enclosing_locals: HashMap<String, u16>,
     upvalues: HashMap<String, u16>,
+    globals: HashMap<String, GlobalAccess>,
+    global_default: GlobalDefault,
     is_vararg: bool,
     loop_breaks: Vec<Vec<usize>>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum GlobalAccess {
+    ReadWrite,
+    ReadOnly,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum GlobalDefault {
+    PreambularReadWrite,
+    None,
+    Explicit(GlobalAccess),
 }
 
 impl SimpleCompiler {
@@ -59,14 +75,22 @@ impl SimpleCompiler {
             locals: HashMap::new(),
             enclosing_locals: HashMap::new(),
             upvalues: HashMap::new(),
+            globals: HashMap::new(),
+            global_default: GlobalDefault::PreambularReadWrite,
             is_vararg: false,
             loop_breaks: Vec::new(),
         }
     }
 
-    fn new_child(enclosing_locals: HashMap<String, u16>) -> Self {
+    fn new_child(
+        enclosing_locals: HashMap<String, u16>,
+        globals: HashMap<String, GlobalAccess>,
+        global_default: GlobalDefault,
+    ) -> Self {
         Self {
             enclosing_locals,
+            globals,
+            global_default,
             ..Self::new()
         }
     }
@@ -77,6 +101,7 @@ impl SimpleCompiler {
                 StmtKind::Local { names, values } => {
                     self.compile_local(statement.span(), names, values)
                 }
+                StmtKind::Global(decl) => self.compile_global(statement.span(), decl),
                 StmtKind::Assign { targets, values } => {
                     self.compile_assignment(statement.span(), targets, values);
                 }
@@ -114,7 +139,7 @@ impl SimpleCompiler {
     fn compile_function(
         &mut self,
         span: Span,
-        _scope: FunctionScope,
+        scope: FunctionScope,
         name: &str,
         body: &FunctionBody<'_>,
     ) {
@@ -130,8 +155,19 @@ impl SimpleCompiler {
             }
         };
 
-        let register = self.ensure_local(name);
-        let mut child = SimpleCompiler::new_child(self.locals.clone());
+        if scope == FunctionScope::Global {
+            self.declare_global_name(name, GlobalAccess::ReadWrite);
+        }
+
+        let register = match scope {
+            FunctionScope::Local | FunctionScope::Plain => self.ensure_local(name),
+            FunctionScope::Global => self.alloc_register(),
+        };
+        let mut child = SimpleCompiler::new_child(
+            self.locals.clone(),
+            self.globals.clone(),
+            self.global_default,
+        );
         child.is_vararg = named_vararg.is_some();
         if let Some(Some(name)) = named_vararg {
             child.define_named_vararg_table(name);
@@ -146,6 +182,10 @@ impl SimpleCompiler {
         let child_index = self.builder.add_child(result.proto.expect("child proto"));
         self.builder
             .emit_abx(Op::Closure, register, u64::from(child_index));
+        if scope == FunctionScope::Global {
+            self.emit_global_declaration_check(name);
+            self.emit_set_global(name, register);
+        }
     }
 
     fn define_named_vararg_table(&mut self, name: &str) {
@@ -239,7 +279,7 @@ impl SimpleCompiler {
             ExprKind::Float(text) => self.compile_float(expr, text),
             ExprKind::String(text) => self.compile_string_literal(expr, text),
             ExprKind::StringKey(text) => self.compile_string_key(expr.span(), text),
-            ExprKind::Name(name) => self.local_register(expr, name),
+            ExprKind::Name(name) => self.name_register(expr, name),
             ExprKind::Vararg => self.compile_vararg(expr),
             ExprKind::Call { callee, args, .. } => self.compile_call(expr, callee, args),
             ExprKind::Index { table, key } => self.compile_table_get(table, key),
@@ -306,22 +346,6 @@ impl SimpleCompiler {
         let register = self.alloc_register();
         self.builder.emit_abc(Op::LoadNil, register, 0, 0);
         register
-    }
-
-    fn local_register(&mut self, expr: &Expr<'_>, name: &str) -> u16 {
-        if let Some(register) = self.locals.get(name).copied() {
-            return register;
-        }
-        if let Some(upvalue) = self.upvalue_index(name) {
-            let register = self.alloc_register();
-            self.builder
-                .emit_abc(Op::GetUpvalue, register, u32::from(upvalue), 0);
-            return register;
-        }
-
-        self.diagnostics
-            .push(Diagnostic::error("unknown local variable").with_primary_span(expr.span()));
-        self.alloc_register()
     }
 
     fn upvalue_index(&mut self, name: &str) -> Option<u16> {

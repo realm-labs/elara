@@ -66,22 +66,11 @@ impl SimpleCompiler {
 
     pub(super) fn compile_assignment_target(&mut self, target: &Expr<'_>, value: u16) {
         match target.kind() {
-            ExprKind::Name(name) => self.compile_local_assignment(target, name, value),
+            ExprKind::Name(name) => self.compile_name_assignment(target, name, value),
             ExprKind::Index { table, key } => self.compile_table_assignment(table, key, value),
             _ => self.diagnostics.push(
                 Diagnostic::error("unsupported assignment target").with_primary_span(target.span()),
             ),
-        }
-    }
-
-    fn compile_local_assignment(&mut self, target: &Expr<'_>, name: &str, value: u16) {
-        if let Some(register) = self.locals.get(name).copied() {
-            self.emit_move(register, value);
-        } else {
-            self.diagnostics.push(
-                Diagnostic::error("assignment target is not a declared local")
-                    .with_primary_span(target.span()),
-            );
         }
     }
 

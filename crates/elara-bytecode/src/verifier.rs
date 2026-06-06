@@ -120,16 +120,17 @@ impl Verifier<'_> {
                 self.check_register(offset, instr.a());
                 self.check_string(offset, instr.bx());
             }
-            Op::LoadK | Op::DeclGlobal => {
+            Op::LoadK => {
                 self.check_register(offset, instr.a());
                 self.check_constant(offset, instr.bx());
+            }
+            Op::GetEnv | Op::SetEnv | Op::DeclGlobal => {
+                self.check_register(offset, instr.a());
+                self.check_string(offset, instr.bx());
             }
             Op::GetUpvalue | Op::SetUpvalue => {
                 self.check_register(offset, instr.a());
                 self.check_upvalue(offset, instr.b());
-            }
-            Op::GetEnv | Op::SetEnv => {
-                self.check_register(offset, instr.a());
             }
             Op::GetIndex => {
                 self.check_register(offset, instr.a());
