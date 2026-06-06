@@ -12,6 +12,11 @@ dependencies = [
 [[package]]
 name = "elara-api"
 version = "0.1.0"
+dependencies = [
+ "elara-compiler",
+ "elara-core",
+ "elara-interp",
+]
 
 [[package]]
 name = "elara-bench"

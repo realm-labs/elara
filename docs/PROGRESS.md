@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M6 Interpreter MVP  
-Current step: M6.3 Connect source compile and eval path
+Current milestone: M7 Variables, Scopes, Closures, and Calls  
+Current step: M7.1 Implement local variables and assignment
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -22,8 +22,9 @@ coverage are implemented. The initial bytecode prototype, instruction encoding,
 opcode set, constant pool, metadata placeholders, builder, and disassembler are
 implemented, along with initial bytecode verification and simple expression
 codegen. VM/thread stack primitives and primitive arithmetic bytecode execution
-are implemented. Source eval path, API, JIT, C API, conformance, and benchmark
-implementation work has not started.
+are implemented, and simple source chunks can be evaluated through the compile
+and interpreter path. Variables, scopes, closures, full API, JIT, C API,
+conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -58,9 +59,10 @@ Completed:
   - M5.4 Compile constants and arithmetic expressions.
   - M6.1 Add VM state and thread stack.
   - M6.2 Implement interpreter loop for constants and arithmetic.
+  - M6.3 Connect source compile and eval path.
 
 Not started:
-  - M6.3 Connect source compile and eval path.
+  - M7.1 Implement local variables and assignment.
   - Standard library.
   - Rust API.
   - JIT.
@@ -326,24 +328,36 @@ Delivered:
 - Primitive runtime errors.
 - Tests executing simple Protos.
 
-### Current Step: M6.3 Connect source compile and eval path
+### Completed Step: M6.3 Connect source compile and eval path
 
-Expected deliverables:
+Delivered:
 
 - Public internal function: source -> Proto -> interpreter.
 - Test `return 42` from source.
 - Test arithmetic source chunks.
 
+M6 is complete.
+
+### Current Step: M7.1 Implement local variables and assignment
+
+Expected deliverables:
+
+- Scope resolution.
+- Register allocation for locals.
+- Multiple assignment basics.
+- Tests for local variable behavior.
+
 Recommended verification:
 
 ```bash
-cargo test --workspace eval_simple
+cargo test -p elara-compiler locals
+cargo test -p elara-interp locals
 ```
 
 Recommended commit:
 
 ```text
-feat(runtime): evaluate simple lua chunks
+feat(compiler): lower local variables
 ```
 
 ## Completed Content
@@ -388,12 +402,13 @@ feat(runtime): evaluate simple lua chunks
 - Simple return-expression bytecode codegen is available in `elara-compiler`.
 - VM state, Lua thread stack, call frames, and stack helpers are available in `elara-core`.
 - Primitive bytecode execution for constants, arithmetic, and return values is available in `elara-interp`.
+- Simple source chunks can be compiled and evaluated through `elara-api`.
 
 ## Remaining Gaps
 
-### Immediate Gaps for M6
+### Immediate Gaps for M7
 
-- Connect source compile and eval path.
+- Implement local variables and assignment.
 
 ### Product Gaps
 
@@ -413,27 +428,27 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M6.2 verification passed:
+M6.3 verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy -p elara-interp --all-targets -- -D warnings
-cargo test -p elara-interp arithmetic
+cargo clippy -p elara-api --all-targets -- -D warnings
+cargo test --workspace eval_simple
 ```
 
 ## Next Recommended Action
 
-Implement M6.3 from `docs/MILESTONES.md`:
+Implement M7.1 from `docs/MILESTONES.md`:
 
-1. Add public internal source -> Proto -> interpreter function.
-2. Test `return 42` from source.
-3. Test arithmetic source chunks.
-4. Run `cargo test --workspace eval_simple`.
+1. Add scope resolution and register allocation for locals.
+2. Lower local variables and multiple assignment basics.
+3. Add compiler and interpreter tests for local variable behavior.
+4. Run `cargo test -p elara-compiler locals` and `cargo test -p elara-interp locals`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-feat(runtime): evaluate simple lua chunks
+feat(compiler): lower local variables
 ```
 
 ## Current Risk Notes
@@ -476,7 +491,8 @@ feat(runtime): evaluate simple lua chunks
 | Bytecode model | Initial model complete | Proto, instruction encoding, opcode set, constants, upvalues, debug placeholders, builder, disassembler, and verifier are implemented. |
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
-| Interpreter | In progress | Constants, primitive arithmetic, and return execution are implemented. |
+| Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
+| Variables/scopes | Not started | Current milestone. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

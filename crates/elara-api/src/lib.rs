@@ -7,3 +7,7 @@
 //! It may compose the compiler, interpreter, standard library, and optional JIT
 //! behind safe handles. It must not expose unrooted raw GC pointers or depend on
 //! the C API layer.
+
+pub mod simple_eval;
+
+pub use simple_eval::{EvalError, eval_simple_source};
