@@ -20,12 +20,20 @@ Before changing code at the start of each work cycle, read:
 2. the relevant section of docs/MILESTONES.md
 3. the relevant architecture boundaries in docs/ARCHITECTURE.md
 
+When implementing Lua language behavior, also consult the official Lua 5.5
+source tree at `~/Downloads/lua-lua-a5522f0`. Use it together with the Lua 5.5
+manual to understand exact semantics, especially for parser, compiler, VM,
+table, GC, error, coroutine, and standard-library edge cases. The source is a
+behavior reference, not a requirement to copy Lua's bytecode format or abandon
+Elara's Rust-native layered architecture.
+
 Your task is to continue from the current position described in docs/PROGRESS.md, following the architecture in docs/ARCHITECTURE.md and the step plan in docs/MILESTONES.md.
 
 Execution policy:
 
 - Treat docs/MILESTONES.md as the implementation roadmap.
 - Use docs/PROGRESS.md to determine the current milestone and next incomplete step.
+- Use `~/Downloads/lua-lua-a5522f0` as the local official Lua 5.5 source reference for actual behavior when a step implements Lua semantics.
 - Implement exactly one verifiable step at a time, or a smaller sub-step if the listed step is too large.
 - After each step:
   - add or update tests for changed behavior,
@@ -69,12 +77,13 @@ Workflow for each step:
 1. Read docs/PROGRESS.md and identify the current milestone and next incomplete step.
 2. Read the relevant section in docs/MILESTONES.md.
 3. Check docs/ARCHITECTURE.md for boundaries and invariants.
-4. Implement only the next verifiable step, or a smaller sub-step if the step is too large.
-5. Add or update tests for the behavior changed by this step.
-6. Run formatting and the narrowest meaningful tests.
-7. Update docs/PROGRESS.md with current milestone, completed content, and remaining gaps.
-8. Commit using a conventional commit message.
-9. Continue to the next incomplete step unless a stop condition from the execution policy applies.
+4. For Lua semantic behavior, inspect the relevant files in `~/Downloads/lua-lua-a5522f0` before designing the change.
+5. Implement only the next verifiable step, or a smaller sub-step if the step is too large.
+6. Add or update tests for the behavior changed by this step.
+7. Run formatting and the narrowest meaningful tests.
+8. Update docs/PROGRESS.md with current milestone, completed content, and remaining gaps.
+9. Commit using a conventional commit message.
+10. Continue to the next incomplete step unless a stop condition from the execution policy applies.
 
 Important goal-status rule:
 
@@ -96,6 +105,7 @@ Read:
 - docs/ARCHITECTURE.md
 - docs/MILESTONES.md
 - docs/PROGRESS.md
+- The relevant official Lua 5.5 source files under `~/Downloads/lua-lua-a5522f0` when the step changes Lua semantics
 
 Then choose the next incomplete step from docs/PROGRESS.md. Keep the change small, add tests, run the narrowest useful verification command, update docs/PROGRESS.md, and commit with a conventional commit message.
 
@@ -115,6 +125,7 @@ Read:
 - docs/ARCHITECTURE.md
 - docs/MILESTONES.md
 - docs/PROGRESS.md
+- Relevant official Lua 5.5 source files under `~/Downloads/lua-lua-a5522f0` if behavior correctness is part of the cleanup
 
 Focus only on restoring a clean, reviewable state:
 

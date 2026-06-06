@@ -35,6 +35,18 @@ Reference links:
 - Cranelift JITModule docs: https://docs.rs/cranelift-jit/latest/cranelift_jit/struct.JITModule.html
 - Cranelift FunctionBuilder docs: https://docs.wasmtime.dev/api/cranelift/prelude/struct.FunctionBuilder.html
 
+Local official Lua source reference:
+
+- `~/Downloads/lua-lua-a5522f0`
+
+When implementing or reviewing Lua language behavior, treat the Lua 5.5 manual
+and the local official Lua source tree as the semantic references. The source is
+especially important for edge cases where the manual is brief or where parser,
+compiler, VM, table, GC, error, coroutine, or standard-library behavior depends
+on implementation details. Use the official source to understand behavior, not
+to copy Lua's bytecode format or collapse Elara's Rust-native architecture into a
+line-by-line port.
+
 ## 3. Non-Goals
 
 Elara should not pursue these in the mainline architecture:
