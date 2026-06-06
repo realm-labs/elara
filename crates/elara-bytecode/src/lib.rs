@@ -11,8 +11,10 @@ pub mod builder;
 pub mod disasm;
 pub mod op;
 pub mod proto;
+pub mod verifier;
 
 pub use builder::ProtoBuilder;
 pub use disasm::disassemble;
 pub use op::{A_BITS, B_BITS, C_BITS, Instr, MAX_A, MAX_B, MAX_C, OP_BITS, Op};
 pub use proto::{ConstantIndex, DebugInfo, Proto, Register, UpvalueDesc, UpvalueIndex};
+pub use verifier::{VerifyError, VerifyErrorKind, verify_proto};
