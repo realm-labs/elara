@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M8 Control Flow and Iteration
-Current step: M8.3 Implement numeric for loops
+Current step: M8.4 Implement generic for loops
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -32,8 +32,9 @@ tables are compiled to `VARARG_TABLE` and executed through runtime-owned table
 storage. Recursive function self-references compile and evaluate through shared
 runtime closure storage. Conditional branches compile and execute through
 `TEST`/`JMP` bytecode. `while`, `repeat`, and `break` compile and execute
-through branch bytecode. Numeric for loops, generic for loops, full API, JIT,
-C API, conformance, and benchmark implementation work has not started.
+through branch bytecode. Numeric for loops compile and execute for integer and
+float control values with positive and negative steps. Generic for loops, full
+API, JIT, C API, conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -76,9 +77,10 @@ Completed:
   - M7 exit criteria validation.
   - M8.1 Implement conditional branches.
   - M8.2 Implement while and repeat loops.
+  - M8.3 Implement numeric for loops.
 
 In progress:
-  - M8.3 Implement numeric for loops.
+  - M8.4 Implement generic for loops.
   - Standard library.
   - Rust API.
   - JIT.
@@ -443,6 +445,19 @@ Delivered:
 - `break` outside a loop reports a compile diagnostic.
 - Source eval executes simple `while`/`break` and `repeat` chunks.
 
+### Completed Step: M8.3 Implement numeric for loops
+
+Delivered:
+
+- The simple compiler lowers numeric `for` loops to `FOR_PREP`/`FOR_LOOP`.
+- The bytecode verifier checks the three-register numeric loop control range.
+- The primitive interpreter executes integer numeric loops with positive and
+  negative steps.
+- The primitive interpreter executes float numeric loops.
+- Zero numeric-for steps report a runtime error.
+- Source eval executes simple numeric `for` chunks with positive and negative
+  steps.
+
 ## Completed Content
 
 ### Planning Decisions
@@ -496,18 +511,18 @@ Delivered:
 - Recursive self-reference works through the compiler/interpreter/API path.
 - Conditional branches work through the compiler/interpreter/API path.
 - `while`, `repeat`, and `break` work through the compiler/interpreter/API path.
+- Numeric `for` loops work through the compiler/interpreter/API path.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M8
 
-- Implement M8.3 numeric for loops.
+- Implement M8.4 generic for loops.
 
 ### Product Gaps
 
 Major implementation work is still pending:
 
-- Numeric for loops.
 - Generic for loops.
 - Standard library.
 - Rust API.
@@ -519,22 +534,21 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M8.2 loop verification passed:
+M8.3 numeric-for verification passed:
 
 ```bash
-cargo fmt --all
 cargo fmt --all -- --check
-cargo test -p elara-compiler loops
-cargo test -p elara-interp loops
-cargo test -p elara-api eval_simple_executes
-cargo test -p elara-compiler simple_expr_reports_unsupported_statement
-cargo clippy -p elara-compiler -p elara-interp -p elara-api --all-targets -- -D warnings
+cargo test -p elara-bytecode numeric_for
+cargo test -p elara-compiler numeric_for
+cargo test -p elara-interp numeric_for
+cargo test -p elara-api numeric_for
+cargo clippy -p elara-bytecode -p elara-compiler -p elara-interp -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Implement M8.3 numeric for loops from `docs/MILESTONES.md`, then inspect the
-relevant Lua 5.5 parser/compiler/VM source, run focused numeric-for tests, and
+Implement M8.4 generic for loops from `docs/MILESTONES.md`, then inspect the
+relevant Lua 5.5 parser/compiler/VM source, run focused generic-for tests, and
 update this progress document.
 
 ## Current Risk Notes
@@ -579,7 +593,7 @@ update this progress document.
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
-| Control flow | In progress | Conditional branches plus `while`, `repeat`, and `break` are implemented; numeric for loops are next. |
+| Control flow | In progress | Conditional branches, `while`, `repeat`, `break`, and numeric `for` are implemented; generic for loops are next. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

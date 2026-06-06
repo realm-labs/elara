@@ -89,6 +89,28 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_executes_numeric_for_positive_step() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "local sum = 0\nfor i = 1, 3 do\n  sum = sum + i\nend\nreturn sum",
+            ),
+            Ok(vec![Value::integer(6)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_executes_numeric_for_negative_step() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "local sum = 0\nfor i = 3, 1, -1 do\n  sum = sum + i\nend\nreturn sum",
+            ),
+            Ok(vec![Value::integer(6)])
+        );
+    }
+
+    #[test]
     fn eval_simple_reports_compile_diagnostics() {
         let error = eval_simple_source(SourceId::new(0), "x = 1").unwrap_err();
 

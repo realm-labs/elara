@@ -176,6 +176,87 @@ fn loops_execute_backward_jump_until_break() {
 }
 
 #[test]
+fn numeric_for_executes_integer_positive_step() {
+    let mut builder = ProtoBuilder::new().with_signature(4, 0, false);
+    let zero = builder.add_constant(Value::integer(0));
+    let one = builder.add_constant(Value::integer(1));
+    let three = builder.add_constant(Value::integer(3));
+    builder.emit_abx(Op::LoadK, 3, u64::from(zero));
+    builder.emit_abx(Op::LoadK, 0, u64::from(one));
+    builder.emit_abx(Op::LoadK, 1, u64::from(three));
+    builder.emit_abx(Op::LoadK, 2, u64::from(one));
+    builder.emit_asbx(Op::ForPrep, 0, 2);
+    builder.emit_abc(Op::Add, 3, 3, 2);
+    builder.emit_asbx(Op::ForLoop, 0, -2);
+    builder.emit_abc(Op::Return, 3, 1, 0);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Ok(vec![Value::integer(6)])
+    );
+}
+
+#[test]
+fn numeric_for_executes_integer_negative_step() {
+    let mut builder = ProtoBuilder::new().with_signature(4, 0, false);
+    let zero = builder.add_constant(Value::integer(0));
+    let one = builder.add_constant(Value::integer(1));
+    let three = builder.add_constant(Value::integer(3));
+    let negative_one = builder.add_constant(Value::integer(-1));
+    builder.emit_abx(Op::LoadK, 3, u64::from(zero));
+    builder.emit_abx(Op::LoadK, 0, u64::from(three));
+    builder.emit_abx(Op::LoadK, 1, u64::from(one));
+    builder.emit_abx(Op::LoadK, 2, u64::from(negative_one));
+    builder.emit_asbx(Op::ForPrep, 0, 2);
+    builder.emit_abc(Op::Add, 3, 3, 2);
+    builder.emit_asbx(Op::ForLoop, 0, -2);
+    builder.emit_abc(Op::Return, 3, 1, 0);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Ok(vec![Value::integer(6)])
+    );
+}
+
+#[test]
+fn numeric_for_executes_float_step() {
+    let mut builder = ProtoBuilder::new().with_signature(4, 0, false);
+    let zero = builder.add_constant(Value::float(0.0));
+    let init = builder.add_constant(Value::float(1.5));
+    let limit = builder.add_constant(Value::float(2.5));
+    let step = builder.add_constant(Value::float(0.5));
+    builder.emit_abx(Op::LoadK, 3, u64::from(zero));
+    builder.emit_abx(Op::LoadK, 0, u64::from(init));
+    builder.emit_abx(Op::LoadK, 1, u64::from(limit));
+    builder.emit_abx(Op::LoadK, 2, u64::from(step));
+    builder.emit_asbx(Op::ForPrep, 0, 2);
+    builder.emit_abc(Op::Add, 3, 3, 2);
+    builder.emit_asbx(Op::ForLoop, 0, -2);
+    builder.emit_abc(Op::Return, 3, 1, 0);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Ok(vec![Value::float(6.0)])
+    );
+}
+
+#[test]
+fn numeric_for_rejects_zero_step() {
+    let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+    let one = builder.add_constant(Value::integer(1));
+    let zero = builder.add_constant(Value::integer(0));
+    builder.emit_abx(Op::LoadK, 0, u64::from(one));
+    builder.emit_abx(Op::LoadK, 1, u64::from(one));
+    builder.emit_abx(Op::LoadK, 2, u64::from(zero));
+    builder.emit_asbx(Op::ForPrep, 0, 0);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Err(RuntimeError::ForLoopStepZero)
+    );
+}
+
+#[test]
 fn varargs_pass_call_arguments_to_child_proto() {
     let mut child_builder = ProtoBuilder::new().with_signature(1, 0, true);
     child_builder.emit_abc(Op::Vararg, 0, 1, 0);

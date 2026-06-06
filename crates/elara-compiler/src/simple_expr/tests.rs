@@ -80,6 +80,21 @@ fn loops_report_break_outside_loop() {
 }
 
 #[test]
+fn numeric_for_compiles_default_step_loop() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local sum = 0\nfor i = 1, 3 do\n  sum = sum + i\nend\nreturn sum",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_K        A=0 Bx=0 ; 0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_K        A=5 Bx=1 ; 1\n0003 MOVE          A=2 B=5 C=0\n0004 LOAD_K        A=6 Bx=2 ; 3\n0005 MOVE          A=3 B=6 C=0\n0006 LOAD_K        A=7 Bx=3 ; 1\n0007 MOVE          A=4 B=7 C=0\n0008 FOR_PREP      A=2 sBx=2\n0009 ADD           A=1 B=1 C=4\n0010 FOR_LOOP      A=2 sBx=-2\n0011 RETURN        A=1 B=1 C=0\n",
+    );
+}
+
+#[test]
 fn locals_compile_local_return() {
     let compiled = compile_simple_chunk(SourceId::new(0), "local x = 1 + 2\nreturn x");
     assert_eq!(compiled.diagnostics, Vec::new());

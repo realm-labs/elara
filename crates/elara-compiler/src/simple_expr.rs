@@ -88,6 +88,13 @@ impl SimpleCompiler {
                 } => self.compile_if(clauses, else_block.as_ref()),
                 StmtKind::While { condition, body } => self.compile_while(condition, body),
                 StmtKind::Repeat { body, condition } => self.compile_repeat(body, condition),
+                StmtKind::NumericFor {
+                    name,
+                    init,
+                    limit,
+                    step,
+                    body,
+                } => self.compile_numeric_for(name, init, limit, step.as_ref(), body),
                 StmtKind::Break => self.compile_break(statement.span()),
                 StmtKind::Return(values) => self.compile_return(values),
                 _ => self.diagnostics.push(
