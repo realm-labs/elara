@@ -5,7 +5,11 @@ use std::ops::Index;
 use elara_bytecode::Instr;
 use elara_core::{LuaInteger, LuaThread, Table, Value};
 
-use super::{RuntimeError, RuntimeResult, register, set_register};
+use super::{RuntimeError, RuntimeResult, RuntimeStrings, register, set_register};
+
+const MAX_TAG_METHOD_CHAIN: usize = 2000;
+const INDEX_METAMETHOD: &str = "__index";
+const NEWINDEX_METAMETHOD: &str = "__newindex";
 
 /// Runtime-owned table storage for primitive execution.
 #[derive(Default)]
@@ -74,6 +78,123 @@ impl RuntimeTables {
         self.metatables.push(None);
         table_index
     }
+
+    fn raw_get(&self, table_index: usize, key: Value) -> RuntimeResult<Value> {
+        let table = self
+            .tables
+            .get(table_index)
+            .ok_or(RuntimeError::NonTableValue)?;
+        Ok(table.raw_get_value(key))
+    }
+
+    fn raw_set(&mut self, table_index: usize, key: Value, value: Value) -> RuntimeResult<()> {
+        let table = self
+            .tables
+            .get_mut(table_index)
+            .ok_or(RuntimeError::NonTableValue)?;
+        if table.raw_set_value(key, value) {
+            Ok(())
+        } else {
+            Err(RuntimeError::InvalidTableKey)
+        }
+    }
+
+    fn raw_get_integer(&self, table_index: usize, key: LuaInteger) -> RuntimeResult<Value> {
+        let table = self
+            .tables
+            .get(table_index)
+            .ok_or(RuntimeError::NonTableValue)?;
+        Ok(table.raw_get_integer(key))
+    }
+
+    fn raw_set_integer(
+        &mut self,
+        table_index: usize,
+        key: LuaInteger,
+        value: Value,
+    ) -> RuntimeResult<()> {
+        let table = self
+            .tables
+            .get_mut(table_index)
+            .ok_or(RuntimeError::NonTableValue)?;
+        if table.raw_set_integer(key, value) {
+            Ok(())
+        } else {
+            Err(RuntimeError::InvalidTableKey)
+        }
+    }
+
+    fn get_with_index(
+        &mut self,
+        table_index: usize,
+        key: Value,
+        strings: &mut RuntimeStrings,
+    ) -> RuntimeResult<Value> {
+        let mut current = table_index;
+        for _ in 0..MAX_TAG_METHOD_CHAIN {
+            let value = self.raw_get(current, key)?;
+            if !value.is_nil() {
+                return Ok(value);
+            }
+
+            let Some(metamethod) = self.metamethod(current, INDEX_METAMETHOD, strings)? else {
+                return Ok(Value::nil());
+            };
+            let Some(next) = metamethod.as_table_index() else {
+                return Err(RuntimeError::UnsupportedMetamethod {
+                    name: INDEX_METAMETHOD,
+                });
+            };
+            current = next as usize;
+        }
+
+        Err(RuntimeError::MetamethodChainTooLong {
+            name: INDEX_METAMETHOD,
+        })
+    }
+
+    fn set_with_newindex(
+        &mut self,
+        table_index: usize,
+        key: Value,
+        value: Value,
+        strings: &mut RuntimeStrings,
+    ) -> RuntimeResult<()> {
+        let mut current = table_index;
+        for _ in 0..MAX_TAG_METHOD_CHAIN {
+            if !self.raw_get(current, key)?.is_nil() {
+                return self.raw_set(current, key, value);
+            }
+
+            let Some(metamethod) = self.metamethod(current, NEWINDEX_METAMETHOD, strings)? else {
+                return self.raw_set(current, key, value);
+            };
+            let Some(next) = metamethod.as_table_index() else {
+                return Err(RuntimeError::UnsupportedMetamethod {
+                    name: NEWINDEX_METAMETHOD,
+                });
+            };
+            current = next as usize;
+        }
+
+        Err(RuntimeError::MetamethodChainTooLong {
+            name: NEWINDEX_METAMETHOD,
+        })
+    }
+
+    fn metamethod(
+        &mut self,
+        table_index: usize,
+        name: &'static str,
+        strings: &mut RuntimeStrings,
+    ) -> RuntimeResult<Option<Value>> {
+        let Some(metatable) = self.metatable(table_index) else {
+            return Ok(None);
+        };
+        let key = strings.intern_short_value(name);
+        let value = self.raw_get(metatable as usize, key)?;
+        Ok((!value.is_nil()).then_some(value))
+    }
 }
 
 impl Index<usize> for RuntimeTables {
@@ -114,46 +235,46 @@ pub(super) fn execute_set_table(
     thread: &mut LuaThread,
     instr: Instr,
     tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
 ) -> RuntimeResult<()> {
     let table_index = register(thread, instr.a().into())?
         .as_table_index()
         .ok_or(RuntimeError::NonTableValue)? as usize;
     let key = register(thread, instr.b() as usize)?;
     let value = register(thread, instr.c() as usize)?;
-    let table = tables
-        .get_mut(table_index)
-        .ok_or(RuntimeError::NonTableValue)?;
-    if table.raw_set_value(key, value) {
-        Ok(())
-    } else {
-        Err(RuntimeError::InvalidTableKey)
-    }
+    tables.set_with_newindex(table_index, key, value, strings)
 }
 
 pub(super) fn execute_get_table(
     thread: &mut LuaThread,
     instr: Instr,
-    tables: &RuntimeTables,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
 ) -> RuntimeResult<()> {
     let table_index = register(thread, instr.b() as usize)?
         .as_table_index()
         .ok_or(RuntimeError::NonTableValue)? as usize;
     let key = register(thread, instr.c() as usize)?;
-    let table = tables.get(table_index).ok_or(RuntimeError::NonTableValue)?;
-    let value = table.raw_get_value(key);
+    let value = tables.get_with_index(table_index, key, strings)?;
     set_register(thread, instr.a().into(), value)
 }
 
 pub(super) fn execute_get_index(
     thread: &mut LuaThread,
     instr: Instr,
-    tables: &RuntimeTables,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
 ) -> RuntimeResult<()> {
     let table_index = register(thread, instr.b() as usize)?
         .as_table_index()
         .ok_or(RuntimeError::NonTableValue)? as usize;
-    let table = tables.get(table_index).ok_or(RuntimeError::NonTableValue)?;
-    let value = table.raw_get_integer(LuaInteger::from(instr.c()));
+    let key = LuaInteger::from(instr.c());
+    let value = tables.raw_get_integer(table_index, key)?;
+    let value = if value.is_nil() {
+        tables.get_with_index(table_index, Value::integer(key), strings)?
+    } else {
+        value
+    };
     set_register(thread, instr.a().into(), value)
 }
 
@@ -161,27 +282,26 @@ pub(super) fn execute_set_index(
     thread: &mut LuaThread,
     instr: Instr,
     tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
 ) -> RuntimeResult<()> {
     let table_index = register(thread, instr.a().into())?
         .as_table_index()
         .ok_or(RuntimeError::NonTableValue)? as usize;
     let value = register(thread, instr.c() as usize)?;
-    let table = tables
-        .get_mut(table_index)
-        .ok_or(RuntimeError::NonTableValue)?;
-    if table.raw_set_integer(LuaInteger::from(instr.b()), value) {
-        Ok(())
+    let key = LuaInteger::from(instr.b());
+    if !tables.raw_get_integer(table_index, key)?.is_nil() {
+        tables.raw_set_integer(table_index, key, value)
     } else {
-        Err(RuntimeError::InvalidTableKey)
+        tables.set_with_newindex(table_index, Value::integer(key), value, strings)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use elara_core::Table;
+    use elara_core::{Table, Value};
 
-    use super::RuntimeTables;
-    use crate::RuntimeError;
+    use super::{INDEX_METAMETHOD, NEWINDEX_METAMETHOD, RuntimeTables};
+    use crate::primitive::{RuntimeError, RuntimeStrings};
 
     #[test]
     fn metamethods_runtime_tables_store_metatable_links() {
@@ -206,5 +326,79 @@ mod tests {
             Err(RuntimeError::NonTableValue)
         );
         assert_eq!(tables.metatable(table as usize), None);
+    }
+
+    #[test]
+    fn metamethods_index_reads_from_table_valued_fallback() {
+        let mut strings = RuntimeStrings::new();
+        let key = strings.intern_short_value("missing");
+        let index_key = strings.intern_short_value(INDEX_METAMETHOD);
+
+        let mut tables = RuntimeTables::new();
+        let table = tables.push(Table::new());
+        let mut fallback = Table::new();
+        assert!(fallback.raw_set_value(key, Value::integer(42)));
+        let fallback = tables.push(fallback);
+        let mut metatable = Table::new();
+        assert!(metatable.raw_set_value(index_key, Value::table_index(fallback)));
+        let metatable = tables.push(metatable);
+        tables
+            .set_metatable(table as usize, Some(metatable))
+            .expect("metatable link should be valid");
+
+        assert_eq!(
+            tables.get_with_index(table as usize, key, &mut strings),
+            Ok(Value::integer(42))
+        );
+    }
+
+    #[test]
+    fn metamethods_newindex_writes_to_table_valued_fallback() {
+        let mut strings = RuntimeStrings::new();
+        let key = strings.intern_short_value("missing");
+        let newindex_key = strings.intern_short_value(NEWINDEX_METAMETHOD);
+
+        let mut tables = RuntimeTables::new();
+        let table = tables.push(Table::new());
+        let sink = tables.push(Table::new());
+        let mut metatable = Table::new();
+        assert!(metatable.raw_set_value(newindex_key, Value::table_index(sink)));
+        let metatable = tables.push(metatable);
+        tables
+            .set_metatable(table as usize, Some(metatable))
+            .expect("metatable link should be valid");
+
+        tables
+            .set_with_newindex(table as usize, key, Value::integer(42), &mut strings)
+            .expect("table-valued __newindex should write");
+
+        assert_eq!(tables[table as usize].raw_get_value(key), Value::nil());
+        assert_eq!(tables[sink as usize].raw_get_value(key), Value::integer(42));
+    }
+
+    #[test]
+    fn metamethods_newindex_existing_key_bypasses_fallback() {
+        let mut strings = RuntimeStrings::new();
+        let key = strings.intern_short_value("present");
+        let newindex_key = strings.intern_short_value(NEWINDEX_METAMETHOD);
+
+        let mut tables = RuntimeTables::new();
+        let mut table_value = Table::new();
+        assert!(table_value.raw_set_value(key, Value::integer(1)));
+        let table = tables.push(table_value);
+        let sink = tables.push(Table::new());
+        let mut metatable = Table::new();
+        assert!(metatable.raw_set_value(newindex_key, Value::table_index(sink)));
+        let metatable = tables.push(metatable);
+        tables
+            .set_metatable(table as usize, Some(metatable))
+            .expect("metatable link should be valid");
+
+        tables
+            .set_with_newindex(table as usize, key, Value::integer(2), &mut strings)
+            .expect("existing key should write directly");
+
+        assert_eq!(tables[table as usize].raw_get_value(key), Value::integer(2));
+        assert_eq!(tables[sink as usize].raw_get_value(key), Value::nil());
     }
 }

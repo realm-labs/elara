@@ -39,8 +39,10 @@ execute with array, record, and keyed fields. Raw table access compiles and
 executes for bracket and field syntax, generic table get/set bytecode, integer
 index fast paths, hash keys, and nil assignment clearing. Primitive runtime
 table storage is centralized and can store metatable links for upcoming
-metamethod dispatch. Globals, full metamethod dispatch, full API, JIT, C API,
-conformance, and benchmark implementation work has not started.
+metamethod dispatch. Table-valued `__index` and `__newindex` chains work in the
+primitive runtime table slow path. Globals, function-valued and operator
+metamethod dispatch, full API, JIT, C API, conformance, and benchmark
+implementation work has not started.
 
 Current state:
 
@@ -92,6 +94,8 @@ Completed:
 In progress:
   - M9.3 Implement metatable and metamethod dispatch.
     - Runtime table storage is centralized with metatable sidecar links.
+    - Table-valued `__index` and `__newindex` chains work in the runtime table
+      slow path.
   - Standard library.
   - Rust API.
   - JIT.
@@ -553,15 +557,14 @@ Delivered:
 - Table constructors work through the compiler/interpreter/API path.
 - Raw table access works through the parser/compiler/interpreter/API path.
 - Primitive runtime table storage has a centralized owner with metatable links.
+- Table-valued `__index` and `__newindex` chains work in runtime table helpers.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M9
 
-- Implement M9.3 `__index` and `__newindex` dispatch using the runtime table
-  storage boundary.
-- Add arithmetic, comparison, `__len`, `__call`, and `__concat` metamethod
-  dispatch.
+- Add function-valued `__index` and `__newindex` calls.
+- Add arithmetic, comparison, `__len`, `__call`, and `__concat` metamethod dispatch.
 
 ### Product Gaps
 
@@ -579,7 +582,7 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M9.3 runtime-table foundation verification passed:
+M9.3 table-valued metamethod verification passed:
 
 ```bash
 cargo test -p elara-interp metamethods
@@ -590,9 +593,9 @@ cargo clippy -p elara-interp --all-targets -- -D warnings
 
 ## Next Recommended Action
 
-Implement M9.3 `__index` and `__newindex` dispatch from `docs/MILESTONES.md`,
-using the centralized runtime table storage and the Lua 5.5 `luaV_finishget`
-and `luaV_finishset` behavior as references.
+Implement M9.3 function-valued `__index` and `__newindex` calls, using Lua 5.5
+`luaV_finishget`, `luaV_finishset`, and `luaT_callTM/res` behavior as
+references.
 
 ## Current Risk Notes
 
@@ -637,7 +640,7 @@ and `luaV_finishset` behavior as references.
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
-| Tables/globals/metamethods | In progress | Table constructors and raw table access execute; runtime table storage has metatable links for metamethod dispatch. |
+| Tables/globals/metamethods | In progress | Table constructors, raw table access, and table-valued `__index`/`__newindex` dispatch execute. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

@@ -66,6 +66,10 @@ pub enum RuntimeError {
     NonTableValue,
     /// Table write used an invalid Lua key.
     InvalidTableKey,
+    /// Metamethod dispatch found a metamethod shape this interpreter cannot call yet.
+    UnsupportedMetamethod { name: &'static str },
+    /// Metamethod table chain exceeded Lua's loop limit.
+    MetamethodChainTooLong { name: &'static str },
     /// Call operand was not callable.
     NonCallableValue,
     /// Closure referenced a missing child prototype.
@@ -168,10 +172,10 @@ fn execute_proto_with_upvalues(
                 set_register(&mut thread, instr.a().into(), value)?;
             }
             Op::NewTable => execute_new_table(&mut thread, instr, tables)?,
-            Op::GetTable => execute_get_table(&mut thread, instr, tables)?,
-            Op::SetTable => execute_set_table(&mut thread, instr, tables)?,
-            Op::GetIndex => execute_get_index(&mut thread, instr, tables)?,
-            Op::SetIndex => execute_set_index(&mut thread, instr, tables)?,
+            Op::GetTable => execute_get_table(&mut thread, instr, tables, strings)?,
+            Op::SetTable => execute_set_table(&mut thread, instr, tables, strings)?,
+            Op::GetIndex => execute_get_index(&mut thread, instr, tables, strings)?,
+            Op::SetIndex => execute_set_index(&mut thread, instr, tables, strings)?,
             Op::GetUpvalue => {
                 let value = upvalues.get(instr.b() as usize).copied().ok_or(
                     RuntimeError::UpvalueOutOfBounds {
