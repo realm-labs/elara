@@ -31,6 +31,12 @@ version = "0.1.0"
 [[package]]
 name = "elara-compiler"
 version = "0.1.0"
+dependencies = [
+ "elara-bytecode",
+ "elara-core",
+ "elara-syntax",
+ "elara-test",
+]
 
 [[package]]
 name = "elara-core"

@@ -5,3 +5,7 @@
 //!
 //! It may depend on syntax, bytecode, and core diagnostics or types. It must not
 //! execute bytecode, know interpreter internals, or special-case JIT behavior.
+
+pub mod simple_expr;
+
+pub use simple_expr::{CompileResult, compile_simple_chunk};
