@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M4 Lexer and Parser  
-Current step: M4.4 Implement parser snapshots and error tests
+Current milestone: M5 Bytecode Model and Compiler MVP  
+Current step: M5.1 Define Proto, Instr, and opcode encoding
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -17,8 +17,8 @@ documented crate boundaries, and a single current Lua language target in
 test fixture/conformance/differential directory layout exists with a snapshot
 baseline. Primitive runtime values, the basic GC skeleton, Lua strings with
 short-string interning, table array/hash storage with metadata versioning, Lua
-tokenization, expression parsing, and statement parsing are implemented. Parser
-snapshots/error coverage, compiler, bytecode, interpreter, API, JIT, C API,
+tokenization, expression parsing, statement parsing, and parser snapshot/error
+coverage are implemented. Compiler, bytecode, interpreter, API, JIT, C API,
 conformance, and benchmark implementation work has not started.
 
 Current state:
@@ -47,9 +47,10 @@ Completed:
   - M4.1 Implement lexer for tokens and literals.
   - M4.2 Implement expression parser.
   - M4.3 Implement statement parser.
+  - M4.4 Implement parser snapshots and error tests.
 
 Not started:
-  - M4.4 Implement parser snapshots and error tests.
+  - M5.1 Define Proto, Instr, and opcode encoding.
   - Compiler.
   - Bytecode.
   - Interpreter.
@@ -254,24 +255,35 @@ Delivered:
 - If/while/repeat/for.
 - Return/break/goto/labels where current Lua supports them.
 
-### Current Step: M4.4 Implement parser snapshots and error tests
+### Completed Step: M4.4 Implement parser snapshots and error tests
 
-Expected deliverables:
+Delivered:
 
 - Snapshot tests for representative chunks.
 - Error tests for malformed syntax.
 - AST pretty debug output.
 
+M4 is complete.
+
+### Current Step: M5.1 Define Proto, Instr, and opcode encoding
+
+Expected deliverables:
+
+- `Proto`, `Instr`, and `Op`.
+- Constant pool.
+- Upvalue descriptors placeholder.
+- Debug info placeholder.
+
 Recommended verification:
 
 ```bash
-cargo test -p elara-syntax
+cargo test -p elara-bytecode op
 ```
 
 Recommended commit:
 
 ```text
-test(syntax): add parser snapshots
+feat(bytecode): define proto and instructions
 ```
 
 ## Completed Content
@@ -311,12 +323,13 @@ test(syntax): add parser snapshots
 - Lua tokenization with spans and lexical diagnostics is available in `elara-syntax`.
 - Lua expression AST and precedence parsing are available in `elara-syntax`.
 - Lua statement AST and block parsing are available in `elara-syntax`.
+- Parser snapshots and malformed syntax diagnostics are covered.
 
 ## Remaining Gaps
 
-### Immediate Gaps for M4
+### Immediate Gaps for M5
 
-- Add parser snapshots and malformed syntax tests.
+- Define bytecode proto, instruction, opcode, and constant-pool types.
 
 ### Product Gaps
 
@@ -336,27 +349,27 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M4.3 verification passed:
+M4.4 verification passed:
 
 ```bash
 cargo fmt --all -- --check
 cargo clippy -p elara-syntax --all-targets -- -D warnings
-cargo test -p elara-syntax stmt
+cargo test -p elara-syntax
 ```
 
 ## Next Recommended Action
 
-Implement M4.4 from `docs/MILESTONES.md`:
+Implement M5.1 from `docs/MILESTONES.md`:
 
-1. Add parser snapshot tests for representative chunks.
-2. Add malformed syntax tests with diagnostic spans.
-3. Ensure AST debug output is readable enough for snapshots.
-4. Run `cargo test -p elara-syntax`.
+1. Add bytecode `Proto`, `Instr`, and `Op` types.
+2. Add constant-pool and placeholder upvalue/debug metadata types.
+3. Add opcode/instruction tests.
+4. Run `cargo test -p elara-bytecode op`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-test(syntax): add parser snapshots
+feat(bytecode): define proto and instructions
 ```
 
 ## Current Risk Notes
@@ -395,7 +408,8 @@ test(syntax): add parser snapshots
 | Lexer | Complete | Lua 5.5 tokens, literals, comments, and lexical diagnostics are implemented. |
 | Expression parser | Complete | Expression AST, precedence parsing, calls, table constructors, and varargs are implemented. |
 | Statement parser | Complete | Declarations, assignments, control flow, function declarations, labels, and returns are implemented. |
-| Parser snapshots | Not started | Current step. |
+| Parser snapshots | Complete | Representative AST and malformed syntax diagnostic snapshots are implemented. |
+| Bytecode model | Not started | Current milestone. |
 | Compiler | Not started | Starts M5. |
 | Interpreter | Not started | Starts M6. |
 | Rust API | Not started | Starts M12. |

@@ -1,0 +1,272 @@
+Block {
+    statements: [
+        Stmt {
+            kind: Global(
+                All {
+                    attribute: Some(
+                        "const",
+                    ),
+                },
+            ),
+            span: Span {
+                source: SourceId(
+                    0,
+                ),
+                start: 0,
+                end: 15,
+            },
+        },
+        Stmt {
+            kind: Local {
+                names: [
+                    NameDecl {
+                        name: "x",
+                        attribute: None,
+                        span: Span {
+                            source: SourceId(
+                                0,
+                            ),
+                            start: 22,
+                            end: 23,
+                        },
+                    },
+                ],
+                values: [
+                    Expr {
+                        kind: Binary {
+                            op: Add,
+                            left: Expr {
+                                kind: Integer(
+                                    "1",
+                                ),
+                                span: Span {
+                                    source: SourceId(
+                                        0,
+                                    ),
+                                    start: 26,
+                                    end: 27,
+                                },
+                            },
+                            right: Expr {
+                                kind: Binary {
+                                    op: Mul,
+                                    left: Expr {
+                                        kind: Integer(
+                                            "2",
+                                        ),
+                                        span: Span {
+                                            source: SourceId(
+                                                0,
+                                            ),
+                                            start: 30,
+                                            end: 31,
+                                        },
+                                    },
+                                    right: Expr {
+                                        kind: Integer(
+                                            "3",
+                                        ),
+                                        span: Span {
+                                            source: SourceId(
+                                                0,
+                                            ),
+                                            start: 34,
+                                            end: 35,
+                                        },
+                                    },
+                                },
+                                span: Span {
+                                    source: SourceId(
+                                        0,
+                                    ),
+                                    start: 30,
+                                    end: 35,
+                                },
+                            },
+                        },
+                        span: Span {
+                            source: SourceId(
+                                0,
+                            ),
+                            start: 26,
+                            end: 35,
+                        },
+                    },
+                ],
+            },
+            span: Span {
+                source: SourceId(
+                    0,
+                ),
+                start: 16,
+                end: 35,
+            },
+        },
+        Stmt {
+            kind: Function {
+                scope: Plain,
+                name: FunctionName {
+                    base: "t",
+                    fields: [
+                        "a",
+                    ],
+                    method: Some(
+                        "f",
+                    ),
+                    span: Span {
+                        source: SourceId(
+                            0,
+                        ),
+                        start: 45,
+                        end: 50,
+                    },
+                },
+                body: FunctionBody {
+                    params: [
+                        Name(
+                            "y",
+                        ),
+                        Vararg(
+                            Some(
+                                "rest",
+                            ),
+                        ),
+                    ],
+                    block: Block {
+                        statements: [
+                            Stmt {
+                                kind: If {
+                                    clauses: [
+                                        IfClause {
+                                            condition: Expr {
+                                                kind: Name(
+                                                    "y",
+                                                ),
+                                                span: Span {
+                                                    source: SourceId(
+                                                        0,
+                                                    ),
+                                                    start: 69,
+                                                    end: 70,
+                                                },
+                                            },
+                                            block: Block {
+                                                statements: [
+                                                    Stmt {
+                                                        kind: Return(
+                                                            [
+                                                                Expr {
+                                                                    kind: Name(
+                                                                        "y",
+                                                                    ),
+                                                                    span: Span {
+                                                                        source: SourceId(
+                                                                            0,
+                                                                        ),
+                                                                        start: 87,
+                                                                        end: 88,
+                                                                    },
+                                                                },
+                                                            ],
+                                                        ),
+                                                        span: Span {
+                                                            source: SourceId(
+                                                                0,
+                                                            ),
+                                                            start: 80,
+                                                            end: 88,
+                                                        },
+                                                    },
+                                                ],
+                                                span: Span {
+                                                    source: SourceId(
+                                                        0,
+                                                    ),
+                                                    start: 80,
+                                                    end: 88,
+                                                },
+                                            },
+                                        },
+                                    ],
+                                    else_block: Some(
+                                        Block {
+                                            statements: [
+                                                Stmt {
+                                                    kind: Return(
+                                                        [
+                                                            Expr {
+                                                                kind: Name(
+                                                                    "rest",
+                                                                ),
+                                                                span: Span {
+                                                                    source: SourceId(
+                                                                        0,
+                                                                    ),
+                                                                    start: 107,
+                                                                    end: 111,
+                                                                },
+                                                            },
+                                                        ],
+                                                    ),
+                                                    span: Span {
+                                                        source: SourceId(
+                                                            0,
+                                                        ),
+                                                        start: 100,
+                                                        end: 111,
+                                                    },
+                                                },
+                                            ],
+                                            span: Span {
+                                                source: SourceId(
+                                                    0,
+                                                ),
+                                                start: 100,
+                                                end: 111,
+                                            },
+                                        },
+                                    ),
+                                },
+                                span: Span {
+                                    source: SourceId(
+                                        0,
+                                    ),
+                                    start: 66,
+                                    end: 117,
+                                },
+                            },
+                        ],
+                        span: Span {
+                            source: SourceId(
+                                0,
+                            ),
+                            start: 66,
+                            end: 117,
+                        },
+                    },
+                    span: Span {
+                        source: SourceId(
+                            0,
+                        ),
+                        start: 50,
+                        end: 121,
+                    },
+                },
+            },
+            span: Span {
+                source: SourceId(
+                    0,
+                ),
+                start: 36,
+                end: 121,
+            },
+        },
+    ],
+    span: Span {
+        source: SourceId(
+            0,
+        ),
+        start: 0,
+        end: 121,
+    },
+}

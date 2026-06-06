@@ -31,6 +31,7 @@ elara-interp = { path = "crates/elara-interp" }
 elara-jit = { path = "crates/elara-jit" }
 elara-stdlib = { path = "crates/elara-stdlib" }
 elara-syntax = { path = "crates/elara-syntax" }
+elara-test = { path = "crates/elara-test" }
 
 [workspace.lints.rust]
 rust_2018_idioms = { level = "warn", priority = -1 }

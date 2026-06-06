@@ -20,3 +20,6 @@ pub use expr::{ParsedExpression, parse_expression};
 pub use lexer::{Lexed, lex};
 pub use stmt::{ParsedChunk, parse_chunk};
 pub use token::{Token, TokenKind};
+
+#[cfg(test)]
+mod parser_snapshots;

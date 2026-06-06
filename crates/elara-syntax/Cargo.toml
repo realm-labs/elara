@@ -7,5 +7,8 @@ license.workspace = true
 [dependencies]
 elara-core.workspace = true
 
+[dev-dependencies]
+elara-test.workspace = true
+
 [lints]
 workspace = true
