@@ -3,6 +3,13 @@
 use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
 use elara_core::{LuaFloat, LuaInteger, LuaThread, Table, Value};
 
+mod loops;
+
+use loops::{
+    execute_generic_for_call, execute_generic_for_loop, execute_numeric_for_loop,
+    prepare_numeric_for,
+};
+
 /// Result of executing one prototype.
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
 
@@ -153,6 +160,13 @@ fn execute_proto_with_upvalues(
                     pc = jump_target(pc, instr)?;
                 }
             }
+            Op::TForPrep => pc = jump_target(pc, instr)?,
+            Op::TForCall => execute_generic_for_call(&mut thread, closures, instr, tables)?,
+            Op::TForLoop => {
+                if execute_generic_for_loop(&mut thread, instr)? {
+                    pc = jump_target(pc, instr)?;
+                }
+            }
             Op::Test => {
                 let value = register(&thread, instr.a().into())?;
                 if is_truthy(value) != (instr.b() != 0) {
@@ -200,148 +214,6 @@ fn jump_target(pc: usize, instr: Instr) -> RuntimeResult<usize> {
 
 fn is_truthy(value: Value) -> bool {
     !value.is_nil() && value.as_bool() != Some(false)
-}
-
-fn prepare_numeric_for(thread: &mut LuaThread, instr: Instr) -> RuntimeResult<bool> {
-    let base = usize::from(instr.a());
-    let init = register(thread, base)?;
-    let limit = register(thread, base + 1)?;
-    let step = register(thread, base + 2)?;
-
-    if let (Some(init), Some(limit), Some(step)) = (
-        init.as_integer(),
-        limit.to_integer_exact(),
-        step.as_integer(),
-    ) {
-        return prepare_integer_for(thread, base, init, limit, step);
-    }
-
-    let init = init.to_float().ok_or(RuntimeError::ForLoopNonNumeric {
-        operand: "initial value",
-    })?;
-    let limit = limit
-        .to_float()
-        .ok_or(RuntimeError::ForLoopNonNumeric { operand: "limit" })?;
-    let step = step
-        .to_float()
-        .ok_or(RuntimeError::ForLoopNonNumeric { operand: "step" })?;
-    prepare_float_for(thread, base, init, limit, step)
-}
-
-fn prepare_integer_for(
-    thread: &mut LuaThread,
-    base: usize,
-    init: LuaInteger,
-    limit: LuaInteger,
-    step: LuaInteger,
-) -> RuntimeResult<bool> {
-    if step == 0 {
-        return Err(RuntimeError::ForLoopStepZero);
-    }
-    if should_skip_integer_for(init, limit, step) {
-        return Ok(true);
-    }
-
-    let count = if step > 0 {
-        (i128::from(limit) - i128::from(init)) / i128::from(step)
-    } else {
-        (i128::from(init) - i128::from(limit)) / -i128::from(step)
-    };
-    let count = LuaInteger::try_from(count).map_err(|_| RuntimeError::ForLoopCountOverflow)?;
-
-    set_register(thread, base, Value::integer(count))?;
-    set_register(thread, base + 1, Value::integer(step))?;
-    set_register(thread, base + 2, Value::integer(init))?;
-    Ok(false)
-}
-
-fn prepare_float_for(
-    thread: &mut LuaThread,
-    base: usize,
-    init: LuaFloat,
-    limit: LuaFloat,
-    step: LuaFloat,
-) -> RuntimeResult<bool> {
-    if step == 0.0 {
-        return Err(RuntimeError::ForLoopStepZero);
-    }
-    if should_skip_numeric_for(init, limit, step) {
-        return Ok(true);
-    }
-
-    set_register(thread, base, Value::float(limit))?;
-    set_register(thread, base + 1, Value::float(step))?;
-    set_register(thread, base + 2, Value::float(init))?;
-    Ok(false)
-}
-
-fn should_skip_numeric_for(init: LuaFloat, limit: LuaFloat, step: LuaFloat) -> bool {
-    if step > 0.0 {
-        init > limit
-    } else {
-        init < limit
-    }
-}
-
-fn should_skip_integer_for(init: LuaInteger, limit: LuaInteger, step: LuaInteger) -> bool {
-    if step > 0 { init > limit } else { init < limit }
-}
-
-fn execute_numeric_for_loop(thread: &mut LuaThread, instr: Instr) -> RuntimeResult<bool> {
-    let base = usize::from(instr.a());
-    let state = register(thread, base)?;
-    if let Some(count) = state.as_integer() {
-        return execute_integer_for_loop(thread, base, count);
-    }
-    execute_float_for_loop(thread, base)
-}
-
-fn execute_integer_for_loop(
-    thread: &mut LuaThread,
-    base: usize,
-    count: LuaInteger,
-) -> RuntimeResult<bool> {
-    if count <= 0 {
-        return Ok(false);
-    }
-
-    let step = register(thread, base + 1)?
-        .as_integer()
-        .ok_or(RuntimeError::ForLoopNonNumeric { operand: "step" })?;
-    let index = register(thread, base + 2)?
-        .as_integer()
-        .ok_or(RuntimeError::ForLoopNonNumeric {
-            operand: "initial value",
-        })?
-        .wrapping_add(step);
-    set_register(thread, base, Value::integer(count - 1))?;
-    set_register(thread, base + 2, Value::integer(index))?;
-    Ok(true)
-}
-
-fn execute_float_for_loop(thread: &mut LuaThread, base: usize) -> RuntimeResult<bool> {
-    let limit = register(thread, base)?
-        .as_float()
-        .ok_or(RuntimeError::ForLoopNonNumeric { operand: "limit" })?;
-    let step = register(thread, base + 1)?
-        .as_float()
-        .ok_or(RuntimeError::ForLoopNonNumeric { operand: "step" })?;
-    let index = register(thread, base + 2)?
-        .as_float()
-        .ok_or(RuntimeError::ForLoopNonNumeric {
-            operand: "initial value",
-        })?
-        + step;
-
-    let continues = if step > 0.0 {
-        index <= limit
-    } else {
-        index >= limit
-    };
-    if continues {
-        set_register(thread, base + 2, Value::float(index))?;
-    }
-    Ok(continues)
 }
 
 #[derive(Clone, Debug)]
@@ -420,13 +292,8 @@ fn execute_call(
     let closure_index = callee
         .as_closure_index()
         .ok_or(RuntimeError::NonCallableValue)? as usize;
-    let closure = closures
-        .get(closure_index)
-        .cloned()
-        .ok_or(RuntimeError::NonCallableValue)?;
     let args = collect_call_args(thread, instr)?;
-    let returns =
-        execute_proto_with_upvalues(&closure.proto, &closure.upvalues, &args, closures, tables)?;
+    let returns = call_closure(closures, closure_index, &args, tables)?;
 
     let base = usize::from(instr.a());
     let count = if instr.c() == 0 {
@@ -441,6 +308,19 @@ fn execute_call(
     }
 
     Ok((instr.c() == 0).then_some(base + count))
+}
+
+fn call_closure(
+    closures: &mut Vec<RuntimeClosure>,
+    closure_index: usize,
+    args: &[Value],
+    tables: &mut Vec<Table>,
+) -> RuntimeResult<Vec<Value>> {
+    let closure = closures
+        .get(closure_index)
+        .cloned()
+        .ok_or(RuntimeError::NonCallableValue)?;
+    execute_proto_with_upvalues(&closure.proto, &closure.upvalues, args, closures, tables)
 }
 
 fn collect_call_args(thread: &LuaThread, instr: Instr) -> RuntimeResult<Vec<Value>> {

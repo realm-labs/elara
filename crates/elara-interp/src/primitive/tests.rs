@@ -257,6 +257,58 @@ fn numeric_for_rejects_zero_step() {
 }
 
 #[test]
+fn generic_for_executes_iterator_result() {
+    let mut child_builder = ProtoBuilder::new().with_signature(1, 0, false);
+    let value = child_builder.add_constant(Value::integer(7));
+    child_builder.emit_abx(Op::LoadK, 0, u64::from(value));
+    child_builder.emit_abc(Op::Return, 0, 1, 0);
+    let child = child_builder.finish();
+
+    let mut parent = ProtoBuilder::new().with_signature(5, 0, false);
+    let child_index = parent.add_child(child);
+    parent.emit_abx(Op::Closure, 0, u64::from(child_index));
+    parent.emit_abc(Op::LoadNil, 1, 0, 0);
+    parent.emit_abc(Op::LoadNil, 2, 0, 0);
+    parent.emit_asbx(Op::TForPrep, 0, 1);
+    parent.emit_abc(Op::Return, 3, 1, 0);
+    parent.emit_abc(Op::TForCall, 0, 0, 1);
+    parent.emit_asbx(Op::TForLoop, 0, -3);
+    let fallback = parent.add_constant(Value::integer(0));
+    parent.emit_abx(Op::LoadK, 4, u64::from(fallback));
+    parent.emit_abc(Op::Return, 4, 1, 0);
+
+    assert_eq!(execute_proto(&parent.finish()), Ok(vec![Value::integer(7)]));
+}
+
+#[test]
+fn generic_for_skips_body_on_nil_iterator_result() {
+    let mut child_builder = ProtoBuilder::new().with_signature(1, 0, false);
+    child_builder.emit_abc(Op::LoadNil, 0, 0, 0);
+    child_builder.emit_abc(Op::Return, 0, 1, 0);
+    let child = child_builder.finish();
+
+    let mut parent = ProtoBuilder::new().with_signature(5, 0, false);
+    let child_index = parent.add_child(child);
+    parent.emit_abx(Op::Closure, 0, u64::from(child_index));
+    parent.emit_abc(Op::LoadNil, 1, 0, 0);
+    parent.emit_abc(Op::LoadNil, 2, 0, 0);
+    parent.emit_asbx(Op::TForPrep, 0, 2);
+    let body_value = parent.add_constant(Value::integer(99));
+    parent.emit_abx(Op::LoadK, 3, u64::from(body_value));
+    parent.emit_abc(Op::Return, 3, 1, 0);
+    parent.emit_abc(Op::TForCall, 0, 0, 1);
+    parent.emit_asbx(Op::TForLoop, 0, -4);
+    let fallback = parent.add_constant(Value::integer(42));
+    parent.emit_abx(Op::LoadK, 4, u64::from(fallback));
+    parent.emit_abc(Op::Return, 4, 1, 0);
+
+    assert_eq!(
+        execute_proto(&parent.finish()),
+        Ok(vec![Value::integer(42)])
+    );
+}
+
+#[test]
 fn varargs_pass_call_arguments_to_child_proto() {
     let mut child_builder = ProtoBuilder::new().with_signature(1, 0, true);
     child_builder.emit_abc(Op::Vararg, 0, 1, 0);

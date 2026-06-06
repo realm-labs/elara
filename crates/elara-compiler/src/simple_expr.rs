@@ -95,6 +95,11 @@ impl SimpleCompiler {
                     step,
                     body,
                 } => self.compile_numeric_for(name, init, limit, step.as_ref(), body),
+                StmtKind::GenericFor {
+                    names,
+                    values,
+                    body,
+                } => self.compile_generic_for(names, values, body),
                 StmtKind::Break => self.compile_break(statement.span()),
                 StmtKind::Return(values) => self.compile_return(values),
                 _ => self.diagnostics.push(

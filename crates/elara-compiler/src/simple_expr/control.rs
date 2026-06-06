@@ -95,6 +95,43 @@ impl SimpleCompiler {
         self.restore_local(name, previous_local);
     }
 
+    pub(super) fn compile_generic_for(
+        &mut self,
+        names: &[&str],
+        values: &[Expr<'_>],
+        body: &Block<'_>,
+    ) {
+        let base = self.next_register;
+        let result_count = u16::try_from(names.len()).expect("generic for name count must fit");
+        self.ensure_register_slot(base + 2 + result_count);
+
+        for index in 0..3 {
+            let target = base + index;
+            if let Some(value) = values.get(index as usize) {
+                let register = self.compile_expr(value);
+                self.emit_move(target, register);
+            } else {
+                self.builder.emit_abc(Op::LoadNil, target, 0, 0);
+            }
+        }
+
+        let previous_locals = self.install_generic_for_locals(base, names);
+        let prep_jump = self.emit_for_jump_placeholder(Op::TForPrep, base);
+        let body_start = self.builder.code_len();
+
+        self.push_loop();
+        self.compile_block(body.statements());
+        let breaks = self.pop_loop();
+
+        let call_start = self.builder.code_len();
+        self.builder
+            .emit_abc(Op::TForCall, base, 0, u32::from(result_count));
+        self.emit_for_jump_to(Op::TForLoop, base, body_start);
+        self.patch_for_jump(prep_jump, Op::TForPrep, base, call_start);
+        self.patch_breaks(breaks);
+        self.restore_locals(previous_locals);
+    }
+
     pub(super) fn compile_break(&mut self, span: elara_core::Span) {
         let jump = self.emit_jump_placeholder();
         if let Some(loop_breaks) = self.loop_breaks.last_mut() {
@@ -164,6 +201,28 @@ impl SimpleCompiler {
             self.locals.insert(name.to_owned(), register);
         } else {
             self.locals.remove(name);
+        }
+    }
+
+    fn install_generic_for_locals(
+        &mut self,
+        base: u16,
+        names: &[&str],
+    ) -> Vec<(String, Option<u16>)> {
+        let mut previous = Vec::with_capacity(names.len());
+        for (index, name) in names.iter().enumerate() {
+            let register = base + 3 + u16::try_from(index).expect("generic for index must fit");
+            previous.push((
+                (*name).to_owned(),
+                self.locals.insert((*name).to_owned(), register),
+            ));
+        }
+        previous
+    }
+
+    fn restore_locals(&mut self, previous: Vec<(String, Option<u16>)>) {
+        for (name, register) in previous {
+            self.restore_local(&name, register);
         }
     }
 }

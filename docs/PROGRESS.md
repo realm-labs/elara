@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M8 Control Flow and Iteration
-Current step: M8.4 Implement generic for loops
+Current milestone: M9 Tables, Metamethods, and Globals
+Current step: M9.1 Compile and execute table constructors
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -33,8 +33,9 @@ storage. Recursive function self-references compile and evaluate through shared
 runtime closure storage. Conditional branches compile and execute through
 `TEST`/`JMP` bytecode. `while`, `repeat`, and `break` compile and execute
 through branch bytecode. Numeric for loops compile and execute for integer and
-float control values with positive and negative steps. Generic for loops, full
-API, JIT, C API, conformance, and benchmark implementation work has not started.
+float control values with positive and negative steps. Generic for loops compile
+and execute through the iterator-call protocol. Table constructors, full API,
+JIT, C API, conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -78,9 +79,11 @@ Completed:
   - M8.1 Implement conditional branches.
   - M8.2 Implement while and repeat loops.
   - M8.3 Implement numeric for loops.
+  - M8.4 Implement generic for loops.
+  - M8 exit criteria validation.
 
 In progress:
-  - M8.4 Implement generic for loops.
+  - M9.1 Compile and execute table constructors.
   - Standard library.
   - Rust API.
   - JIT.
@@ -458,6 +461,19 @@ Delivered:
 - Source eval executes simple numeric `for` chunks with positive and negative
   steps.
 
+### Completed Step: M8.4 Implement generic for loops
+
+Delivered:
+
+- The simple compiler lowers generic `for` loops to `TFOR_PREP`, `TFOR_CALL`,
+  and `TFOR_LOOP`.
+- The bytecode verifier checks generic-for state and result register ranges.
+- The primitive interpreter executes iterator calls with state/control values.
+- Generic loops enter the body only when the first iterator result is non-nil.
+- Source eval executes simple generic `for` chunks using iterator functions.
+
+M8 is complete.
+
 ## Completed Content
 
 ### Planning Decisions
@@ -512,18 +528,22 @@ Delivered:
 - Conditional branches work through the compiler/interpreter/API path.
 - `while`, `repeat`, and `break` work through the compiler/interpreter/API path.
 - Numeric `for` loops work through the compiler/interpreter/API path.
+- Generic `for` loops work through the compiler/interpreter/API path.
 
 ## Remaining Gaps
 
-### Immediate Gaps for M8
+### Immediate Gaps for M9
 
-- Implement M8.4 generic for loops.
+- Implement M9.1 table constructors.
 
 ### Product Gaps
 
 Major implementation work is still pending:
 
-- Generic for loops.
+- Table constructors.
+- Table get/set bytecode execution.
+- Global declaration behavior.
+- Metamethod dispatch.
 - Standard library.
 - Rust API.
 - Cranelift JIT.
@@ -534,22 +554,22 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M8.3 numeric-for verification passed:
+M8.4 generic-for verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-bytecode numeric_for
-cargo test -p elara-compiler numeric_for
-cargo test -p elara-interp numeric_for
-cargo test -p elara-api numeric_for
+cargo test -p elara-bytecode generic_for
+cargo test -p elara-compiler generic_for
+cargo test -p elara-interp generic_for
+cargo test -p elara-api generic_for
 cargo clippy -p elara-bytecode -p elara-compiler -p elara-interp -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Implement M8.4 generic for loops from `docs/MILESTONES.md`, then inspect the
-relevant Lua 5.5 parser/compiler/VM source, run focused generic-for tests, and
-update this progress document.
+Implement M9.1 table constructors from `docs/MILESTONES.md`, then inspect the
+relevant Lua 5.5 parser/compiler/VM/table source, run focused table constructor
+tests, and update this progress document.
 
 ## Current Risk Notes
 
@@ -593,7 +613,8 @@ update this progress document.
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
-| Control flow | In progress | Conditional branches, `while`, `repeat`, `break`, and numeric `for` are implemented; generic for loops are next. |
+| Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
+| Tables/globals/metamethods | In progress | Table storage exists; table constructors are next. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

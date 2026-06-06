@@ -111,6 +111,28 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_executes_generic_for_iterator_result() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "local function once()\n  return 7\nend\nfor x in once do\n  return x\nend\nreturn 0",
+            ),
+            Ok(vec![Value::integer(7)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_skips_generic_for_nil_iterator_result() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "local function done()\n  return nil\nend\nfor x in done do\n  return 99\nend\nreturn 42",
+            ),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
     fn eval_simple_reports_compile_diagnostics() {
         let error = eval_simple_source(SourceId::new(0), "x = 1").unwrap_err();
 

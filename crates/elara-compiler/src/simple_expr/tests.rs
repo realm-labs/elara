@@ -95,6 +95,21 @@ fn numeric_for_compiles_default_step_loop() {
 }
 
 #[test]
+fn generic_for_compiles_iterator_protocol() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local function once()\n  return 1\nend\nfor x in once do\n  return x\nend\nreturn 0",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 CLOSURE       A=0 Bx=0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_NIL      A=2 B=0 C=0\n0003 LOAD_NIL      A=3 B=0 C=0\n0004 TFOR_PREP     A=1 sBx=1\n0005 RETURN        A=4 B=1 C=0\n0006 TFOR_CALL     A=1 B=0 C=1\n0007 TFOR_LOOP     A=1 sBx=-3\n0008 LOAD_K        A=5 Bx=0 ; 0\n0009 RETURN        A=5 B=1 C=0\n",
+    );
+}
+
+#[test]
 fn locals_compile_local_return() {
     let compiled = compile_simple_chunk(SourceId::new(0), "local x = 1 + 2\nreturn x");
     assert_eq!(compiled.diagnostics, Vec::new());

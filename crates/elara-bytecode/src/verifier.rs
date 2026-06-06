@@ -154,9 +154,16 @@ impl Verifier<'_> {
             }
             Op::TForPrep | Op::TForLoop => {
                 self.check_register(offset, instr.a());
+                self.check_register_range(offset, instr.a(), 4);
                 self.check_jump(offset, instr);
             }
-            Op::TForCall | Op::Test => {
+            Op::TForCall => {
+                self.check_register(offset, instr.a());
+                self.check_register_range(offset, instr.a(), 3);
+                let result_base = instr.a().saturating_add(3);
+                self.check_register_range(offset, result_base, instr.c());
+            }
+            Op::Test => {
                 self.check_register(offset, instr.a());
                 self.check_register(offset, instr.b());
             }
@@ -369,6 +376,22 @@ mod tests {
                 base: 0,
                 count: 3,
                 max_stack: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn verifier_rejects_out_of_bounds_generic_for_results() {
+        let mut builder = ProtoBuilder::new().with_signature(4, 0, false);
+        builder.emit_abc(Op::TForCall, 0, 0, 2);
+        let errors = verify_proto(&builder.finish()).unwrap_err();
+
+        assert_eq!(
+            errors[0].kind,
+            VerifyErrorKind::CallRangeOutOfBounds {
+                base: 3,
+                count: 2,
+                max_stack: 4,
             }
         );
     }
