@@ -6,3 +6,7 @@
 //!
 //! It must remain independent from syntax parsing, compilation, standard library
 //! policy, and JIT lowering details.
+
+pub mod spec;
+
+pub use spec::{LUA_SPEC, LUA_VERSION, LuaSpec, LuaVersion};

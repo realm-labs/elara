@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M1 Language Specification and Test Harness  
-Current step: M1.1 Add spec module
+Current step: M1.2 Add diagnostic and source span primitives
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -12,9 +12,9 @@ replace stale status with the current state instead of appending history.
 ## Current Snapshot
 
 Elara has a Cargo workspace skeleton with project documentation, quality gates,
-and documented crate boundaries. Runtime, parser, compiler, bytecode,
-interpreter, API, JIT, C API, conformance, and benchmark implementation work has
-not started.
+documented crate boundaries, and a single current Lua language target in
+`elara-core`. Runtime, parser, compiler, bytecode, interpreter, API, JIT, C API,
+conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -27,9 +27,10 @@ Completed:
   - M0.1 Create workspace skeleton.
   - M0.2 Add lint, formatting, and CI configuration.
   - M0.3 Define crate-level module policies.
+  - M1.1 Add spec module.
 
 Not started:
-  - M1.1 Add spec module.
+  - M1.2 Add diagnostic and source span primitives.
   - Runtime core.
   - Parser.
   - Compiler.
@@ -92,24 +93,32 @@ Delivered:
 
 M0 is complete.
 
-### Current Step: M1.1 Add spec module
+### Completed Step: M1.1 Add spec module
+
+Delivered:
+
+- `elara-core` exposes `LuaVersion`, `LuaSpec`, `LUA_VERSION`, and `LUA_SPEC`.
+- The current target is Lua 5.5 / Lua 5.5.0.
+- No old-version `LuaDialect` enum or compatibility flag was added.
+
+### Current Step: M1.2 Add diagnostic and source span primitives
 
 Expected deliverables:
 
-- `elara-core` exposes `LuaVersion` and `LUA_SPEC`.
-- Constants for current language target.
-- No `LuaDialect` enum for old versions.
+- `SourceId`, `Span`, and `Spanned<T>`.
+- Diagnostic severity and structured messages.
+- Basic display tests.
 
 Recommended verification:
 
 ```bash
-cargo test -p elara-core
+cargo test -p elara-core diagnostics
 ```
 
 Recommended commit:
 
 ```text
-feat(core): define current lua spec
+feat(core): add source spans and diagnostics
 ```
 
 ## Completed Content
@@ -134,12 +143,12 @@ feat(core): define current lua spec
 - Root README describes project positioning and workspace layout.
 - Workspace quality gates are configured through Cargo lints, rustfmt, and GitHub Actions.
 - Crate-level module docs describe boundary policies.
+- The current Lua target is declared once in `elara-core`.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M1
 
-- Add a single current Lua spec module in `elara-core`.
 - Add source span and diagnostic primitives.
 - Add test fixture layout and snapshot baseline.
 
@@ -165,26 +174,26 @@ All implementation work is still pending:
 
 ## Last Verification
 
-M0.3 verification passed:
+M1.1 verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
+cargo test -p elara-core
 ```
 
 ## Next Recommended Action
 
-Implement M1.1 from `docs/MILESTONES.md`:
+Implement M1.2 from `docs/MILESTONES.md`:
 
-1. Add current Lua version/spec constants in `elara-core`.
-2. Avoid any old-version dialect enum or compatibility flags.
-3. Run `cargo test -p elara-core`.
-4. Update this progress document.
-5. Commit with:
+1. Add `SourceId`, `Span`, and `Spanned<T>` in `elara-core`.
+2. Add diagnostic severity and structured diagnostic messages.
+3. Add focused display tests.
+4. Run `cargo test -p elara-core diagnostics`.
+5. Update this progress document.
+6. Commit with:
 
 ```text
-feat(core): define current lua spec
+feat(core): add source spans and diagnostics
 ```
 
 ## Current Risk Notes
@@ -207,7 +216,8 @@ feat(core): define current lua spec
 | Workspace | Complete | Virtual workspace and placeholder member crates exist. |
 | CI and lints | Complete | Cargo lints, rustfmt, and GitHub Actions are configured. |
 | Crate boundary docs | Complete | Module docs describe crate responsibilities and dependencies. |
-| Lua spec | Not started | Current step. |
+| Lua spec | Complete | `elara-core` declares Lua 5.5 / 5.5.0 as the only current target. |
+| Diagnostics | Not started | Current step. |
 | Core runtime | Not started | Starts M2. |
 | Parser | Not started | Starts M4. |
 | Compiler | Not started | Starts M5. |
