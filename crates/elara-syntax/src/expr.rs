@@ -23,14 +23,14 @@ pub fn parse_expression(source: SourceId, input: &str) -> ParsedExpression<'_> {
     parser.parse_top_level_expression()
 }
 
-struct Parser<'src> {
+pub(crate) struct Parser<'src> {
     tokens: Vec<Token<'src>>,
     current: usize,
     diagnostics: Vec<Diagnostic>,
 }
 
 impl<'src> Parser<'src> {
-    fn new(tokens: Vec<Token<'src>>, diagnostics: Vec<Diagnostic>) -> Self {
+    pub(crate) fn new(tokens: Vec<Token<'src>>, diagnostics: Vec<Diagnostic>) -> Self {
         Self {
             tokens,
             current: 0,
@@ -56,7 +56,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_expression(&mut self, min_precedence: u8) -> Expr<'src> {
+    pub(crate) fn parse_expression(&mut self, min_precedence: u8) -> Expr<'src> {
         let mut left = if let Some(op) = self.current_unary_op() {
             let op_token = self.advance();
             let expr = self.parse_expression(UNARY_PRECEDENCE);
@@ -321,7 +321,7 @@ impl<'src> Parser<'src> {
         })
     }
 
-    fn expect(&mut self, kind: TokenKind, message: &'static str) -> Option<Token<'src>> {
+    pub(crate) fn expect(&mut self, kind: TokenKind, message: &'static str) -> Option<Token<'src>> {
         if self.check(kind) {
             Some(self.advance())
         } else {
@@ -330,7 +330,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn match_kind(&mut self, kind: TokenKind) -> bool {
+    pub(crate) fn match_kind(&mut self, kind: TokenKind) -> bool {
         if self.check(kind) {
             self.advance();
             true
@@ -339,21 +339,21 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn check(&self, kind: TokenKind) -> bool {
+    pub(crate) fn check(&self, kind: TokenKind) -> bool {
         self.current_kind() == kind
     }
 
-    fn check_next(&self, kind: TokenKind) -> bool {
+    pub(crate) fn check_next(&self, kind: TokenKind) -> bool {
         self.tokens
             .get(self.current + 1)
             .is_some_and(|token| token.kind() == kind)
     }
 
-    fn current_kind(&self) -> TokenKind {
+    pub(crate) fn current_kind(&self) -> TokenKind {
         self.tokens[self.current].kind()
     }
 
-    fn advance(&mut self) -> Token<'src> {
+    pub(crate) fn advance(&mut self) -> Token<'src> {
         let token = self.tokens[self.current];
         if token.kind() != TokenKind::Eof {
             self.current += 1;
@@ -361,17 +361,29 @@ impl<'src> Parser<'src> {
         token
     }
 
-    fn previous(&self) -> Token<'src> {
+    pub(crate) fn previous(&self) -> Token<'src> {
         self.tokens[self.current - 1]
     }
 
-    fn error_current(&mut self, message: &'static str) {
+    pub(crate) fn error_current(&mut self, message: &'static str) {
         self.error_at(self.tokens[self.current], message);
     }
 
-    fn error_at(&mut self, token: Token<'src>, message: &'static str) {
+    pub(crate) fn error_at(&mut self, token: Token<'src>, message: &'static str) {
         self.diagnostics
             .push(Diagnostic::error(message).with_primary_span(token.span()));
+    }
+
+    pub(crate) fn current_token(&self) -> Token<'src> {
+        self.tokens[self.current]
+    }
+
+    pub(crate) fn is_at_end(&self) -> bool {
+        self.check(TokenKind::Eof)
+    }
+
+    pub(crate) fn into_diagnostics(self) -> Vec<Diagnostic> {
+        self.diagnostics
     }
 }
 
@@ -382,7 +394,7 @@ struct BinaryInfo {
     right_associative: bool,
 }
 
-fn merge_spans(left: Span, right: Span) -> Span {
+pub(crate) fn merge_spans(left: Span, right: Span) -> Span {
     Span::new(left.source(), left.start(), right.end())
 }
 

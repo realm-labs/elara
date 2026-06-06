@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M4 Lexer and Parser  
-Current step: M4.3 Implement statement parser
+Current step: M4.4 Implement parser snapshots and error tests
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -17,9 +17,9 @@ documented crate boundaries, and a single current Lua language target in
 test fixture/conformance/differential directory layout exists with a snapshot
 baseline. Primitive runtime values, the basic GC skeleton, Lua strings with
 short-string interning, table array/hash storage with metadata versioning, Lua
-tokenization, and expression parsing are implemented. Statement parsing,
-compiler, bytecode, interpreter, API, JIT, C API, conformance, and benchmark
-implementation work has not started.
+tokenization, expression parsing, and statement parsing are implemented. Parser
+snapshots/error coverage, compiler, bytecode, interpreter, API, JIT, C API,
+conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -46,9 +46,10 @@ Completed:
   - M3.4 Add metatable field and table versioning.
   - M4.1 Implement lexer for tokens and literals.
   - M4.2 Implement expression parser.
+  - M4.3 Implement statement parser.
 
 Not started:
-  - M4.3 Implement statement parser.
+  - M4.4 Implement parser snapshots and error tests.
   - Compiler.
   - Bytecode.
   - Interpreter.
@@ -242,9 +243,9 @@ Delivered:
 - Table constructors.
 - Vararg expression.
 
-### Current Step: M4.3 Implement statement parser
+### Completed Step: M4.3 Implement statement parser
 
-Expected deliverables:
+Delivered:
 
 - Assignment.
 - Local declarations.
@@ -253,16 +254,24 @@ Expected deliverables:
 - If/while/repeat/for.
 - Return/break/goto/labels where current Lua supports them.
 
+### Current Step: M4.4 Implement parser snapshots and error tests
+
+Expected deliverables:
+
+- Snapshot tests for representative chunks.
+- Error tests for malformed syntax.
+- AST pretty debug output.
+
 Recommended verification:
 
 ```bash
-cargo test -p elara-syntax stmt
+cargo test -p elara-syntax
 ```
 
 Recommended commit:
 
 ```text
-feat(syntax): parse lua statements
+test(syntax): add parser snapshots
 ```
 
 ## Completed Content
@@ -301,12 +310,13 @@ feat(syntax): parse lua statements
 - Table metatable metadata, meta flags, and structural versioning are available.
 - Lua tokenization with spans and lexical diagnostics is available in `elara-syntax`.
 - Lua expression AST and precedence parsing are available in `elara-syntax`.
+- Lua statement AST and block parsing are available in `elara-syntax`.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M4
 
-- Add statement AST and parser.
+- Add parser snapshots and malformed syntax tests.
 
 ### Product Gaps
 
@@ -326,27 +336,27 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M4.2 verification passed:
+M4.3 verification passed:
 
 ```bash
 cargo fmt --all -- --check
 cargo clippy -p elara-syntax --all-targets -- -D warnings
-cargo test -p elara-syntax expr
+cargo test -p elara-syntax stmt
 ```
 
 ## Next Recommended Action
 
-Implement M4.3 from `docs/MILESTONES.md`:
+Implement M4.4 from `docs/MILESTONES.md`:
 
-1. Add statement AST nodes with spans.
-2. Parse assignment, local/global declarations, function declarations, control flow, return, break, goto, and labels.
-3. Keep statement parsing source-only, with no runtime execution semantics.
-4. Run `cargo test -p elara-syntax stmt`.
+1. Add parser snapshot tests for representative chunks.
+2. Add malformed syntax tests with diagnostic spans.
+3. Ensure AST debug output is readable enough for snapshots.
+4. Run `cargo test -p elara-syntax`.
 5. Update this progress document.
 6. Commit with:
 
 ```text
-feat(syntax): parse lua statements
+test(syntax): add parser snapshots
 ```
 
 ## Current Risk Notes
@@ -384,7 +394,8 @@ feat(syntax): parse lua statements
 | Table metadata | Complete | Metatable pointer, meta flags, and structural versioning are implemented. |
 | Lexer | Complete | Lua 5.5 tokens, literals, comments, and lexical diagnostics are implemented. |
 | Expression parser | Complete | Expression AST, precedence parsing, calls, table constructors, and varargs are implemented. |
-| Statement parser | Not started | Current step. |
+| Statement parser | Complete | Declarations, assignments, control flow, function declarations, labels, and returns are implemented. |
+| Parser snapshots | Not started | Current step. |
 | Compiler | Not started | Starts M5. |
 | Interpreter | Not started | Starts M6. |
 | Rust API | Not started | Starts M12. |
