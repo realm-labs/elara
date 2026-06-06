@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M0 Repository Bootstrap  
-Current step: M0.2 Add lint, formatting, and CI configuration
+Current step: M0.3 Define crate-level module policies
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -24,12 +24,12 @@ Completed:
   - Architecture direction selected: Rust-native VM, high-level API, optional Cranelift JIT.
   - Documentation drafts prepared.
   - M0.1 Create workspace skeleton.
-
-In progress:
   - M0.2 Add lint, formatting, and CI configuration.
 
-Not started:
+In progress:
   - M0.3 Define crate-level module policies.
+
+Not started:
   - Runtime core.
   - Parser.
   - Compiler.
@@ -73,27 +73,33 @@ Delivered:
   - `elara-test`
   - `elara-bench`
 
-### Current Step: M0.2 Add lint, formatting, and CI configuration
+### Completed Step: M0.2 Add lint, formatting, and CI configuration
+
+Delivered:
+
+- Shared lint configuration in workspace `Cargo.toml`.
+- Member crates inherit workspace lint settings.
+- Root `.rustfmt.toml`.
+- GitHub Actions CI for fmt, clippy, and tests.
+
+### Current Step: M0.3 Define crate-level module policies
 
 Expected deliverables:
 
-- Shared lint configuration in workspace `Cargo.toml`.
-- `.rustfmt.toml` if needed.
-- GitHub Actions or equivalent CI for fmt, clippy, and test.
-- Basic `xtask` placeholder if desired.
+- Each crate has `lib.rs` with module-level docs.
+- `elara` top-level crate re-exports only stable public API placeholders.
+- `docs/PROGRESS.md` says M0 is in progress or complete.
 
 Recommended verification:
 
 ```bash
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
 Recommended commit:
 
 ```text
-chore(ci): add workspace quality gates
+docs(workspace): document crate boundaries
 ```
 
 ## Completed Content
@@ -115,12 +121,12 @@ chore(ci): add workspace quality gates
 - Workspace uses placeholder member crates for the architecture-defined layers.
 - Each placeholder crate has a minimal manifest and `src/lib.rs`.
 - Root README describes project positioning and workspace layout.
+- Workspace quality gates are configured through Cargo lints, rustfmt, and GitHub Actions.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M0
 
-- Add lint and CI configuration in M0.2.
 - Add crate boundary docs in M0.3.
 
 ### Product Gaps
@@ -145,26 +151,26 @@ All implementation work is still pending:
 
 ## Last Verification
 
-M0.1 verification passed:
+M0.2 verification passed:
 
 ```bash
-cargo metadata --format-version 1
 cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
 ```
 
 ## Next Recommended Action
 
-Implement M0.2 from `docs/MILESTONES.md`:
+Implement M0.3 from `docs/MILESTONES.md`:
 
-1. Add shared workspace lint configuration.
-2. Add formatting configuration if needed.
-3. Add CI for fmt, clippy, and tests.
-4. Run the recommended M0.2 verification commands.
-5. Update this progress document.
-6. Commit with:
+1. Expand crate-level module docs to state boundaries and responsibilities.
+2. Ensure the virtual root workspace remains aligned with the architecture.
+3. Run `cargo test --workspace`.
+4. Update this progress document.
+5. Commit with:
 
 ```text
-chore(ci): add workspace quality gates
+docs(workspace): document crate boundaries
 ```
 
 ## Current Risk Notes
@@ -185,8 +191,8 @@ chore(ci): add workspace quality gates
 | Milestone plan | Drafted | Present in `docs/`. |
 | Codex goal | Drafted | Present in `docs/`. |
 | Workspace | Complete | Virtual workspace and placeholder member crates exist. |
-| CI and lints | Not started | Current step. |
-| Crate boundary docs | Not started | Planned for M0.3. |
+| CI and lints | Complete | Cargo lints, rustfmt, and GitHub Actions are configured. |
+| Crate boundary docs | Not started | Current step. |
 | Core runtime | Not started | Starts M2. |
 | Parser | Not started | Starts M4. |
 | Compiler | Not started | Starts M5. |

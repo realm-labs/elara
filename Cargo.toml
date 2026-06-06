@@ -29,3 +29,13 @@ elara-interp = { path = "crates/elara-interp" }
 elara-jit = { path = "crates/elara-jit" }
 elara-stdlib = { path = "crates/elara-stdlib" }
 elara-syntax = { path = "crates/elara-syntax" }
+
+[workspace.lints.rust]
+rust_2018_idioms = { level = "warn", priority = -1 }
+unsafe_op_in_unsafe_fn = "deny"
+unused_lifetimes = "deny"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+dbg_macro = "deny"
