@@ -352,13 +352,13 @@ fn locals_compile_assignment() {
 }
 
 #[test]
-fn locals_report_unknown_assignment_target() {
-    let compiled = compile_simple_chunk(SourceId::new(0), "x = 1\nreturn x");
+fn globals_report_undeclared_assignment_after_declaration() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "global answer\nmissing = 1");
 
     assert!(compiled.proto.is_none());
     assert_eq!(
         compiled.diagnostics[0].message(),
-        "assignment target is not a declared local"
+        "variable 'missing' not declared"
     );
 }
 
