@@ -1,10 +1,19 @@
 //! Primitive bytecode execution.
 
 use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
-use elara_core::{LuaFloat, LuaInteger, LuaThread, Value};
+use elara_core::{LuaFloat, LuaInteger, LuaThread, Table, Value};
 
 /// Result of executing one prototype.
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
+
+/// Values and temporary runtime-owned tables produced by primitive execution.
+#[derive(Debug)]
+pub struct RuntimeOutput {
+    /// Returned Lua values.
+    pub values: Vec<Value>,
+    /// Runtime table storage referenced by table placeholder values.
+    pub tables: Vec<Table>,
+}
 
 /// Primitive interpreter runtime error.
 #[derive(Clone, Debug, PartialEq)]
@@ -29,14 +38,22 @@ pub enum RuntimeError {
 
 /// Executes a verified prototype and returns the first return values.
 pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
+    execute_proto_with_output(proto).map(|output| output.values)
+}
+
+/// Executes a verified prototype and returns values plus runtime-owned tables.
+pub fn execute_proto_with_output(proto: &Proto) -> RuntimeResult<RuntimeOutput> {
     verify_proto(proto).map_err(RuntimeError::Verification)?;
-    execute_proto_with_upvalues(proto, &[], &[])
+    let mut tables = Vec::new();
+    let values = execute_proto_with_upvalues(proto, &[], &[], &mut tables)?;
+    Ok(RuntimeOutput { values, tables })
 }
 
 fn execute_proto_with_upvalues(
     proto: &Proto,
     upvalues: &[Value],
     varargs: &[Value],
+    tables: &mut Vec<Table>,
 ) -> RuntimeResult<Vec<Value>> {
     let mut thread = LuaThread::new();
     for _ in 0..proto.max_stack {
@@ -119,8 +136,9 @@ fn execute_proto_with_upvalues(
                     dynamic_top = top;
                 }
             }
+            Op::VarargTable => execute_vararg_table(&mut thread, instr, varargs, tables)?,
             Op::Call => {
-                if let Some(top) = execute_call(proto, &mut thread, &closures, instr)? {
+                if let Some(top) = execute_call(proto, &mut thread, &closures, instr, tables)? {
                     dynamic_top = top;
                 }
             }
@@ -195,11 +213,30 @@ fn execute_vararg(
     Ok((instr.b() == 0).then_some(base + count))
 }
 
+fn execute_vararg_table(
+    thread: &mut LuaThread,
+    instr: Instr,
+    varargs: &[Value],
+    tables: &mut Vec<Table>,
+) -> RuntimeResult<()> {
+    let mut table = Table::new();
+    for (index, value) in varargs.iter().copied().enumerate() {
+        let key =
+            LuaInteger::try_from(index + 1).expect("vararg table index must fit in LuaInteger");
+        table.raw_set_integer(key, value);
+    }
+
+    let table_index = u32::try_from(tables.len()).expect("runtime table index must fit in u32");
+    tables.push(table);
+    set_register(thread, instr.a().into(), Value::table_index(table_index))
+}
+
 fn execute_call(
     proto: &Proto,
     thread: &mut LuaThread,
     closures: &[RuntimeClosure],
     instr: Instr,
+    tables: &mut Vec<Table>,
 ) -> RuntimeResult<Option<usize>> {
     let callee = register(thread, instr.a().into())?;
     let closure_index = callee
@@ -215,7 +252,7 @@ fn execute_call(
             index: closure.child_index,
         })?;
     let args = collect_call_args(thread, instr)?;
-    let returns = execute_proto_with_upvalues(child, &closure.upvalues, &args)?;
+    let returns = execute_proto_with_upvalues(child, &closure.upvalues, &args, tables)?;
 
     let base = usize::from(instr.a());
     let count = if instr.c() == 0 {
@@ -319,7 +356,7 @@ mod tests {
     use elara_bytecode::{Op, ProtoBuilder};
     use elara_core::Value;
 
-    use crate::{RuntimeError, execute_proto};
+    use super::{RuntimeError, execute_proto, execute_proto_with_output};
 
     #[test]
     fn arithmetic_executes_integer_addition() {
@@ -518,5 +555,33 @@ mod tests {
             execute_proto(&parent.finish()),
             Ok(vec![Value::integer(42), Value::integer(99)])
         );
+    }
+
+    #[test]
+    fn varargs_named_table_contains_arguments() {
+        let mut child_builder = ProtoBuilder::new().with_signature(1, 0, true);
+        child_builder.emit_abc(Op::VarargTable, 0, 0, 0);
+        child_builder.emit_abc(Op::Return, 0, 1, 0);
+        let child = child_builder.finish();
+
+        let mut parent = ProtoBuilder::new().with_signature(3, 0, false);
+        let first = parent.add_constant(Value::integer(42));
+        let second = parent.add_constant(Value::integer(99));
+        let child_index = parent.add_child(child);
+        parent.emit_abx(Op::Closure, 0, u64::from(child_index));
+        parent.emit_abx(Op::LoadK, 1, u64::from(first));
+        parent.emit_abx(Op::LoadK, 2, u64::from(second));
+        parent.emit_abc(Op::Call, 0, 3, 1);
+        parent.emit_abc(Op::Return, 0, 1, 0);
+
+        let output = execute_proto_with_output(&parent.finish()).expect("execution should pass");
+        let table_index = output.values[0]
+            .as_table_index()
+            .expect("expected table placeholder");
+        let table = &output.tables[table_index as usize];
+
+        assert_eq!(table.raw_get_integer(1), Value::integer(42));
+        assert_eq!(table.raw_get_integer(2), Value::integer(99));
+        assert_eq!(table.raw_get_integer(3), Value::nil());
     }
 }

@@ -32,7 +32,7 @@ fn simple_expr_compiles_unary_arithmetic() {
 
 #[test]
 fn simple_expr_reports_unsupported_statement() {
-    let compiled = compile_simple_chunk(SourceId::new(0), "x = 1");
+    let compiled = compile_simple_chunk(SourceId::new(0), "while true do end");
 
     assert!(compiled.proto.is_none());
     assert_eq!(
@@ -133,6 +133,27 @@ fn varargs_compile_anonymous_vararg_call() {
     assert_snapshot_eq(
         disassemble(&proto.children[0]),
         "0000 VARARG        A=0 B=1 C=0\n0001 RETURN        A=0 B=1 C=0\n",
+    );
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 CLOSURE       A=0 Bx=0\n0001 LOAD_K        A=1 Bx=0 ; 42\n0002 CALL          A=0 B=2 C=1\n0003 RETURN        A=0 B=1 C=0\n",
+    );
+}
+
+#[test]
+fn varargs_compile_named_vararg_table() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local function args(... rest)\n  return rest\nend\nreturn args(42)",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_eq!(proto.children.len(), 1);
+    assert!(proto.children[0].is_vararg);
+    assert_snapshot_eq(
+        disassemble(&proto.children[0]),
+        "0000 VARARG_TABLE  A=0 B=0 C=0\n0001 RETURN        A=0 B=1 C=0\n",
     );
     assert_snapshot_eq(
         disassemble(&proto),

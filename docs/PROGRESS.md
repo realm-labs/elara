@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-06  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M7 Variables, Scopes, Closures, and Calls  
-Current step: M7.4 Implement varargs and named vararg table
+Current step: M7 exit criteria validation
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -28,7 +28,8 @@ Simple function Protos and zero-argument Lua calls are implemented. Closures,
 upvalues, and captured outer local reads are implemented. Anonymous vararg
 functions can receive call arguments and lower `...` for the first requested
 value. Fixed-count Lua calls can receive multiple return values. Named vararg
-tables, full API, JIT, C API, conformance, and benchmark implementation work
+tables are compiled to `VARARG_TABLE` and executed through runtime-owned table
+storage. Full API, JIT, C API, conformance, and benchmark implementation work
 has not started.
 
 Current state:
@@ -68,13 +69,11 @@ Completed:
   - M7.1 Implement local variables and assignment.
   - M7.2 Implement function Protos and Lua calls.
   - M7.3 Implement closures and upvalues.
+  - M7.4 Implement varargs and named vararg table.
 
 In progress:
-  - M7.4 Implement varargs and named vararg table.
-    - Anonymous vararg argument passing and first-value `...` lowering are implemented.
-    - Fixed-count multiple call results are implemented.
-    - Open-ended vararg call/return results are implemented.
-    - Named vararg table support remains.
+  - M7 exit criteria validation.
+    - Recursive functions still need validation and, if necessary, implementation.
   - Standard library.
   - Rust API.
   - JIT.
@@ -377,23 +376,22 @@ Delivered:
 - Closure bytecode.
 - Tests for nested functions.
 
-### Current Step: M7.4 Implement varargs and named vararg table
+### Completed Step: M7.4 Implement varargs and named vararg table
 
-Expected deliverables:
+Delivered:
 
 - Vararg function handling.
 - `...` lowering.
 - Named vararg table support for current Lua.
 - Multiple return tests.
-
-Delivered so far:
-
 - Anonymous vararg functions can be compiled with `Proto::is_vararg`.
 - `...` lowers to `VARARG` in anonymous vararg functions.
 - Lua call arguments are placed in call registers and passed to child Protos.
 - The primitive interpreter executes simple `VARARG` reads with nil fill.
 - Fixed-count `CALL` results write all requested return registers with nil fill.
 - Open-ended `VARARG`, `CALL`, and `RETURN` propagate all available results.
+- Named vararg tables lower to `VARARG_TABLE`.
+- The primitive interpreter materializes named vararg tables into runtime-owned table storage.
 
 Recommended verification:
 
@@ -456,12 +454,13 @@ feat(runtime): support varargs
 - Anonymous vararg argument passing and first-value `...` lowering work in the compiler/interpreter path.
 - Fixed-count multiple call results work in the primitive interpreter.
 - Open-ended vararg call/return results work in the primitive interpreter.
+- Named vararg tables compile and execute through runtime-owned table storage.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M7
 
-- Finish M7.4 named vararg table support.
+- Validate and implement recursive function behavior required by M7 exit criteria.
 
 ### Product Gaps
 
@@ -481,27 +480,26 @@ Major implementation work is still pending:
 
 ## Last Verification
 
-M7.4 open-ended vararg result sub-step verification passed:
+M7.4 named vararg table verification passed:
 
 ```bash
 cargo fmt --all
+cargo test -p elara-core table_placeholder
+cargo test -p elara-compiler varargs
 cargo test -p elara-interp varargs
+cargo clippy -p elara-core --all-targets -- -D warnings
+cargo clippy -p elara-compiler --all-targets -- -D warnings
 cargo clippy -p elara-interp --all-targets -- -D warnings
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check
 ```
 
 ## Next Recommended Action
 
-Continue M7.4 from `docs/MILESTONES.md`:
-
-1. Add named vararg table support for current Lua.
-2. Run `cargo test -p elara-interp varargs`.
-3. Update this progress document.
-4. Commit with:
-
-```text
-feat(runtime): support varargs
-```
+Validate M7 exit criteria from `docs/MILESTONES.md`, starting with recursive
+functions. If recursive calls do not work, implement the smallest safe closure or
+upvalue runtime change needed before moving to M8.
 
 ## Current Risk Notes
 
@@ -544,7 +542,7 @@ feat(runtime): support varargs
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
-| Variables/scopes | In progress | Local variables, assignment basics, simple calls, captured outer local reads, anonymous vararg argument passing, and multiple call results are implemented. |
+| Variables/scopes | In progress | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, and multiple call results are implemented. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

@@ -94,9 +94,9 @@ impl SimpleCompiler {
         name: &str,
         body: &FunctionBody<'_>,
     ) {
-        let is_vararg = match body.params.as_slice() {
-            [] => false,
-            [Param::Vararg(None)] => true,
+        let named_vararg = match body.params.as_slice() {
+            [] => None,
+            [Param::Vararg(name)] => Some(*name),
             _ => {
                 self.diagnostics.push(
                     Diagnostic::error("function parameters are not supported yet")
@@ -107,7 +107,10 @@ impl SimpleCompiler {
         };
 
         let mut child = SimpleCompiler::new_child(self.locals.clone());
-        child.is_vararg = is_vararg;
+        child.is_vararg = named_vararg.is_some();
+        if let Some(Some(name)) = named_vararg {
+            child.define_named_vararg_table(name);
+        }
         child.compile_block(body.block.statements());
         let result = child.finish();
         if !result.diagnostics.is_empty() {
@@ -119,6 +122,11 @@ impl SimpleCompiler {
         let child_index = self.builder.add_child(result.proto.expect("child proto"));
         self.builder
             .emit_abx(Op::Closure, register, u64::from(child_index));
+    }
+
+    fn define_named_vararg_table(&mut self, name: &str) {
+        let register = self.ensure_local(name);
+        self.builder.emit_abc(Op::VarargTable, register, 0, 0);
     }
 
     fn compile_return(&mut self, values: &[Expr<'_>]) {

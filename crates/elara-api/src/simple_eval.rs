@@ -54,7 +54,7 @@ mod tests {
             EvalError::Diagnostics(diagnostics) => {
                 assert_eq!(
                     diagnostics[0].message(),
-                    "unsupported statement in simple expression compiler"
+                    "assignment target is not a declared local"
                 );
             }
             EvalError::Runtime(error) => panic!("expected diagnostics, got {error:?}"),

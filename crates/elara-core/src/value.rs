@@ -52,6 +52,7 @@ enum ValueRepr {
     Float(LuaFloat),
     ShortString(GcRef<ShortString>),
     LongString(GcRef<LongString>),
+    Table(u32),
     Closure(u32),
 }
 
@@ -107,6 +108,14 @@ impl Value {
         }
     }
 
+    /// Creates a temporary Lua table value from a runtime table index.
+    #[must_use]
+    pub const fn table_index(value: u32) -> Self {
+        Self {
+            repr: ValueRepr::Table(value),
+        }
+    }
+
     /// Creates a temporary Lua closure value from a child prototype index.
     #[must_use]
     pub const fn closure_index(value: u32) -> Self {
@@ -125,6 +134,7 @@ impl Value {
             ValueRepr::Float(_) => ValueTag::Float,
             ValueRepr::ShortString(_) => ValueTag::ShortString,
             ValueRepr::LongString(_) => ValueTag::LongString,
+            ValueRepr::Table(_) => ValueTag::Table,
             ValueRepr::Closure(_) => ValueTag::Closure,
         }
     }
@@ -154,6 +164,12 @@ impl Value {
             self.repr,
             ValueRepr::ShortString(_) | ValueRepr::LongString(_)
         )
+    }
+
+    /// Returns true for Lua table placeholders.
+    #[must_use]
+    pub const fn is_table(self) -> bool {
+        matches!(self.repr, ValueRepr::Table(_))
     }
 
     /// Returns true for Lua closure placeholders.
@@ -203,6 +219,15 @@ impl Value {
     pub const fn as_long_string(self) -> Option<GcRef<LongString>> {
         match self.repr {
             ValueRepr::LongString(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the runtime table index when this value is a table placeholder.
+    #[must_use]
+    pub const fn as_table_index(self) -> Option<u32> {
+        match self.repr {
+            ValueRepr::Table(value) => Some(value),
             _ => None,
         }
     }
@@ -266,6 +291,7 @@ impl PartialEq for Value {
             (ValueRepr::Float(left), ValueRepr::Integer(right)) => integer_float_eq(right, left),
             (ValueRepr::ShortString(left), ValueRepr::ShortString(right)) => left == right,
             (ValueRepr::LongString(left), ValueRepr::LongString(right)) => left == right,
+            (ValueRepr::Table(left), ValueRepr::Table(right)) => left == right,
             (ValueRepr::Closure(left), ValueRepr::Closure(right)) => left == right,
             _ => false,
         }
@@ -335,6 +361,15 @@ mod tests {
     }
 
     #[test]
+    fn value_table_placeholder_round_trips() {
+        let value = Value::table_index(7);
+
+        assert_eq!(value.tag(), ValueTag::Table);
+        assert!(value.is_table());
+        assert_eq!(value.as_table_index(), Some(7));
+    }
+
+    #[test]
     fn value_equality_matches_lua_primitive_number_rules() {
         assert_eq!(Value::nil(), Value::nil());
         assert_eq!(Value::boolean(true), Value::boolean(true));
@@ -343,6 +378,8 @@ mod tests {
         assert_eq!(Value::float(42.0), Value::float(42.0));
         assert_eq!(Value::integer(42), Value::float(42.0));
         assert_ne!(Value::integer(42), Value::float(42.5));
+        assert_eq!(Value::table_index(1), Value::table_index(1));
+        assert_ne!(Value::table_index(1), Value::table_index(2));
         assert_ne!(Value::integer(42), Value::boolean(true));
     }
 
