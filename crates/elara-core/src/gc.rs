@@ -201,6 +201,17 @@ struct RootEntry {
     ptr: NonNull<()>,
 }
 
+struct GcAllocation {
+    ptr: NonNull<()>,
+    object: Box<dyn GcObject>,
+}
+
+impl GcAllocation {
+    fn header(&self) -> &GcHeader {
+        self.object.header()
+    }
+}
+
 /// Allocation statistics for a GC arena.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct GcStats {
@@ -212,10 +223,21 @@ pub struct GcStats {
     pub roots: usize,
 }
 
+/// Result of one stop-the-world collection.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct GcCollectionStats {
+    /// Objects reached from roots.
+    pub marked: usize,
+    /// Objects reclaimed by sweep.
+    pub swept: usize,
+    /// Objects remaining after collection.
+    pub live_objects: usize,
+}
+
 /// Runtime-owned list of GC allocations.
 #[derive(Default)]
 pub struct GcArena {
-    objects: Vec<Box<dyn GcObject>>,
+    objects: Vec<GcAllocation>,
     roots: Vec<RootEntry>,
     total_allocations: usize,
     next_root_id: u64,
@@ -241,7 +263,10 @@ impl GcArena {
         let boxed = Box::new(object);
         let ptr = NonNull::from(boxed.as_ref());
 
-        self.objects.push(boxed);
+        self.objects.push(GcAllocation {
+            ptr: ptr.cast(),
+            object: boxed,
+        });
         self.total_allocations += 1;
 
         // SAFETY: `ptr` points into a Box now owned by `self.objects`. The Box
@@ -314,167 +339,65 @@ impl GcArena {
             roots: self.roots.len(),
         }
     }
+
+    /// Runs one stop-the-world mark-sweep collection.
+    pub fn collect_garbage(&mut self) -> GcCollectionStats {
+        self.reset_marks();
+        let marked = self.mark_roots();
+        let swept = self.sweep_unmarked();
+        self.prune_dead_roots();
+        self.reset_marks();
+
+        GcCollectionStats {
+            marked,
+            swept,
+            live_objects: self.objects.len(),
+        }
+    }
+
+    fn reset_marks(&self) {
+        for allocation in &self.objects {
+            allocation.header().set_color(GcColor::White);
+        }
+    }
+
+    fn mark_roots(&self) -> usize {
+        let mut marked = 0;
+
+        for root in &self.roots {
+            if let Some(allocation) = self
+                .objects
+                .iter()
+                .find(|allocation| allocation.ptr == root.ptr)
+            {
+                let header = allocation.header();
+                if header.color() != GcColor::Black {
+                    header.set_color(GcColor::Gray);
+                    header.set_color(GcColor::Black);
+                    marked += 1;
+                }
+            }
+        }
+
+        marked
+    }
+
+    fn sweep_unmarked(&mut self) -> usize {
+        let before = self.objects.len();
+        self.objects
+            .retain(|allocation| allocation.header().color() == GcColor::Black);
+        before - self.objects.len()
+    }
+
+    fn prune_dead_roots(&mut self) {
+        let live_ptrs = self
+            .objects
+            .iter()
+            .map(|allocation| allocation.ptr)
+            .collect::<Vec<_>>();
+        self.roots.retain(|root| live_ptrs.contains(&root.ptr));
+    }
 }
 
 #[cfg(test)]
-mod tests {
-    use core::ptr::NonNull;
-    use std::sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    };
-
-    use super::{GcArena, GcColor, GcHeader, GcKind, GcObject, GcRef, GcStats};
-
-    #[derive(Debug)]
-    struct TestObject {
-        header: GcHeader,
-    }
-
-    impl TestObject {
-        fn new() -> Self {
-            Self {
-                header: GcHeader::new(GcKind::Table),
-            }
-        }
-    }
-
-    impl GcObject for TestObject {
-        fn header(&self) -> &GcHeader {
-            &self.header
-        }
-    }
-
-    struct DropObject {
-        header: GcHeader,
-        drops: Arc<AtomicUsize>,
-    }
-
-    impl DropObject {
-        fn new(drops: Arc<AtomicUsize>) -> Self {
-            Self {
-                header: GcHeader::new(GcKind::UserData),
-                drops,
-            }
-        }
-    }
-
-    impl Drop for DropObject {
-        fn drop(&mut self) {
-            self.drops.fetch_add(1, Ordering::SeqCst);
-        }
-    }
-
-    impl GcObject for DropObject {
-        fn header(&self) -> &GcHeader {
-            &self.header
-        }
-    }
-
-    #[test]
-    fn gc_header_tracks_kind_and_color() {
-        let header = GcHeader::new(GcKind::Closure);
-
-        assert_eq!(header.kind(), GcKind::Closure);
-        assert_eq!(header.color(), GcColor::White);
-
-        header.set_color(GcColor::Gray);
-        assert_eq!(header.color(), GcColor::Gray);
-
-        header.set_color(GcColor::Black);
-        assert_eq!(header.color(), GcColor::Black);
-    }
-
-    #[test]
-    fn gc_ref_compares_object_identity() {
-        let object = TestObject::new();
-        let other = TestObject::new();
-
-        // SAFETY: The test objects are stack allocated and live for the entire
-        // duration of the references used in this test.
-        let reference = unsafe { GcRef::from_non_null(NonNull::from(&object)) };
-        // SAFETY: Same object and lifetime as `reference`.
-        let same = unsafe { GcRef::from_non_null(NonNull::from(&object)) };
-        // SAFETY: `other` is stack allocated and lives for this test.
-        let different = unsafe { GcRef::from_non_null(NonNull::from(&other)) };
-
-        assert_eq!(reference, same);
-        assert!(reference.ptr_eq(same));
-        assert_ne!(reference, different);
-    }
-
-    #[test]
-    fn gc_ref_borrows_object_and_header_through_unsafe_helpers() {
-        let object = TestObject::new();
-        // SAFETY: The test object is stack allocated and lives for the entire
-        // duration of the reference used in this test.
-        let reference = unsafe { GcRef::from_non_null(NonNull::from(&object)) };
-
-        // SAFETY: `object` is still alive and has not moved.
-        let borrowed = unsafe { reference.as_ref() };
-        assert_eq!(borrowed.header().kind(), GcKind::Table);
-
-        // SAFETY: `object` is still alive and has not moved.
-        let header = unsafe { reference.header() };
-        assert_eq!(header.kind(), GcKind::Table);
-    }
-
-    #[test]
-    fn gc_alloc_arena_allocates_objects_and_tracks_stats() {
-        let mut arena = GcArena::new();
-
-        assert!(arena.is_empty());
-        assert_eq!(arena.stats(), GcStats::default());
-
-        let reference = arena.allocate(TestObject::new());
-
-        assert_eq!(arena.len(), 1);
-        assert_eq!(
-            arena.stats(),
-            GcStats {
-                live_objects: 1,
-                total_allocations: 1,
-                roots: 0,
-            }
-        );
-
-        // SAFETY: The arena owns the allocated object and is still alive.
-        let object = unsafe { reference.as_ref() };
-        assert_eq!(object.kind(), GcKind::Table);
-    }
-
-    #[test]
-    fn gc_alloc_root_placeholder_tracks_registered_roots() {
-        let mut arena = GcArena::new();
-        let reference = arena.allocate(TestObject::new());
-
-        let root = arena.add_root(reference);
-
-        assert_eq!(root.id(), 0);
-        assert_eq!(arena.root_count(), 1);
-        assert!(arena.contains_root(root));
-        assert!(arena.contains_root_for(root, reference));
-        assert_eq!(arena.stats().roots, 1);
-
-        assert!(arena.remove_root(root));
-        assert!(!arena.contains_root(root));
-        assert_eq!(arena.root_count(), 0);
-        assert!(!arena.remove_root(root));
-    }
-
-    #[test]
-    fn gc_alloc_arena_drops_owned_objects() {
-        let drops = Arc::new(AtomicUsize::new(0));
-
-        {
-            let mut arena = GcArena::new();
-            arena.allocate(DropObject::new(Arc::clone(&drops)));
-            arena.allocate(DropObject::new(Arc::clone(&drops)));
-
-            assert_eq!(drops.load(Ordering::SeqCst), 0);
-            assert_eq!(arena.stats().live_objects, 2);
-        }
-
-        assert_eq!(drops.load(Ordering::SeqCst), 2);
-    }
-}
+mod tests;

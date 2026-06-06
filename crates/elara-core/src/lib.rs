@@ -13,6 +13,8 @@ pub mod spec;
 pub mod value;
 
 pub use diagnostics::{Diagnostic, DiagnosticLabel, DiagnosticSeverity, SourceId, Span, Spanned};
-pub use gc::{GcArena, GcColor, GcHeader, GcKind, GcObject, GcRef, GcRoot, GcStats};
+pub use gc::{
+    GcArena, GcCollectionStats, GcColor, GcHeader, GcKind, GcObject, GcRef, GcRoot, GcStats,
+};
 pub use spec::{LUA_SPEC, LUA_VERSION, LuaSpec, LuaVersion};
 pub use value::{LuaFloat, LuaInteger, Value, ValueTag, float_to_integer_exact};
