@@ -52,3 +52,6 @@ version = "0.1.0"
 [[package]]
 name = "elara-test"
 version = "0.1.0"
+dependencies = [
+ "elara-core",
+]
