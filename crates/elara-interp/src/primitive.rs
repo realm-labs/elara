@@ -70,7 +70,7 @@ pub struct PrimitiveCoroutine {
 }
 
 #[derive(Debug)]
-struct CoroutineFrame {
+pub(super) struct CoroutineFrame {
     proto: Proto,
     upvalues: Vec<Value>,
     varargs: Vec<Value>,
@@ -166,6 +166,7 @@ impl PrimitiveCoroutine {
                 CoroutineResume::Yield(values)
             }
             Err(error) => {
+                let error = self.close_for_error(error);
                 self.thread.finish();
                 CoroutineResume::Error(error)
             }
@@ -298,6 +299,21 @@ impl PrimitiveCoroutine {
         }
         Ok(None)
     }
+
+    fn close_for_error(&mut self, error: RuntimeError) -> RuntimeError {
+        match close_to_count(
+            &self.thread,
+            &mut self.closures,
+            &mut self.tables,
+            &mut self.strings,
+            &mut self.globals,
+            &mut self.to_be_closed,
+            0,
+        ) {
+            Ok(()) => error,
+            Err(close_error) => close_error,
+        }
+    }
 }
 
 impl CoroutineFrame {
@@ -318,6 +334,11 @@ impl CoroutineFrame {
             yielded_base: None,
             tbc_start,
         }
+    }
+
+    #[cfg(test)]
+    pub(super) fn test_root(proto: Proto, tbc_start: usize) -> Self {
+        Self::new(proto, Vec::new(), Vec::new(), None, tbc_start)
     }
 }
 
@@ -540,10 +561,13 @@ fn execute_proto_with_upvalues(
     }
     let mut dynamic_top = 0;
     let mut pc = 0;
-    while pc < proto.code.len() {
+    let result = loop {
+        if pc >= proto.code.len() {
+            break Ok(Vec::new());
+        }
         let instr = proto.code[pc];
         pc += 1;
-        match execute_instruction(
+        let flow = execute_instruction(
             proto,
             &mut thread,
             upvalues,
@@ -553,17 +577,35 @@ fn execute_proto_with_upvalues(
             &mut pc,
             instr,
             ExecutionMode::OneShot,
-        )? {
-            InstructionFlow::Continue => {}
-            InstructionFlow::Return(values) => return Ok(values),
-            InstructionFlow::Call { .. } => unreachable!("one-shot execution handles calls inline"),
-            InstructionFlow::Yield { .. } => {
-                return Err(RuntimeErrorKind::YieldOutsideCoroutine.into());
+        );
+        match flow {
+            Err(error) => break Err(error),
+            Ok(InstructionFlow::Continue) => {}
+            Ok(InstructionFlow::Return(values)) => break Ok(values),
+            Ok(InstructionFlow::Call { .. }) => {
+                unreachable!("one-shot execution handles calls inline")
+            }
+            Ok(InstructionFlow::Yield { .. }) => {
+                break Err(RuntimeErrorKind::YieldOutsideCoroutine.into());
             }
         }
-    }
+    };
 
-    Ok(Vec::new())
+    match result {
+        Ok(values) => Ok(values),
+        Err(error) => {
+            close_to_count(
+                &thread,
+                context.closures,
+                context.tables,
+                context.strings,
+                context.globals,
+                context.to_be_closed,
+                0,
+            )?;
+            Err(error)
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

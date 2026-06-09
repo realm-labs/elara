@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-09  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M10 Errors, Protected Calls, Coroutines, and To-Be-Closed Variables
-Current step: M10.4 Implement to-be-closed variables
+Current milestone: M11 Standard Library MVP
+Current step: M11.1 Add library registration framework
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -67,8 +67,10 @@ explicit protected-call boundary. Primitive bytecode coroutines can transition
 through runnable, running, suspended, and dead states, yield from Lua frames,
 resume with values, and propagate errors through dead coroutine status.
 To-be-closed locals now lower to `TBC`/`CLOSE`, and primitive normal-return
-close paths can validate and invoke `__close` metamethods. To-be-closed error
-and coroutine interaction paths, standard library, full API, JIT, C API,
+close paths can validate and invoke `__close` metamethods. Runtime error
+unwinding runs pending close methods before returning the original error when
+close succeeds, and primitive coroutines keep close variables alive across
+yield before closing them on finish. Standard library, full API, JIT, C API,
 conformance, and benchmark implementation work remain.
 
 Current state:
@@ -122,10 +124,10 @@ Completed:
   - M10.1 Implement structured runtime errors.
   - M10.2 Implement protected calls.
   - M10.3 Implement coroutines and yield/resume.
+  - M10.4 Implement to-be-closed variables.
 
 In progress:
-  - M10.4 Implement to-be-closed variables.
-  - Standard library.
+  - M11.1 Add library registration framework.
   - Rust API.
   - JIT.
   - C API.
@@ -642,13 +644,18 @@ Delivered:
 - Primitive runtime `TBC` validates non-nil/non-false values for `__close` and
   `CLOSE` calls close metamethods in reverse registration order for normal
   close paths.
+- Runtime error paths close pending to-be-closed values before preserving the
+  original error when close succeeds.
+- Primitive coroutine yield keeps pending to-be-closed values alive, and
+  coroutine completion closes them.
 
 ## Remaining Gaps
 
-### Immediate Gaps for M10
+### Immediate Gaps for M11
 
-- Finish to-be-closed behavior during runtime errors and coroutine
-  interactions.
+- Add the standard-library registration framework and profile model.
+- Register libraries into the runtime global table once the primitive runtime
+  has a public registration hook.
 
 ### Product Gaps
 
@@ -667,17 +674,17 @@ M9 is complete.
 M10.1 is complete.
 M10.2 is complete.
 M10.3 is complete.
+M10.4 is complete.
+M10 is complete.
 
 ## Last Verification
 
-M10.4 to-be-closed normal-return slice verification passed:
+M10.4 to-be-closed completion verification passed:
 
 ```bash
 cargo test -p elara-compiler to_be_closed
 cargo test -p elara-interp to_be_closed
-cargo test -p elara-compiler simple_expr
 cargo test -p elara-interp --lib
-cargo test -p elara-api eval_simple
 cargo clippy -p elara-compiler -p elara-interp -p elara-api --all-targets -- -D warnings
 ```
 
@@ -686,8 +693,8 @@ issues on Windows even after the touched files are formatted.
 
 ## Next Recommended Action
 
-Continue M10.4 by adding error-unwind close behavior, then coroutine close
-interaction tests.
+Start M11.1 by defining a standard-library registration/profile abstraction in
+`elara-stdlib`, then connect it to runtime globals.
 
 ## Current Risk Notes
 

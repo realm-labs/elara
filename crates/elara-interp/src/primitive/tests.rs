@@ -2,7 +2,7 @@ use elara_bytecode::{Instr, Op, ProtoBuilder};
 use elara_core::{Table, ThreadStatus, Value};
 
 use super::{
-    CoroutineResume, ExecutionContext, PrimitiveCoroutine, ProtectedRuntimeOutput,
+    CoroutineFrame, CoroutineResume, ExecutionContext, PrimitiveCoroutine, ProtectedRuntimeOutput,
     RuntimeErrorKind, RuntimeGlobals, RuntimeStrings, RuntimeTables, close_to_base, execute_proto,
     execute_proto_protected, execute_proto_with_output, execute_tbc,
 };
@@ -383,6 +383,145 @@ fn to_be_closed_nil_and_false_do_not_require_close() {
     assert_eq!(
         execute_proto(&builder.finish()),
         Ok(vec![Value::integer(7)])
+    );
+}
+
+#[test]
+fn to_be_closed_error_unwind_runs_close_metamethod() {
+    let mut close_builder = ProtoBuilder::new().with_signature(2, 0, false);
+    let closed_name = close_builder.add_string_constant("closed");
+    let one = close_builder.add_constant(Value::integer(1));
+    close_builder.emit_abx(Op::LoadK, 0, u64::from(one));
+    close_builder.emit_abx(Op::SetEnv, 0, u64::from(closed_name));
+    close_builder.emit_abc(Op::Return, 0, 0, 0);
+
+    let mut closures = vec![super::RuntimeClosure {
+        proto: close_builder.finish(),
+        upvalues: Vec::new(),
+    }];
+    let mut tables = RuntimeTables::new();
+    let table = tables.push_table(Table::new());
+    let mut strings = RuntimeStrings::new();
+    let close_key = strings.intern_short_value("__close");
+    let mut metatable = Table::new();
+    assert!(metatable.raw_set_value(close_key, Value::closure_index(0)));
+    let metatable = tables.push_table(metatable);
+    tables
+        .set_metatable(table as usize, Some(metatable))
+        .expect("metatable link should be valid");
+    let mut globals = runtime_globals(&mut tables);
+    let mut to_be_closed = Vec::new();
+    let mut thread = elara_core::LuaThread::new();
+    thread.push_value(Value::table_index(table));
+    thread.push_value(Value::boolean(true));
+    thread.push_value(Value::boolean(false));
+    thread.push_value(Value::nil());
+
+    {
+        let mut context = ExecutionContext {
+            closures: &mut closures,
+            tables: &mut tables,
+            strings: &mut strings,
+            globals: &mut globals,
+            to_be_closed: &mut to_be_closed,
+        };
+        execute_tbc(&thread, &mut context, Instr::abc(Op::Tbc, 0, 0, 0))
+            .expect("table should be closable");
+    }
+    let error = super::execute_arithmetic(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Add, 3, 1, 2),
+        &mut tables,
+        &mut strings,
+        &mut globals,
+    )
+    .unwrap_err();
+    close_to_base(
+        &thread,
+        &mut closures,
+        &mut tables,
+        &mut strings,
+        &mut globals,
+        &mut to_be_closed,
+        0,
+    )
+    .expect("error close should execute");
+
+    assert_eq!(
+        error.kind(),
+        &RuntimeErrorKind::NonNumericOperand { op: Op::Add }
+    );
+    let closed_key = strings.intern_short_value("closed");
+    let global_table = globals.value().as_table_index().expect("global table");
+    assert_eq!(
+        tables[global_table as usize].raw_get_value(closed_key),
+        Value::integer(1)
+    );
+}
+
+#[test]
+fn to_be_closed_coroutine_yield_does_not_close_until_finish() {
+    let mut close_builder = ProtoBuilder::new().with_signature(1, 0, false);
+    let closed_name = close_builder.add_string_constant("closed");
+    let one = close_builder.add_constant(Value::integer(1));
+    close_builder.emit_abx(Op::LoadK, 0, u64::from(one));
+    close_builder.emit_abx(Op::SetEnv, 0, u64::from(closed_name));
+    close_builder.emit_abc(Op::Return, 0, 0, 0);
+
+    let mut coroutine =
+        PrimitiveCoroutine::new(ProtoBuilder::new().with_signature(0, 0, false).finish())
+            .expect("empty coroutine should be created");
+    coroutine.closures.push(super::RuntimeClosure {
+        proto: close_builder.finish(),
+        upvalues: Vec::new(),
+    });
+    let table = coroutine.tables.push_table(Table::new());
+    let close_key = coroutine.strings.intern_short_value("__close");
+    let mut metatable = Table::new();
+    assert!(metatable.raw_set_value(close_key, Value::closure_index(0)));
+    let metatable = coroutine.tables.push_table(metatable);
+    coroutine
+        .tables
+        .set_metatable(table as usize, Some(metatable))
+        .expect("metatable link should be valid");
+    coroutine.thread.push_value(Value::table_index(table));
+    coroutine.thread.push_value(Value::integer(7));
+
+    let mut frame = CoroutineFrame::test_root(
+        {
+            let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
+            builder.emit_abc(Op::Tbc, 0, 0, 0);
+            builder.emit_abc(Op::Yield, 1, 1, 0);
+            builder.emit_abc(Op::Return, 1, 1, 0);
+            builder.finish()
+        },
+        0,
+    );
+    frame.pc = 0;
+    coroutine.frames = vec![frame];
+
+    assert_eq!(
+        coroutine.resume(&[]),
+        CoroutineResume::Yield(vec![Value::integer(7)])
+    );
+    let closed_key = coroutine.strings.intern_short_value("closed");
+    let global_table = coroutine
+        .globals
+        .value()
+        .as_table_index()
+        .expect("global table");
+    assert_eq!(
+        coroutine.tables[global_table as usize].raw_get_value(closed_key),
+        Value::nil()
+    );
+    assert_eq!(
+        coroutine.resume(&[]),
+        CoroutineResume::Return(vec![Value::integer(7)])
+    );
+    assert_eq!(
+        coroutine.tables[global_table as usize].raw_get_value(closed_key),
+        Value::integer(1)
     );
 }
 
