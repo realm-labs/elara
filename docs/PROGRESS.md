@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-09  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M11 Standard Library MVP
-Current step: M11.1 Add library registration framework
+Current step: M11.2 Implement base, table, math, and string essentials
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -70,8 +70,9 @@ To-be-closed locals now lower to `TBC`/`CLOSE`, and primitive normal-return
 close paths can validate and invoke `__close` metamethods. Runtime error
 unwinding runs pending close methods before returning the original error when
 close succeeds, and primitive coroutines keep close variables alive across
-yield before closing them on finish. Standard library, full API, JIT, C API,
-conformance, and benchmark implementation work remain.
+yield before closing them on finish. The standard-library crate now exposes a
+profile/set/registry framework plus generic global registration adapters. Full
+API, JIT, C API, conformance, and benchmark implementation work remain.
 
 Current state:
 
@@ -125,9 +126,10 @@ Completed:
   - M10.2 Implement protected calls.
   - M10.3 Implement coroutines and yield/resume.
   - M10.4 Implement to-be-closed variables.
+  - M11.1 Add library registration framework.
 
 In progress:
-  - M11.1 Add library registration framework.
+  - M11.2 Implement base, table, math, and string essentials.
   - Rust API.
   - JIT.
   - C API.
@@ -648,14 +650,18 @@ Delivered:
   original error when close succeeds.
 - Primitive coroutine yield keeps pending to-be-closed values alive, and
   coroutine completion closes them.
+- `elara-stdlib` exposes `Library`, `StdLib`, `StdLibSet`,
+  `StdLibProfile`, `StdLibRegistry`, `GlobalRegistry`, and `GlobalLibrary`.
+- Standard-library profiles expand to deterministic library sets and can
+  register selected implementations into a generic global target.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M11
 
-- Add the standard-library registration framework and profile model.
-- Register libraries into the runtime global table once the primitive runtime
-  has a public registration hook.
+- Implement first essential base, table, math, and string library entries.
+- Connect stdlib registration to an Elara runtime/global environment once the
+  primitive runtime has a public registration hook.
 
 ### Product Gaps
 
@@ -676,16 +682,15 @@ M10.2 is complete.
 M10.3 is complete.
 M10.4 is complete.
 M10 is complete.
+M11.1 is complete.
 
 ## Last Verification
 
-M10.4 to-be-closed completion verification passed:
+M11.1 stdlib registry verification passed:
 
 ```bash
-cargo test -p elara-compiler to_be_closed
-cargo test -p elara-interp to_be_closed
-cargo test -p elara-interp --lib
-cargo clippy -p elara-compiler -p elara-interp -p elara-api --all-targets -- -D warnings
+cargo test -p elara-stdlib registry
+cargo clippy -p elara-stdlib --all-targets -- -D warnings
 ```
 
 `cargo fmt --all -- --check` currently reports workspace-wide newline-style
@@ -693,8 +698,8 @@ issues on Windows even after the touched files are formatted.
 
 ## Next Recommended Action
 
-Start M11.1 by defining a standard-library registration/profile abstraction in
-`elara-stdlib`, then connect it to runtime globals.
+Start M11.2 by adding placeholder essential library implementations and tests
+for base, table, math, and string registration.
 
 ## Current Risk Notes
 
