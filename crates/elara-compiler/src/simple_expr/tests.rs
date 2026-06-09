@@ -171,7 +171,7 @@ fn globals_compile_declaration_assignment_and_read() {
 
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 LOAD_K        A=0 Bx=0 ; 41\n0001 GET_ENV       A=1 Bx=0 ; \"answer\"\n0002 DECL_GLOBAL   A=1 Bx=1 ; \"answer\"\n0003 SET_ENV       A=0 Bx=2 ; \"answer\"\n0004 GET_ENV       A=2 Bx=3 ; \"answer\"\n0005 LOAD_K        A=3 Bx=1 ; 1\n0006 ADD           A=2 B=2 C=3\n0007 SET_ENV       A=2 Bx=4 ; \"answer\"\n0008 GET_ENV       A=4 Bx=5 ; \"answer\"\n0009 RETURN        A=4 B=1 C=0\n",
+        "0000 LOAD_K        A=0 Bx=0 ; 41\n0001 GET_UPVALUE   A=1 B=0 C=0\n0002 LOAD_STRING   A=2 Bx=0 ; \"answer\"\n0003 GET_TABLE     A=3 B=1 C=2\n0004 DECL_GLOBAL   A=3 Bx=1 ; \"answer\"\n0005 GET_UPVALUE   A=4 B=0 C=0\n0006 LOAD_STRING   A=5 Bx=2 ; \"answer\"\n0007 SET_TABLE     A=4 B=5 C=0\n0008 GET_UPVALUE   A=6 B=0 C=0\n0009 LOAD_STRING   A=7 Bx=3 ; \"answer\"\n0010 GET_TABLE     A=8 B=6 C=7\n0011 LOAD_K        A=9 Bx=1 ; 1\n0012 ADD           A=8 B=8 C=9\n0013 GET_UPVALUE   A=10 B=0 C=0\n0014 LOAD_STRING   A=11 Bx=4 ; \"answer\"\n0015 SET_TABLE     A=10 B=11 C=8\n0016 GET_UPVALUE   A=12 B=0 C=0\n0017 LOAD_STRING   A=13 Bx=5 ; \"answer\"\n0018 GET_TABLE     A=14 B=12 C=13\n0019 RETURN        A=14 B=1 C=0\n",
     );
 }
 
@@ -181,9 +181,27 @@ fn globals_compile_implicit_preambular_global_access() {
     assert_eq!(compiled.diagnostics, Vec::new());
     let proto = compiled.proto.expect("expected compiled proto");
 
+    assert_eq!(proto.upvalues.len(), 1);
+    assert_eq!(proto.upvalues[0].name.as_deref(), Some("_ENV"));
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 LOAD_K        A=0 Bx=0 ; 42\n0001 SET_ENV       A=0 Bx=0 ; \"answer\"\n0002 GET_ENV       A=1 Bx=1 ; \"answer\"\n0003 RETURN        A=1 B=1 C=0\n",
+        "0000 LOAD_K        A=0 Bx=0 ; 42\n0001 GET_UPVALUE   A=1 B=0 C=0\n0002 LOAD_STRING   A=2 Bx=0 ; \"answer\"\n0003 SET_TABLE     A=1 B=2 C=0\n0004 GET_UPVALUE   A=3 B=0 C=0\n0005 LOAD_STRING   A=4 Bx=1 ; \"answer\"\n0006 GET_TABLE     A=5 B=3 C=4\n0007 RETURN        A=5 B=1 C=0\n",
+    );
+}
+
+#[test]
+fn globals_compile_root_env_as_default_upvalue() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "return _ENV");
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_eq!(proto.upvalues.len(), 1);
+    assert_eq!(proto.upvalues[0].name.as_deref(), Some("_ENV"));
+    assert!(!proto.upvalues[0].in_stack);
+    assert_eq!(proto.upvalues[0].index, 0);
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 GET_UPVALUE   A=0 B=0 C=0\n0001 RETURN        A=0 B=1 C=0\n",
     );
 }
 
@@ -260,7 +278,7 @@ fn globals_compile_global_function_declaration() {
 
     assert!(disassembly.contains("CLOSURE"));
     assert!(disassembly.contains("DECL_GLOBAL"));
-    assert!(disassembly.contains("SET_ENV"));
+    assert!(disassembly.contains("SET_TABLE"));
     assert_eq!(proto.children.len(), 1);
 }
 

@@ -1,7 +1,7 @@
 //! Primitive bytecode execution.
 
 use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
-use elara_core::{GcArena, LuaFloat, LuaInteger, LuaThread, StringInterner, Value};
+use elara_core::{GcArena, LuaFloat, LuaInteger, LuaThread, StringInterner, Table, Value};
 
 mod global;
 mod loops;
@@ -123,10 +123,11 @@ pub fn execute_proto_with_output(proto: &Proto) -> RuntimeResult<RuntimeOutput> 
     let mut closures = Vec::new();
     let mut tables = RuntimeTables::new();
     let mut strings = RuntimeStrings::new();
-    let mut globals = RuntimeGlobals::new();
+    let global_table = tables.push_table(Table::new());
+    let mut globals = RuntimeGlobals::new(global_table);
     let values = execute_proto_with_upvalues(
         proto,
-        &[],
+        &[globals.value()],
         &[],
         &mut closures,
         &mut tables,
@@ -206,11 +207,11 @@ fn execute_proto_with_upvalues(
             }
             Op::GetEnv => {
                 let name = string_constant(proto, instr)?;
-                execute_get_env(&mut thread, instr, name, globals, strings)?;
+                execute_get_env(&mut thread, instr, name, globals, strings, tables)?;
             }
             Op::SetEnv => {
                 let name = string_constant(proto, instr)?;
-                execute_set_env(&thread, instr, name, globals, strings)?;
+                execute_set_env(&thread, instr, name, globals, strings, tables)?;
             }
             Op::DeclGlobal => {
                 let name = string_constant(proto, instr)?;

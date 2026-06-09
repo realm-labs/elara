@@ -38,6 +38,9 @@ impl SimpleCompiler {
         if let Some(register) = self.locals.get(name).copied() {
             return register;
         }
+        if self.globals.contains_key(name) {
+            return self.emit_get_global(name);
+        }
         if let Some(upvalue) = self.upvalue_index(name) {
             let register = self.alloc_register();
             self.builder
@@ -61,6 +64,21 @@ impl SimpleCompiler {
             return;
         }
 
+        if self.globals.contains_key(name) {
+            self.compile_global_name_assignment(target, name, value);
+            return;
+        }
+
+        if let Some(upvalue) = self.upvalue_index(name) {
+            self.builder
+                .emit_abc(Op::SetUpvalue, value, u32::from(upvalue), 0);
+            return;
+        }
+
+        self.compile_global_name_assignment(target, name, value);
+    }
+
+    fn compile_global_name_assignment(&mut self, target: &Expr<'_>, name: &str, value: u16) {
         match self.global_access(name) {
             Some(GlobalAccess::ReadWrite) => self.emit_set_global(name, value),
             Some(GlobalAccess::ReadOnly) => self.diagnostics.push(
@@ -163,6 +181,9 @@ impl SimpleCompiler {
     }
 
     fn emit_env_register(&mut self) -> Option<u16> {
+        if self.globals.contains_key("_ENV") {
+            return None;
+        }
         if let Some(register) = self.locals.get("_ENV").copied() {
             return Some(register);
         }
@@ -193,7 +214,7 @@ impl SimpleCompiler {
 
     fn lexical_env_available(&self) -> bool {
         self.locals.contains_key("_ENV")
-            || self.upvalues.contains_key("_ENV")
+            || (!self.globals.contains_key("_ENV") && self.upvalues.contains_key("_ENV"))
             || self.enclosing_locals.contains_key("_ENV")
     }
 

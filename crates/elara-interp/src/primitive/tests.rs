@@ -421,6 +421,25 @@ fn globals_execute_set_get_env() {
 }
 
 #[test]
+fn globals_default_env_upvalue_matches_get_set_env_table() {
+    let mut builder = ProtoBuilder::new().with_signature(4, 0, false);
+    builder.add_upvalue(elara_bytecode::UpvalueDesc::new(Some("_ENV"), false, 0));
+    let name = builder.add_string_constant("answer");
+    let value = builder.add_constant(Value::integer(42));
+    builder.emit_abx(Op::LoadK, 0, u64::from(value));
+    builder.emit_abx(Op::SetEnv, 0, u64::from(name));
+    builder.emit_abc(Op::GetUpvalue, 1, 0, 0);
+    builder.emit_abx(Op::LoadString, 2, u64::from(name));
+    builder.emit_abc(Op::GetTable, 3, 1, 2);
+    builder.emit_abc(Op::Return, 3, 1, 0);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Ok(vec![Value::integer(42)])
+    );
+}
+
+#[test]
 fn globals_declaration_rejects_existing_value() {
     let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
     let name = builder.add_string_constant("answer");

@@ -17,6 +17,11 @@ fn constant_closure(value: Value) -> RuntimeClosure {
     }
 }
 
+fn runtime_globals(tables: &mut RuntimeTables) -> RuntimeGlobals {
+    let global_table = tables.push_table(Table::new());
+    RuntimeGlobals::new(global_table)
+}
+
 #[test]
 fn metamethods_arithmetic_calls_left_operand_add() {
     let mut strings = RuntimeStrings::new();
@@ -30,7 +35,7 @@ fn metamethods_arithmetic_calls_left_operand_add() {
         .set_metatable(table as usize, Some(metatable))
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::integer(42))];
-    let mut globals = RuntimeGlobals::new();
+    let mut globals = runtime_globals(&mut tables);
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(table));
     thread.push_value(Value::integer(1));
@@ -63,7 +68,7 @@ fn metamethods_arithmetic_calls_right_operand_add() {
         .set_metatable(right as usize, Some(metatable))
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::integer(99))];
-    let mut globals = RuntimeGlobals::new();
+    let mut globals = runtime_globals(&mut tables);
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(left));
     thread.push_value(Value::table_index(right));
@@ -95,7 +100,7 @@ fn metamethods_arithmetic_calls_unary_minus() {
         .set_metatable(table as usize, Some(metatable))
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::integer(-7))];
-    let mut globals = RuntimeGlobals::new();
+    let mut globals = runtime_globals(&mut tables);
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(table));
     thread.push_value(Value::nil());
@@ -118,7 +123,7 @@ fn metamethods_comparison_executes_raw_less_than() {
     let mut closures = Vec::new();
     let mut tables = RuntimeTables::new();
     let mut strings = RuntimeStrings::new();
-    let mut globals = RuntimeGlobals::new();
+    let mut globals = runtime_globals(&mut tables);
     let mut thread = LuaThread::new();
     thread.push_value(Value::integer(1));
     thread.push_value(Value::integer(2));
@@ -151,7 +156,7 @@ fn metamethods_comparison_calls_eq_for_distinct_tables() {
         .set_metatable(left as usize, Some(metatable))
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::boolean(true))];
-    let mut globals = RuntimeGlobals::new();
+    let mut globals = runtime_globals(&mut tables);
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(left));
     thread.push_value(Value::table_index(right));
@@ -184,7 +189,7 @@ fn metamethods_comparison_calls_less_than() {
         .set_metatable(left as usize, Some(metatable))
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::boolean(true))];
-    let mut globals = RuntimeGlobals::new();
+    let mut globals = runtime_globals(&mut tables);
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(left));
     thread.push_value(Value::table_index(right));
@@ -208,7 +213,7 @@ fn metamethods_len_executes_raw_table_length() {
     let mut closures = Vec::new();
     let mut strings = RuntimeStrings::new();
     let mut tables = RuntimeTables::new();
-    let mut globals = RuntimeGlobals::new();
+    let mut globals = runtime_globals(&mut tables);
     let mut table_value = Table::new();
     assert!(table_value.raw_set_integer(1, Value::integer(10)));
     assert!(table_value.raw_set_integer(2, Value::integer(20)));
@@ -243,7 +248,7 @@ fn metamethods_len_calls_function_fallback() {
         .set_metatable(table as usize, Some(metatable))
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::integer(77))];
-    let mut globals = RuntimeGlobals::new();
+    let mut globals = runtime_globals(&mut tables);
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(table));
     thread.push_value(Value::nil());
@@ -274,7 +279,7 @@ fn metamethods_call_invokes_function_fallback() {
         .set_metatable(table as usize, Some(metatable))
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::integer(123))];
-    let mut globals = RuntimeGlobals::new();
+    let mut globals = runtime_globals(&mut tables);
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(table));
     thread.push_value(Value::integer(1));
@@ -297,7 +302,7 @@ fn metamethods_concat_executes_raw_short_strings() {
     let mut closures = Vec::new();
     let mut tables = RuntimeTables::new();
     let mut strings = RuntimeStrings::new();
-    let mut globals = RuntimeGlobals::new();
+    let mut globals = runtime_globals(&mut tables);
     let left = strings.intern_short_value("a");
     let right = strings.intern_short_value("b");
     let mut thread = LuaThread::new();
@@ -332,7 +337,7 @@ fn metamethods_concat_calls_function_fallback() {
         .set_metatable(table as usize, Some(metatable))
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::integer(321))];
-    let mut globals = RuntimeGlobals::new();
+    let mut globals = runtime_globals(&mut tables);
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(table));
     thread.push_value(Value::integer(1));

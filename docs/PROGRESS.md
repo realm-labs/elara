@@ -1,10 +1,10 @@
 # Elara Progress
 
 Status: Rolling current-state document  
-Last updated: 2026-06-06  
+Last updated: 2026-06-09  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M9 Tables, Metamethods, and Globals
-Current step: M9.4 Implement global declaration semantics
+Current milestone: M10 Errors, Protected Calls, Coroutines, and To-Be-Closed Variables
+Current step: M10.1 Implement structured runtime errors
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -47,18 +47,20 @@ comparison and table metamethod fallback. `LEN` executes for runtime tables with
 raw array length and `__len` closure fallback. `CALL` can invoke function-valued
 `__call` fallback for table operands. `CONCAT` executes for short strings and
 can invoke `__concat` closure fallback. The simple compiler lowers declared and
-implicit global reads/writes through `GET_ENV`/`SET_ENV`, `DECL_GLOBAL` checks
+implicit global reads/writes through `_ENV` table access, `DECL_GLOBAL` checks
 global declaration initialization against the runtime environment, and the
 primitive interpreter keeps a shared runtime `_ENV` table across Lua closure
 calls. Global declarations in nested simple-compiler blocks are scoped to those
-blocks and can shadow outer collective declarations. Local and captured `_ENV`
-tables are used for global reads, writes, and declaration checks in the simple
-compiler. `global function` declarations compile and execute with
+blocks and can shadow outer collective declarations. Default chunk `_ENV`
+upvalue behavior is implemented for the simple compiler, including nested
+function capture of the default environment. Direct global bytecode and exposed
+`_ENV` table access share one runtime-owned global table. Local and captured
+`_ENV` tables are used for global reads, writes, and declaration checks in the
+simple compiler. `global function` declarations compile and execute with
 declaration-time already-defined checks. The simple compiler reports Lua-style
 diagnostics when `_ENV` is itself declared global and another global access
-would need it as the environment. Full default `_ENV` upvalue behavior,
-standard library, full API, JIT, C API, conformance, and benchmark
-implementation work has not started.
+would need it as the environment. Standard library, full API, JIT, C API,
+conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -107,9 +109,10 @@ Completed:
   - M9.1 Compile and execute table constructors.
   - M9.2 Implement table get/set bytecode.
   - M9.3 Implement metatable and metamethod dispatch.
+  - M9.4 Implement global declaration semantics.
 
 In progress:
-  - M9.4 Implement global declaration semantics.
+  - M10.1 Implement structured runtime errors.
   - Standard library.
   - Rust API.
   - JIT.
@@ -600,20 +603,24 @@ Delivered:
   the simple compiler.
 - Explicitly global `_ENV` declarations report a diagnostic when another global
   access would need `_ENV`.
+- Default chunk `_ENV` is represented as a root upvalue in the simple compiler.
+- Nested simple-compiler functions can capture `_ENV` through parent upvalues.
+- Primitive execution seeds a runtime-owned global table and passes it as the
+  root `_ENV` upvalue.
+- Direct `GET_ENV`/`SET_ENV` bytecode and exposed `_ENV` table access share the
+  same runtime global table.
 
 ## Remaining Gaps
 
-### Immediate Gaps for M9
+### Immediate Gaps for M10
 
-- Finish M9.4 global declaration semantics:
-  - default chunk `_ENV` upvalue behavior and public/runtime environment
-    representation.
+- Implement structured runtime errors with enough traceback/frame context for
+  protected calls and later unwind features.
 
 ### Product Gaps
 
 Major implementation work is still pending:
 
-- Global declaration behavior.
 - Bitwise opcode execution and corresponding metamethod dispatch.
 - Standard library.
 - Rust API.
@@ -623,20 +630,27 @@ Major implementation work is still pending:
 - Differential tests.
 - Benchmarks.
 
+M9 is complete.
+
 ## Last Verification
 
-M9.4 global `_ENV` diagnostics/read-only coverage verification passed:
+M9.4 default `_ENV` and globals verification passed:
 
 ```bash
 cargo test -p elara-compiler globals
-cargo fmt --all -- --check
-cargo clippy -p elara-compiler --all-targets -- -D warnings
+cargo test -p elara-interp globals
+cargo test -p elara-api eval_simple
+cargo clippy -p elara-compiler -p elara-interp -p elara-api --all-targets -- -D warnings
 ```
+
+`cargo fmt --all -- --check` currently reports workspace-wide newline-style
+issues on Windows even after the touched files are formatted.
 
 ## Next Recommended Action
 
-Decide the runtime representation for the default chunk `_ENV` value so M9.4 can
-expose `_ENV` itself while keeping public APIs free of unrooted raw GC pointers.
+Start M10.1 by introducing a structured runtime error type that can preserve
+error kind, message, and frame/traceback metadata without losing existing
+primitive error comparisons.
 
 ## Current Risk Notes
 
@@ -681,7 +695,7 @@ expose `_ENV` itself while keeping public APIs free of unrooted raw GC pointers.
 | Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
-| Tables/globals/metamethods | In progress | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, and `__concat` execute; globals are next. |
+| Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
 | Rust API | Not started | Starts M12. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |

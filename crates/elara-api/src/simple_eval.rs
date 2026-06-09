@@ -181,6 +181,25 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_exposes_default_env_table() {
+        assert_eq!(
+            eval_simple_source(SourceId::new(0), "answer = 42\nreturn _ENV.answer"),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_nested_function_captures_default_env() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "answer = 42\nlocal function read()\n  return answer\nend\nreturn read()",
+            ),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
     fn eval_simple_executes_local_env_global_read() {
         assert_eq!(
             eval_simple_source(

@@ -370,6 +370,11 @@ mod tests {
     use super::{INDEX_METAMETHOD, NEWINDEX_METAMETHOD, RuntimeTables};
     use crate::primitive::{RuntimeClosure, RuntimeError, RuntimeGlobals, RuntimeStrings};
 
+    fn runtime_globals(tables: &mut RuntimeTables) -> RuntimeGlobals {
+        let global_table = tables.push_table(Table::new());
+        RuntimeGlobals::new(global_table)
+    }
+
     #[test]
     fn metamethods_runtime_tables_store_metatable_links() {
         let mut tables = RuntimeTables::new();
@@ -414,7 +419,7 @@ mod tests {
             .expect("metatable link should be valid");
 
         let mut closures = Vec::new();
-        let mut globals = RuntimeGlobals::new();
+        let mut globals = runtime_globals(&mut tables);
         assert_eq!(
             tables.get_with_index(
                 table as usize,
@@ -444,7 +449,7 @@ mod tests {
             .expect("metatable link should be valid");
 
         let mut closures = Vec::new();
-        let mut globals = RuntimeGlobals::new();
+        let mut globals = runtime_globals(&mut tables);
         tables
             .set_with_newindex(
                 table as usize,
@@ -479,7 +484,7 @@ mod tests {
             .expect("metatable link should be valid");
 
         let mut closures = Vec::new();
-        let mut globals = RuntimeGlobals::new();
+        let mut globals = runtime_globals(&mut tables);
         tables
             .set_with_newindex(
                 table as usize,
@@ -519,7 +524,7 @@ mod tests {
             .set_metatable(table as usize, Some(metatable))
             .expect("metatable link should be valid");
 
-        let mut globals = RuntimeGlobals::new();
+        let mut globals = runtime_globals(&mut tables);
         assert_eq!(
             tables.get_with_index(
                 table as usize,
@@ -560,7 +565,7 @@ mod tests {
             .set_metatable(table as usize, Some(metatable))
             .expect("metatable link should be valid");
 
-        let mut globals = RuntimeGlobals::new();
+        let mut globals = runtime_globals(&mut tables);
         tables
             .set_with_newindex(
                 table as usize,

@@ -33,7 +33,7 @@ pub fn compile_simple_chunk(source: SourceId, input: &str) -> CompileResult {
         };
     }
 
-    let mut compiler = SimpleCompiler::new();
+    let mut compiler = SimpleCompiler::new_root();
     compiler.compile_block(parsed.block.statements());
     compiler.finish()
 }
@@ -45,6 +45,7 @@ struct SimpleCompiler {
     max_register: u16,
     locals: HashMap<String, u16>,
     enclosing_locals: HashMap<String, u16>,
+    enclosing_upvalues: HashMap<String, u16>,
     upvalues: HashMap<String, u16>,
     globals: HashMap<String, GlobalAccess>,
     global_default: GlobalDefault,
@@ -66,6 +67,15 @@ enum GlobalDefault {
 }
 
 impl SimpleCompiler {
+    fn new_root() -> Self {
+        let mut compiler = Self::new();
+        let env = compiler
+            .builder
+            .add_upvalue(UpvalueDesc::new(Some("_ENV"), false, 0));
+        compiler.upvalues.insert("_ENV".to_owned(), env);
+        compiler
+    }
+
     fn new() -> Self {
         Self {
             builder: ProtoBuilder::new(),
@@ -74,6 +84,7 @@ impl SimpleCompiler {
             max_register: 0,
             locals: HashMap::new(),
             enclosing_locals: HashMap::new(),
+            enclosing_upvalues: HashMap::new(),
             upvalues: HashMap::new(),
             globals: HashMap::new(),
             global_default: GlobalDefault::PreambularReadWrite,
@@ -84,11 +95,13 @@ impl SimpleCompiler {
 
     fn new_child(
         enclosing_locals: HashMap<String, u16>,
+        enclosing_upvalues: HashMap<String, u16>,
         globals: HashMap<String, GlobalAccess>,
         global_default: GlobalDefault,
     ) -> Self {
         Self {
             enclosing_locals,
+            enclosing_upvalues,
             globals,
             global_default,
             ..Self::new()
@@ -165,6 +178,7 @@ impl SimpleCompiler {
         };
         let mut child = SimpleCompiler::new_child(
             self.locals.clone(),
+            self.upvalues.clone(),
             self.globals.clone(),
             self.global_default,
         );
@@ -353,10 +367,15 @@ impl SimpleCompiler {
             return Some(index);
         }
 
-        let register = self.enclosing_locals.get(name).copied()?;
+        let (in_stack, parent_index) = if let Some(register) = self.enclosing_locals.get(name) {
+            (true, *register)
+        } else {
+            let upvalue = self.enclosing_upvalues.get(name).copied()?;
+            (false, upvalue)
+        };
         let index = self
             .builder
-            .add_upvalue(UpvalueDesc::new(Some(name), true, register));
+            .add_upvalue(UpvalueDesc::new(Some(name), in_stack, parent_index));
         self.upvalues.insert(name.to_owned(), index);
         Some(index)
     }
