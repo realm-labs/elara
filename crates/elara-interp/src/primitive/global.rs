@@ -3,7 +3,7 @@
 use elara_bytecode::Instr;
 use elara_core::{LuaThread, SHORT_STRING_MAX_BYTES, Value};
 
-use super::{RuntimeError, RuntimeResult, RuntimeStrings, RuntimeTables, set_register};
+use super::{RuntimeErrorKind, RuntimeResult, RuntimeStrings, RuntimeTables, set_register};
 
 /// Runtime-owned global environment for primitive execution.
 #[derive(Default)]
@@ -27,18 +27,18 @@ impl RuntimeGlobals {
     fn get(&self, key: Value, tables: &RuntimeTables) -> RuntimeResult<Value> {
         let table = tables
             .get(self.table_index as usize)
-            .ok_or(RuntimeError::NonTableValue)?;
+            .ok_or(RuntimeErrorKind::NonTableValue)?;
         Ok(table.raw_get_value(key))
     }
 
     fn set(&mut self, key: Value, value: Value, tables: &mut RuntimeTables) -> RuntimeResult<()> {
         let table = tables
             .get_mut(self.table_index as usize)
-            .ok_or(RuntimeError::NonTableValue)?;
+            .ok_or(RuntimeErrorKind::NonTableValue)?;
         if table.raw_set_value(key, value) {
             Ok(())
         } else {
-            Err(RuntimeError::InvalidTableKey)
+            Err(RuntimeErrorKind::InvalidTableKey.into())
         }
     }
 }
@@ -79,13 +79,13 @@ pub(super) fn execute_decl_global(
     if current.is_nil() {
         Ok(())
     } else {
-        Err(RuntimeError::GlobalAlreadyDefined)
+        Err(RuntimeErrorKind::GlobalAlreadyDefined.into())
     }
 }
 
 fn global_key(name: &[u8], strings: &mut RuntimeStrings) -> RuntimeResult<Value> {
     if name.len() > SHORT_STRING_MAX_BYTES {
-        return Err(RuntimeError::GlobalNameTooLong);
+        return Err(RuntimeErrorKind::GlobalNameTooLong.into());
     }
     Ok(strings.intern_short_value(name))
 }

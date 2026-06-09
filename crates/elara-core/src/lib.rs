@@ -8,6 +8,7 @@
 //! policy, and JIT lowering details.
 
 pub mod diagnostics;
+pub mod error;
 pub mod gc;
 pub mod spec;
 pub mod string;
@@ -16,6 +17,7 @@ pub mod thread;
 pub mod value;
 
 pub use diagnostics::{Diagnostic, DiagnosticLabel, DiagnosticSeverity, SourceId, Span, Spanned};
+pub use error::{LuaError, TraceFrame};
 pub use gc::{
     GcArena, GcCollectionStats, GcColor, GcHeader, GcKind, GcObject, GcRef, GcRoot, GcStats,
 };

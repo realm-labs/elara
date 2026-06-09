@@ -1,7 +1,9 @@
 //! Primitive bytecode execution.
 
 use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
-use elara_core::{GcArena, LuaFloat, LuaInteger, LuaThread, StringInterner, Table, Value};
+use elara_core::{
+    GcArena, LuaError, LuaFloat, LuaInteger, LuaThread, StringInterner, Table, TraceFrame, Value,
+};
 
 mod global;
 mod loops;
@@ -22,6 +24,9 @@ use table::{
 
 /// Result of executing one prototype.
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
+
+/// Structured primitive interpreter runtime error.
+pub type RuntimeError = LuaError<RuntimeErrorKind>;
 
 /// Values and temporary runtime-owned tables produced by primitive execution.
 pub struct RuntimeOutput {
@@ -61,9 +66,9 @@ impl RuntimeStrings {
     }
 }
 
-/// Primitive interpreter runtime error.
-#[derive(Clone, Debug, PartialEq)]
-pub enum RuntimeError {
+/// Primitive interpreter runtime error kind.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RuntimeErrorKind {
     /// Bytecode verifier rejected the prototype.
     Verification(Vec<VerifyError>),
     /// Instruction tried to read an invalid constant.
@@ -112,6 +117,69 @@ pub enum RuntimeError {
     UnsupportedOpcode { op: Op },
 }
 
+impl RuntimeErrorKind {
+    fn message(&self) -> String {
+        match self {
+            Self::Verification(errors) => format!("bytecode verification failed: {errors:?}"),
+            Self::ConstantOutOfBounds { index } => {
+                format!("constant index {index} is out of bounds")
+            }
+            Self::RegisterOutOfBounds { register } => {
+                format!("register {register} is out of bounds")
+            }
+            Self::StringOutOfBounds { index } => {
+                format!("string constant index {index} is out of bounds")
+            }
+            Self::NonNumericOperand { op } => {
+                format!("attempt to perform '{}' on a non-number value", op.mnemonic())
+            }
+            Self::NonComparableOperand { op } => {
+                format!("attempt to compare values with '{}'", op.mnemonic())
+            }
+            Self::NonLengthOperand => "attempt to get length of a non-table value".to_owned(),
+            Self::NonConcatOperand => "attempt to concatenate unsupported values".to_owned(),
+            Self::StringConcatTooLong => "string concatenation result is too long".to_owned(),
+            Self::GlobalAlreadyDefined => "global already defined".to_owned(),
+            Self::GlobalNameTooLong => "global name is too long".to_owned(),
+            Self::NonTableValue => "attempt to index a non-table value".to_owned(),
+            Self::InvalidTableKey => "table index is nil or NaN".to_owned(),
+            Self::UnsupportedMetamethod { name } => {
+                format!("unsupported metamethod shape for '{name}'")
+            }
+            Self::MetamethodChainTooLong { name } => {
+                format!("'{name}' chain too long; possible loop")
+            }
+            Self::NonCallableValue => "attempt to call a non-function value".to_owned(),
+            Self::ChildOutOfBounds { index } => {
+                format!("child prototype index {index} is out of bounds")
+            }
+            Self::UpvalueOutOfBounds { index } => {
+                format!("upvalue index {index} is out of bounds")
+            }
+            Self::JumpOutOfBounds { target } => {
+                format!("jump target {target} is out of bounds")
+            }
+            Self::ForLoopNonNumeric { operand } => {
+                format!("bad 'for' {operand} (number expected)")
+            }
+            Self::ForLoopStepZero => "'for' step is zero".to_owned(),
+            Self::ForLoopCountOverflow => "numeric for-loop count overflow".to_owned(),
+            Self::UnsupportedOpcode { op } => format!("unsupported opcode '{}'", op.mnemonic()),
+        }
+    }
+}
+
+fn runtime_error(kind: RuntimeErrorKind) -> RuntimeError {
+    let message = kind.message();
+    RuntimeError::new(kind, message)
+}
+
+impl From<RuntimeErrorKind> for RuntimeError {
+    fn from(kind: RuntimeErrorKind) -> Self {
+        runtime_error(kind)
+    }
+}
+
 /// Executes a verified prototype and returns the first return values.
 pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
     execute_proto_with_output(proto).map(|output| output.values)
@@ -119,7 +187,9 @@ pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
 
 /// Executes a verified prototype and returns values plus runtime-owned tables.
 pub fn execute_proto_with_output(proto: &Proto) -> RuntimeResult<RuntimeOutput> {
-    verify_proto(proto).map_err(RuntimeError::Verification)?;
+    verify_proto(proto)
+        .map_err(RuntimeErrorKind::Verification)
+        .map_err(RuntimeError::from)?;
     let mut closures = Vec::new();
     let mut tables = RuntimeTables::new();
     let mut strings = RuntimeStrings::new();
@@ -190,7 +260,7 @@ fn execute_proto_with_upvalues(
             }
             Op::LoadK => {
                 let constant = proto.constants.get(instr.bx() as usize).copied().ok_or(
-                    RuntimeError::ConstantOutOfBounds {
+                    RuntimeErrorKind::ConstantOutOfBounds {
                         index: instr.bx() as usize,
                     },
                 )?;
@@ -198,7 +268,7 @@ fn execute_proto_with_upvalues(
             }
             Op::LoadString => {
                 let string = proto.string_constants.get(instr.bx() as usize).ok_or(
-                    RuntimeError::StringOutOfBounds {
+                    RuntimeErrorKind::StringOutOfBounds {
                         index: instr.bx() as usize,
                     },
                 )?;
@@ -232,7 +302,7 @@ fn execute_proto_with_upvalues(
             }
             Op::GetUpvalue => {
                 let value = upvalues.get(instr.b() as usize).copied().ok_or(
-                    RuntimeError::UpvalueOutOfBounds {
+                    RuntimeErrorKind::UpvalueOutOfBounds {
                         index: instr.b() as usize,
                     },
                 )?;
@@ -244,7 +314,7 @@ fn execute_proto_with_upvalues(
                     .children
                     .get(child_index)
                     .cloned()
-                    .ok_or(RuntimeError::ChildOutOfBounds { index: child_index })?;
+                    .ok_or(RuntimeErrorKind::ChildOutOfBounds { index: child_index })?;
                 let closure_index = closures.len();
                 closures.push(RuntimeClosure {
                     proto: child.clone(),
@@ -306,7 +376,7 @@ fn execute_proto_with_upvalues(
                 }
             }
             Op::Return => return collect_returns(&thread, instr, dynamic_top),
-            op => return Err(RuntimeError::UnsupportedOpcode { op }),
+            op => return Err(RuntimeErrorKind::UnsupportedOpcode { op }.into()),
         }
     }
 
@@ -315,7 +385,9 @@ fn execute_proto_with_upvalues(
 
 fn jump_target(pc: usize, instr: Instr) -> RuntimeResult<usize> {
     let target = pc as isize + instr.sbx() as isize;
-    usize::try_from(target).map_err(|_| RuntimeError::JumpOutOfBounds { target })
+    usize::try_from(target)
+        .map_err(|_| RuntimeErrorKind::JumpOutOfBounds { target })
+        .map_err(RuntimeError::from)
 }
 
 fn string_constant(proto: &Proto, instr: Instr) -> RuntimeResult<&[u8]> {
@@ -323,9 +395,10 @@ fn string_constant(proto: &Proto, instr: Instr) -> RuntimeResult<&[u8]> {
         .string_constants
         .get(instr.bx() as usize)
         .map(Box::as_ref)
-        .ok_or(RuntimeError::StringOutOfBounds {
+        .ok_or_else(|| RuntimeErrorKind::StringOutOfBounds {
             index: instr.bx() as usize,
         })
+        .map_err(RuntimeError::from)
 }
 
 fn is_truthy(value: Value) -> bool {
@@ -351,7 +424,7 @@ fn capture_upvalues(
             parent_upvalues
                 .get(usize::from(upvalue.index))
                 .copied()
-                .ok_or(RuntimeError::UpvalueOutOfBounds {
+                .ok_or(RuntimeErrorKind::UpvalueOutOfBounds {
                     index: usize::from(upvalue.index),
                 })?
         };
@@ -393,10 +466,10 @@ fn execute_call(
         (closure_index as usize, collect_call_args(thread, instr)?)
     } else {
         let Some(metamethod) = tables.metamethod_for_value(callee, "__call", strings)? else {
-            return Err(RuntimeError::NonCallableValue);
+            return Err(RuntimeErrorKind::NonCallableValue.into());
         };
         let Some(closure_index) = metamethod.as_closure_index() else {
-            return Err(RuntimeError::UnsupportedMetamethod { name: "__call" });
+            return Err(RuntimeErrorKind::UnsupportedMetamethod { name: "__call" }.into());
         };
         let mut args = Vec::with_capacity(instr.b() as usize);
         args.push(callee);
@@ -431,7 +504,7 @@ fn call_closure(
     let closure = closures
         .get(closure_index)
         .cloned()
-        .ok_or(RuntimeError::NonCallableValue)?;
+        .ok_or(RuntimeErrorKind::NonCallableValue)?;
     execute_proto_with_upvalues(
         &closure.proto,
         &closure.upvalues,
@@ -440,6 +513,17 @@ fn call_closure(
         tables,
         strings,
         globals,
+    )
+    .map_err(|mut error| {
+        error.push_trace_frame(trace_frame(&closure.proto));
+        error
+    })
+}
+
+fn trace_frame(proto: &Proto) -> TraceFrame {
+    TraceFrame::new(
+        proto.debug.source_name.as_deref(),
+        proto.debug.source_name.as_deref(),
     )
 }
 
@@ -474,14 +558,14 @@ fn collect_returns(
 fn register(thread: &LuaThread, index: usize) -> RuntimeResult<Value> {
     thread
         .stack_value(index)
-        .ok_or(RuntimeError::RegisterOutOfBounds { register: index })
+        .ok_or_else(|| RuntimeErrorKind::RegisterOutOfBounds { register: index }.into())
 }
 
 fn set_register(thread: &mut LuaThread, index: usize, value: Value) -> RuntimeResult<()> {
     if thread.set_stack_value(index, value) {
         Ok(())
     } else {
-        Err(RuntimeError::RegisterOutOfBounds { register: index })
+        Err(RuntimeErrorKind::RegisterOutOfBounds { register: index }.into())
     }
 }
 

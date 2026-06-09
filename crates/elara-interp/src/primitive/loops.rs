@@ -4,7 +4,7 @@ use elara_bytecode::Instr;
 use elara_core::{LuaFloat, LuaInteger, LuaThread, Value};
 
 use super::{
-    RuntimeClosure, RuntimeError, RuntimeGlobals, RuntimeResult, RuntimeStrings, RuntimeTables,
+    RuntimeClosure, RuntimeErrorKind, RuntimeGlobals, RuntimeResult, RuntimeStrings, RuntimeTables,
     call_closure, register, set_register,
 };
 
@@ -22,15 +22,15 @@ pub(super) fn prepare_numeric_for(thread: &mut LuaThread, instr: Instr) -> Runti
         return prepare_integer_for(thread, base, init, limit, step);
     }
 
-    let init = init.to_float().ok_or(RuntimeError::ForLoopNonNumeric {
+    let init = init.to_float().ok_or(RuntimeErrorKind::ForLoopNonNumeric {
         operand: "initial value",
     })?;
     let limit = limit
         .to_float()
-        .ok_or(RuntimeError::ForLoopNonNumeric { operand: "limit" })?;
+        .ok_or(RuntimeErrorKind::ForLoopNonNumeric { operand: "limit" })?;
     let step = step
         .to_float()
-        .ok_or(RuntimeError::ForLoopNonNumeric { operand: "step" })?;
+        .ok_or(RuntimeErrorKind::ForLoopNonNumeric { operand: "step" })?;
     prepare_float_for(thread, base, init, limit, step)
 }
 
@@ -42,7 +42,7 @@ fn prepare_integer_for(
     step: LuaInteger,
 ) -> RuntimeResult<bool> {
     if step == 0 {
-        return Err(RuntimeError::ForLoopStepZero);
+        return Err(RuntimeErrorKind::ForLoopStepZero.into());
     }
     if should_skip_integer_for(init, limit, step) {
         return Ok(true);
@@ -53,7 +53,7 @@ fn prepare_integer_for(
     } else {
         (i128::from(init) - i128::from(limit)) / -i128::from(step)
     };
-    let count = LuaInteger::try_from(count).map_err(|_| RuntimeError::ForLoopCountOverflow)?;
+    let count = LuaInteger::try_from(count).map_err(|_| RuntimeErrorKind::ForLoopCountOverflow)?;
 
     set_register(thread, base, Value::integer(count))?;
     set_register(thread, base + 1, Value::integer(step))?;
@@ -69,7 +69,7 @@ fn prepare_float_for(
     step: LuaFloat,
 ) -> RuntimeResult<bool> {
     if step == 0.0 {
-        return Err(RuntimeError::ForLoopStepZero);
+        return Err(RuntimeErrorKind::ForLoopStepZero.into());
     }
     if should_skip_numeric_for(init, limit, step) {
         return Ok(true);
@@ -116,10 +116,10 @@ fn execute_integer_for_loop(
 
     let step = register(thread, base + 1)?
         .as_integer()
-        .ok_or(RuntimeError::ForLoopNonNumeric { operand: "step" })?;
+        .ok_or(RuntimeErrorKind::ForLoopNonNumeric { operand: "step" })?;
     let index = register(thread, base + 2)?
         .as_integer()
-        .ok_or(RuntimeError::ForLoopNonNumeric {
+        .ok_or(RuntimeErrorKind::ForLoopNonNumeric {
             operand: "initial value",
         })?
         .wrapping_add(step);
@@ -131,13 +131,13 @@ fn execute_integer_for_loop(
 fn execute_float_for_loop(thread: &mut LuaThread, base: usize) -> RuntimeResult<bool> {
     let limit = register(thread, base)?
         .as_float()
-        .ok_or(RuntimeError::ForLoopNonNumeric { operand: "limit" })?;
+        .ok_or(RuntimeErrorKind::ForLoopNonNumeric { operand: "limit" })?;
     let step = register(thread, base + 1)?
         .as_float()
-        .ok_or(RuntimeError::ForLoopNonNumeric { operand: "step" })?;
+        .ok_or(RuntimeErrorKind::ForLoopNonNumeric { operand: "step" })?;
     let index = register(thread, base + 2)?
         .as_float()
-        .ok_or(RuntimeError::ForLoopNonNumeric {
+        .ok_or(RuntimeErrorKind::ForLoopNonNumeric {
             operand: "initial value",
         })?
         + step;
@@ -164,7 +164,7 @@ pub(super) fn execute_generic_for_call(
     let base = usize::from(instr.a());
     let iterator = register(thread, base)?
         .as_closure_index()
-        .ok_or(RuntimeError::NonCallableValue)? as usize;
+        .ok_or(RuntimeErrorKind::NonCallableValue)? as usize;
     let state = register(thread, base + 1)?;
     let control = register(thread, base + 2)?;
     let returns = call_closure(

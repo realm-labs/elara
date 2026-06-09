@@ -7,4 +7,4 @@
 
 pub mod primitive;
 
-pub use primitive::{RuntimeError, RuntimeResult, execute_proto};
+pub use primitive::{RuntimeError, RuntimeErrorKind, RuntimeResult, execute_proto};

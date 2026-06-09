@@ -4,7 +4,7 @@ use elara_bytecode::{Instr, Op};
 use elara_core::{LuaFloat, LuaInteger, LuaThread, SHORT_STRING_MAX_BYTES, Value};
 
 use super::{
-    RuntimeClosure, RuntimeError, RuntimeGlobals, RuntimeResult, RuntimeStrings, RuntimeTables,
+    RuntimeClosure, RuntimeErrorKind, RuntimeGlobals, RuntimeResult, RuntimeStrings, RuntimeTables,
     call_closure, is_truthy, register, set_register,
 };
 
@@ -23,7 +23,7 @@ pub(super) fn execute_arithmetic(
             result
         } else {
             call_unary_metamethod(op, value, closures, tables, strings, globals)?
-                .ok_or(RuntimeError::NonNumericOperand { op })?
+                .ok_or(RuntimeErrorKind::NonNumericOperand { op })?
         };
         return set_register(thread, instr.a().into(), result);
     }
@@ -34,7 +34,7 @@ pub(super) fn execute_arithmetic(
         result
     } else {
         call_binary_metamethod(op, left, right, closures, tables, strings, globals)?
-            .ok_or(RuntimeError::NonNumericOperand { op })?
+            .ok_or(RuntimeErrorKind::NonNumericOperand { op })?
     };
     set_register(thread, instr.a().into(), result)
 }
@@ -53,7 +53,7 @@ pub(super) fn execute_comparison(
     let result = match op {
         Op::Eq => equality_comparison(left, right, closures, tables, strings, globals)?,
         Op::Lt | Op::Le => order_comparison(op, left, right, closures, tables, strings, globals)?,
-        _ => return Err(RuntimeError::UnsupportedOpcode { op }),
+        _ => return Err(RuntimeErrorKind::UnsupportedOpcode { op }.into()),
     };
     set_register(thread, instr.a().into(), Value::boolean(result))
 }
@@ -74,12 +74,12 @@ pub(super) fn execute_len(
     } else if let Some(table_index) = value.as_table_index() {
         let table = tables
             .get(table_index as usize)
-            .ok_or(RuntimeError::NonTableValue)?;
+            .ok_or(RuntimeErrorKind::NonTableValue)?;
         Value::integer(
             LuaInteger::try_from(table.array_len()).expect("table length must fit in LuaInteger"),
         )
     } else {
-        return Err(RuntimeError::NonLengthOperand);
+        return Err(RuntimeErrorKind::NonLengthOperand.into());
     };
     set_register(thread, instr.a().into(), result)
 }
@@ -98,7 +98,7 @@ pub(super) fn execute_concat(
         result
     } else {
         call_named_binary_metamethod("__concat", left, right, closures, tables, strings, globals)?
-            .ok_or(RuntimeError::NonConcatOperand)?
+            .ok_or(RuntimeErrorKind::NonConcatOperand)?
     };
     set_register(thread, instr.a().into(), result)
 }
@@ -175,7 +175,7 @@ fn call_named_binary_metamethod(
         return Ok(None);
     };
     let Some(closure) = metamethod.as_closure_index() else {
-        return Err(RuntimeError::UnsupportedMetamethod { name });
+        return Err(RuntimeErrorKind::UnsupportedMetamethod { name }.into());
     };
 
     let returns = call_closure(
@@ -203,9 +203,9 @@ fn raw_concat(
     let len = left
         .len()
         .checked_add(right.len())
-        .ok_or(RuntimeError::StringConcatTooLong)?;
+        .ok_or(RuntimeErrorKind::StringConcatTooLong)?;
     if len > SHORT_STRING_MAX_BYTES {
-        return Err(RuntimeError::StringConcatTooLong);
+        return Err(RuntimeErrorKind::StringConcatTooLong.into());
     }
     let mut bytes = Vec::with_capacity(len);
     bytes.extend_from_slice(left);
@@ -274,7 +274,7 @@ fn call_unary_closure_metamethod(
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<Value>> {
     let Some(closure) = metamethod.as_closure_index() else {
-        return Err(RuntimeError::UnsupportedMetamethod { name });
+        return Err(RuntimeErrorKind::UnsupportedMetamethod { name }.into());
     };
 
     let returns = call_closure(
@@ -326,12 +326,12 @@ fn order_comparison(
     let name = match op {
         Op::Lt => "__lt",
         Op::Le => "__le",
-        _ => return Err(RuntimeError::UnsupportedOpcode { op }),
+        _ => return Err(RuntimeErrorKind::UnsupportedOpcode { op }.into()),
     };
     let Some(result) =
         call_comparison_metamethod(name, left, right, closures, tables, strings, globals)?
     else {
-        return Err(RuntimeError::NonComparableOperand { op });
+        return Err(RuntimeErrorKind::NonComparableOperand { op }.into());
     };
     Ok(is_truthy(result))
 }
@@ -371,7 +371,7 @@ fn call_comparison_metamethod(
         return Ok(None);
     };
     let Some(closure) = metamethod.as_closure_index() else {
-        return Err(RuntimeError::UnsupportedMetamethod { name });
+        return Err(RuntimeErrorKind::UnsupportedMetamethod { name }.into());
     };
 
     let returns = call_closure(

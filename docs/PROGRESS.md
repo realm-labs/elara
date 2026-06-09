@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-09  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M10 Errors, Protected Calls, Coroutines, and To-Be-Closed Variables
-Current step: M10.1 Implement structured runtime errors
+Current step: M10.2 Implement protected calls
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -59,8 +59,11 @@ function capture of the default environment. Direct global bytecode and exposed
 simple compiler. `global function` declarations compile and execute with
 declaration-time already-defined checks. The simple compiler reports Lua-style
 diagnostics when `_ENV` is itself declared global and another global access
-would need it as the environment. Standard library, full API, JIT, C API,
-conformance, and benchmark implementation work has not started.
+would need it as the environment. Structured runtime errors now preserve a
+stable runtime error kind, display message, and traceback frame metadata, and
+primitive Lua closure calls attach child frames when errors propagate out.
+Protected calls, coroutines, to-be-closed variables, standard library, full API,
+JIT, C API, conformance, and benchmark implementation work has not started.
 
 Current state:
 
@@ -110,9 +113,10 @@ Completed:
   - M9.2 Implement table get/set bytecode.
   - M9.3 Implement metatable and metamethod dispatch.
   - M9.4 Implement global declaration semantics.
+  - M10.1 Implement structured runtime errors.
 
 In progress:
-  - M10.1 Implement structured runtime errors.
+  - M10.2 Implement protected calls.
   - Standard library.
   - Rust API.
   - JIT.
@@ -609,13 +613,18 @@ Delivered:
   root `_ENV` upvalue.
 - Direct `GET_ENV`/`SET_ENV` bytecode and exposed `_ENV` table access share the
   same runtime global table.
+- Core runtime exposes structured `LuaError<K>` and `TraceFrame`.
+- Primitive interpreter runtime errors carry `RuntimeErrorKind`, message text,
+  and traceback metadata.
+- Errors propagating out of primitive Lua closure calls attach child prototype
+  traceback frames.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M10
 
-- Implement structured runtime errors with enough traceback/frame context for
-  protected calls and later unwind features.
+- Implement protected-call frame markers and error capture on top of structured
+  runtime errors.
 
 ### Product Gaps
 
@@ -631,16 +640,17 @@ Major implementation work is still pending:
 - Benchmarks.
 
 M9 is complete.
+M10.1 is complete.
 
 ## Last Verification
 
-M9.4 default `_ENV` and globals verification passed:
+M10.1 structured runtime error verification passed:
 
 ```bash
-cargo test -p elara-compiler globals
-cargo test -p elara-interp globals
+cargo test -p elara-core error
+cargo test -p elara-interp --lib
 cargo test -p elara-api eval_simple
-cargo clippy -p elara-compiler -p elara-interp -p elara-api --all-targets -- -D warnings
+cargo clippy -p elara-core -p elara-interp -p elara-api --all-targets -- -D warnings
 ```
 
 `cargo fmt --all -- --check` currently reports workspace-wide newline-style
@@ -648,9 +658,9 @@ issues on Windows even after the touched files are formatted.
 
 ## Next Recommended Action
 
-Start M10.1 by introducing a structured runtime error type that can preserve
-error kind, message, and frame/traceback metadata without losing existing
-primitive error comparisons.
+Start M10.2 by adding protected-call frame markers and a primitive protected
+execution entry point that returns caught structured runtime errors instead of
+propagating them.
 
 ## Current Risk Notes
 

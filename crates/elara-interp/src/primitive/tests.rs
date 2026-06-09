@@ -1,7 +1,15 @@
 use elara_bytecode::{Op, ProtoBuilder};
 use elara_core::Value;
 
-use super::{RuntimeError, execute_proto, execute_proto_with_output};
+use super::{RuntimeErrorKind, execute_proto, execute_proto_with_output};
+
+fn assert_runtime_error_kind(
+    result: Result<Vec<Value>, super::RuntimeError>,
+    expected: RuntimeErrorKind,
+) {
+    let error = result.expect_err("expected runtime error");
+    assert_eq!(error.kind(), &expected);
+}
 
 #[test]
 fn arithmetic_executes_integer_addition() {
@@ -57,9 +65,9 @@ fn arithmetic_reports_non_numeric_operands() {
     builder.emit_abc(Op::Add, 2, 0, 1);
     builder.emit_abc(Op::Return, 2, 1, 0);
 
-    assert_eq!(
+    assert_runtime_error_kind(
         execute_proto(&builder.finish()),
-        Err(RuntimeError::NonNumericOperand { op: Op::Add })
+        RuntimeErrorKind::NonNumericOperand { op: Op::Add },
     );
 }
 
@@ -104,10 +112,36 @@ fn calls_report_non_callable_values() {
     builder.emit_abx(Op::LoadK, 0, u64::from(value));
     builder.emit_abc(Op::Call, 0, 1, 1);
 
-    assert_eq!(
+    assert_runtime_error_kind(
         execute_proto(&builder.finish()),
-        Err(RuntimeError::NonCallableValue)
+        RuntimeErrorKind::NonCallableValue,
     );
+}
+
+#[test]
+fn calls_attach_child_traceback_frame_to_runtime_errors() {
+    let mut child_builder = ProtoBuilder::new()
+        .with_signature(3, 0, false)
+        .with_source_name("child.lua");
+    child_builder.emit_abc(Op::LoadBool, 0, 1, 0);
+    child_builder.emit_abc(Op::LoadBool, 1, 0, 0);
+    child_builder.emit_abc(Op::Add, 2, 0, 1);
+    let child = child_builder.finish();
+
+    let mut parent = ProtoBuilder::new().with_signature(1, 0, false);
+    let child_index = parent.add_child(child);
+    parent.emit_abx(Op::Closure, 0, u64::from(child_index));
+    parent.emit_abc(Op::Call, 0, 1, 1);
+
+    let error = execute_proto(&parent.finish()).expect_err("expected runtime error");
+
+    assert_eq!(
+        error.kind(),
+        &RuntimeErrorKind::NonNumericOperand { op: Op::Add }
+    );
+    assert_eq!(error.traceback().len(), 1);
+    assert_eq!(error.traceback()[0].source(), Some("child.lua"));
+    assert_eq!(error.traceback()[0].function(), Some("child.lua"));
 }
 
 #[test]
@@ -250,9 +284,9 @@ fn numeric_for_rejects_zero_step() {
     builder.emit_abx(Op::LoadK, 2, u64::from(zero));
     builder.emit_asbx(Op::ForPrep, 0, 0);
 
-    assert_eq!(
+    assert_runtime_error_kind(
         execute_proto(&builder.finish()),
-        Err(RuntimeError::ForLoopStepZero)
+        RuntimeErrorKind::ForLoopStepZero,
     );
 }
 
@@ -349,9 +383,9 @@ fn table_constructor_rejects_nil_key() {
     builder.emit_abx(Op::LoadK, 2, u64::from(value));
     builder.emit_abc(Op::SetTable, 0, 1, 2);
 
-    assert_eq!(
+    assert_runtime_error_kind(
         execute_proto(&builder.finish()),
-        Err(RuntimeError::InvalidTableKey)
+        RuntimeErrorKind::InvalidTableKey,
     );
 }
 
@@ -450,9 +484,9 @@ fn globals_declaration_rejects_existing_value() {
     builder.emit_abx(Op::DeclGlobal, 1, u64::from(name));
     builder.emit_abc(Op::Return, 1, 1, 0);
 
-    assert_eq!(
+    assert_runtime_error_kind(
         execute_proto(&builder.finish()),
-        Err(RuntimeError::GlobalAlreadyDefined)
+        RuntimeErrorKind::GlobalAlreadyDefined,
     );
 }
 

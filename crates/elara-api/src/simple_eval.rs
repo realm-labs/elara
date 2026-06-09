@@ -27,7 +27,7 @@ pub fn eval_simple_source(source: SourceId, input: &str) -> Result<Vec<Value>, E
 #[cfg(test)]
 mod tests {
     use elara_core::{SourceId, Value};
-    use elara_interp::RuntimeError;
+    use elara_interp::RuntimeErrorKind;
 
     use crate::{EvalError, eval_simple_source};
 
@@ -230,7 +230,8 @@ mod tests {
         .unwrap_err();
 
         match error {
-            EvalError::Runtime(RuntimeError::GlobalAlreadyDefined) => {}
+            EvalError::Runtime(error)
+                if error.kind() == &RuntimeErrorKind::GlobalAlreadyDefined => {}
             EvalError::Runtime(error) => panic!("expected global error, got {error:?}"),
             EvalError::Diagnostics(diagnostics) => {
                 panic!("expected runtime error, got diagnostics {diagnostics:?}")
@@ -258,7 +259,8 @@ mod tests {
         .unwrap_err();
 
         match error {
-            EvalError::Runtime(RuntimeError::GlobalAlreadyDefined) => {}
+            EvalError::Runtime(error)
+                if error.kind() == &RuntimeErrorKind::GlobalAlreadyDefined => {}
             EvalError::Runtime(error) => panic!("expected global error, got {error:?}"),
             EvalError::Diagnostics(diagnostics) => {
                 panic!("expected runtime error, got diagnostics {diagnostics:?}")

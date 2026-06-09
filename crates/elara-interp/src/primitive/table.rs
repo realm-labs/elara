@@ -6,7 +6,7 @@ use elara_bytecode::Instr;
 use elara_core::{LuaInteger, LuaThread, Table, Value};
 
 use super::{
-    RuntimeClosure, RuntimeError, RuntimeGlobals, RuntimeResult, RuntimeStrings, call_closure,
+    RuntimeClosure, RuntimeErrorKind, RuntimeGlobals, RuntimeResult, RuntimeStrings, call_closure,
     register, set_register,
 };
 
@@ -64,12 +64,12 @@ impl RuntimeTables {
     /// Sets a runtime table's metatable placeholder index.
     pub fn set_metatable(&mut self, index: usize, metatable: Option<u32>) -> RuntimeResult<()> {
         if index >= self.tables.len() {
-            return Err(RuntimeError::NonTableValue);
+            return Err(RuntimeErrorKind::NonTableValue.into());
         }
         if let Some(metatable) = metatable
             && metatable as usize >= self.tables.len()
         {
-            return Err(RuntimeError::NonTableValue);
+            return Err(RuntimeErrorKind::NonTableValue.into());
         }
         self.metatables[index] = metatable;
         Ok(())
@@ -100,7 +100,7 @@ impl RuntimeTables {
         let table = self
             .tables
             .get(table_index)
-            .ok_or(RuntimeError::NonTableValue)?;
+            .ok_or(RuntimeErrorKind::NonTableValue)?;
         Ok(table.raw_get_value(key))
     }
 
@@ -108,11 +108,11 @@ impl RuntimeTables {
         let table = self
             .tables
             .get_mut(table_index)
-            .ok_or(RuntimeError::NonTableValue)?;
+            .ok_or(RuntimeErrorKind::NonTableValue)?;
         if table.raw_set_value(key, value) {
             Ok(())
         } else {
-            Err(RuntimeError::InvalidTableKey)
+            Err(RuntimeErrorKind::InvalidTableKey.into())
         }
     }
 
@@ -120,7 +120,7 @@ impl RuntimeTables {
         let table = self
             .tables
             .get(table_index)
-            .ok_or(RuntimeError::NonTableValue)?;
+            .ok_or(RuntimeErrorKind::NonTableValue)?;
         Ok(table.raw_get_integer(key))
     }
 
@@ -133,11 +133,11 @@ impl RuntimeTables {
         let table = self
             .tables
             .get_mut(table_index)
-            .ok_or(RuntimeError::NonTableValue)?;
+            .ok_or(RuntimeErrorKind::NonTableValue)?;
         if table.raw_set_integer(key, value) {
             Ok(())
         } else {
-            Err(RuntimeError::InvalidTableKey)
+            Err(RuntimeErrorKind::InvalidTableKey.into())
         }
     }
 
@@ -177,14 +177,16 @@ impl RuntimeTables {
                 )?;
                 return Ok(returns.first().copied().unwrap_or_else(Value::nil));
             }
-            return Err(RuntimeError::UnsupportedMetamethod {
+            return Err(RuntimeErrorKind::UnsupportedMetamethod {
                 name: INDEX_METAMETHOD,
-            });
+            }
+            .into());
         }
 
-        Err(RuntimeError::MetamethodChainTooLong {
+        Err(RuntimeErrorKind::MetamethodChainTooLong {
             name: INDEX_METAMETHOD,
-        })
+        }
+        .into())
     }
 
     fn set_with_newindex(
@@ -223,14 +225,16 @@ impl RuntimeTables {
                 )?;
                 return Ok(());
             }
-            return Err(RuntimeError::UnsupportedMetamethod {
+            return Err(RuntimeErrorKind::UnsupportedMetamethod {
                 name: NEWINDEX_METAMETHOD,
-            });
+            }
+            .into());
         }
 
-        Err(RuntimeError::MetamethodChainTooLong {
+        Err(RuntimeErrorKind::MetamethodChainTooLong {
             name: NEWINDEX_METAMETHOD,
-        })
+        }
+        .into())
     }
 
     fn metamethod(
@@ -292,7 +296,7 @@ pub(super) fn execute_set_table(
 ) -> RuntimeResult<()> {
     let table_index = register(thread, instr.a().into())?
         .as_table_index()
-        .ok_or(RuntimeError::NonTableValue)? as usize;
+        .ok_or(RuntimeErrorKind::NonTableValue)? as usize;
     let key = register(thread, instr.b() as usize)?;
     let value = register(thread, instr.c() as usize)?;
     tables.set_with_newindex(table_index, key, value, closures, strings, globals)
@@ -308,7 +312,7 @@ pub(super) fn execute_get_table(
 ) -> RuntimeResult<()> {
     let table_index = register(thread, instr.b() as usize)?
         .as_table_index()
-        .ok_or(RuntimeError::NonTableValue)? as usize;
+        .ok_or(RuntimeErrorKind::NonTableValue)? as usize;
     let key = register(thread, instr.c() as usize)?;
     let value = tables.get_with_index(table_index, key, closures, strings, globals)?;
     set_register(thread, instr.a().into(), value)
@@ -324,7 +328,7 @@ pub(super) fn execute_get_index(
 ) -> RuntimeResult<()> {
     let table_index = register(thread, instr.b() as usize)?
         .as_table_index()
-        .ok_or(RuntimeError::NonTableValue)? as usize;
+        .ok_or(RuntimeErrorKind::NonTableValue)? as usize;
     let key = LuaInteger::from(instr.c());
     let value = tables.raw_get_integer(table_index, key)?;
     let value = if value.is_nil() {
@@ -345,7 +349,7 @@ pub(super) fn execute_set_index(
 ) -> RuntimeResult<()> {
     let table_index = register(thread, instr.a().into())?
         .as_table_index()
-        .ok_or(RuntimeError::NonTableValue)? as usize;
+        .ok_or(RuntimeErrorKind::NonTableValue)? as usize;
     let value = register(thread, instr.c() as usize)?;
     let key = LuaInteger::from(instr.b());
     if !tables.raw_get_integer(table_index, key)?.is_nil() {
@@ -368,7 +372,7 @@ mod tests {
     use elara_core::{Table, Value};
 
     use super::{INDEX_METAMETHOD, NEWINDEX_METAMETHOD, RuntimeTables};
-    use crate::primitive::{RuntimeClosure, RuntimeError, RuntimeGlobals, RuntimeStrings};
+    use crate::primitive::{RuntimeClosure, RuntimeErrorKind, RuntimeGlobals, RuntimeStrings};
 
     fn runtime_globals(tables: &mut RuntimeTables) -> RuntimeGlobals {
         let global_table = tables.push_table(Table::new());
@@ -395,7 +399,7 @@ mod tests {
 
         assert_eq!(
             tables.set_metatable(table as usize, Some(99)),
-            Err(RuntimeError::NonTableValue)
+            Err(RuntimeErrorKind::NonTableValue.into())
         );
         assert_eq!(tables.metatable(table as usize), None);
     }
