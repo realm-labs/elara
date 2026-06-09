@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-09  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M10 Errors, Protected Calls, Coroutines, and To-Be-Closed Variables
-Current step: M10.2 Implement protected calls
+Current step: M10.3 Implement coroutines and yield/resume
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -63,9 +63,9 @@ would need it as the environment. Structured runtime errors now preserve a
 stable runtime error kind, display message, and traceback frame metadata, and
 primitive Lua closure calls attach child frames when errors propagate out.
 Primitive protected execution can catch structured runtime errors at an
-explicit protected-call boundary. Lua-facing protected-call lowering/stdlib
-entry points, coroutines, to-be-closed variables, standard library, full API,
-JIT, C API, conformance, and benchmark implementation work has not started.
+explicit protected-call boundary. Coroutines, to-be-closed variables, standard
+library, full API, JIT, C API, conformance, and benchmark implementation work
+has not started.
 
 Current state:
 
@@ -116,9 +116,10 @@ Completed:
   - M9.3 Implement metatable and metamethod dispatch.
   - M9.4 Implement global declaration semantics.
   - M10.1 Implement structured runtime errors.
+  - M10.2 Implement protected calls.
 
 In progress:
-  - M10.2 Implement protected calls.
+  - M10.3 Implement coroutines and yield/resume.
   - Standard library.
   - Rust API.
   - JIT.
@@ -628,8 +629,7 @@ Delivered:
 
 ### Immediate Gaps for M10
 
-- Finish M10.2 by connecting protected-call behavior to Lua-call execution and
-  the future base-library `pcall`/`xpcall` surface.
+- Implement coroutine status transitions plus primitive yield/resume mechanics.
 
 ### Product Gaps
 
@@ -646,6 +646,7 @@ Major implementation work is still pending:
 
 M9 is complete.
 M10.1 is complete.
+M10.2 is complete.
 
 ## Last Verification
 
@@ -664,9 +665,8 @@ issues on Windows even after the touched files are formatted.
 
 ## Next Recommended Action
 
-Continue M10.2 by deciding the Lua-facing protected-call surface: either add a
-minimal base-library `pcall` entry point over `execute_proto_protected`, or add
-interpreter call-frame capture for protected child calls first.
+Start M10.3 by modeling coroutine/thread status transitions and a primitive
+resume/yield result path that can later back the coroutine standard library.
 
 ## Current Risk Notes
 
