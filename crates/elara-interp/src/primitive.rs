@@ -2,7 +2,8 @@
 
 use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
 use elara_core::{
-    GcArena, LuaError, LuaFloat, LuaInteger, LuaThread, StringInterner, Table, TraceFrame, Value,
+    CallFrame, GcArena, LuaError, LuaFloat, LuaInteger, LuaThread, ResultCount, StringInterner,
+    Table, TraceFrame, Value,
 };
 
 mod global;
@@ -36,6 +37,14 @@ pub struct RuntimeOutput {
     pub tables: RuntimeTables,
     /// Runtime string storage referenced by string values.
     pub strings: RuntimeStrings,
+}
+
+/// Result of executing a prototype behind a protected-call boundary.
+pub enum ProtectedRuntimeOutput {
+    /// Execution completed normally.
+    Ok(RuntimeOutput),
+    /// Execution raised a runtime error that was caught by the boundary.
+    Err(RuntimeError),
 }
 
 /// Runtime-owned string storage for primitive execution output.
@@ -131,7 +140,10 @@ impl RuntimeErrorKind {
                 format!("string constant index {index} is out of bounds")
             }
             Self::NonNumericOperand { op } => {
-                format!("attempt to perform '{}' on a non-number value", op.mnemonic())
+                format!(
+                    "attempt to perform '{}' on a non-number value",
+                    op.mnemonic()
+                )
             }
             Self::NonComparableOperand { op } => {
                 format!("attempt to compare values with '{}'", op.mnemonic())
@@ -187,6 +199,22 @@ pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
 
 /// Executes a verified prototype and returns values plus runtime-owned tables.
 pub fn execute_proto_with_output(proto: &Proto) -> RuntimeResult<RuntimeOutput> {
+    execute_proto_with_output_in_mode(proto, false)
+}
+
+/// Executes a prototype and catches runtime errors at a protected boundary.
+pub fn execute_proto_protected(proto: &Proto) -> ProtectedRuntimeOutput {
+    let result = execute_proto_with_output_in_mode(proto, true);
+    match result {
+        Ok(output) => ProtectedRuntimeOutput::Ok(output),
+        Err(error) => ProtectedRuntimeOutput::Err(error),
+    }
+}
+
+fn execute_proto_with_output_in_mode(
+    proto: &Proto,
+    protected: bool,
+) -> RuntimeResult<RuntimeOutput> {
     verify_proto(proto)
         .map_err(RuntimeErrorKind::Verification)
         .map_err(RuntimeError::from)?;
@@ -195,15 +223,14 @@ pub fn execute_proto_with_output(proto: &Proto) -> RuntimeResult<RuntimeOutput> 
     let mut strings = RuntimeStrings::new();
     let global_table = tables.push_table(Table::new());
     let mut globals = RuntimeGlobals::new(global_table);
-    let values = execute_proto_with_upvalues(
-        proto,
-        &[globals.value()],
-        &[],
-        &mut closures,
-        &mut tables,
-        &mut strings,
-        &mut globals,
-    )?;
+    let global_value = globals.value();
+    let mut context = ExecutionContext {
+        closures: &mut closures,
+        tables: &mut tables,
+        strings: &mut strings,
+        globals: &mut globals,
+    };
+    let values = execute_proto_with_upvalues(proto, &[global_value], &[], &mut context, protected)?;
     Ok(RuntimeOutput {
         values,
         tables,
@@ -215,14 +242,17 @@ fn execute_proto_with_upvalues(
     proto: &Proto,
     upvalues: &[Value],
     varargs: &[Value],
-    closures: &mut Vec<RuntimeClosure>,
-    tables: &mut RuntimeTables,
-    strings: &mut RuntimeStrings,
-    globals: &mut RuntimeGlobals,
+    context: &mut ExecutionContext<'_>,
+    protected: bool,
 ) -> RuntimeResult<Vec<Value>> {
     let mut thread = LuaThread::new();
     for _ in 0..proto.max_stack {
         thread.push_value(Value::nil());
+    }
+    if protected {
+        let _ = thread.push_frame(
+            CallFrame::new(0, usize::from(proto.max_stack), ResultCount::Multiple).protected(),
+        );
     }
     let mut dynamic_top = 0;
 
@@ -272,34 +302,68 @@ fn execute_proto_with_upvalues(
                         index: instr.bx() as usize,
                     },
                 )?;
-                let value = strings.intern_short_value(string);
+                let value = context.strings.intern_short_value(string);
                 set_register(&mut thread, instr.a().into(), value)?;
             }
             Op::GetEnv => {
                 let name = string_constant(proto, instr)?;
-                execute_get_env(&mut thread, instr, name, globals, strings, tables)?;
+                execute_get_env(
+                    &mut thread,
+                    instr,
+                    name,
+                    context.globals,
+                    context.strings,
+                    context.tables,
+                )?;
             }
             Op::SetEnv => {
                 let name = string_constant(proto, instr)?;
-                execute_set_env(&thread, instr, name, globals, strings, tables)?;
+                execute_set_env(
+                    &thread,
+                    instr,
+                    name,
+                    context.globals,
+                    context.strings,
+                    context.tables,
+                )?;
             }
             Op::DeclGlobal => {
                 let name = string_constant(proto, instr)?;
-                execute_decl_global(&mut thread, instr, name, strings)?;
+                execute_decl_global(&mut thread, instr, name, context.strings)?;
             }
-            Op::NewTable => execute_new_table(&mut thread, instr, tables)?,
-            Op::GetTable => {
-                execute_get_table(&mut thread, closures, instr, tables, strings, globals)?
-            }
-            Op::SetTable => {
-                execute_set_table(&mut thread, closures, instr, tables, strings, globals)?
-            }
-            Op::GetIndex => {
-                execute_get_index(&mut thread, closures, instr, tables, strings, globals)?
-            }
-            Op::SetIndex => {
-                execute_set_index(&mut thread, closures, instr, tables, strings, globals)?
-            }
+            Op::NewTable => execute_new_table(&mut thread, instr, context.tables)?,
+            Op::GetTable => execute_get_table(
+                &mut thread,
+                context.closures,
+                instr,
+                context.tables,
+                context.strings,
+                context.globals,
+            )?,
+            Op::SetTable => execute_set_table(
+                &mut thread,
+                context.closures,
+                instr,
+                context.tables,
+                context.strings,
+                context.globals,
+            )?,
+            Op::GetIndex => execute_get_index(
+                &mut thread,
+                context.closures,
+                instr,
+                context.tables,
+                context.strings,
+                context.globals,
+            )?,
+            Op::SetIndex => execute_set_index(
+                &mut thread,
+                context.closures,
+                instr,
+                context.tables,
+                context.strings,
+                context.globals,
+            )?,
             Op::GetUpvalue => {
                 let value = upvalues.get(instr.b() as usize).copied().ok_or(
                     RuntimeErrorKind::UpvalueOutOfBounds {
@@ -315,8 +379,8 @@ fn execute_proto_with_upvalues(
                     .get(child_index)
                     .cloned()
                     .ok_or(RuntimeErrorKind::ChildOutOfBounds { index: child_index })?;
-                let closure_index = closures.len();
-                closures.push(RuntimeClosure {
+                let closure_index = context.closures.len();
+                context.closures.push(RuntimeClosure {
                     proto: child.clone(),
                     upvalues: Vec::new(),
                 });
@@ -326,15 +390,43 @@ fn execute_proto_with_upvalues(
                     Value::closure_index(closure_index as u32),
                 )?;
                 let captured = capture_upvalues(&child, &thread, upvalues)?;
-                closures[closure_index].upvalues = captured;
+                context.closures[closure_index].upvalues = captured;
             }
             Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
-                execute_arithmetic(&mut thread, closures, instr, tables, strings, globals)?
+                execute_arithmetic(
+                    &mut thread,
+                    context.closures,
+                    instr,
+                    context.tables,
+                    context.strings,
+                    context.globals,
+                )?
             }
-            Op::Len => execute_len(&mut thread, closures, instr, tables, strings, globals)?,
-            Op::Concat => execute_concat(&mut thread, closures, instr, tables, strings, globals)?,
+            Op::Len => execute_len(
+                &mut thread,
+                context.closures,
+                instr,
+                context.tables,
+                context.strings,
+                context.globals,
+            )?,
+            Op::Concat => execute_concat(
+                &mut thread,
+                context.closures,
+                instr,
+                context.tables,
+                context.strings,
+                context.globals,
+            )?,
             Op::Eq | Op::Lt | Op::Le => {
-                execute_comparison(&mut thread, closures, instr, tables, strings, globals)?;
+                execute_comparison(
+                    &mut thread,
+                    context.closures,
+                    instr,
+                    context.tables,
+                    context.strings,
+                    context.globals,
+                )?;
             }
             Op::Jmp => pc = jump_target(pc, instr)?,
             Op::ForPrep => {
@@ -349,7 +441,14 @@ fn execute_proto_with_upvalues(
             }
             Op::TForPrep => pc = jump_target(pc, instr)?,
             Op::TForCall => {
-                execute_generic_for_call(&mut thread, closures, instr, tables, strings, globals)?;
+                execute_generic_for_call(
+                    &mut thread,
+                    context.closures,
+                    instr,
+                    context.tables,
+                    context.strings,
+                    context.globals,
+                )?;
             }
             Op::TForLoop => {
                 if execute_generic_for_loop(&mut thread, instr)? {
@@ -367,11 +466,16 @@ fn execute_proto_with_upvalues(
                     dynamic_top = top;
                 }
             }
-            Op::VarargTable => execute_vararg_table(&mut thread, instr, varargs, tables)?,
+            Op::VarargTable => execute_vararg_table(&mut thread, instr, varargs, context.tables)?,
             Op::Call => {
-                if let Some(top) =
-                    execute_call(&mut thread, closures, instr, tables, strings, globals)?
-                {
+                if let Some(top) = execute_call(
+                    &mut thread,
+                    context.closures,
+                    instr,
+                    context.tables,
+                    context.strings,
+                    context.globals,
+                )? {
                     dynamic_top = top;
                 }
             }
@@ -409,6 +513,13 @@ fn is_truthy(value: Value) -> bool {
 struct RuntimeClosure {
     proto: Proto,
     upvalues: Vec<Value>,
+}
+
+struct ExecutionContext<'a> {
+    closures: &'a mut Vec<RuntimeClosure>,
+    tables: &'a mut RuntimeTables,
+    strings: &'a mut RuntimeStrings,
+    globals: &'a mut RuntimeGlobals,
 }
 
 fn capture_upvalues(
@@ -505,19 +616,17 @@ fn call_closure(
         .get(closure_index)
         .cloned()
         .ok_or(RuntimeErrorKind::NonCallableValue)?;
-    execute_proto_with_upvalues(
-        &closure.proto,
-        &closure.upvalues,
-        args,
+    let mut context = ExecutionContext {
         closures,
         tables,
         strings,
         globals,
-    )
-    .map_err(|mut error| {
-        error.push_trace_frame(trace_frame(&closure.proto));
-        error
-    })
+    };
+    execute_proto_with_upvalues(&closure.proto, &closure.upvalues, args, &mut context, false)
+        .map_err(|mut error| {
+            error.push_trace_frame(trace_frame(&closure.proto));
+            error
+        })
 }
 
 fn trace_frame(proto: &Proto) -> TraceFrame {

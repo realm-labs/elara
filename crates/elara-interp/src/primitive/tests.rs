@@ -1,7 +1,10 @@
 use elara_bytecode::{Op, ProtoBuilder};
 use elara_core::Value;
 
-use super::{RuntimeErrorKind, execute_proto, execute_proto_with_output};
+use super::{
+    ProtectedRuntimeOutput, RuntimeErrorKind, execute_proto, execute_proto_protected,
+    execute_proto_with_output,
+};
 
 fn assert_runtime_error_kind(
     result: Result<Vec<Value>, super::RuntimeError>,
@@ -69,6 +72,39 @@ fn arithmetic_reports_non_numeric_operands() {
         execute_proto(&builder.finish()),
         RuntimeErrorKind::NonNumericOperand { op: Op::Add },
     );
+}
+
+#[test]
+fn protected_execution_returns_successful_values() {
+    let mut builder = ProtoBuilder::new().with_signature(1, 0, false);
+    let value = builder.add_constant(Value::integer(42));
+    builder.emit_abx(Op::LoadK, 0, u64::from(value));
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    match execute_proto_protected(&builder.finish()) {
+        ProtectedRuntimeOutput::Ok(output) => assert_eq!(output.values, vec![Value::integer(42)]),
+        ProtectedRuntimeOutput::Err(error) => panic!("expected protected success, got {error:?}"),
+    }
+}
+
+#[test]
+fn protected_execution_catches_runtime_errors() {
+    let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+    builder.emit_abc(Op::LoadBool, 0, 1, 0);
+    builder.emit_abc(Op::LoadBool, 1, 0, 0);
+    builder.emit_abc(Op::Add, 2, 0, 1);
+
+    match execute_proto_protected(&builder.finish()) {
+        ProtectedRuntimeOutput::Ok(output) => {
+            panic!("expected protected error, got {:?}", output.values)
+        }
+        ProtectedRuntimeOutput::Err(error) => {
+            assert_eq!(
+                error.kind(),
+                &RuntimeErrorKind::NonNumericOperand { op: Op::Add }
+            );
+        }
+    }
 }
 
 #[test]

@@ -181,6 +181,8 @@ pub struct FrameFlags {
 impl FrameFlags {
     /// Empty frame flags.
     pub const EMPTY: Self = Self { bits: 0 };
+    /// Frame is a protected-call boundary.
+    pub const PROTECTED: Self = Self { bits: 1 << 0 };
 
     /// Raw flag bits.
     #[must_use]
@@ -192,6 +194,19 @@ impl FrameFlags {
     #[must_use]
     pub const fn is_empty(self) -> bool {
         self.bits == 0
+    }
+
+    /// Returns true when this frame is a protected-call boundary.
+    #[must_use]
+    pub const fn is_protected(self) -> bool {
+        self.bits & Self::PROTECTED.bits != 0
+    }
+
+    /// Returns these flags with the protected-call marker enabled.
+    #[must_use]
+    pub const fn with_protected(mut self) -> Self {
+        self.bits |= Self::PROTECTED.bits;
+        self
     }
 }
 
@@ -227,6 +242,13 @@ impl CallFrame {
     #[must_use]
     pub const fn with_pc(mut self, pc: u32) -> Self {
         self.pc = pc;
+        self
+    }
+
+    /// Marks this frame as a protected-call boundary.
+    #[must_use]
+    pub const fn protected(mut self) -> Self {
+        self.flags = self.flags.with_protected();
         self
     }
 }
@@ -275,6 +297,14 @@ mod tests {
         assert!(!thread.push_frame(CallFrame::new(0, 3, ResultCount::Multiple)));
         assert_eq!(thread.pop_frame().unwrap().top, 2);
         assert_eq!(thread.pop_frame(), None);
+    }
+
+    #[test]
+    fn thread_stack_frame_flags_mark_protected_boundaries() {
+        let frame = CallFrame::new(0, 0, ResultCount::Multiple).protected();
+
+        assert!(frame.flags.is_protected());
+        assert!(!frame.flags.is_empty());
     }
 
     #[test]

@@ -135,12 +135,13 @@ fn execute_float_for_loop(thread: &mut LuaThread, base: usize) -> RuntimeResult<
     let step = register(thread, base + 1)?
         .as_float()
         .ok_or(RuntimeErrorKind::ForLoopNonNumeric { operand: "step" })?;
-    let index = register(thread, base + 2)?
-        .as_float()
-        .ok_or(RuntimeErrorKind::ForLoopNonNumeric {
-            operand: "initial value",
-        })?
-        + step;
+    let index =
+        register(thread, base + 2)?
+            .as_float()
+            .ok_or(RuntimeErrorKind::ForLoopNonNumeric {
+                operand: "initial value",
+            })?
+            + step;
 
     let continues = if step > 0.0 {
         index <= limit

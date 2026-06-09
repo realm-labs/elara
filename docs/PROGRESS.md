@@ -62,7 +62,9 @@ diagnostics when `_ENV` is itself declared global and another global access
 would need it as the environment. Structured runtime errors now preserve a
 stable runtime error kind, display message, and traceback frame metadata, and
 primitive Lua closure calls attach child frames when errors propagate out.
-Protected calls, coroutines, to-be-closed variables, standard library, full API,
+Primitive protected execution can catch structured runtime errors at an
+explicit protected-call boundary. Lua-facing protected-call lowering/stdlib
+entry points, coroutines, to-be-closed variables, standard library, full API,
 JIT, C API, conformance, and benchmark implementation work has not started.
 
 Current state:
@@ -618,13 +620,16 @@ Delivered:
   and traceback metadata.
 - Errors propagating out of primitive Lua closure calls attach child prototype
   traceback frames.
+- Core call-frame flags can mark protected-call boundaries.
+- Primitive execution exposes `execute_proto_protected`, which returns normal
+  output or a caught structured runtime error without propagating it.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M10
 
-- Implement protected-call frame markers and error capture on top of structured
-  runtime errors.
+- Finish M10.2 by connecting protected-call behavior to Lua-call execution and
+  the future base-library `pcall`/`xpcall` surface.
 
 ### Product Gaps
 
@@ -644,10 +649,11 @@ M10.1 is complete.
 
 ## Last Verification
 
-M10.1 structured runtime error verification passed:
+M10.2 protected execution boundary verification passed:
 
 ```bash
-cargo test -p elara-core error
+cargo test -p elara-core thread_stack
+cargo test -p elara-interp protected
 cargo test -p elara-interp --lib
 cargo test -p elara-api eval_simple
 cargo clippy -p elara-core -p elara-interp -p elara-api --all-targets -- -D warnings
@@ -658,9 +664,9 @@ issues on Windows even after the touched files are formatted.
 
 ## Next Recommended Action
 
-Start M10.2 by adding protected-call frame markers and a primitive protected
-execution entry point that returns caught structured runtime errors instead of
-propagating them.
+Continue M10.2 by deciding the Lua-facing protected-call surface: either add a
+minimal base-library `pcall` entry point over `execute_proto_protected`, or add
+interpreter call-frame capture for protected child calls first.
 
 ## Current Risk Notes
 
