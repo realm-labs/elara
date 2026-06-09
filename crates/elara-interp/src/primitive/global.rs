@@ -7,7 +7,7 @@ use super::{RuntimeErrorKind, RuntimeResult, RuntimeStrings, RuntimeTables, set_
 
 /// Runtime-owned global environment for primitive execution.
 #[derive(Default)]
-pub(super) struct RuntimeGlobals {
+pub(crate) struct RuntimeGlobals {
     table_index: u32,
 }
 

@@ -51,6 +51,7 @@ struct SimpleCompiler {
     global_default: GlobalDefault,
     is_vararg: bool,
     loop_breaks: Vec<Vec<usize>>,
+    to_be_closed: Vec<u16>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -90,6 +91,7 @@ impl SimpleCompiler {
             global_default: GlobalDefault::PreambularReadWrite,
             is_vararg: false,
             loop_breaks: Vec::new(),
+            to_be_closed: Vec::new(),
         }
     }
 
@@ -210,6 +212,7 @@ impl SimpleCompiler {
     fn compile_return(&mut self, values: &[Expr<'_>]) {
         let registers = self.compile_expression_list(values);
         let start = self.contiguous_return_start(&registers);
+        self.emit_close_all();
         self.builder
             .emit_abc(Op::Return, start, registers.len() as u32, 0);
     }
@@ -223,6 +226,17 @@ impl SimpleCompiler {
                 self.emit_move(register, value);
             } else {
                 self.builder.emit_abc(Op::LoadNil, register, 0, 0);
+            }
+            match name.attribute {
+                Some("close") => {
+                    self.builder.emit_abc(Op::Tbc, register, 0, 0);
+                    self.to_be_closed.push(register);
+                }
+                Some("const") | None => {}
+                Some(attribute) => self.diagnostics.push(
+                    Diagnostic::error(format!("unsupported local attribute '{attribute}'"))
+                        .with_primary_span(name.span),
+                ),
             }
         }
 
@@ -435,6 +449,13 @@ impl SimpleCompiler {
         }
     }
 
+    fn emit_close_all(&mut self) {
+        if let Some(register) = self.to_be_closed.first().copied() {
+            self.builder.emit_abc(Op::Close, register, 0, 0);
+            self.to_be_closed.clear();
+        }
+    }
+
     fn ensure_register_slot(&mut self, register: u16) {
         let next = register
             .checked_add(1)
@@ -511,13 +532,14 @@ impl SimpleCompiler {
         register
     }
 
-    fn finish(self) -> CompileResult {
+    fn finish(mut self) -> CompileResult {
         if !self.diagnostics.is_empty() {
             return CompileResult {
                 proto: None,
                 diagnostics: self.diagnostics,
             };
         }
+        self.emit_close_all();
 
         let proto = self
             .builder

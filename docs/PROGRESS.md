@@ -66,8 +66,10 @@ Primitive protected execution can catch structured runtime errors at an
 explicit protected-call boundary. Primitive bytecode coroutines can transition
 through runnable, running, suspended, and dead states, yield from Lua frames,
 resume with values, and propagate errors through dead coroutine status.
-To-be-closed variables, standard library, full API, JIT, C API, conformance,
-and benchmark implementation work has not started.
+To-be-closed locals now lower to `TBC`/`CLOSE`, and primitive normal-return
+close paths can validate and invoke `__close` metamethods. To-be-closed error
+and coroutine interaction paths, standard library, full API, JIT, C API,
+conformance, and benchmark implementation work remain.
 
 Current state:
 
@@ -634,13 +636,19 @@ Delivered:
 - Primitive coroutines can yield from the root body or a called Lua frame,
   resume with values, return normally, and report dead-coroutine resume errors.
 - One-shot primitive execution rejects `YIELD` outside a coroutine boundary.
+- The simple compiler lowers local `<close>` declarations to `TBC` and emits
+  `CLOSE` before explicit returns and implicit function end when a close local
+  is pending.
+- Primitive runtime `TBC` validates non-nil/non-false values for `__close` and
+  `CLOSE` calls close metamethods in reverse registration order for normal
+  close paths.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M10
 
-- Implement to-be-closed variables and close behavior during return, errors,
-  and coroutine interactions.
+- Finish to-be-closed behavior during runtime errors and coroutine
+  interactions.
 
 ### Product Gaps
 
@@ -662,15 +670,15 @@ M10.3 is complete.
 
 ## Last Verification
 
-M10.3 coroutine/yield/resume verification passed:
+M10.4 to-be-closed normal-return slice verification passed:
 
 ```bash
-cargo test -p elara-core thread_stack
-cargo test -p elara-bytecode --lib
-cargo test -p elara-interp coroutine
+cargo test -p elara-compiler to_be_closed
+cargo test -p elara-interp to_be_closed
+cargo test -p elara-compiler simple_expr
 cargo test -p elara-interp --lib
 cargo test -p elara-api eval_simple
-cargo clippy -p elara-core -p elara-bytecode -p elara-interp -p elara-api --all-targets -- -D warnings
+cargo clippy -p elara-compiler -p elara-interp -p elara-api --all-targets -- -D warnings
 ```
 
 `cargo fmt --all -- --check` currently reports workspace-wide newline-style
@@ -678,8 +686,8 @@ issues on Windows even after the touched files are formatted.
 
 ## Next Recommended Action
 
-Start M10.4 by adding bytecode/runtime structure for to-be-closed variables and
-normal-return close behavior before layering error and coroutine close paths.
+Continue M10.4 by adding error-unwind close behavior, then coroutine close
+interaction tests.
 
 ## Current Risk Notes
 

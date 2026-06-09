@@ -370,6 +370,18 @@ fn locals_compile_assignment() {
 }
 
 #[test]
+fn locals_compile_to_be_closed_local() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "local<close> x = nil\nreturn 42");
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_NIL      A=0 B=0 C=0\n0001 MOVE          A=1 B=0 C=0\n0002 TBC           A=1 B=0 C=0\n0003 LOAD_K        A=2 Bx=0 ; 42\n0004 CLOSE         A=1 B=0 C=0\n0005 RETURN        A=2 B=1 C=0\n",
+    );
+}
+
+#[test]
 fn globals_report_undeclared_assignment_after_declaration() {
     let compiled = compile_simple_chunk(SourceId::new(0), "global answer\nmissing = 1");
 

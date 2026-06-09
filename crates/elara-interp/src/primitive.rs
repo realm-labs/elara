@@ -66,6 +66,7 @@ pub struct PrimitiveCoroutine {
     strings: RuntimeStrings,
     globals: RuntimeGlobals,
     frames: Vec<CoroutineFrame>,
+    to_be_closed: Vec<usize>,
 }
 
 #[derive(Debug)]
@@ -77,6 +78,7 @@ struct CoroutineFrame {
     dynamic_top: usize,
     call_slot: Option<CoroutineCallSlot>,
     yielded_base: Option<usize>,
+    tbc_start: usize,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -107,7 +109,7 @@ impl PrimitiveCoroutine {
         let global_table = tables.push_table(Table::new());
         let globals = RuntimeGlobals::new(global_table);
         let upvalues = vec![globals.value()];
-        let frame = CoroutineFrame::new(proto, upvalues, Vec::new(), None);
+        let frame = CoroutineFrame::new(proto, upvalues, Vec::new(), None, 0);
 
         Ok(Self {
             thread,
@@ -116,6 +118,7 @@ impl PrimitiveCoroutine {
             strings: RuntimeStrings::new(),
             globals,
             frames: vec![frame],
+            to_be_closed: Vec::new(),
         })
     }
 
@@ -208,6 +211,7 @@ impl PrimitiveCoroutine {
                 tables: &mut self.tables,
                 strings: &mut self.strings,
                 globals: &mut self.globals,
+                to_be_closed: &mut self.to_be_closed,
             };
 
             match execute_instruction(
@@ -265,6 +269,7 @@ impl PrimitiveCoroutine {
             closure.upvalues,
             args,
             Some(CoroutineCallSlot { base, result_count }),
+            self.to_be_closed.len(),
         ))
     }
 
@@ -272,6 +277,15 @@ impl PrimitiveCoroutine {
         let Some(frame) = self.frames.pop() else {
             return Ok(Some(values));
         };
+        close_to_count(
+            &self.thread,
+            &mut self.closures,
+            &mut self.tables,
+            &mut self.strings,
+            &mut self.globals,
+            &mut self.to_be_closed,
+            frame.tbc_start,
+        )?;
         let Some(slot) = frame.call_slot else {
             return Ok(Some(values));
         };
@@ -292,6 +306,7 @@ impl CoroutineFrame {
         upvalues: Vec<Value>,
         varargs: Vec<Value>,
         call_slot: Option<CoroutineCallSlot>,
+        tbc_start: usize,
     ) -> Self {
         Self {
             proto,
@@ -301,6 +316,7 @@ impl CoroutineFrame {
             dynamic_top: 0,
             call_slot,
             yielded_base: None,
+            tbc_start,
         }
     }
 }
@@ -379,6 +395,10 @@ pub enum RuntimeErrorKind {
     CoroutineNotSuspended,
     /// Tried to resume a dead coroutine.
     CoroutineDead,
+    /// To-be-closed variable received a value without a close metamethod.
+    NonClosableValue,
+    /// To-be-closed variable has a close metamethod this interpreter cannot call yet.
+    UnsupportedCloseMetamethod,
     /// Opcode is not supported by the primitive interpreter.
     UnsupportedOpcode { op: Op },
 }
@@ -436,6 +456,8 @@ impl RuntimeErrorKind {
             Self::YieldOutsideCoroutine => "attempt to yield from outside a coroutine".to_owned(),
             Self::CoroutineNotSuspended => "cannot resume non-suspended coroutine".to_owned(),
             Self::CoroutineDead => "cannot resume dead coroutine".to_owned(),
+            Self::NonClosableValue => "to-be-closed variable got a non-closable value".to_owned(),
+            Self::UnsupportedCloseMetamethod => "unsupported '__close' metamethod shape".to_owned(),
             Self::UnsupportedOpcode { op } => format!("unsupported opcode '{}'", op.mnemonic()),
         }
     }
@@ -484,11 +506,13 @@ fn execute_proto_with_output_in_mode(
     let global_table = tables.push_table(Table::new());
     let mut globals = RuntimeGlobals::new(global_table);
     let global_value = globals.value();
+    let mut to_be_closed = Vec::new();
     let mut context = ExecutionContext {
         closures: &mut closures,
         tables: &mut tables,
         strings: &mut strings,
         globals: &mut globals,
+        to_be_closed: &mut to_be_closed,
     };
     let values = execute_proto_with_upvalues(proto, &[global_value], &[], &mut context, protected)?;
     Ok(RuntimeOutput {
@@ -770,7 +794,26 @@ fn execute_instruction(
                 *dynamic_top = top;
             }
         }
+        Op::Tbc => execute_tbc(thread, context, instr)?,
+        Op::Close => close_to_base(
+            thread,
+            context.closures,
+            context.tables,
+            context.strings,
+            context.globals,
+            context.to_be_closed,
+            usize::from(instr.a()),
+        )?,
         Op::Return => {
+            close_to_count(
+                thread,
+                context.closures,
+                context.tables,
+                context.strings,
+                context.globals,
+                context.to_be_closed,
+                0,
+            )?;
             return collect_returns(thread, instr, *dynamic_top).map(InstructionFlow::Return);
         }
         Op::Yield => {
@@ -840,16 +883,17 @@ fn is_truthy(value: Value) -> bool {
 }
 
 #[derive(Clone, Debug)]
-struct RuntimeClosure {
+pub(crate) struct RuntimeClosure {
     proto: Proto,
     upvalues: Vec<Value>,
 }
 
-struct ExecutionContext<'a> {
+pub(super) struct ExecutionContext<'a> {
     closures: &'a mut Vec<RuntimeClosure>,
     tables: &'a mut RuntimeTables,
     strings: &'a mut RuntimeStrings,
     globals: &'a mut RuntimeGlobals,
+    to_be_closed: &'a mut Vec<usize>,
 }
 
 fn capture_upvalues(
@@ -892,6 +936,99 @@ fn execute_vararg(
     }
 
     Ok((instr.b() == 0).then_some(base + count))
+}
+
+pub(super) fn execute_tbc(
+    thread: &LuaThread,
+    context: &mut ExecutionContext<'_>,
+    instr: Instr,
+) -> RuntimeResult<()> {
+    let register = usize::from(instr.a());
+    let value = register_value_for_close(thread, register)?;
+    if value.is_nil() || value.as_bool() == Some(false) {
+        return Ok(());
+    }
+
+    let Some(metamethod) =
+        context
+            .tables
+            .metamethod_for_value(value, "__close", context.strings)?
+    else {
+        return Err(RuntimeErrorKind::NonClosableValue.into());
+    };
+    if metamethod.as_closure_index().is_none() {
+        return Err(RuntimeErrorKind::UnsupportedCloseMetamethod.into());
+    }
+    context.to_be_closed.push(register);
+    Ok(())
+}
+
+fn close_to_count(
+    thread: &LuaThread,
+    closures: &mut Vec<RuntimeClosure>,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
+    to_be_closed: &mut Vec<usize>,
+    keep_count: usize,
+) -> RuntimeResult<()> {
+    while to_be_closed.len() > keep_count {
+        let register = to_be_closed.pop().expect("to-be-closed list is non-empty");
+        call_close_metamethod(thread, closures, tables, strings, globals, register)?;
+    }
+    Ok(())
+}
+
+pub(super) fn close_to_base(
+    thread: &LuaThread,
+    closures: &mut Vec<RuntimeClosure>,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
+    to_be_closed: &mut Vec<usize>,
+    base: usize,
+) -> RuntimeResult<()> {
+    while to_be_closed
+        .last()
+        .is_some_and(|register| *register >= base)
+    {
+        let register = to_be_closed.pop().expect("to-be-closed list is non-empty");
+        call_close_metamethod(thread, closures, tables, strings, globals, register)?;
+    }
+    Ok(())
+}
+
+fn call_close_metamethod(
+    thread: &LuaThread,
+    closures: &mut Vec<RuntimeClosure>,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+    globals: &mut RuntimeGlobals,
+    register: usize,
+) -> RuntimeResult<()> {
+    let value = register_value_for_close(thread, register)?;
+    if value.is_nil() || value.as_bool() == Some(false) {
+        return Ok(());
+    }
+    let Some(metamethod) = tables.metamethod_for_value(value, "__close", strings)? else {
+        return Err(RuntimeErrorKind::NonClosableValue.into());
+    };
+    let Some(closure_index) = metamethod.as_closure_index() else {
+        return Err(RuntimeErrorKind::UnsupportedCloseMetamethod.into());
+    };
+    call_closure(
+        closures,
+        closure_index as usize,
+        &[value],
+        tables,
+        strings,
+        globals,
+    )?;
+    Ok(())
+}
+
+fn register_value_for_close(thread: &LuaThread, index: usize) -> RuntimeResult<Value> {
+    register(thread, index)
 }
 
 fn execute_call(
@@ -986,11 +1123,13 @@ fn call_closure(
         .get(closure_index)
         .cloned()
         .ok_or(RuntimeErrorKind::NonCallableValue)?;
+    let mut to_be_closed = Vec::new();
     let mut context = ExecutionContext {
         closures,
         tables,
         strings,
         globals,
+        to_be_closed: &mut to_be_closed,
     };
     execute_proto_with_upvalues(&closure.proto, &closure.upvalues, args, &mut context, false)
         .map_err(|mut error| {

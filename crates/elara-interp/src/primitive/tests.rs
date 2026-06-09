@@ -1,9 +1,10 @@
-use elara_bytecode::{Op, ProtoBuilder};
-use elara_core::{ThreadStatus, Value};
+use elara_bytecode::{Instr, Op, ProtoBuilder};
+use elara_core::{Table, ThreadStatus, Value};
 
 use super::{
-    CoroutineResume, PrimitiveCoroutine, ProtectedRuntimeOutput, RuntimeErrorKind, execute_proto,
-    execute_proto_protected, execute_proto_with_output,
+    CoroutineResume, ExecutionContext, PrimitiveCoroutine, ProtectedRuntimeOutput,
+    RuntimeErrorKind, RuntimeGlobals, RuntimeStrings, RuntimeTables, close_to_base, execute_proto,
+    execute_proto_protected, execute_proto_with_output, execute_tbc,
 };
 
 fn assert_runtime_error_kind(
@@ -12,6 +13,11 @@ fn assert_runtime_error_kind(
 ) {
     let error = result.expect_err("expected runtime error");
     assert_eq!(error.kind(), &expected);
+}
+
+fn runtime_globals(tables: &mut RuntimeTables) -> RuntimeGlobals {
+    let global_table = tables.push_table(Table::new());
+    RuntimeGlobals::new(global_table)
 }
 
 #[test]
@@ -265,6 +271,118 @@ fn yield_outside_coroutine_is_runtime_error() {
     assert_runtime_error_kind(
         execute_proto(&builder.finish()),
         RuntimeErrorKind::YieldOutsideCoroutine,
+    );
+}
+
+#[test]
+fn to_be_closed_close_calls_close_metamethod_in_reverse_order() {
+    let mut first_close = ProtoBuilder::new().with_signature(1, 0, false);
+    let first_closed_name = first_close.add_string_constant("closed");
+    let one = first_close.add_constant(Value::integer(1));
+    first_close.emit_abx(Op::LoadK, 0, u64::from(one));
+    first_close.emit_abx(Op::SetEnv, 0, u64::from(first_closed_name));
+    first_close.emit_abc(Op::Return, 0, 0, 0);
+    let first_close = first_close.finish();
+
+    let mut second_close = ProtoBuilder::new().with_signature(1, 0, false);
+    let second_closed_name = second_close.add_string_constant("closed");
+    let two = second_close.add_constant(Value::integer(2));
+    second_close.emit_abx(Op::LoadK, 0, u64::from(two));
+    second_close.emit_abx(Op::SetEnv, 0, u64::from(second_closed_name));
+    second_close.emit_abc(Op::Return, 0, 0, 0);
+    let second_close = second_close.finish();
+
+    let mut closures = vec![
+        super::RuntimeClosure {
+            proto: first_close,
+            upvalues: Vec::new(),
+        },
+        super::RuntimeClosure {
+            proto: second_close,
+            upvalues: Vec::new(),
+        },
+    ];
+    let mut tables = RuntimeTables::new();
+    let first_table = tables.push_table(Table::new());
+    let second_table = tables.push_table(Table::new());
+    let mut strings = RuntimeStrings::new();
+    let close_key = strings.intern_short_value("__close");
+    let mut first_metatable = Table::new();
+    assert!(first_metatable.raw_set_value(close_key, Value::closure_index(0)));
+    let first_metatable = tables.push_table(first_metatable);
+    let mut second_metatable = Table::new();
+    assert!(second_metatable.raw_set_value(close_key, Value::closure_index(1)));
+    let second_metatable = tables.push_table(second_metatable);
+    tables
+        .set_metatable(first_table as usize, Some(first_metatable))
+        .expect("metatable link should be valid");
+    tables
+        .set_metatable(second_table as usize, Some(second_metatable))
+        .expect("metatable link should be valid");
+    let mut globals = runtime_globals(&mut tables);
+    let mut to_be_closed = Vec::new();
+    let mut thread = elara_core::LuaThread::new();
+    thread.push_value(Value::table_index(first_table));
+    thread.push_value(Value::table_index(second_table));
+
+    {
+        let mut context = ExecutionContext {
+            closures: &mut closures,
+            tables: &mut tables,
+            strings: &mut strings,
+            globals: &mut globals,
+            to_be_closed: &mut to_be_closed,
+        };
+        execute_tbc(&thread, &mut context, Instr::abc(Op::Tbc, 0, 0, 0))
+            .expect("first table should be closable");
+        execute_tbc(&thread, &mut context, Instr::abc(Op::Tbc, 1, 0, 0))
+            .expect("second table should be closable");
+    }
+    close_to_base(
+        &thread,
+        &mut closures,
+        &mut tables,
+        &mut strings,
+        &mut globals,
+        &mut to_be_closed,
+        0,
+    )
+    .expect("close should execute");
+
+    let closed_key = strings.intern_short_value("closed");
+    let global_table = globals.value().as_table_index().expect("global table");
+    assert_eq!(
+        tables[global_table as usize].raw_get_value(closed_key),
+        Value::integer(1)
+    );
+}
+
+#[test]
+fn to_be_closed_tbc_rejects_non_closable_values() {
+    let mut builder = ProtoBuilder::new().with_signature(1, 0, false);
+    builder.emit_abc(Op::LoadInt, 0, 1, 0);
+    builder.emit_abc(Op::Tbc, 0, 0, 0);
+
+    assert_runtime_error_kind(
+        execute_proto(&builder.finish()),
+        RuntimeErrorKind::NonClosableValue,
+    );
+}
+
+#[test]
+fn to_be_closed_nil_and_false_do_not_require_close() {
+    let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
+    let value = builder.add_constant(Value::integer(7));
+    builder.emit_abc(Op::LoadNil, 0, 0, 0);
+    builder.emit_abc(Op::LoadBool, 1, 0, 0);
+    builder.emit_abc(Op::Tbc, 0, 0, 0);
+    builder.emit_abc(Op::Tbc, 1, 0, 0);
+    builder.emit_abx(Op::LoadK, 0, u64::from(value));
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Ok(vec![Value::integer(7)])
     );
 }
 
