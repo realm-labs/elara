@@ -71,8 +71,10 @@ close paths can validate and invoke `__close` metamethods. Runtime error
 unwinding runs pending close methods before returning the original error when
 close succeeds, and primitive coroutines keep close variables alive across
 yield before closing them on finish. The standard-library crate now exposes a
-profile/set/registry framework plus generic global registration adapters. Full
-API, JIT, C API, conformance, and benchmark implementation work remain.
+profile/set/registry framework plus generic global registration adapters, and
+contains descriptor-based essential base, table, math, and string library
+entries. Executable native standard-library functions, full API, JIT, C API,
+conformance, and benchmark implementation work remain.
 
 Current state:
 
@@ -654,12 +656,19 @@ Delivered:
   `StdLibProfile`, `StdLibRegistry`, `GlobalRegistry`, and `GlobalLibrary`.
 - Standard-library profiles expand to deterministic library sets and can
   register selected implementations into a generic global target.
+- `elara-stdlib` defines `FunctionSpec`, `FunctionRegistry`,
+  `FunctionLibrary`, and descriptor lists for essential base, table, math, and
+  string functions.
+- `essential_registry` registers the descriptor libraries selected by the
+  current standard-library profile.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M11
 
-- Implement first essential base, table, math, and string library entries.
+- Replace descriptor-only essential base, table, math, and string entries with
+  executable native functions as runtime/API native-call support becomes
+  available.
 - Connect stdlib registration to an Elara runtime/global environment once the
   primitive runtime has a public registration hook.
 
@@ -686,10 +695,10 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.1 stdlib registry verification passed:
+M11.2 descriptor essential-library slice verification passed:
 
 ```bash
-cargo test -p elara-stdlib registry
+cargo test -p elara-stdlib
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 ```
 
@@ -698,8 +707,8 @@ issues on Windows even after the touched files are formatted.
 
 ## Next Recommended Action
 
-Start M11.2 by adding placeholder essential library implementations and tests
-for base, table, math, and string registration.
+Continue M11.2 by adding runtime/API native-call support so essential standard
+library descriptors can become executable Lua functions.
 
 ## Current Risk Notes
 

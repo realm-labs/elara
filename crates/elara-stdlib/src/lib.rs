@@ -309,6 +309,179 @@ impl<Target> StdLibRegistry<Target> {
     }
 }
 
+/// Describes an essential standard-library function before native execution is wired in.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct FunctionSpec {
+    module: StdLib,
+    name: &'static str,
+}
+
+impl FunctionSpec {
+    /// Creates a function descriptor.
+    #[must_use]
+    pub const fn new(module: StdLib, name: &'static str) -> Self {
+        Self { module, name }
+    }
+
+    /// Library module containing this function.
+    #[must_use]
+    pub const fn module(self) -> StdLib {
+        self.module
+    }
+
+    /// Function name inside the module/global table.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        self.name
+    }
+}
+
+/// Target that accepts standard-library function descriptors.
+pub trait FunctionRegistry {
+    /// Registers one function descriptor.
+    fn register_function(&mut self, function: FunctionSpec) -> Result<(), RegisterError>;
+}
+
+/// A standard library made of function descriptors.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FunctionLibrary {
+    library: StdLib,
+    name: &'static str,
+    functions: &'static [FunctionSpec],
+}
+
+impl FunctionLibrary {
+    /// Creates a function-descriptor library.
+    #[must_use]
+    pub const fn new(
+        library: StdLib,
+        name: &'static str,
+        functions: &'static [FunctionSpec],
+    ) -> Self {
+        Self {
+            library,
+            name,
+            functions,
+        }
+    }
+
+    /// Standard-library group.
+    #[must_use]
+    pub const fn library(&self) -> StdLib {
+        self.library
+    }
+
+    /// Function descriptors in registration order.
+    #[must_use]
+    pub const fn functions(&self) -> &'static [FunctionSpec] {
+        self.functions
+    }
+}
+
+impl<Target> Library<Target> for FunctionLibrary
+where
+    Target: FunctionRegistry,
+{
+    fn name(&self) -> &'static str {
+        self.name
+    }
+
+    fn register(&self, target: &mut Target) -> Result<(), RegisterError> {
+        for function in self.functions {
+            target.register_function(*function)?;
+        }
+        Ok(())
+    }
+}
+
+/// Essential base library function descriptors.
+pub const BASE_FUNCTIONS: &[FunctionSpec] = &[
+    FunctionSpec::new(StdLib::Base, "assert"),
+    FunctionSpec::new(StdLib::Base, "error"),
+    FunctionSpec::new(StdLib::Base, "getmetatable"),
+    FunctionSpec::new(StdLib::Base, "ipairs"),
+    FunctionSpec::new(StdLib::Base, "next"),
+    FunctionSpec::new(StdLib::Base, "pairs"),
+    FunctionSpec::new(StdLib::Base, "pcall"),
+    FunctionSpec::new(StdLib::Base, "print"),
+    FunctionSpec::new(StdLib::Base, "rawequal"),
+    FunctionSpec::new(StdLib::Base, "rawget"),
+    FunctionSpec::new(StdLib::Base, "rawlen"),
+    FunctionSpec::new(StdLib::Base, "rawset"),
+    FunctionSpec::new(StdLib::Base, "select"),
+    FunctionSpec::new(StdLib::Base, "setmetatable"),
+    FunctionSpec::new(StdLib::Base, "tonumber"),
+    FunctionSpec::new(StdLib::Base, "tostring"),
+    FunctionSpec::new(StdLib::Base, "type"),
+    FunctionSpec::new(StdLib::Base, "xpcall"),
+];
+
+/// Essential table library function descriptors.
+pub const TABLE_FUNCTIONS: &[FunctionSpec] = &[
+    FunctionSpec::new(StdLib::Table, "concat"),
+    FunctionSpec::new(StdLib::Table, "insert"),
+    FunctionSpec::new(StdLib::Table, "move"),
+    FunctionSpec::new(StdLib::Table, "pack"),
+    FunctionSpec::new(StdLib::Table, "remove"),
+    FunctionSpec::new(StdLib::Table, "sort"),
+    FunctionSpec::new(StdLib::Table, "unpack"),
+];
+
+/// Essential math library function descriptors.
+pub const MATH_FUNCTIONS: &[FunctionSpec] = &[
+    FunctionSpec::new(StdLib::Math, "abs"),
+    FunctionSpec::new(StdLib::Math, "ceil"),
+    FunctionSpec::new(StdLib::Math, "floor"),
+    FunctionSpec::new(StdLib::Math, "max"),
+    FunctionSpec::new(StdLib::Math, "min"),
+    FunctionSpec::new(StdLib::Math, "random"),
+    FunctionSpec::new(StdLib::Math, "sqrt"),
+    FunctionSpec::new(StdLib::Math, "type"),
+];
+
+/// Essential string library function descriptors.
+pub const STRING_FUNCTIONS: &[FunctionSpec] = &[
+    FunctionSpec::new(StdLib::String, "byte"),
+    FunctionSpec::new(StdLib::String, "char"),
+    FunctionSpec::new(StdLib::String, "find"),
+    FunctionSpec::new(StdLib::String, "format"),
+    FunctionSpec::new(StdLib::String, "gmatch"),
+    FunctionSpec::new(StdLib::String, "gsub"),
+    FunctionSpec::new(StdLib::String, "len"),
+    FunctionSpec::new(StdLib::String, "lower"),
+    FunctionSpec::new(StdLib::String, "match"),
+    FunctionSpec::new(StdLib::String, "rep"),
+    FunctionSpec::new(StdLib::String, "reverse"),
+    FunctionSpec::new(StdLib::String, "sub"),
+    FunctionSpec::new(StdLib::String, "upper"),
+];
+
+/// Creates a registry containing essential base, table, math, and string libraries.
+#[must_use]
+pub fn essential_registry<Target>() -> StdLibRegistry<Target>
+where
+    Target: FunctionRegistry,
+{
+    let mut registry = StdLibRegistry::new();
+    registry.add(
+        StdLib::Base,
+        FunctionLibrary::new(StdLib::Base, "base", BASE_FUNCTIONS),
+    );
+    registry.add(
+        StdLib::Table,
+        FunctionLibrary::new(StdLib::Table, "table", TABLE_FUNCTIONS),
+    );
+    registry.add(
+        StdLib::Math,
+        FunctionLibrary::new(StdLib::Math, "math", MATH_FUNCTIONS),
+    );
+    registry.add(
+        StdLib::String,
+        FunctionLibrary::new(StdLib::String, "string", STRING_FUNCTIONS),
+    );
+    registry
+}
+
 impl<Target> Default for StdLibRegistry<Target> {
     fn default() -> Self {
         Self::new()
@@ -318,8 +491,8 @@ impl<Target> Default for StdLibRegistry<Target> {
 #[cfg(test)]
 mod tests {
     use super::{
-        GlobalLibrary, GlobalRegistry, Library, RegisterError, StdLib, StdLibProfile,
-        StdLibRegistry, StdLibSet,
+        FunctionRegistry, FunctionSpec, GlobalLibrary, GlobalRegistry, Library, RegisterError,
+        StdLib, StdLibProfile, StdLibRegistry, StdLibSet, essential_registry,
     };
 
     struct NamedLibrary(&'static str);
@@ -353,6 +526,16 @@ mod tests {
     impl GlobalRegistry<i32> for Globals {
         fn set_global(&mut self, name: &'static str, value: i32) -> Result<(), RegisterError> {
             self.0.push((name, value));
+            Ok(())
+        }
+    }
+
+    #[derive(Default)]
+    struct Functions(Vec<FunctionSpec>);
+
+    impl FunctionRegistry for Functions {
+        fn register_function(&mut self, function: FunctionSpec) -> Result<(), RegisterError> {
+            self.0.push(function);
             Ok(())
         }
     }
@@ -414,5 +597,41 @@ mod tests {
             .expect("registration should pass");
 
         assert_eq!(globals.0, vec![("base", 1)]);
+    }
+
+    #[test]
+    fn base_table_math_string_essential_registry_registers_functions() {
+        let registry = essential_registry();
+        let mut functions = Functions::default();
+
+        StdLibProfile::Minimal
+            .register(&registry, &mut functions)
+            .expect("registration should pass");
+
+        assert!(
+            functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::Base, "pcall"))
+        );
+        assert!(
+            functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::Table, "insert"))
+        );
+        assert!(
+            functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::Math, "sqrt"))
+        );
+        assert!(
+            functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::String, "sub"))
+        );
+        assert!(
+            !functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::Utf8, "len"))
+        );
     }
 }
