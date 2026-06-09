@@ -8,6 +8,6 @@
 pub mod primitive;
 
 pub use primitive::{
-    ProtectedRuntimeOutput, RuntimeError, RuntimeErrorKind, RuntimeResult, execute_proto,
-    execute_proto_protected,
+    CoroutineResume, PrimitiveCoroutine, ProtectedRuntimeOutput, RuntimeError, RuntimeErrorKind,
+    RuntimeResult, execute_proto, execute_proto_protected,
 };

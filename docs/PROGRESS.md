@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-09  
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M10 Errors, Protected Calls, Coroutines, and To-Be-Closed Variables
-Current step: M10.3 Implement coroutines and yield/resume
+Current step: M10.4 Implement to-be-closed variables
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -63,9 +63,11 @@ would need it as the environment. Structured runtime errors now preserve a
 stable runtime error kind, display message, and traceback frame metadata, and
 primitive Lua closure calls attach child frames when errors propagate out.
 Primitive protected execution can catch structured runtime errors at an
-explicit protected-call boundary. Coroutines, to-be-closed variables, standard
-library, full API, JIT, C API, conformance, and benchmark implementation work
-has not started.
+explicit protected-call boundary. Primitive bytecode coroutines can transition
+through runnable, running, suspended, and dead states, yield from Lua frames,
+resume with values, and propagate errors through dead coroutine status.
+To-be-closed variables, standard library, full API, JIT, C API, conformance,
+and benchmark implementation work has not started.
 
 Current state:
 
@@ -117,9 +119,10 @@ Completed:
   - M9.4 Implement global declaration semantics.
   - M10.1 Implement structured runtime errors.
   - M10.2 Implement protected calls.
+  - M10.3 Implement coroutines and yield/resume.
 
 In progress:
-  - M10.3 Implement coroutines and yield/resume.
+  - M10.4 Implement to-be-closed variables.
   - Standard library.
   - Rust API.
   - JIT.
@@ -624,12 +627,20 @@ Delivered:
 - Core call-frame flags can mark protected-call boundaries.
 - Primitive execution exposes `execute_proto_protected`, which returns normal
   output or a caught structured runtime error without propagating it.
+- Core thread status helpers model coroutine running, suspended, and dead
+  transitions.
+- Bytecode includes a `YIELD` opcode with verifier range checks.
+- Primitive execution exposes `PrimitiveCoroutine` and `CoroutineResume`.
+- Primitive coroutines can yield from the root body or a called Lua frame,
+  resume with values, return normally, and report dead-coroutine resume errors.
+- One-shot primitive execution rejects `YIELD` outside a coroutine boundary.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M10
 
-- Implement coroutine status transitions plus primitive yield/resume mechanics.
+- Implement to-be-closed variables and close behavior during return, errors,
+  and coroutine interactions.
 
 ### Product Gaps
 
@@ -647,17 +658,19 @@ Major implementation work is still pending:
 M9 is complete.
 M10.1 is complete.
 M10.2 is complete.
+M10.3 is complete.
 
 ## Last Verification
 
-M10.2 protected execution boundary verification passed:
+M10.3 coroutine/yield/resume verification passed:
 
 ```bash
 cargo test -p elara-core thread_stack
-cargo test -p elara-interp protected
+cargo test -p elara-bytecode --lib
+cargo test -p elara-interp coroutine
 cargo test -p elara-interp --lib
 cargo test -p elara-api eval_simple
-cargo clippy -p elara-core -p elara-interp -p elara-api --all-targets -- -D warnings
+cargo clippy -p elara-core -p elara-bytecode -p elara-interp -p elara-api --all-targets -- -D warnings
 ```
 
 `cargo fmt --all -- --check` currently reports workspace-wide newline-style
@@ -665,8 +678,8 @@ issues on Windows even after the touched files are formatted.
 
 ## Next Recommended Action
 
-Start M10.3 by modeling coroutine/thread status transitions and a primitive
-resume/yield result path that can later back the coroutine standard library.
+Start M10.4 by adding bytecode/runtime structure for to-be-closed variables and
+normal-return close behavior before layering error and coroutine close paths.
 
 ## Current Risk Notes
 
@@ -708,7 +721,7 @@ resume/yield result path that can later back the coroutine standard library.
 | Bytecode model | Initial model complete | Proto, instruction encoding, opcode set, constants, upvalues, debug placeholders, builder, disassembler, and verifier are implemented. |
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
-| Interpreter | Initial MVP complete | Simple compiled source chunks can execute constants, arithmetic, and returns. |
+| Interpreter | M10 coroutine support complete | Primitive bytecode coroutines can yield/resume across Lua frames; source-level coroutine library awaits M11. |
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |

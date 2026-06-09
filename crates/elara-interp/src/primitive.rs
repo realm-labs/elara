@@ -3,7 +3,7 @@
 use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
 use elara_core::{
     CallFrame, GcArena, LuaError, LuaFloat, LuaInteger, LuaThread, ResultCount, StringInterner,
-    Table, TraceFrame, Value,
+    Table, ThreadStatus, TraceFrame, Value,
 };
 
 mod global;
@@ -47,11 +47,262 @@ pub enum ProtectedRuntimeOutput {
     Err(RuntimeError),
 }
 
+/// Result of resuming a primitive coroutine.
+#[derive(Clone, Debug, PartialEq)]
+pub enum CoroutineResume {
+    /// Coroutine returned normally and is now dead.
+    Return(Vec<Value>),
+    /// Coroutine yielded values and is now suspended.
+    Yield(Vec<Value>),
+    /// Resume failed before or during execution.
+    Error(RuntimeError),
+}
+
+/// Resumable primitive bytecode coroutine.
+pub struct PrimitiveCoroutine {
+    thread: LuaThread,
+    closures: Vec<RuntimeClosure>,
+    tables: RuntimeTables,
+    strings: RuntimeStrings,
+    globals: RuntimeGlobals,
+    frames: Vec<CoroutineFrame>,
+}
+
+#[derive(Debug)]
+struct CoroutineFrame {
+    proto: Proto,
+    upvalues: Vec<Value>,
+    varargs: Vec<Value>,
+    pc: usize,
+    dynamic_top: usize,
+    call_slot: Option<CoroutineCallSlot>,
+    yielded_base: Option<usize>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct CoroutineCallSlot {
+    base: usize,
+    result_count: u32,
+}
+
 /// Runtime-owned string storage for primitive execution output.
 #[derive(Default)]
 pub struct RuntimeStrings {
     arena: GcArena,
     interner: StringInterner,
+}
+
+impl PrimitiveCoroutine {
+    /// Creates a coroutine from a verified prototype.
+    pub fn new(proto: Proto) -> RuntimeResult<Self> {
+        verify_proto(&proto)
+            .map_err(RuntimeErrorKind::Verification)
+            .map_err(RuntimeError::from)?;
+        let mut thread = LuaThread::new();
+        for _ in 0..proto.max_stack {
+            thread.push_value(Value::nil());
+        }
+
+        let mut tables = RuntimeTables::new();
+        let global_table = tables.push_table(Table::new());
+        let globals = RuntimeGlobals::new(global_table);
+        let upvalues = vec![globals.value()];
+        let frame = CoroutineFrame::new(proto, upvalues, Vec::new(), None);
+
+        Ok(Self {
+            thread,
+            closures: Vec::new(),
+            tables,
+            strings: RuntimeStrings::new(),
+            globals,
+            frames: vec![frame],
+        })
+    }
+
+    /// Current coroutine status.
+    #[must_use]
+    pub const fn status(&self) -> ThreadStatus {
+        self.thread.status()
+    }
+
+    /// Runtime table storage owned by this coroutine.
+    #[must_use]
+    pub const fn tables(&self) -> &RuntimeTables {
+        &self.tables
+    }
+
+    /// Runtime string storage owned by this coroutine.
+    #[must_use]
+    pub const fn strings(&self) -> &RuntimeStrings {
+        &self.strings
+    }
+
+    /// Resumes the coroutine with Lua values.
+    pub fn resume(&mut self, args: &[Value]) -> CoroutineResume {
+        if !self.thread.enter_running() {
+            let kind = if self.thread.status() == ThreadStatus::Dead {
+                RuntimeErrorKind::CoroutineDead
+            } else {
+                RuntimeErrorKind::CoroutineNotSuspended
+            };
+            return CoroutineResume::Error(kind.into());
+        }
+
+        if let Err(error) = self.accept_resume_args(args) {
+            self.thread.set_status(ThreadStatus::Suspended);
+            return CoroutineResume::Error(error);
+        }
+
+        match self.run_until_pause() {
+            Ok(CoroutinePause::Return(values)) => {
+                self.thread.finish();
+                CoroutineResume::Return(values)
+            }
+            Ok(CoroutinePause::Yield(values)) => {
+                let _ = self.thread.suspend();
+                CoroutineResume::Yield(values)
+            }
+            Err(error) => {
+                self.thread.finish();
+                CoroutineResume::Error(error)
+            }
+        }
+    }
+
+    fn accept_resume_args(&mut self, args: &[Value]) -> RuntimeResult<()> {
+        let Some(frame) = self.frames.last_mut() else {
+            return Ok(());
+        };
+        if let Some(base) = frame.yielded_base.take() {
+            write_values(
+                &mut self.thread,
+                base,
+                args,
+                u32::try_from(args.len()).expect("resume result count must fit"),
+            )?;
+            frame.dynamic_top = base + args.len();
+        } else {
+            frame.varargs.clear();
+            frame.varargs.extend_from_slice(args);
+        }
+        Ok(())
+    }
+
+    fn run_until_pause(&mut self) -> RuntimeResult<CoroutinePause> {
+        loop {
+            let Some(frame) = self.frames.last_mut() else {
+                return Ok(CoroutinePause::Return(Vec::new()));
+            };
+            if frame.pc >= frame.proto.code.len() {
+                let returns = Vec::new();
+                if let Some(values) = self.finish_frame(returns)? {
+                    return Ok(CoroutinePause::Return(values));
+                }
+                continue;
+            }
+
+            let instr = frame.proto.code[frame.pc];
+            frame.pc += 1;
+            let mut context = ExecutionContext {
+                closures: &mut self.closures,
+                tables: &mut self.tables,
+                strings: &mut self.strings,
+                globals: &mut self.globals,
+            };
+
+            match execute_instruction(
+                &frame.proto,
+                &mut self.thread,
+                &frame.upvalues,
+                &frame.varargs,
+                &mut context,
+                &mut frame.dynamic_top,
+                &mut frame.pc,
+                instr,
+                ExecutionMode::Coroutine,
+            )? {
+                InstructionFlow::Continue => {}
+                InstructionFlow::Return(values) => {
+                    if let Some(values) = self.finish_frame(values)? {
+                        return Ok(CoroutinePause::Return(values));
+                    }
+                    continue;
+                }
+                InstructionFlow::Call {
+                    closure_index,
+                    args,
+                    base,
+                    result_count,
+                } => {
+                    let frame =
+                        self.coroutine_call_frame(closure_index, args, base, result_count)?;
+                    self.frames.push(frame);
+                }
+                InstructionFlow::Yield { values, base } => {
+                    if let Some(frame) = self.frames.last_mut() {
+                        frame.yielded_base = Some(base);
+                    }
+                    return Ok(CoroutinePause::Yield(values));
+                }
+            }
+        }
+    }
+
+    fn coroutine_call_frame(
+        &self,
+        closure_index: usize,
+        args: Vec<Value>,
+        base: usize,
+        result_count: u32,
+    ) -> RuntimeResult<CoroutineFrame> {
+        let closure = self
+            .closures
+            .get(closure_index)
+            .cloned()
+            .ok_or(RuntimeErrorKind::NonCallableValue)?;
+        Ok(CoroutineFrame::new(
+            closure.proto,
+            closure.upvalues,
+            args,
+            Some(CoroutineCallSlot { base, result_count }),
+        ))
+    }
+
+    fn finish_frame(&mut self, values: Vec<Value>) -> RuntimeResult<Option<Vec<Value>>> {
+        let Some(frame) = self.frames.pop() else {
+            return Ok(Some(values));
+        };
+        let Some(slot) = frame.call_slot else {
+            return Ok(Some(values));
+        };
+        let Some(parent) = self.frames.last_mut() else {
+            return Ok(Some(values));
+        };
+        let top = write_values(&mut self.thread, slot.base, &values, slot.result_count)?;
+        if slot.result_count == 0 {
+            parent.dynamic_top = top;
+        }
+        Ok(None)
+    }
+}
+
+impl CoroutineFrame {
+    fn new(
+        proto: Proto,
+        upvalues: Vec<Value>,
+        varargs: Vec<Value>,
+        call_slot: Option<CoroutineCallSlot>,
+    ) -> Self {
+        Self {
+            proto,
+            upvalues,
+            varargs,
+            pc: 0,
+            dynamic_top: 0,
+            call_slot,
+            yielded_base: None,
+        }
+    }
 }
 
 impl RuntimeStrings {
@@ -122,6 +373,12 @@ pub enum RuntimeErrorKind {
     ForLoopStepZero,
     /// Numeric for-loop iteration count exceeded the current runtime storage.
     ForLoopCountOverflow,
+    /// Tried to yield outside a coroutine resume boundary.
+    YieldOutsideCoroutine,
+    /// Tried to resume a coroutine that is already running or otherwise unavailable.
+    CoroutineNotSuspended,
+    /// Tried to resume a dead coroutine.
+    CoroutineDead,
     /// Opcode is not supported by the primitive interpreter.
     UnsupportedOpcode { op: Op },
 }
@@ -176,6 +433,9 @@ impl RuntimeErrorKind {
             }
             Self::ForLoopStepZero => "'for' step is zero".to_owned(),
             Self::ForLoopCountOverflow => "numeric for-loop count overflow".to_owned(),
+            Self::YieldOutsideCoroutine => "attempt to yield from outside a coroutine".to_owned(),
+            Self::CoroutineNotSuspended => "cannot resume non-suspended coroutine".to_owned(),
+            Self::CoroutineDead => "cannot resume dead coroutine".to_owned(),
             Self::UnsupportedOpcode { op } => format!("unsupported opcode '{}'", op.mnemonic()),
         }
     }
@@ -255,236 +515,306 @@ fn execute_proto_with_upvalues(
         );
     }
     let mut dynamic_top = 0;
-
     let mut pc = 0;
     while pc < proto.code.len() {
         let instr = proto.code[pc];
         pc += 1;
-
-        match instr.op() {
-            Op::Move => {
-                let value = register(&thread, instr.b() as usize)?;
-                set_register(&mut thread, instr.a().into(), value)?;
+        match execute_instruction(
+            proto,
+            &mut thread,
+            upvalues,
+            varargs,
+            context,
+            &mut dynamic_top,
+            &mut pc,
+            instr,
+            ExecutionMode::OneShot,
+        )? {
+            InstructionFlow::Continue => {}
+            InstructionFlow::Return(values) => return Ok(values),
+            InstructionFlow::Call { .. } => unreachable!("one-shot execution handles calls inline"),
+            InstructionFlow::Yield { .. } => {
+                return Err(RuntimeErrorKind::YieldOutsideCoroutine.into());
             }
-            Op::LoadNil => set_register(&mut thread, instr.a().into(), Value::nil())?,
-            Op::LoadBool => {
-                set_register(
-                    &mut thread,
-                    instr.a().into(),
-                    Value::boolean(instr.b() != 0),
-                )?;
-            }
-            Op::LoadInt => {
-                set_register(
-                    &mut thread,
-                    instr.a().into(),
-                    Value::integer(LuaInteger::from(instr.b())),
-                )?;
-            }
-            Op::LoadFloat => {
-                set_register(
-                    &mut thread,
-                    instr.a().into(),
-                    Value::float(LuaFloat::from(instr.b())),
-                )?;
-            }
-            Op::LoadK => {
-                let constant = proto.constants.get(instr.bx() as usize).copied().ok_or(
-                    RuntimeErrorKind::ConstantOutOfBounds {
-                        index: instr.bx() as usize,
-                    },
-                )?;
-                set_register(&mut thread, instr.a().into(), constant)?;
-            }
-            Op::LoadString => {
-                let string = proto.string_constants.get(instr.bx() as usize).ok_or(
-                    RuntimeErrorKind::StringOutOfBounds {
-                        index: instr.bx() as usize,
-                    },
-                )?;
-                let value = context.strings.intern_short_value(string);
-                set_register(&mut thread, instr.a().into(), value)?;
-            }
-            Op::GetEnv => {
-                let name = string_constant(proto, instr)?;
-                execute_get_env(
-                    &mut thread,
-                    instr,
-                    name,
-                    context.globals,
-                    context.strings,
-                    context.tables,
-                )?;
-            }
-            Op::SetEnv => {
-                let name = string_constant(proto, instr)?;
-                execute_set_env(
-                    &thread,
-                    instr,
-                    name,
-                    context.globals,
-                    context.strings,
-                    context.tables,
-                )?;
-            }
-            Op::DeclGlobal => {
-                let name = string_constant(proto, instr)?;
-                execute_decl_global(&mut thread, instr, name, context.strings)?;
-            }
-            Op::NewTable => execute_new_table(&mut thread, instr, context.tables)?,
-            Op::GetTable => execute_get_table(
-                &mut thread,
-                context.closures,
-                instr,
-                context.tables,
-                context.strings,
-                context.globals,
-            )?,
-            Op::SetTable => execute_set_table(
-                &mut thread,
-                context.closures,
-                instr,
-                context.tables,
-                context.strings,
-                context.globals,
-            )?,
-            Op::GetIndex => execute_get_index(
-                &mut thread,
-                context.closures,
-                instr,
-                context.tables,
-                context.strings,
-                context.globals,
-            )?,
-            Op::SetIndex => execute_set_index(
-                &mut thread,
-                context.closures,
-                instr,
-                context.tables,
-                context.strings,
-                context.globals,
-            )?,
-            Op::GetUpvalue => {
-                let value = upvalues.get(instr.b() as usize).copied().ok_or(
-                    RuntimeErrorKind::UpvalueOutOfBounds {
-                        index: instr.b() as usize,
-                    },
-                )?;
-                set_register(&mut thread, instr.a().into(), value)?;
-            }
-            Op::Closure => {
-                let child_index = instr.bx() as usize;
-                let child = proto
-                    .children
-                    .get(child_index)
-                    .cloned()
-                    .ok_or(RuntimeErrorKind::ChildOutOfBounds { index: child_index })?;
-                let closure_index = context.closures.len();
-                context.closures.push(RuntimeClosure {
-                    proto: child.clone(),
-                    upvalues: Vec::new(),
-                });
-                set_register(
-                    &mut thread,
-                    instr.a().into(),
-                    Value::closure_index(closure_index as u32),
-                )?;
-                let captured = capture_upvalues(&child, &thread, upvalues)?;
-                context.closures[closure_index].upvalues = captured;
-            }
-            Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
-                execute_arithmetic(
-                    &mut thread,
-                    context.closures,
-                    instr,
-                    context.tables,
-                    context.strings,
-                    context.globals,
-                )?
-            }
-            Op::Len => execute_len(
-                &mut thread,
-                context.closures,
-                instr,
-                context.tables,
-                context.strings,
-                context.globals,
-            )?,
-            Op::Concat => execute_concat(
-                &mut thread,
-                context.closures,
-                instr,
-                context.tables,
-                context.strings,
-                context.globals,
-            )?,
-            Op::Eq | Op::Lt | Op::Le => {
-                execute_comparison(
-                    &mut thread,
-                    context.closures,
-                    instr,
-                    context.tables,
-                    context.strings,
-                    context.globals,
-                )?;
-            }
-            Op::Jmp => pc = jump_target(pc, instr)?,
-            Op::ForPrep => {
-                if prepare_numeric_for(&mut thread, instr)? {
-                    pc = jump_target(pc, instr)?;
-                }
-            }
-            Op::ForLoop => {
-                if execute_numeric_for_loop(&mut thread, instr)? {
-                    pc = jump_target(pc, instr)?;
-                }
-            }
-            Op::TForPrep => pc = jump_target(pc, instr)?,
-            Op::TForCall => {
-                execute_generic_for_call(
-                    &mut thread,
-                    context.closures,
-                    instr,
-                    context.tables,
-                    context.strings,
-                    context.globals,
-                )?;
-            }
-            Op::TForLoop => {
-                if execute_generic_for_loop(&mut thread, instr)? {
-                    pc = jump_target(pc, instr)?;
-                }
-            }
-            Op::Test => {
-                let value = register(&thread, instr.a().into())?;
-                if is_truthy(value) != (instr.b() != 0) {
-                    pc += 1;
-                }
-            }
-            Op::Vararg => {
-                if let Some(top) = execute_vararg(&mut thread, instr, varargs)? {
-                    dynamic_top = top;
-                }
-            }
-            Op::VarargTable => execute_vararg_table(&mut thread, instr, varargs, context.tables)?,
-            Op::Call => {
-                if let Some(top) = execute_call(
-                    &mut thread,
-                    context.closures,
-                    instr,
-                    context.tables,
-                    context.strings,
-                    context.globals,
-                )? {
-                    dynamic_top = top;
-                }
-            }
-            Op::Return => return collect_returns(&thread, instr, dynamic_top),
-            op => return Err(RuntimeErrorKind::UnsupportedOpcode { op }.into()),
         }
     }
 
     Ok(Vec::new())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_instruction(
+    proto: &Proto,
+    thread: &mut LuaThread,
+    upvalues: &[Value],
+    varargs: &[Value],
+    context: &mut ExecutionContext<'_>,
+    dynamic_top: &mut usize,
+    pc: &mut usize,
+    instr: Instr,
+    mode: ExecutionMode,
+) -> RuntimeResult<InstructionFlow> {
+    match instr.op() {
+        Op::Move => {
+            let value = register(thread, instr.b() as usize)?;
+            set_register(thread, instr.a().into(), value)?;
+        }
+        Op::LoadNil => set_register(thread, instr.a().into(), Value::nil())?,
+        Op::LoadBool => set_register(thread, instr.a().into(), Value::boolean(instr.b() != 0))?,
+        Op::LoadInt => set_register(
+            thread,
+            instr.a().into(),
+            Value::integer(LuaInteger::from(instr.b())),
+        )?,
+        Op::LoadFloat => set_register(
+            thread,
+            instr.a().into(),
+            Value::float(LuaFloat::from(instr.b())),
+        )?,
+        Op::LoadK => {
+            let constant = proto.constants.get(instr.bx() as usize).copied().ok_or(
+                RuntimeErrorKind::ConstantOutOfBounds {
+                    index: instr.bx() as usize,
+                },
+            )?;
+            set_register(thread, instr.a().into(), constant)?;
+        }
+        Op::LoadString => {
+            let string = proto.string_constants.get(instr.bx() as usize).ok_or(
+                RuntimeErrorKind::StringOutOfBounds {
+                    index: instr.bx() as usize,
+                },
+            )?;
+            let value = context.strings.intern_short_value(string);
+            set_register(thread, instr.a().into(), value)?;
+        }
+        Op::GetEnv => {
+            let name = string_constant(proto, instr)?;
+            execute_get_env(
+                thread,
+                instr,
+                name,
+                context.globals,
+                context.strings,
+                context.tables,
+            )?;
+        }
+        Op::SetEnv => {
+            let name = string_constant(proto, instr)?;
+            execute_set_env(
+                thread,
+                instr,
+                name,
+                context.globals,
+                context.strings,
+                context.tables,
+            )?;
+        }
+        Op::DeclGlobal => {
+            let name = string_constant(proto, instr)?;
+            execute_decl_global(thread, instr, name, context.strings)?;
+        }
+        Op::NewTable => execute_new_table(thread, instr, context.tables)?,
+        Op::GetTable => execute_get_table(
+            thread,
+            context.closures,
+            instr,
+            context.tables,
+            context.strings,
+            context.globals,
+        )?,
+        Op::SetTable => execute_set_table(
+            thread,
+            context.closures,
+            instr,
+            context.tables,
+            context.strings,
+            context.globals,
+        )?,
+        Op::GetIndex => execute_get_index(
+            thread,
+            context.closures,
+            instr,
+            context.tables,
+            context.strings,
+            context.globals,
+        )?,
+        Op::SetIndex => execute_set_index(
+            thread,
+            context.closures,
+            instr,
+            context.tables,
+            context.strings,
+            context.globals,
+        )?,
+        Op::GetUpvalue => {
+            let value = upvalues.get(instr.b() as usize).copied().ok_or(
+                RuntimeErrorKind::UpvalueOutOfBounds {
+                    index: instr.b() as usize,
+                },
+            )?;
+            set_register(thread, instr.a().into(), value)?;
+        }
+        Op::Closure => {
+            let child_index = instr.bx() as usize;
+            let child = proto
+                .children
+                .get(child_index)
+                .cloned()
+                .ok_or(RuntimeErrorKind::ChildOutOfBounds { index: child_index })?;
+            let closure_index = context.closures.len();
+            context.closures.push(RuntimeClosure {
+                proto: child.clone(),
+                upvalues: Vec::new(),
+            });
+            set_register(
+                thread,
+                instr.a().into(),
+                Value::closure_index(closure_index as u32),
+            )?;
+            let captured = capture_upvalues(&child, thread, upvalues)?;
+            context.closures[closure_index].upvalues = captured;
+        }
+        Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
+            execute_arithmetic(
+                thread,
+                context.closures,
+                instr,
+                context.tables,
+                context.strings,
+                context.globals,
+            )?
+        }
+        Op::Len => execute_len(
+            thread,
+            context.closures,
+            instr,
+            context.tables,
+            context.strings,
+            context.globals,
+        )?,
+        Op::Concat => execute_concat(
+            thread,
+            context.closures,
+            instr,
+            context.tables,
+            context.strings,
+            context.globals,
+        )?,
+        Op::Eq | Op::Lt | Op::Le => {
+            execute_comparison(
+                thread,
+                context.closures,
+                instr,
+                context.tables,
+                context.strings,
+                context.globals,
+            )?;
+        }
+        Op::Jmp => *pc = jump_target(*pc, instr)?,
+        Op::ForPrep => {
+            if prepare_numeric_for(thread, instr)? {
+                *pc = jump_target(*pc, instr)?;
+            }
+        }
+        Op::ForLoop => {
+            if execute_numeric_for_loop(thread, instr)? {
+                *pc = jump_target(*pc, instr)?;
+            }
+        }
+        Op::TForPrep => *pc = jump_target(*pc, instr)?,
+        Op::TForCall => {
+            execute_generic_for_call(
+                thread,
+                context.closures,
+                instr,
+                context.tables,
+                context.strings,
+                context.globals,
+            )?;
+        }
+        Op::TForLoop => {
+            if execute_generic_for_loop(thread, instr)? {
+                *pc = jump_target(*pc, instr)?;
+            }
+        }
+        Op::Test => {
+            let value = register(thread, instr.a().into())?;
+            if is_truthy(value) != (instr.b() != 0) {
+                *pc += 1;
+            }
+        }
+        Op::Vararg => {
+            if let Some(top) = execute_vararg(thread, instr, varargs)? {
+                *dynamic_top = top;
+            }
+        }
+        Op::VarargTable => execute_vararg_table(thread, instr, varargs, context.tables)?,
+        Op::Call => {
+            if mode == ExecutionMode::Coroutine {
+                let callee = callable_closure(thread, context.tables, context.strings, instr)?;
+                return Ok(InstructionFlow::Call {
+                    closure_index: callee.closure_index,
+                    args: callee.args,
+                    base: usize::from(instr.a()),
+                    result_count: instr.c(),
+                });
+            } else if let Some(top) = execute_call(
+                thread,
+                context.closures,
+                instr,
+                context.tables,
+                context.strings,
+                context.globals,
+            )? {
+                *dynamic_top = top;
+            }
+        }
+        Op::Return => {
+            return collect_returns(thread, instr, *dynamic_top).map(InstructionFlow::Return);
+        }
+        Op::Yield => {
+            let values = collect_returns(thread, instr, *dynamic_top)?;
+            return Ok(InstructionFlow::Yield {
+                values,
+                base: usize::from(instr.a()),
+            });
+        }
+        op => return Err(RuntimeErrorKind::UnsupportedOpcode { op }.into()),
+    }
+
+    Ok(InstructionFlow::Continue)
+}
+
+enum InstructionFlow {
+    Continue,
+    Return(Vec<Value>),
+    Call {
+        closure_index: usize,
+        args: Vec<Value>,
+        base: usize,
+        result_count: u32,
+    },
+    Yield {
+        values: Vec<Value>,
+        base: usize,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ExecutionMode {
+    OneShot,
+    Coroutine,
+}
+
+struct CallableClosure {
+    closure_index: usize,
+    args: Vec<Value>,
+}
+
+enum CoroutinePause {
+    Return(Vec<Value>),
+    Yield(Vec<Value>),
 }
 
 fn jump_target(pc: usize, instr: Instr) -> RuntimeResult<usize> {
@@ -572,22 +902,15 @@ fn execute_call(
     strings: &mut RuntimeStrings,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<usize>> {
-    let callee = register(thread, instr.a().into())?;
-    let (closure_index, args) = if let Some(closure_index) = callee.as_closure_index() {
-        (closure_index as usize, collect_call_args(thread, instr)?)
-    } else {
-        let Some(metamethod) = tables.metamethod_for_value(callee, "__call", strings)? else {
-            return Err(RuntimeErrorKind::NonCallableValue.into());
-        };
-        let Some(closure_index) = metamethod.as_closure_index() else {
-            return Err(RuntimeErrorKind::UnsupportedMetamethod { name: "__call" }.into());
-        };
-        let mut args = Vec::with_capacity(instr.b() as usize);
-        args.push(callee);
-        args.extend(collect_call_args(thread, instr)?);
-        (closure_index as usize, args)
-    };
-    let returns = call_closure(closures, closure_index, &args, tables, strings, globals)?;
+    let callee = callable_closure(thread, tables, strings, instr)?;
+    let returns = call_closure(
+        closures,
+        callee.closure_index,
+        &callee.args,
+        tables,
+        strings,
+        globals,
+    )?;
 
     let base = usize::from(instr.a());
     let count = if instr.c() == 0 {
@@ -602,6 +925,53 @@ fn execute_call(
     }
 
     Ok((instr.c() == 0).then_some(base + count))
+}
+
+fn callable_closure(
+    thread: &LuaThread,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+    instr: Instr,
+) -> RuntimeResult<CallableClosure> {
+    let callee = register(thread, instr.a().into())?;
+    if let Some(closure_index) = callee.as_closure_index() {
+        return Ok(CallableClosure {
+            closure_index: closure_index as usize,
+            args: collect_call_args(thread, instr)?,
+        });
+    }
+
+    let Some(metamethod) = tables.metamethod_for_value(callee, "__call", strings)? else {
+        return Err(RuntimeErrorKind::NonCallableValue.into());
+    };
+    let Some(closure_index) = metamethod.as_closure_index() else {
+        return Err(RuntimeErrorKind::UnsupportedMetamethod { name: "__call" }.into());
+    };
+    let mut args = Vec::with_capacity(instr.b() as usize);
+    args.push(callee);
+    args.extend(collect_call_args(thread, instr)?);
+    Ok(CallableClosure {
+        closure_index: closure_index as usize,
+        args,
+    })
+}
+
+fn write_values(
+    thread: &mut LuaThread,
+    base: usize,
+    values: &[Value],
+    result_count: u32,
+) -> RuntimeResult<usize> {
+    let count = if result_count == 0 {
+        values.len()
+    } else {
+        result_count as usize
+    };
+    for index in 0..count {
+        let value = values.get(index).copied().unwrap_or_else(Value::nil);
+        set_register(thread, base + index, value)?;
+    }
+    Ok(base + count)
 }
 
 fn call_closure(

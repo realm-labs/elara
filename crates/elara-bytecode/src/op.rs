@@ -132,6 +132,8 @@ pub enum Op {
     LoadString,
     /// Concatenate values.
     Concat,
+    /// Yield from the current coroutine.
+    Yield,
 }
 
 impl Op {
@@ -191,6 +193,7 @@ impl Op {
             49 => Some(Self::Tbc),
             50 => Some(Self::LoadString),
             51 => Some(Self::Concat),
+            52 => Some(Self::Yield),
             _ => None,
         }
     }
@@ -251,6 +254,7 @@ impl Op {
             Self::Tbc => "TBC",
             Self::LoadString => "LOAD_STRING",
             Self::Concat => "CONCAT",
+            Self::Yield => "YIELD",
         }
     }
 }
@@ -360,13 +364,15 @@ mod tests {
         assert_eq!(Op::from_byte(49), Some(Op::Tbc));
         assert_eq!(Op::from_byte(50), Some(Op::LoadString));
         assert_eq!(Op::from_byte(51), Some(Op::Concat));
-        assert_eq!(Op::from_byte(52), None);
+        assert_eq!(Op::from_byte(52), Some(Op::Yield));
+        assert_eq!(Op::from_byte(53), None);
     }
 
     #[test]
     fn op_exposes_stable_mnemonics() {
         assert_eq!(Op::Move.mnemonic(), "MOVE");
         assert_eq!(Op::LoadK.mnemonic(), "LOAD_K");
+        assert_eq!(Op::Yield.mnemonic(), "YIELD");
         assert_eq!(Op::VarargTable.mnemonic(), "VARARG_TABLE");
     }
 

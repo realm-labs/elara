@@ -185,7 +185,7 @@ impl Verifier<'_> {
                 self.check_register(offset, instr.b());
             }
             Op::Call | Op::TailCall => self.check_call(offset, instr),
-            Op::Return => self.check_return(offset, instr),
+            Op::Return | Op::Yield => self.check_return(offset, instr),
         }
     }
 
@@ -396,6 +396,22 @@ mod tests {
     fn verifier_rejects_out_of_bounds_vararg_ranges() {
         let mut builder = ProtoBuilder::new().with_signature(1, 0, true);
         builder.emit_abc(Op::Vararg, 0, 2, 0);
+        let errors = verify_proto(&builder.finish()).unwrap_err();
+
+        assert_eq!(
+            errors[0].kind,
+            VerifyErrorKind::CallRangeOutOfBounds {
+                base: 0,
+                count: 2,
+                max_stack: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn verifier_rejects_out_of_bounds_yield_ranges() {
+        let mut builder = ProtoBuilder::new().with_signature(1, 0, false);
+        builder.emit_abc(Op::Yield, 0, 2, 0);
         let errors = verify_proto(&builder.finish()).unwrap_err();
 
         assert_eq!(

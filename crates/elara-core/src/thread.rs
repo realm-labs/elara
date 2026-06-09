@@ -62,6 +62,34 @@ impl LuaThread {
         self.status = status;
     }
 
+    /// Marks a runnable or suspended thread as currently running.
+    pub fn enter_running(&mut self) -> bool {
+        if matches!(
+            self.status,
+            ThreadStatus::Runnable | ThreadStatus::Suspended
+        ) {
+            self.status = ThreadStatus::Running;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Marks a running thread as suspended by a coroutine yield.
+    pub fn suspend(&mut self) -> bool {
+        if self.status == ThreadStatus::Running {
+            self.status = ThreadStatus::Suspended;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Marks a thread as finished or errored.
+    pub fn finish(&mut self) {
+        self.status = ThreadStatus::Dead;
+    }
+
     /// Number of values on the stack.
     #[must_use]
     pub fn stack_len(&self) -> usize {
@@ -305,6 +333,22 @@ mod tests {
 
         assert!(frame.flags.is_protected());
         assert!(!frame.flags.is_empty());
+    }
+
+    #[test]
+    fn thread_stack_status_transitions_for_coroutines() {
+        let mut thread = LuaThread::new();
+
+        assert!(thread.enter_running());
+        assert_eq!(thread.status(), ThreadStatus::Running);
+        assert!(thread.suspend());
+        assert_eq!(thread.status(), ThreadStatus::Suspended);
+        assert!(thread.enter_running());
+        thread.finish();
+        assert_eq!(thread.status(), ThreadStatus::Dead);
+
+        assert!(!thread.enter_running());
+        assert!(!thread.suspend());
     }
 
     #[test]

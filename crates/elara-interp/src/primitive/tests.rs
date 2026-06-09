@@ -1,9 +1,9 @@
 use elara_bytecode::{Op, ProtoBuilder};
-use elara_core::Value;
+use elara_core::{ThreadStatus, Value};
 
 use super::{
-    ProtectedRuntimeOutput, RuntimeErrorKind, execute_proto, execute_proto_protected,
-    execute_proto_with_output,
+    CoroutineResume, PrimitiveCoroutine, ProtectedRuntimeOutput, RuntimeErrorKind, execute_proto,
+    execute_proto_protected, execute_proto_with_output,
 };
 
 fn assert_runtime_error_kind(
@@ -105,6 +105,167 @@ fn protected_execution_catches_runtime_errors() {
             );
         }
     }
+}
+
+#[test]
+fn coroutine_yields_and_resumes_to_return() {
+    let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
+    let yielded = builder.add_constant(Value::integer(7));
+    let returned = builder.add_constant(Value::integer(9));
+    builder.emit_abx(Op::LoadK, 0, u64::from(yielded));
+    builder.emit_abc(Op::Yield, 0, 1, 0);
+    builder.emit_abx(Op::LoadK, 1, u64::from(returned));
+    builder.emit_abc(Op::Return, 1, 1, 0);
+
+    let mut coroutine =
+        PrimitiveCoroutine::new(builder.finish()).expect("coroutine should be created");
+
+    assert_eq!(coroutine.status(), ThreadStatus::Runnable);
+    assert_eq!(
+        coroutine.resume(&[]),
+        CoroutineResume::Yield(vec![Value::integer(7)])
+    );
+    assert_eq!(coroutine.status(), ThreadStatus::Suspended);
+    assert_eq!(
+        coroutine.resume(&[]),
+        CoroutineResume::Return(vec![Value::integer(9)])
+    );
+    assert_eq!(coroutine.status(), ThreadStatus::Dead);
+}
+
+#[test]
+fn coroutine_resume_arguments_replace_yield_results() {
+    let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
+    let yielded = builder.add_constant(Value::integer(1));
+    builder.emit_abx(Op::LoadK, 0, u64::from(yielded));
+    builder.emit_abc(Op::Yield, 0, 1, 0);
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    let mut coroutine =
+        PrimitiveCoroutine::new(builder.finish()).expect("coroutine should be created");
+
+    assert_eq!(
+        coroutine.resume(&[]),
+        CoroutineResume::Yield(vec![Value::integer(1)])
+    );
+    assert_eq!(
+        coroutine.resume(&[Value::integer(42)]),
+        CoroutineResume::Return(vec![Value::integer(42)])
+    );
+}
+
+#[test]
+fn coroutine_yields_from_called_lua_frame() {
+    let mut child_builder = ProtoBuilder::new().with_signature(2, 0, false);
+    let yielded = child_builder.add_constant(Value::integer(3));
+    child_builder.emit_abx(Op::LoadK, 0, u64::from(yielded));
+    child_builder.emit_abc(Op::Yield, 0, 1, 0);
+    let returned = child_builder.add_constant(Value::integer(5));
+    child_builder.emit_abx(Op::LoadK, 1, u64::from(returned));
+    child_builder.emit_abc(Op::Return, 1, 1, 0);
+    let child = child_builder.finish();
+
+    let mut parent = ProtoBuilder::new().with_signature(2, 0, false);
+    let child_index = parent.add_child(child);
+    parent.emit_abx(Op::Closure, 0, u64::from(child_index));
+    parent.emit_abc(Op::Call, 0, 1, 1);
+    parent.emit_abc(Op::Return, 0, 1, 0);
+
+    let mut coroutine =
+        PrimitiveCoroutine::new(parent.finish()).expect("coroutine should be created");
+
+    assert_eq!(
+        coroutine.resume(&[]),
+        CoroutineResume::Yield(vec![Value::integer(3)])
+    );
+    assert_eq!(coroutine.status(), ThreadStatus::Suspended);
+    assert_eq!(
+        coroutine.resume(&[]),
+        CoroutineResume::Return(vec![Value::integer(5)])
+    );
+}
+
+#[test]
+fn coroutine_resume_values_flow_into_called_lua_frame() {
+    let mut child_builder = ProtoBuilder::new().with_signature(1, 0, false);
+    let yielded = child_builder.add_constant(Value::integer(3));
+    child_builder.emit_abx(Op::LoadK, 0, u64::from(yielded));
+    child_builder.emit_abc(Op::Yield, 0, 1, 0);
+    child_builder.emit_abc(Op::Return, 0, 1, 0);
+    let child = child_builder.finish();
+
+    let mut parent = ProtoBuilder::new().with_signature(2, 0, false);
+    let child_index = parent.add_child(child);
+    parent.emit_abx(Op::Closure, 0, u64::from(child_index));
+    parent.emit_abc(Op::Call, 0, 1, 1);
+    parent.emit_abc(Op::Return, 0, 1, 0);
+
+    let mut coroutine =
+        PrimitiveCoroutine::new(parent.finish()).expect("coroutine should be created");
+
+    assert_eq!(
+        coroutine.resume(&[]),
+        CoroutineResume::Yield(vec![Value::integer(3)])
+    );
+    assert_eq!(
+        coroutine.resume(&[Value::integer(8)]),
+        CoroutineResume::Return(vec![Value::integer(8)])
+    );
+}
+
+#[test]
+fn coroutine_reports_dead_resume_error() {
+    let mut builder = ProtoBuilder::new().with_signature(1, 0, false);
+    let returned = builder.add_constant(Value::integer(1));
+    builder.emit_abx(Op::LoadK, 0, u64::from(returned));
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    let mut coroutine =
+        PrimitiveCoroutine::new(builder.finish()).expect("coroutine should be created");
+
+    assert_eq!(
+        coroutine.resume(&[]),
+        CoroutineResume::Return(vec![Value::integer(1)])
+    );
+    match coroutine.resume(&[]) {
+        CoroutineResume::Error(error) => assert_eq!(error.kind(), &RuntimeErrorKind::CoroutineDead),
+        result => panic!("expected dead coroutine error, got {result:?}"),
+    }
+}
+
+#[test]
+fn coroutine_errors_finish_thread() {
+    let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+    builder.emit_abc(Op::LoadBool, 0, 1, 0);
+    builder.emit_abc(Op::LoadBool, 1, 0, 0);
+    builder.emit_abc(Op::Add, 2, 0, 1);
+
+    let mut coroutine =
+        PrimitiveCoroutine::new(builder.finish()).expect("coroutine should be created");
+
+    match coroutine.resume(&[]) {
+        CoroutineResume::Error(error) => {
+            assert_eq!(
+                error.kind(),
+                &RuntimeErrorKind::NonNumericOperand { op: Op::Add }
+            );
+        }
+        result => panic!("expected coroutine error, got {result:?}"),
+    }
+    assert_eq!(coroutine.status(), ThreadStatus::Dead);
+}
+
+#[test]
+fn yield_outside_coroutine_is_runtime_error() {
+    let mut builder = ProtoBuilder::new().with_signature(1, 0, false);
+    let yielded = builder.add_constant(Value::integer(1));
+    builder.emit_abx(Op::LoadK, 0, u64::from(yielded));
+    builder.emit_abc(Op::Yield, 0, 1, 0);
+
+    assert_runtime_error_kind(
+        execute_proto(&builder.finish()),
+        RuntimeErrorKind::YieldOutsideCoroutine,
+    );
 }
 
 #[test]
