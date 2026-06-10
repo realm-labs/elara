@@ -1,18 +1,16 @@
 # Elara Codex Goal
 
-Status: Draft 7
-Purpose: keep the reusable `/goal` prompt small enough to paste reliably.
+Status: Draft 8
+Purpose: keep the reusable `/goal` prompt small and delegate details to docs.
 
 ## Prompt To Paste
 
 ```text
-/goal Continue Elara from docs/PROGRESS.md until every milestone in
-docs/MILESTONES.md is complete. Follow docs/CODEX_WORKFLOW.md by reference.
+/goal Read docs/CODEX_WORKFLOW.md, then continue Elara from docs/PROGRESS.md until docs/MILESTONES.md is complete.
 ```
 
-## References
+## Do Not Paste
 
-- `docs/CODEX_WORKFLOW.md`: operating rules for Codex sessions.
-- `docs/PROGRESS.md`: current position and next incomplete step.
-- `docs/MILESTONES.md`: milestone plan.
-- `docs/ARCHITECTURE.md`: architecture boundaries and invariants.
+Do not paste milestone, architecture, workflow, or Lua source-reference details
+into `/goal`; those live in `docs/CODEX_WORKFLOW.md` and the referenced project
+docs.

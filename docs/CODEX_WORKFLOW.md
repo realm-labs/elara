@@ -5,7 +5,8 @@ Use this file by reference from `docs/CODEX_GOAL.md`; do not paste it into the
 
 ## Work Cycle
 
-At the start of each work cycle, read only the relevant parts of:
+At the start of each work cycle, read only the relevant parts of these
+references:
 
 - `docs/PROGRESS.md` for the current milestone, next incomplete step, known
   gaps, and last verification.
@@ -13,6 +14,9 @@ At the start of each work cycle, read only the relevant parts of:
 - `docs/ARCHITECTURE.md` for touched boundaries and invariants.
 - `~/Downloads/lua-lua-a5522f0` for official Lua 5.5 behavior when changing Lua
   semantics.
+
+Treat `docs/CODEX_GOAL.md` as paste-only prompt storage. Keep operational detail
+in this file or the focused project docs above, not in the `/goal` prompt.
 
 Implement one small, verifiable unit at a time. Add focused tests, run
 formatting and the narrowest meaningful verification, update
