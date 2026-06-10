@@ -51,16 +51,21 @@ pub(super) fn string_format(
             output.extend_from_slice(format_float_conversion(spec, value).as_bytes());
             arg_index += 1;
             index += 2;
-        } else if let Some((spec, width, left_adjust, next_index)) =
-            parse_integer_width_spec(&format, index + 1)?
-        {
+        } else if let Some(spec) = parse_integer_width_spec(&format, index + 1)? {
             let value =
                 integer_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
             output.extend_from_slice(
-                format_integer_width_conversion(spec, value, width, left_adjust).as_bytes(),
+                format_integer_width_conversion(
+                    spec.conversion,
+                    value,
+                    spec.width,
+                    spec.left_adjust,
+                    spec.zero_pad,
+                )
+                .as_bytes(),
             );
             arg_index += 1;
-            index = next_index;
+            index = spec.next_index;
         } else if let Some(spec @ (b'c' | b'd' | b'i' | b'u' | b'o' | b'x' | b'X')) =
             format.get(index + 1).copied()
         {
@@ -89,6 +94,15 @@ struct StringFormatSpec {
     left_adjust: bool,
     width: Option<usize>,
     precision: Option<usize>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct IntegerFormatSpec {
+    conversion: u8,
+    width: usize,
+    left_adjust: bool,
+    zero_pad: bool,
+    next_index: usize,
 }
 
 impl StringFormatSpec {
@@ -198,8 +212,8 @@ fn invalid_format_spec() -> NativeError {
 fn parse_integer_width_spec(
     format: &[u8],
     start: usize,
-) -> Result<Option<(u8, usize, bool, usize)>, NativeError> {
-    if !matches!(format.get(start), Some(b'-' | b'1'..=b'9')) {
+) -> Result<Option<IntegerFormatSpec>, NativeError> {
+    if !matches!(format.get(start), Some(b'-' | b'0' | b'1'..=b'9')) {
         return Ok(None);
     }
 
@@ -212,12 +226,16 @@ fn parse_integer_width_spec(
     };
 
     let mut cursor = start;
-    let left_adjust = if format.get(cursor) == Some(&b'-') {
+    let mut left_adjust = false;
+    let mut zero_pad = false;
+    while let Some(byte) = format.get(cursor).copied() {
+        match byte {
+            b'-' => left_adjust = true,
+            b'0' => zero_pad = true,
+            _ => break,
+        }
         cursor += 1;
-        true
-    } else {
-        false
-    };
+    }
     if !matches!(format.get(cursor), Some(b'1'..=b'9')) {
         return Ok(None);
     }
@@ -225,7 +243,13 @@ fn parse_integer_width_spec(
     if cursor != conversion {
         return Err(invalid_format_spec());
     }
-    Ok(Some((spec, width, left_adjust, conversion + 1)))
+    Ok(Some(IntegerFormatSpec {
+        conversion: spec,
+        width,
+        left_adjust,
+        zero_pad,
+        next_index: conversion + 1,
+    }))
 }
 
 fn format_string_arg(
@@ -495,14 +519,18 @@ fn format_integer_width_conversion(
     value: LuaInteger,
     width: usize,
     left_adjust: bool,
+    zero_pad: bool,
 ) -> String {
     let formatted = format_integer_conversion(spec, value);
     if formatted.len() >= width {
         return formatted;
     }
-    let padding = " ".repeat(width - formatted.len());
+    let pad_byte = if zero_pad && !left_adjust { '0' } else { ' ' };
+    let padding = pad_byte.to_string().repeat(width - formatted.len());
     if left_adjust {
         format!("{formatted}{padding}")
+    } else if pad_byte == '0' && matches!(spec, b'd' | b'i') && formatted.starts_with('-') {
+        format!("-{}{}", padding, &formatted[1..])
     } else {
         format!("{padding}{formatted}")
     }
