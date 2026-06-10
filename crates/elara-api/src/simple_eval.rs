@@ -602,6 +602,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_string_find() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local i = string.find('abcabc', 'ca')\nreturn i",
+                &profile,
+            ),
+            Ok(vec![Value::integer(3)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_rep() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 

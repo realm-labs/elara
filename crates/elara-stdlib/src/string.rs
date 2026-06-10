@@ -6,10 +6,15 @@ use crate::{
     FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
 };
 
+mod find;
+
+use find::string_find;
+
 /// Executable string-library functions currently implemented.
 pub const STRING_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "byte"), string_byte),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "char"), string_char),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "find"), string_find),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "len"), string_len),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "lower"), string_lower),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "rep"), string_rep),
@@ -173,6 +178,7 @@ fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
 
 fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i64, NativeError> {
     match args.get(index - 1) {
+        Some(value) if value.is_nil() => Ok(default),
         Some(value) => value.as_integer().ok_or(
             NativeErrorKind::TypeError {
                 index,
@@ -279,6 +285,7 @@ mod tests {
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "byte")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "char")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "find")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "len")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "lower")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "rep")));
