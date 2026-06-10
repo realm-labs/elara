@@ -1,49 +1,43 @@
 # Elara Codex Goal
 
-Status: Draft 3
-Purpose: compact `/goal` prompts for long-running Codex work on Elara.
+Status: Draft 4
+Purpose: keep the reusable `/goal` prompt small enough for long-running Codex
+work while preserving the project rules by reference.
 
-Detailed rules intentionally live outside the prompt:
-
-- `docs/PROGRESS.md`: current milestone, next step, gaps, verification.
-- `docs/MILESTONES.md`: step order, scope, tests, commit shape.
-- `docs/ARCHITECTURE.md`: invariants, layering, Lua 5.5 references.
-
-## Primary `/goal` Prompt
+## Prompt To Paste
 
 ```text
-/goal Continue Elara until every milestone is complete.
-Read and follow `docs/CODEX_GOAL.md`, `docs/PROGRESS.md`,
-`docs/MILESTONES.md`, and `docs/ARCHITECTURE.md`.
+/goal Continue Elara until every milestone in docs/MILESTONES.md is complete.
+Follow docs/CODEX_GOAL.md. Use docs/PROGRESS.md to find the next incomplete
+step, read only the relevant MILESTONES and ARCHITECTURE sections, verify,
+update PROGRESS, commit one verifiable unit, then continue.
 ```
 
-## Focused Step Prompt
+## Reference Reading
 
-```text
-/goal Continue Elara by completing exactly the next verifiable step.
-Read and follow `docs/CODEX_GOAL.md`, `docs/PROGRESS.md`,
-`docs/MILESTONES.md`, and `docs/ARCHITECTURE.md`.
-```
+Do not paste the full project rules into the `/goal` prompt. Use these files as
+references and read only what is needed for the current step:
 
-## Cleanup Prompt
+- `docs/PROGRESS.md`: current milestone, next incomplete step, known gaps, last
+  verification.
+- `docs/MILESTONES.md`: only the section for the current milestone and step.
+- `docs/ARCHITECTURE.md`: only the boundaries and invariants touched by the
+  current change.
+- `~/Downloads/lua-lua-a5522f0`: local official Lua source for actual Lua 5.5
+  behavior and implementation details.
 
-```text
-/goal Stabilize Elara without adding new features.
-Read and follow `docs/CODEX_GOAL.md`, `docs/PROGRESS.md`,
-`docs/MILESTONES.md`, and `docs/ARCHITECTURE.md`.
-```
+## Work Contract
 
-## Contract
-
-- `docs/PROGRESS.md` decides the next incomplete step.
-- For Lua semantics, inspect the Lua 5.5 manual and local official source at
-  `~/Downloads/lua-lua-a5522f0` before designing behavior changes.
-- Complete one verifiable step or smaller sub-step per commit.
-- Add or update tests, run the narrowest meaningful verification, update
-  `docs/PROGRESS.md`, and commit with a conventional message.
-- Keep `docs/PROGRESS.md` as rolling status, not a changelog.
-- Do not mix unrelated refactors with feature work or revert user changes.
-- For the primary prompt, continue after each commit and stop only when all
-  milestones are complete, the user asks to stop, or a genuine blocker appears.
+- Implement the next verifiable step, or a smaller sub-step when the step is too
+  large for one reviewable commit.
+- Preserve the documented architecture and layering.
+- Do not add old-Lua compatibility flags unless `docs/ARCHITECTURE.md` is
+  revised first.
+- Add or update focused tests for behavior changes.
+- Run the narrowest meaningful verification before each commit.
+- Update `docs/PROGRESS.md` as rolling status, not a changelog.
+- Commit with a conventional commit message after each verified unit.
+- Continue after each commit until all milestones are complete, the user asks to
+  stop, or a genuine blocker appears.
 - Do not mark the `/goal` complete until every milestone is done.
-- If referenced docs conflict, pause and make the conflict explicit.
+- If referenced docs conflict, stop and report the conflict explicitly.
