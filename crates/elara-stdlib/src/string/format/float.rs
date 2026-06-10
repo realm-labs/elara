@@ -116,6 +116,45 @@ pub(super) fn format_float_conversion(spec: FloatFormatSpec, value: LuaFloat) ->
     }
 }
 
+pub(super) fn format_hex_float_conversion(spec: u8, value: LuaFloat) -> String {
+    let mut formatted = format_hex_float_lower(value);
+    if spec == b'A' {
+        formatted = formatted.to_ascii_uppercase();
+    }
+    formatted
+}
+
+fn format_hex_float_lower(value: LuaFloat) -> String {
+    if value.is_nan() || value.is_infinite() {
+        return value.to_string();
+    }
+
+    let bits = value.to_bits();
+    let sign = if bits >> 63 == 0 { "" } else { "-" };
+    let exponent_bits = ((bits >> 52) & 0x7ff) as i32;
+    let fraction_bits = bits & 0x000f_ffff_ffff_ffff;
+    if exponent_bits == 0 && fraction_bits == 0 {
+        return format!("{sign}0x0p+0");
+    }
+
+    let (head, exponent) = if exponent_bits == 0 {
+        ("0", -1022)
+    } else {
+        ("1", exponent_bits - 1023)
+    };
+    let digits = trimmed_hex_fraction(fraction_bits);
+    if digits.is_empty() {
+        format!("{sign}0x{head}p{exponent:+}")
+    } else {
+        format!("{sign}0x{head}.{digits}p{exponent:+}")
+    }
+}
+
+fn trimmed_hex_fraction(fraction_bits: u64) -> String {
+    let digits = format!("{fraction_bits:013x}");
+    digits.trim_end_matches('0').to_owned()
+}
+
 fn format_float_body(spec: FloatFormatSpec, value: LuaFloat) -> String {
     let precision = spec.precision.unwrap_or(6);
     match spec.conversion {

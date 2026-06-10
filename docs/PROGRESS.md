@@ -109,8 +109,8 @@ literal-search `string.find`, basic `%s` with width/precision modifiers,
 width, left-adjust, and zero-padding integer-family conversions, signed
 decimal `+`/space flags, alternate-form octal/hex integer flags, integer
 precision, float width/precision/sign/alternate-form flags for
-`%f`/`%e`/`%E`/`%g`/`%G`, `%c`, `%q`, `%p`, and escaped-percent
-`string.format`,
+`%f`/`%e`/`%E`/`%g`/`%G`, basic `%a`/`%A`, `%c`, `%q`, `%p`, and
+escaped-percent `string.format`,
 literal string-replacement `string.gsub`, `string.match`, `string.len`,
 `string.lower`, `string.upper`, `string.reverse`, `string.rep`, and
 `string.sub` are executable and covered through stdlib-backed API evaluation.
@@ -224,6 +224,7 @@ Completed:
   - M11.2 executable string.format integer precision modifiers.
   - M11.2 executable string.format float precision modifiers.
   - M11.2 executable string.format non-hex float width and flag modifiers.
+  - M11.2 executable string.format basic hex-float `%a` and `%A` conversions.
   - M11.2 executable literal string-replacement string.gsub native spec.
   - M11.2 executable literal-search string.match native spec.
   - M11.2 executable string.len native spec.
@@ -773,7 +774,7 @@ Delivered:
 - Add runtime callback support for custom `table.sort` comparators.
 - Add full string pattern matching for `string.find`, `string.match`,
   `string.gmatch`, and `string.gsub`.
-- Add remaining hex float `%a`/`%A` handling for `string.format`.
+- Add hex float `%a`/`%A` modifier handling for `string.format`.
 
 ### Product Gaps
 
@@ -798,7 +799,7 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable string.format non-hex float flag verification passed:
+M11.2 executable string.format basic hex-float verification passed:
 
 ```bash
 cargo fmt --all

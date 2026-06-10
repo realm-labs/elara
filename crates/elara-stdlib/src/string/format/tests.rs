@@ -544,7 +544,7 @@ fn string_format_reports_non_integer_conversion_argument() {
 #[test]
 fn string_format_reports_conversion_gap() {
     let mut runtime = TestRuntime::default();
-    let format = runtime.push_string(b"%a");
+    let format = runtime.push_string(b"%F");
 
     assert_eq!(
         string_format(&mut runtime, &[format])

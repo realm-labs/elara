@@ -134,6 +134,30 @@ fn string_format_formats_float_alternate_form() {
 }
 
 #[test]
+fn string_format_formats_basic_hex_float_conversion() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%a:%A:%a:%a:%a");
+
+    let values = string_format(
+        &mut runtime,
+        &[
+            format,
+            Value::float(12.5),
+            Value::float(12.5),
+            Value::float(0.0),
+            Value::float(-0.0),
+            Value::float(0.1),
+        ],
+    )
+    .expect("format should pass");
+
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"0x1.9p+3:0X1.9P+3:0x0p+0:-0x0p+0:0x1.999999999999ap-4".as_slice())
+    );
+}
+
+#[test]
 fn string_format_reports_invalid_float_precision() {
     let mut runtime = TestRuntime::default();
     let format = runtime.push_string(b"%.123f");
