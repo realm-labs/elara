@@ -1,5 +1,7 @@
 //! Primitive bytecode execution.
 
+use std::sync::Arc;
+
 use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
 use elara_core::{
     CallFrame, GcArena, LuaError, LuaFloat, LuaInteger, LuaThread, ResultCount, StringInterner,
@@ -42,12 +44,12 @@ pub struct RuntimeOutput {
 }
 
 /// Native function callable by primitive execution.
-pub type NativeFunction = fn(&[Value]) -> RuntimeResult<Vec<Value>>;
+pub type NativeFunction = dyn Fn(&[Value]) -> RuntimeResult<Vec<Value>> + Send + Sync + 'static;
 
 /// Runtime-owned native function registry.
 #[derive(Clone, Default)]
 pub struct RuntimeNatives {
-    functions: Vec<NativeFunction>,
+    functions: Vec<Arc<NativeFunction>>,
 }
 
 impl RuntimeNatives {
@@ -60,15 +62,18 @@ impl RuntimeNatives {
     }
 
     /// Registers one native function and returns its runtime index.
-    pub fn push(&mut self, function: NativeFunction) -> u32 {
+    pub fn push<F>(&mut self, function: F) -> u32
+    where
+        F: Fn(&[Value]) -> RuntimeResult<Vec<Value>> + Send + Sync + 'static,
+    {
         let index =
             u32::try_from(self.functions.len()).expect("native function index must fit in u32");
-        self.functions.push(function);
+        self.functions.push(Arc::new(function));
         index
     }
 
-    fn get(&self, index: usize) -> Option<NativeFunction> {
-        self.functions.get(index).copied()
+    fn get(&self, index: usize) -> Option<&NativeFunction> {
+        self.functions.get(index).map(AsRef::as_ref)
     }
 }
 

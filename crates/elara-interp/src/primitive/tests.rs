@@ -140,6 +140,36 @@ fn native_functions_register_as_initial_globals() {
 }
 
 #[test]
+fn native_functions_can_capture_host_state() {
+    let mut natives = RuntimeNatives::new();
+    let offset = 5;
+    let native = natives.push(move |args: &[Value]| {
+        let mut values = native_add(args)?;
+        values[0] = Value::integer(
+            values[0]
+                .as_integer()
+                .expect("native_add returns an integer")
+                + offset,
+        );
+        Ok(values)
+    });
+
+    let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+    let callee = builder.add_constant(Value::native_function_index(native));
+    let left = builder.add_constant(Value::integer(20));
+    let right = builder.add_constant(Value::integer(22));
+    builder.emit_abx(Op::LoadK, 0, u64::from(callee));
+    builder.emit_abx(Op::LoadK, 1, u64::from(left));
+    builder.emit_abx(Op::LoadK, 2, u64::from(right));
+    builder.emit_abc(Op::Call, 0, 3, 1);
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    let output =
+        execute_proto_with_natives(&builder.finish(), natives).expect("native call should pass");
+    assert_eq!(output.values, vec![Value::integer(47)]);
+}
+
+#[test]
 fn arithmetic_reports_non_numeric_operands() {
     let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
     builder.emit_abc(Op::LoadBool, 0, 1, 0);

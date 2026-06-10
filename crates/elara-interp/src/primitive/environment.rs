@@ -2,7 +2,7 @@
 
 use elara_core::Value;
 
-use super::{NativeFunction, RuntimeNatives};
+use super::RuntimeNatives;
 
 /// Initial global environment and native registry for primitive execution.
 #[derive(Clone, Default)]
@@ -39,11 +39,10 @@ impl RuntimeEnvironment {
     }
 
     /// Registers one native function as a callable global and returns its index.
-    pub fn register_native_global(
-        &mut self,
-        name: impl Into<Box<str>>,
-        function: NativeFunction,
-    ) -> u32 {
+    pub fn register_native_global<F>(&mut self, name: impl Into<Box<str>>, function: F) -> u32
+    where
+        F: Fn(&[Value]) -> super::RuntimeResult<Vec<Value>> + Send + Sync + 'static,
+    {
         let index = self.natives.push(function);
         self.set_global(name, Value::native_function_index(index));
         index
