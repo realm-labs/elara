@@ -38,6 +38,19 @@ pub trait NativeRuntime {
         }
         .into())
     }
+
+    /// Writes one raw integer-keyed value into a runtime-owned table.
+    fn table_set_integer(
+        &mut self,
+        _table: Value,
+        _index: i64,
+        _value: Value,
+    ) -> Result<(), NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support table writes".into(),
+        }
+        .into())
+    }
 }
 
 /// Executable standard-library native function.

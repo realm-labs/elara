@@ -8,9 +8,49 @@ use crate::{
 
 /// Executable table-library functions currently implemented.
 pub const TABLE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "insert"), table_insert),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "pack"), table_pack),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "unpack"), table_unpack),
 ];
+
+fn table_insert(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let table = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let end = runtime
+        .table_array_len(table)?
+        .checked_add(1)
+        .ok_or_else(|| NativeErrorKind::RuntimeError {
+            message: "table length overflow".into(),
+        })?;
+
+    let (position, value) = match args.len() {
+        2 => (end, args[1]),
+        3 => {
+            let position = integer_arg(args, 2)?;
+            if position < 1 || position > end {
+                return Err(NativeErrorKind::ArgumentOutOfRange { index: 2 }.into());
+            }
+            for index in ((position + 1)..=end).rev() {
+                let previous = runtime.table_get_integer(table, index - 1)?;
+                runtime.table_set_integer(table, index, previous)?;
+            }
+            (position, args[2])
+        }
+        _ => {
+            return Err(NativeErrorKind::RuntimeError {
+                message: "wrong number of arguments to 'insert'".into(),
+            }
+            .into());
+        }
+    };
+
+    runtime.table_set_integer(table, position, value)?;
+    Ok(Vec::new())
+}
 
 fn table_pack(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let count = i64::try_from(args.len()).map_err(|_| NativeErrorKind::RuntimeError {
@@ -62,6 +102,19 @@ fn table_unpack(
     Ok(values)
 }
 
+fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
+    args.get(index - 1)
+        .ok_or(NativeErrorKind::MissingArgument { index })?
+        .as_integer()
+        .ok_or(
+            NativeErrorKind::TypeError {
+                index,
+                expected: "integer",
+            }
+            .into(),
+        )
+}
+
 fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i64, NativeError> {
     match args.get(index - 1) {
         Some(value) => value.as_integer().ok_or(
@@ -79,7 +132,7 @@ fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i6
 mod tests {
     use elara_core::Value;
 
-    use super::{TABLE_NATIVE_FUNCTIONS, table_pack, table_unpack};
+    use super::{TABLE_NATIVE_FUNCTIONS, table_insert, table_pack, table_unpack};
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
     #[derive(Default)]
@@ -137,6 +190,27 @@ mod tests {
                 .find_map(|(key, value)| (*key == Value::integer(index)).then_some(*value))
                 .unwrap_or_else(Value::nil))
         }
+
+        fn table_set_integer(
+            &mut self,
+            table: Value,
+            index: i64,
+            value: Value,
+        ) -> Result<(), NativeError> {
+            let entries = {
+                let table_index = table.as_table_index().expect("table value") as usize;
+                &mut self.tables[table_index]
+            };
+            if let Some((_, existing)) = entries
+                .iter_mut()
+                .find(|(key, _)| *key == Value::integer(index))
+            {
+                *existing = value;
+            } else {
+                entries.push((Value::integer(index), value));
+            }
+            Ok(())
+        }
     }
 
     #[test]
@@ -146,6 +220,7 @@ mod tests {
             .map(|function| function.descriptor())
             .collect();
 
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "insert")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "pack")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "unpack")));
     }
@@ -170,6 +245,56 @@ mod tests {
             .expect("n field should be present")
             .0;
         assert!(entries.contains(&(n_key, Value::integer(3))));
+    }
+
+    #[test]
+    fn table_insert_appends_when_called_with_value_only() {
+        let mut runtime = TestRuntime::default();
+        let packed = table_pack(&mut runtime, &[Value::integer(1)]).expect("pack should pass");
+
+        assert_eq!(
+            table_insert(&mut runtime, &[packed[0], Value::integer(2)])
+                .expect("insert should pass"),
+            Vec::<Value>::new()
+        );
+        assert_eq!(
+            table_unpack(&mut runtime, &[packed[0]]).expect("unpack should pass"),
+            vec![Value::integer(1), Value::integer(2)]
+        );
+    }
+
+    #[test]
+    fn table_insert_shifts_values_at_explicit_position() {
+        let mut runtime = TestRuntime::default();
+        let packed = table_pack(&mut runtime, &[Value::integer(1), Value::integer(3)])
+            .expect("pack should pass");
+
+        table_insert(
+            &mut runtime,
+            &[packed[0], Value::integer(2), Value::integer(2)],
+        )
+        .expect("insert should pass");
+
+        assert_eq!(
+            table_unpack(&mut runtime, &[packed[0]]).expect("unpack should pass"),
+            vec![Value::integer(1), Value::integer(2), Value::integer(3)]
+        );
+    }
+
+    #[test]
+    fn table_insert_rejects_out_of_bounds_position() {
+        let mut runtime = TestRuntime::default();
+        let packed = table_pack(&mut runtime, &[]).expect("pack should pass");
+
+        assert_eq!(
+            table_insert(
+                &mut runtime,
+                &[packed[0], Value::integer(2), Value::integer(7)]
+            )
+            .expect_err("position should fail")
+            .kind(),
+            &NativeErrorKind::ArgumentOutOfRange { index: 2 }
+        );
     }
 
     #[test]

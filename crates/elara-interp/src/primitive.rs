@@ -110,6 +110,27 @@ impl<'a> NativeContext<'a> {
             .ok_or(RuntimeErrorKind::NonTableValue)?;
         Ok(table.raw_get_integer(index))
     }
+
+    /// Writes one raw integer-keyed value into a runtime-owned table.
+    pub fn table_set_integer(
+        &mut self,
+        table: Value,
+        index: LuaInteger,
+        value: Value,
+    ) -> RuntimeResult<()> {
+        let table_index = table
+            .as_table_index()
+            .ok_or(RuntimeErrorKind::NonTableValue)? as usize;
+        let table = self
+            .tables
+            .get_mut(table_index)
+            .ok_or(RuntimeErrorKind::NonTableValue)?;
+        if table.raw_set_integer(index, value) {
+            Ok(())
+        } else {
+            Err(RuntimeErrorKind::InvalidTableKey.into())
+        }
+    }
 }
 
 /// Runtime-owned native function registry.

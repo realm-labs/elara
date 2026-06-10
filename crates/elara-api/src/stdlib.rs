@@ -110,6 +110,22 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
                 .into()
             })
     }
+
+    fn table_set_integer(
+        &mut self,
+        table: Value,
+        index: i64,
+        value: Value,
+    ) -> Result<(), NativeError> {
+        self.context
+            .table_set_integer(table, index, value)
+            .map_err(|error| {
+                NativeErrorKind::RuntimeError {
+                    message: error.to_string().into(),
+                }
+                .into()
+            })
+    }
 }
 
 fn native_error_to_runtime_error(error: NativeError) -> elara_interp::RuntimeError {
