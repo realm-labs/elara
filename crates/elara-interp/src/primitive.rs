@@ -108,7 +108,7 @@ impl<'a> NativeContext<'a> {
             .tables
             .get(table_index)
             .ok_or(RuntimeErrorKind::NonTableValue)?;
-        Ok(table.raw_get_integer(index))
+        Ok(table.raw_get_value(Value::integer(index)))
     }
 
     /// Writes one raw integer-keyed value into a runtime-owned table.
@@ -125,7 +125,7 @@ impl<'a> NativeContext<'a> {
             .tables
             .get_mut(table_index)
             .ok_or(RuntimeErrorKind::NonTableValue)?;
-        if table.raw_set_integer(index, value) {
+        if table.raw_set_value(Value::integer(index), value) {
             Ok(())
         } else {
             Err(RuntimeErrorKind::InvalidTableKey.into())

@@ -101,8 +101,8 @@ string functions, broader API surface, JIT, C API, conformance, and benchmark
 implementation work remain. String natives `string.byte`, `string.char`,
 `string.len`, `string.lower`, `string.upper`, `string.reverse`, `string.rep`,
 and `string.sub` are executable and covered through stdlib-backed API
-evaluation. Table natives `table.insert`, `table.pack`, and `table.unpack` are
-executable and covered through stdlib-backed API evaluation.
+evaluation. Table natives `table.insert`, `table.pack`, `table.remove`, and
+`table.unpack` are executable and covered through stdlib-backed API evaluation.
 
 Current state:
 
@@ -173,6 +173,7 @@ Completed:
   - M11.2 NativeContext support for raw runtime table writes.
   - M11.2 executable table.insert native spec.
   - M11.2 executable table.pack native spec.
+  - M11.2 executable table.remove native spec.
   - M11.2 executable table.unpack native spec.
   - M11.2 executable base type native spec.
   - M11.2 executable string.byte native spec.
@@ -747,7 +748,7 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable table.insert verification passed:
+M11.2 executable table.remove verification passed:
 
 ```bash
 cargo test -p elara-stdlib table

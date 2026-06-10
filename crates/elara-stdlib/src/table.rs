@@ -10,6 +10,7 @@ use crate::{
 pub const TABLE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "insert"), table_insert),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "pack"), table_pack),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "remove"), table_remove),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "unpack"), table_unpack),
 ];
 
@@ -50,6 +51,36 @@ fn table_insert(
 
     runtime.table_set_integer(table, position, value)?;
     Ok(Vec::new())
+}
+
+fn table_remove(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let table = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    if args.len() > 2 {
+        return Err(NativeErrorKind::RuntimeError {
+            message: "wrong number of arguments to 'remove'".into(),
+        }
+        .into());
+    }
+
+    let size = runtime.table_array_len(table)?;
+    let mut position = optional_integer_arg(args, 2, size)?;
+    if position != size && (position < 1 || position > size + 1) {
+        return Err(NativeErrorKind::ArgumentOutOfRange { index: 2 }.into());
+    }
+
+    let result = runtime.table_get_integer(table, position)?;
+    while position < size {
+        let next = runtime.table_get_integer(table, position + 1)?;
+        runtime.table_set_integer(table, position, next)?;
+        position += 1;
+    }
+    runtime.table_set_integer(table, position, Value::nil())?;
+    Ok(vec![result])
 }
 
 fn table_pack(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -132,7 +163,7 @@ fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i6
 mod tests {
     use elara_core::Value;
 
-    use super::{TABLE_NATIVE_FUNCTIONS, table_insert, table_pack, table_unpack};
+    use super::{TABLE_NATIVE_FUNCTIONS, table_insert, table_pack, table_remove, table_unpack};
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
     #[derive(Default)]
@@ -222,6 +253,7 @@ mod tests {
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "insert")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "pack")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "remove")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "unpack")));
     }
 
@@ -294,6 +326,56 @@ mod tests {
             .expect_err("position should fail")
             .kind(),
             &NativeErrorKind::ArgumentOutOfRange { index: 2 }
+        );
+    }
+
+    #[test]
+    fn table_remove_removes_last_value_by_default() {
+        let mut runtime = TestRuntime::default();
+        let packed = table_pack(
+            &mut runtime,
+            &[Value::integer(1), Value::integer(2), Value::integer(3)],
+        )
+        .expect("pack should pass");
+
+        assert_eq!(
+            table_remove(&mut runtime, &[packed[0]]).expect("remove should pass"),
+            vec![Value::integer(3)]
+        );
+        assert_eq!(
+            table_unpack(&mut runtime, &[packed[0]]).expect("unpack should pass"),
+            vec![Value::integer(1), Value::integer(2)]
+        );
+    }
+
+    #[test]
+    fn table_remove_shifts_values_after_explicit_position() {
+        let mut runtime = TestRuntime::default();
+        let packed = table_pack(
+            &mut runtime,
+            &[Value::integer(1), Value::integer(2), Value::integer(3)],
+        )
+        .expect("pack should pass");
+
+        assert_eq!(
+            table_remove(&mut runtime, &[packed[0], Value::integer(2)])
+                .expect("remove should pass"),
+            vec![Value::integer(2)]
+        );
+        assert_eq!(
+            table_unpack(&mut runtime, &[packed[0]]).expect("unpack should pass"),
+            vec![Value::integer(1), Value::integer(3)]
+        );
+    }
+
+    #[test]
+    fn table_remove_empty_table_returns_nil() {
+        let mut runtime = TestRuntime::default();
+        let packed = table_pack(&mut runtime, &[]).expect("pack should pass");
+
+        assert_eq!(
+            table_remove(&mut runtime, &[packed[0]]).expect("remove should pass"),
+            vec![Value::nil()]
         );
     }
 
