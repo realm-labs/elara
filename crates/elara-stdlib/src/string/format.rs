@@ -33,10 +33,12 @@ pub(super) fn string_format(
             output.extend_from_slice(&format_string_arg(runtime, value));
             arg_index += 1;
             index += 2;
-        } else if matches!(format.get(index + 1), Some(b'd' | b'i')) {
+        } else if let Some(spec @ (b'd' | b'i' | b'u' | b'o' | b'x' | b'X')) =
+            format.get(index + 1).copied()
+        {
             let value =
                 integer_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
-            output.extend_from_slice(value.to_string().as_bytes());
+            output.extend_from_slice(format_integer_conversion(spec, value).as_bytes());
             arg_index += 1;
             index += 2;
         } else {
@@ -101,6 +103,17 @@ fn integer_type_error(index: usize) -> NativeError {
         expected: "integer",
     }
     .into()
+}
+
+fn format_integer_conversion(spec: u8, value: LuaInteger) -> String {
+    match spec {
+        b'd' | b'i' => value.to_string(),
+        b'u' => (value as u64).to_string(),
+        b'o' => format!("{:o}", value as u64),
+        b'x' => format!("{:x}", value as u64),
+        b'X' => format!("{:X}", value as u64),
+        _ => unreachable!("caller filters integer conversion specifiers"),
+    }
 }
 
 fn tostring_bytes(value: Value) -> String {
@@ -201,7 +214,7 @@ mod tests {
     #[test]
     fn string_format_formats_basic_integer_conversions() {
         let mut runtime = TestRuntime::default();
-        let format = runtime.push_string(b"%d:%i:%d:%i");
+        let format = runtime.push_string(b"%d:%i:%d:%i:%u:%o:%x:%X");
         let numeric_string = runtime.push_string(b"12.9");
         let negative_string = runtime.push_string(b"-2.1");
 
@@ -213,13 +226,34 @@ mod tests {
                 Value::float(8.9),
                 numeric_string,
                 negative_string,
+                Value::integer(7),
+                Value::integer(8),
+                Value::integer(255),
+                Value::integer(255),
             ],
         )
         .expect("format should pass");
 
         assert_eq!(
             runtime.short_string_bytes(values[0]),
-            Some(b"7:8:12:-3".as_slice())
+            Some(b"7:8:12:-3:7:10:ff:FF".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_format_formats_unsigned_integer_bits() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%u:%x");
+
+        let values = string_format(
+            &mut runtime,
+            &[format, Value::integer(-1), Value::integer(-1)],
+        )
+        .expect("format should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(format!("{}:{:x}", u64::MAX, u64::MAX).as_bytes())
         );
     }
 
