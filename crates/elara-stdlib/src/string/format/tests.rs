@@ -181,6 +181,31 @@ fn string_format_formats_integer_width() {
 }
 
 #[test]
+fn string_format_formats_signed_decimal_flags() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%+d:% d:%+05d:% 05d:%+d:%+ 05i");
+
+    let values = string_format(
+        &mut runtime,
+        &[
+            format,
+            Value::integer(7),
+            Value::integer(7),
+            Value::integer(7),
+            Value::integer(7),
+            Value::integer(-7),
+            Value::integer(7),
+        ],
+    )
+    .expect("format should pass");
+
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"+7: 7:+0007: 0007:-7:+0007".as_slice())
+    );
+}
+
+#[test]
 fn string_format_reports_invalid_integer_width() {
     let mut runtime = TestRuntime::default();
     let format = runtime.push_string(b"%123x");
@@ -188,6 +213,21 @@ fn string_format_reports_invalid_integer_width() {
     assert_eq!(
         string_format(&mut runtime, &[format, Value::integer(7)])
             .expect_err("three-digit width should fail")
+            .kind(),
+        &NativeErrorKind::RuntimeError {
+            message: "invalid conversion specification".into(),
+        }
+    );
+}
+
+#[test]
+fn string_format_reports_invalid_unsigned_sign_flags() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%+5u");
+
+    assert_eq!(
+        string_format(&mut runtime, &[format, Value::integer(7)])
+            .expect_err("unsigned sign flag should fail")
             .kind(),
         &NativeErrorKind::RuntimeError {
             message: "invalid conversion specification".into(),

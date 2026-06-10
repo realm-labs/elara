@@ -54,16 +54,7 @@ pub(super) fn string_format(
         } else if let Some(spec) = parse_integer_width_spec(&format, index + 1)? {
             let value =
                 integer_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
-            output.extend_from_slice(
-                format_integer_width_conversion(
-                    spec.conversion,
-                    value,
-                    spec.width,
-                    spec.left_adjust,
-                    spec.zero_pad,
-                )
-                .as_bytes(),
-            );
+            output.extend_from_slice(format_integer_width_conversion(spec, value).as_bytes());
             arg_index += 1;
             index = spec.next_index;
         } else if let Some(spec @ (b'c' | b'd' | b'i' | b'u' | b'o' | b'x' | b'X')) =
@@ -102,6 +93,8 @@ struct IntegerFormatSpec {
     width: usize,
     left_adjust: bool,
     zero_pad: bool,
+    force_sign: bool,
+    space_sign: bool,
     next_index: usize,
 }
 
@@ -213,7 +206,10 @@ fn parse_integer_width_spec(
     format: &[u8],
     start: usize,
 ) -> Result<Option<IntegerFormatSpec>, NativeError> {
-    if !matches!(format.get(start), Some(b'-' | b'0' | b'1'..=b'9')) {
+    if !matches!(
+        format.get(start),
+        Some(b'-' | b'+' | b'0' | b' ' | b'1'..=b'9')
+    ) {
         return Ok(None);
     }
 
@@ -228,15 +224,26 @@ fn parse_integer_width_spec(
     let mut cursor = start;
     let mut left_adjust = false;
     let mut zero_pad = false;
+    let mut force_sign = false;
+    let mut space_sign = false;
+    let mut saw_flag = false;
     while let Some(byte) = format.get(cursor).copied() {
         match byte {
             b'-' => left_adjust = true,
+            b'+' => force_sign = true,
             b'0' => zero_pad = true,
+            b' ' => space_sign = true,
             _ => break,
         }
+        saw_flag = true;
         cursor += 1;
     }
-    if !matches!(format.get(cursor), Some(b'1'..=b'9')) {
+    if (force_sign || space_sign) && !matches!(spec, b'd' | b'i') {
+        return Err(invalid_format_spec());
+    }
+    let has_width = matches!(format.get(cursor), Some(b'1'..=b'9'));
+    let has_flags_only = saw_flag && cursor == conversion;
+    if !has_width && !has_flags_only {
         return Ok(None);
     }
     let width = parse_two_digit_field(format, &mut cursor)?.unwrap_or(0);
@@ -248,6 +255,8 @@ fn parse_integer_width_spec(
         width,
         left_adjust,
         zero_pad,
+        force_sign,
+        space_sign,
         next_index: conversion + 1,
     }))
 }
@@ -514,23 +523,31 @@ fn format_integer_conversion(spec: u8, value: LuaInteger) -> String {
     }
 }
 
-fn format_integer_width_conversion(
-    spec: u8,
-    value: LuaInteger,
-    width: usize,
-    left_adjust: bool,
-    zero_pad: bool,
-) -> String {
-    let formatted = format_integer_conversion(spec, value);
-    if formatted.len() >= width {
+fn format_integer_width_conversion(spec: IntegerFormatSpec, value: LuaInteger) -> String {
+    let mut formatted = format_integer_conversion(spec.conversion, value);
+    if matches!(spec.conversion, b'd' | b'i') && !formatted.starts_with('-') {
+        if spec.force_sign {
+            formatted.insert(0, '+');
+        } else if spec.space_sign {
+            formatted.insert(0, ' ');
+        }
+    }
+    if formatted.len() >= spec.width {
         return formatted;
     }
-    let pad_byte = if zero_pad && !left_adjust { '0' } else { ' ' };
-    let padding = pad_byte.to_string().repeat(width - formatted.len());
-    if left_adjust {
+    let pad_byte = if spec.zero_pad && !spec.left_adjust {
+        '0'
+    } else {
+        ' '
+    };
+    let padding = pad_byte.to_string().repeat(spec.width - formatted.len());
+    if spec.left_adjust {
         format!("{formatted}{padding}")
-    } else if pad_byte == '0' && matches!(spec, b'd' | b'i') && formatted.starts_with('-') {
-        format!("-{}{}", padding, &formatted[1..])
+    } else if pad_byte == '0'
+        && matches!(spec.conversion, b'd' | b'i')
+        && matches!(formatted.as_bytes().first(), Some(b'-' | b'+' | b' '))
+    {
+        format!("{}{}{}", &formatted[..1], padding, &formatted[1..])
     } else {
         format!("{padding}{formatted}")
     }
