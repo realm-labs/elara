@@ -403,6 +403,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_base_next() {
+        let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local t = {10, 20}\nreturn next(t)",
+                &profile,
+            ),
+            Ok(vec![Value::integer(1)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_tonumber() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 

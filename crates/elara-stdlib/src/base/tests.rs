@@ -1,9 +1,9 @@
 use elara_core::Value;
 
 use super::{
-    BASE_NATIVE_FUNCTIONS, base_assert, base_error, base_getmetatable, base_rawequal, base_rawget,
-    base_rawlen, base_rawset, base_select, base_setmetatable, base_tonumber, base_tostring,
-    base_type,
+    BASE_NATIVE_FUNCTIONS, base_assert, base_error, base_getmetatable, base_next, base_rawequal,
+    base_rawget, base_rawlen, base_rawset, base_select, base_setmetatable, base_tonumber,
+    base_tostring, base_type,
 };
 use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -72,6 +72,23 @@ impl NativeRuntime for TestRuntime {
                 (*entry_key == key && !entry_value.is_nil()).then_some(*entry_value)
             })
             .unwrap_or_else(Value::nil))
+    }
+
+    fn table_next(&self, table: Value, key: Value) -> Result<Option<(Value, Value)>, NativeError> {
+        let table_index = table.as_table_index().ok_or_else(non_table_error)? as usize;
+        let table = self.tables.get(table_index).ok_or_else(non_table_error)?;
+        let start = if key.is_nil() {
+            0
+        } else if let Some(position) = table.iter().position(|(entry_key, _)| *entry_key == key) {
+            position + 1
+        } else {
+            table.len()
+        };
+        Ok(table
+            .iter()
+            .copied()
+            .skip(start)
+            .find(|(_, value)| !value.is_nil()))
     }
 
     fn table_set(&mut self, table: Value, key: Value, value: Value) -> Result<(), NativeError> {
@@ -144,6 +161,7 @@ fn base_native_specs_cover_executable_subset() {
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "assert")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "error")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "getmetatable")));
+    assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "next")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawequal")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawget")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawlen")));
@@ -216,6 +234,41 @@ fn base_error_validates_optional_level() {
         &NativeErrorKind::TypeError {
             index: 2,
             expected: "integer",
+        }
+    );
+}
+
+#[test]
+fn base_next_returns_next_pair_or_nil() {
+    let mut runtime = TestRuntime::default();
+    let table = runtime.push_table(vec![
+        (Value::integer(1), Value::integer(10)),
+        (Value::integer(2), Value::integer(20)),
+    ]);
+
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_next, &[table]),
+        vec![Value::integer(1), Value::integer(10)]
+    );
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_next, &[table, Value::integer(1)]),
+        vec![Value::integer(2), Value::integer(20)]
+    );
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_next, &[table, Value::integer(2)]),
+        vec![Value::nil()]
+    );
+}
+
+#[test]
+fn base_next_reports_non_table_receiver() {
+    assert_eq!(
+        base_next(&mut TestRuntime::default(), &[Value::nil()])
+            .expect_err("receiver should be table")
+            .kind(),
+        &NativeErrorKind::TypeError {
+            index: 1,
+            expected: "table",
         }
     );
 }

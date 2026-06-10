@@ -133,6 +133,15 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
         })
     }
 
+    fn table_next(&self, table: Value, key: Value) -> Result<Option<(Value, Value)>, NativeError> {
+        self.context.table_next(table, key).map_err(|error| {
+            NativeErrorKind::RuntimeError {
+                message: error.to_string().into(),
+            }
+            .into()
+        })
+    }
+
     fn table_set_integer(
         &mut self,
         table: Value,

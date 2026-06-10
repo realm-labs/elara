@@ -116,6 +116,18 @@ impl<'a> NativeContext<'a> {
         Ok(table.raw_get_value(key))
     }
 
+    /// Returns the next raw key/value pair after a key in a runtime-owned table.
+    pub fn table_next(&self, table: Value, key: Value) -> RuntimeResult<Option<(Value, Value)>> {
+        let table_index = table
+            .as_table_index()
+            .ok_or(RuntimeErrorKind::NonTableValue)? as usize;
+        let table = self
+            .tables
+            .get(table_index)
+            .ok_or(RuntimeErrorKind::NonTableValue)?;
+        Ok(table.raw_next(key))
+    }
+
     /// Writes one raw integer-keyed value into a runtime-owned table.
     pub fn table_set_integer(
         &mut self,

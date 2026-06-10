@@ -228,6 +228,56 @@ impl Table {
         true
     }
 
+    /// Returns the next raw key/value pair after `key`, or the first pair when
+    /// `key` is nil.
+    #[must_use]
+    pub fn raw_next(&self, key: Value) -> Option<(Value, Value)> {
+        let next_index = if key.is_nil() {
+            Some(0)
+        } else if let Some(index) = key.as_integer() {
+            usize::try_from(index).ok()
+        } else {
+            None
+        };
+
+        if let Some(start) = next_index {
+            if let Some((offset, value)) = self
+                .array
+                .iter()
+                .copied()
+                .enumerate()
+                .skip(start)
+                .find(|(_, value)| !value.is_nil())
+            {
+                let index =
+                    LuaInteger::try_from(offset + 1).expect("array index fits in LuaInteger");
+                return Some((Value::integer(index), value));
+            }
+            if key.is_nil() || key.as_integer().is_some() {
+                return self.first_hash_pair();
+            }
+        }
+
+        let key = TableKey::from_value(key)?;
+        let mut found = false;
+        for (entry_key, value) in &self.hash {
+            if found && !value.is_nil() {
+                return Some((entry_key.to_value(), *value));
+            }
+            if *entry_key == key {
+                found = true;
+            }
+        }
+        None
+    }
+
+    fn first_hash_pair(&self) -> Option<(Value, Value)> {
+        self.hash
+            .iter()
+            .find(|(_, value)| !value.is_nil())
+            .map(|(key, value)| (key.to_value(), *value))
+    }
+
     fn trim_trailing_nil(&mut self) {
         while self.array.last().is_some_and(|value| value.is_nil()) {
             self.array.pop();
@@ -296,6 +346,15 @@ impl TableKey {
 
         let normalized = if value == 0.0 { 0.0 } else { value };
         Some(Self::Float(normalized.to_bits()))
+    }
+
+    fn to_value(self) -> Value {
+        match self {
+            Self::Bool(value) => Value::boolean(value),
+            Self::Integer(value) => Value::integer(value),
+            Self::Float(value) => Value::float(LuaFloat::from_bits(value)),
+            Self::ShortString(value) => Value::short_string(value),
+        }
     }
 }
 
@@ -455,6 +514,35 @@ mod tests {
 
         assert_eq!(table.hash_len(), 0);
         assert_eq!(table.raw_get_value(Value::boolean(true)), Value::nil());
+    }
+
+    #[test]
+    fn table_raw_next_traverses_array_entries() {
+        let mut table = Table::new();
+        assert!(table.raw_set_integer(1, Value::integer(10)));
+        assert!(table.raw_set_integer(3, Value::integer(30)));
+
+        assert_eq!(
+            table.raw_next(Value::nil()),
+            Some((Value::integer(1), Value::integer(10)))
+        );
+        assert_eq!(
+            table.raw_next(Value::integer(1)),
+            Some((Value::integer(3), Value::integer(30)))
+        );
+        assert_eq!(table.raw_next(Value::integer(3)), None);
+    }
+
+    #[test]
+    fn table_raw_next_traverses_hash_entries() {
+        let mut table = Table::new();
+        assert!(table.raw_set_value(Value::boolean(true), Value::integer(1)));
+
+        assert_eq!(
+            table.raw_next(Value::nil()),
+            Some((Value::boolean(true), Value::integer(1)))
+        );
+        assert_eq!(table.raw_next(Value::boolean(true)), None);
     }
 
     #[test]

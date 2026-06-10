@@ -14,6 +14,7 @@ pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         FunctionSpec::new(StdLib::Base, "getmetatable"),
         base_getmetatable,
     ),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "next"), base_next),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawequal"), base_rawequal),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawget"), base_rawget),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawlen"), base_rawlen),
@@ -74,6 +75,14 @@ fn base_getmetatable(
     } else {
         Ok(vec![protected])
     }
+}
+
+fn base_next(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let table = table_arg(args, 1)?;
+    let key = args.get(1).copied().unwrap_or_else(Value::nil);
+    Ok(runtime
+        .table_next(table, key)?
+        .map_or_else(|| vec![Value::nil()], |(key, value)| vec![key, value]))
 }
 
 fn base_rawequal(

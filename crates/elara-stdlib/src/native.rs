@@ -47,6 +47,18 @@ pub trait NativeRuntime {
         .into())
     }
 
+    /// Returns the next raw key/value pair after a key in a runtime-owned table.
+    fn table_next(
+        &self,
+        _table: Value,
+        _key: Value,
+    ) -> Result<Option<(Value, Value)>, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support table iteration".into(),
+        }
+        .into())
+    }
+
     /// Writes one raw integer-keyed value into a runtime-owned table.
     fn table_set_integer(
         &mut self,
