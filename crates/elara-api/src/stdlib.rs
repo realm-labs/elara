@@ -90,6 +90,26 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
                 .into()
             })
     }
+
+    fn table_array_len(&self, table: Value) -> Result<i64, NativeError> {
+        self.context.table_array_len(table).map_err(|error| {
+            NativeErrorKind::RuntimeError {
+                message: error.to_string().into(),
+            }
+            .into()
+        })
+    }
+
+    fn table_get_integer(&self, table: Value, index: i64) -> Result<Value, NativeError> {
+        self.context
+            .table_get_integer(table, index)
+            .map_err(|error| {
+                NativeErrorKind::RuntimeError {
+                    message: error.to_string().into(),
+                }
+                .into()
+            })
+    }
 }
 
 fn native_error_to_runtime_error(error: NativeError) -> elara_interp::RuntimeError {

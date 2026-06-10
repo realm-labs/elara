@@ -7,10 +7,10 @@ use crate::{
 };
 
 /// Executable table-library functions currently implemented.
-pub const TABLE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[NativeFunctionSpec::new(
-    FunctionSpec::new(StdLib::Table, "pack"),
-    table_pack,
-)];
+pub const TABLE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "pack"), table_pack),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "unpack"), table_unpack),
+];
 
 fn table_pack(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let count = i64::try_from(args.len()).map_err(|_| NativeErrorKind::RuntimeError {
@@ -26,11 +26,60 @@ fn table_pack(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
     Ok(vec![runtime.create_table(&entries)?])
 }
 
+fn table_unpack(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let table = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let start = optional_integer_arg(args, 2, 1)?;
+    let end = match args.get(2) {
+        Some(_) => optional_integer_arg(args, 3, 0)?,
+        None => runtime.table_array_len(table)?,
+    };
+
+    if start > end {
+        return Ok(Vec::new());
+    }
+
+    let count = i128::from(end) - i128::from(start) + 1;
+    if count > i128::from(i32::MAX) {
+        return Err(NativeErrorKind::RuntimeError {
+            message: "too many results to unpack".into(),
+        }
+        .into());
+    }
+    let count = usize::try_from(count).expect("positive count under i32::MAX fits usize");
+
+    let mut values = Vec::with_capacity(count);
+    for offset in 0..count {
+        let index = start
+            .checked_add(i64::try_from(offset).expect("offset under i32::MAX fits LuaInteger"))
+            .expect("unpack index must not overflow LuaInteger");
+        values.push(runtime.table_get_integer(table, index)?);
+    }
+    Ok(values)
+}
+
+fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i64, NativeError> {
+    match args.get(index - 1) {
+        Some(value) => value.as_integer().ok_or(
+            NativeErrorKind::TypeError {
+                index,
+                expected: "integer",
+            }
+            .into(),
+        ),
+        None => Ok(default),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use elara_core::Value;
 
-    use super::{TABLE_NATIVE_FUNCTIONS, table_pack};
+    use super::{TABLE_NATIVE_FUNCTIONS, table_pack, table_unpack};
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
     #[derive(Default)]
@@ -63,6 +112,31 @@ mod tests {
             self.tables.push(entries.to_vec());
             Ok(Value::table_index(index))
         }
+
+        fn table_array_len(&self, table: Value) -> Result<i64, NativeError> {
+            let entries = self.table_entries(table);
+            let len = entries
+                .iter()
+                .filter_map(|(key, value)| {
+                    let index = key.as_integer()?;
+                    if index >= 1 && !value.is_nil() {
+                        Some(index)
+                    } else {
+                        None
+                    }
+                })
+                .max()
+                .unwrap_or(0);
+            Ok(len)
+        }
+
+        fn table_get_integer(&self, table: Value, index: i64) -> Result<Value, NativeError> {
+            Ok(self
+                .table_entries(table)
+                .iter()
+                .find_map(|(key, value)| (*key == Value::integer(index)).then_some(*value))
+                .unwrap_or_else(Value::nil))
+        }
     }
 
     #[test]
@@ -73,6 +147,7 @@ mod tests {
             .collect();
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "pack")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "unpack")));
     }
 
     #[test]
@@ -121,6 +196,55 @@ mod tests {
             NativeErrorKind::RuntimeError {
                 message: "native runtime does not support table allocation".into()
             }
+        );
+    }
+
+    #[test]
+    fn table_unpack_returns_range_values() {
+        let mut runtime = TestRuntime::default();
+        let packed = table_pack(
+            &mut runtime,
+            &[Value::integer(1), Value::nil(), Value::integer(3)],
+        )
+        .expect("pack should pass");
+
+        assert_eq!(
+            table_unpack(&mut runtime, &[packed[0]]).expect("unpack should pass"),
+            vec![Value::integer(1), Value::nil(), Value::integer(3)]
+        );
+    }
+
+    #[test]
+    fn table_unpack_honors_explicit_bounds() {
+        let mut runtime = TestRuntime::default();
+        let packed = table_pack(
+            &mut runtime,
+            &[Value::integer(1), Value::integer(2), Value::integer(3)],
+        )
+        .expect("pack should pass");
+
+        assert_eq!(
+            table_unpack(
+                &mut runtime,
+                &[packed[0], Value::integer(2), Value::integer(3)]
+            )
+            .expect("unpack should pass"),
+            vec![Value::integer(2), Value::integer(3)]
+        );
+    }
+
+    #[test]
+    fn table_unpack_empty_range_returns_no_values() {
+        let mut runtime = TestRuntime::default();
+        let packed = table_pack(&mut runtime, &[Value::integer(1)]).expect("pack should pass");
+
+        assert_eq!(
+            table_unpack(
+                &mut runtime,
+                &[packed[0], Value::integer(2), Value::integer(1)]
+            )
+            .expect("unpack should pass"),
+            Vec::<Value>::new()
         );
     }
 }

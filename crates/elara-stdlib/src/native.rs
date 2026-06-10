@@ -22,6 +22,22 @@ pub trait NativeRuntime {
         }
         .into())
     }
+
+    /// Returns the current raw array length of a runtime-owned table.
+    fn table_array_len(&self, _table: Value) -> Result<i64, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support table length".into(),
+        }
+        .into())
+    }
+
+    /// Reads one raw integer-keyed value from a runtime-owned table.
+    fn table_get_integer(&self, _table: Value, _index: i64) -> Result<Value, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support table reads".into(),
+        }
+        .into())
+    }
 }
 
 /// Executable standard-library native function.

@@ -92,8 +92,8 @@ Base stdlib natives `assert`, `rawequal`, numeric `select`, and `type` are
 executable, and API stdlib profile registration now installs base natives as
 direct globals while keeping module libraries table-shaped. Native calls now
 receive a `NativeContext` that can allocate and inspect runtime-owned short
-strings and allocate runtime-owned tables, preparing the remaining base, table,
-and string library functions.
+strings, allocate runtime-owned tables, and read raw runtime table array
+entries, preparing the remaining base, table, and string library functions.
 `elara-stdlib` native functions now receive a crate-local `NativeRuntime` trait,
 and the API bridge adapts it to the interpreter context without making stdlib
 depend on interpreter internals. Remaining executable base, table, math, and
@@ -101,8 +101,8 @@ string functions, broader API surface, JIT, C API, conformance, and benchmark
 implementation work remain. String natives `string.byte`, `string.char`,
 `string.len`, `string.lower`, `string.upper`, `string.reverse`, `string.rep`,
 and `string.sub` are executable and covered through stdlib-backed API
-evaluation. Table native `table.pack` is executable and covered through
-stdlib-backed API evaluation.
+evaluation. Table natives `table.pack` and `table.unpack` are executable and
+covered through stdlib-backed API evaluation.
 
 Current state:
 
@@ -169,7 +169,9 @@ Completed:
   - M11.2 NativeContext support for runtime short strings.
   - M11.2 NativeRuntime abstraction for context-aware stdlib natives.
   - M11.2 NativeContext support for runtime table allocation.
+  - M11.2 NativeContext support for raw runtime table length and reads.
   - M11.2 executable table.pack native spec.
+  - M11.2 executable table.unpack native spec.
   - M11.2 executable base type native spec.
   - M11.2 executable string.byte native spec.
   - M11.2 executable string.char native spec.
@@ -743,7 +745,7 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable table.pack verification passed:
+M11.2 executable table.unpack verification passed:
 
 ```bash
 cargo test -p elara-stdlib table

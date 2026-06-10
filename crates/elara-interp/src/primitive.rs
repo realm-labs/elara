@@ -85,6 +85,31 @@ impl<'a> NativeContext<'a> {
         }
         Ok(Value::table_index(self.tables.push_table(table)))
     }
+
+    /// Returns the current raw array length of a runtime-owned table.
+    pub fn table_array_len(&self, table: Value) -> RuntimeResult<LuaInteger> {
+        let table_index = table
+            .as_table_index()
+            .ok_or(RuntimeErrorKind::NonTableValue)? as usize;
+        let len = self
+            .tables
+            .get(table_index)
+            .ok_or(RuntimeErrorKind::NonTableValue)?
+            .array_len();
+        Ok(LuaInteger::try_from(len).expect("table array length must fit in LuaInteger"))
+    }
+
+    /// Reads one raw integer-keyed value from a runtime-owned table.
+    pub fn table_get_integer(&self, table: Value, index: LuaInteger) -> RuntimeResult<Value> {
+        let table_index = table
+            .as_table_index()
+            .ok_or(RuntimeErrorKind::NonTableValue)? as usize;
+        let table = self
+            .tables
+            .get(table_index)
+            .ok_or(RuntimeErrorKind::NonTableValue)?;
+        Ok(table.raw_get_integer(index))
+    }
 }
 
 /// Runtime-owned native function registry.

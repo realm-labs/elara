@@ -437,6 +437,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_table_unpack() {
+        let profile = StdLibProfile::Custom([StdLib::Table].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local t = table.pack(1, 2, 3)\nreturn table.unpack(t, 2, 2)",
+                &profile,
+            ),
+            Ok(vec![Value::integer(2)])
+        );
+    }
+
+    #[test]
     fn eval_simple_rejects_global_function_when_defined() {
         let error = eval_simple_source(
             SourceId::new(0),
