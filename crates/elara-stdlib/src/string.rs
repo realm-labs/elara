@@ -12,6 +12,7 @@ pub const STRING_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "lower"), string_lower),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "rep"), string_rep),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "reverse"), string_reverse),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "sub"), string_sub),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "upper"), string_upper),
 ];
 
@@ -102,6 +103,73 @@ fn string_rep(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
     Ok(vec![runtime.intern_short_string(&output)?])
 }
 
+fn string_sub(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let bytes = string_arg(runtime, value, 1)?.to_vec();
+    let len = bytes.len();
+    let start = relative_start(integer_arg(args, 2)?, len);
+    let end = relative_end(optional_integer_arg(args, 3, -1)?, len);
+
+    if start > end {
+        return Ok(vec![runtime.intern_short_string(b"")?]);
+    }
+
+    let slice = &bytes[(start - 1)..end];
+    Ok(vec![runtime.intern_short_string(slice)?])
+}
+
+fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
+    args.get(index - 1)
+        .ok_or(NativeErrorKind::MissingArgument { index })?
+        .as_integer()
+        .ok_or(
+            NativeErrorKind::TypeError {
+                index,
+                expected: "integer",
+            }
+            .into(),
+        )
+}
+
+fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i64, NativeError> {
+    match args.get(index - 1) {
+        Some(value) => value.as_integer().ok_or(
+            NativeErrorKind::TypeError {
+                index,
+                expected: "integer",
+            }
+            .into(),
+        ),
+        None => Ok(default),
+    }
+}
+
+fn relative_start(position: i64, len: usize) -> usize {
+    let len = i64::try_from(len).expect("runtime string length must fit in LuaInteger");
+    if position > 0 {
+        usize::try_from(position).unwrap_or(usize::MAX)
+    } else if position == 0 || position < -len {
+        1
+    } else {
+        usize::try_from(len + position + 1).expect("relative start is positive")
+    }
+}
+
+fn relative_end(position: i64, len: usize) -> usize {
+    let len_integer = i64::try_from(len).expect("runtime string length must fit in LuaInteger");
+    if position > len_integer {
+        len
+    } else if position >= 0 {
+        usize::try_from(position).expect("relative end is non-negative")
+    } else if position < -len_integer {
+        0
+    } else {
+        usize::try_from(len_integer + position + 1).expect("relative end is non-negative")
+    }
+}
+
 fn string_result_too_large() -> NativeError {
     NativeErrorKind::RuntimeError {
         message: "resulting string too large".into(),
@@ -128,7 +196,8 @@ mod tests {
     use elara_core::Value;
 
     use super::{
-        STRING_NATIVE_FUNCTIONS, string_len, string_lower, string_rep, string_reverse, string_upper,
+        STRING_NATIVE_FUNCTIONS, string_len, string_lower, string_rep, string_reverse, string_sub,
+        string_upper,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -167,6 +236,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "lower")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "rep")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "reverse")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "sub")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "upper")));
     }
 
@@ -267,5 +337,44 @@ mod tests {
                 expected: "integer"
             }
         );
+    }
+
+    #[test]
+    fn string_sub_uses_one_based_and_negative_positions() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"abcdef");
+        let sliced = string_sub(
+            &mut runtime,
+            &[value, Value::integer(2), Value::integer(-2)],
+        )
+        .expect("sub should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(sliced[0]),
+            Some(b"bcde".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_sub_defaults_end_to_last_byte() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"abcdef");
+        let sliced =
+            string_sub(&mut runtime, &[value, Value::integer(-3)]).expect("sub should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(sliced[0]),
+            Some(b"def".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_sub_returns_empty_when_start_exceeds_end() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"abcdef");
+        let sliced = string_sub(&mut runtime, &[value, Value::integer(5), Value::integer(3)])
+            .expect("sub should pass");
+
+        assert_eq!(runtime.short_string_bytes(sliced[0]), Some(b"".as_slice()));
     }
 }

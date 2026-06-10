@@ -97,8 +97,8 @@ and the API bridge adapts it to the interpreter context without making stdlib
 depend on interpreter internals. Remaining executable base, table, math, and
 string functions, broader API surface, JIT, C API, conformance, and benchmark
 implementation work remain. String natives `string.len`, `string.lower`,
-`string.upper`, `string.reverse`, and `string.rep` are executable and covered
-through stdlib-backed API evaluation.
+`string.upper`, `string.reverse`, `string.rep`, and `string.sub` are executable
+and covered through stdlib-backed API evaluation.
 
 Current state:
 
@@ -167,6 +167,7 @@ Completed:
   - M11.2 executable string.len native spec.
   - M11.2 executable string lower, upper, and reverse native specs.
   - M11.2 executable string.rep native spec.
+  - M11.2 executable string.sub native spec.
 
 In progress:
   - M11.2 Implement base, table, math, and string essentials.
@@ -733,7 +734,7 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable string.rep verification passed:
+M11.2 executable string.sub verification passed:
 
 ```bash
 cargo test -p elara-stdlib string
