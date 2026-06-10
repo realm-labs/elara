@@ -466,6 +466,8 @@ pub enum RuntimeErrorKind {
     UnsupportedCloseMetamethod,
     /// Native function index was not registered in this runtime.
     NativeFunctionOutOfBounds { index: usize },
+    /// Native function raised a host/runtime error.
+    NativeFunctionError { message: Box<str> },
     /// Opcode is not supported by the primitive interpreter.
     UnsupportedOpcode { op: Op },
 }
@@ -528,6 +530,7 @@ impl RuntimeErrorKind {
             Self::NativeFunctionOutOfBounds { index } => {
                 format!("native function index {index} is out of bounds")
             }
+            Self::NativeFunctionError { message } => message.to_string(),
             Self::UnsupportedOpcode { op } => format!("unsupported opcode '{}'", op.mnemonic()),
         }
     }

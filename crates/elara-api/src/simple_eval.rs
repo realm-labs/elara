@@ -2,7 +2,10 @@
 
 use elara_compiler::compile_simple_chunk;
 use elara_core::{Diagnostic, SourceId, Value};
-use elara_interp::{RuntimeError, execute_proto};
+use elara_interp::{RuntimeError, execute_proto, execute_proto_with_environment};
+use elara_stdlib::StdLibProfile;
+
+use crate::stdlib::runtime_environment_for_stdlib;
 
 /// Error returned by the simple source evaluation path.
 #[derive(Clone, Debug, PartialEq)]
@@ -24,12 +27,32 @@ pub fn eval_simple_source(source: SourceId, input: &str) -> Result<Vec<Value>, E
     execute_proto(&proto).map_err(EvalError::Runtime)
 }
 
+/// Evaluates a simple Lua chunk with implemented native standard libraries.
+pub fn eval_simple_source_with_stdlib(
+    source: SourceId,
+    input: &str,
+    profile: &StdLibProfile,
+) -> Result<Vec<Value>, EvalError> {
+    let compiled = compile_simple_chunk(source, input);
+    if !compiled.diagnostics.is_empty() {
+        return Err(EvalError::Diagnostics(compiled.diagnostics));
+    }
+
+    let proto = compiled.proto.expect("compiler succeeded without a proto");
+    let environment = runtime_environment_for_stdlib(profile);
+    execute_proto_with_environment(&proto, environment)
+        .map(|output| output.values)
+        .map_err(EvalError::Runtime)
+}
+
 #[cfg(test)]
 mod tests {
     use elara_core::{SourceId, Value};
     use elara_interp::RuntimeErrorKind;
 
-    use crate::{EvalError, eval_simple_source};
+    use elara_stdlib::{StdLib, StdLibProfile};
+
+    use crate::{EvalError, eval_simple_source, eval_simple_source_with_stdlib};
 
     #[test]
     fn eval_simple_returns_42_from_source() {
@@ -247,6 +270,16 @@ mod tests {
                 "global function answer()\n  return 42\nend\nreturn answer()",
             ),
             Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_with_stdlib_executes_math_abs() {
+        let profile = StdLibProfile::Custom([StdLib::Math].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(SourceId::new(0), "return math.abs(-7)", &profile),
+            Ok(vec![Value::integer(7)])
         );
     }
 

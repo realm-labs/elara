@@ -9,5 +9,6 @@
 //! the C API layer.
 
 pub mod simple_eval;
+pub mod stdlib;
 
-pub use simple_eval::{EvalError, eval_simple_source};
+pub use simple_eval::{EvalError, eval_simple_source, eval_simple_source_with_stdlib};

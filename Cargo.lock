@@ -16,6 +16,7 @@ dependencies = [
  "elara-compiler",
  "elara-core",
  "elara-interp",
+ "elara-stdlib",
 ]
 
 [[package]]
