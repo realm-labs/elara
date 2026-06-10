@@ -4,7 +4,11 @@ use elara_core::Value;
 
 use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
-use super::{optional_integer_arg, relative_start, string_arg};
+use super::{
+    optional_integer_arg,
+    pattern::{has_unsupported_pattern_special, simple_pattern_find},
+    relative_start, string_arg,
+};
 
 pub(super) fn string_find(
     runtime: &mut dyn NativeRuntime,
@@ -30,7 +34,7 @@ pub(super) fn string_find(
     }
 
     let plain = args.get(3).is_some_and(|value| is_truthy(*value));
-    if !plain && has_pattern_special(pattern) {
+    if !plain && has_unsupported_pattern_special(pattern) {
         return Err(NativeErrorKind::RuntimeError {
             message: "string pattern matching is not supported yet".into(),
         }
@@ -38,15 +42,19 @@ pub(super) fn string_find(
     }
 
     let offset = init - 1;
-    Ok(plain_find(&subject[offset..], pattern).map_or_else(
+    let found = if plain {
+        plain_find(&subject[offset..], pattern).map(|start| (start, start + pattern.len()))
+    } else {
+        simple_pattern_find(&subject[offset..], pattern)
+    };
+    Ok(found.map_or_else(
         || vec![Value::nil()],
-        |start| {
+        |(start, end)| {
             let start = offset + start;
+            let end = offset + end;
             vec![
                 Value::integer(i64::try_from(start + 1).expect("string index fits LuaInteger")),
-                Value::integer(
-                    i64::try_from(start + pattern.len()).expect("string index fits LuaInteger"),
-                ),
+                Value::integer(i64::try_from(end).expect("string index fits LuaInteger")),
             ]
         },
     ))
@@ -63,15 +71,6 @@ fn plain_find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())
         .position(|window| window == needle)
-}
-
-fn has_pattern_special(pattern: &[u8]) -> bool {
-    pattern.iter().any(|byte| {
-        matches!(
-            byte,
-            b'^' | b'$' | b'*' | b'+' | b'?' | b'.' | b'(' | b'[' | b'%' | b'-'
-        )
-    })
 }
 
 #[cfg(test)]
@@ -134,6 +133,18 @@ mod tests {
     }
 
     #[test]
+    fn string_find_matches_dot_wildcard() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abcabc");
+        let pattern = runtime.push_string(b"a.");
+
+        assert_eq!(
+            string_find(&mut runtime, &[subject, pattern]).expect("find should pass"),
+            vec![Value::integer(1), Value::integer(2)]
+        );
+    }
+
+    #[test]
     fn string_find_returns_nil_when_plain_match_is_absent() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
@@ -149,7 +160,7 @@ mod tests {
     fn string_find_reports_pattern_gap_for_magic_patterns() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
-        let pattern = runtime.push_string(b"a.");
+        let pattern = runtime.push_string(b"a+");
 
         assert_eq!(
             string_find(&mut runtime, &[subject, pattern])

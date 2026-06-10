@@ -111,9 +111,11 @@ decimal `+`/space flags, alternate-form octal/hex integer flags, integer
 precision, float width/precision/sign/alternate-form flags for
 `%f`/`%e`/`%E`/`%g`/`%G`, `%a`/`%A` width/precision/sign/alternate-form
 flags, `%c`, `%q`, `%p`, and escaped-percent `string.format`,
-literal string-replacement `string.gsub`, `string.match`, `string.len`,
-`string.lower`, `string.upper`, `string.reverse`, `string.rep`, and
-`string.sub` are executable and covered through stdlib-backed API evaluation.
+`.` wildcard pattern matching for `string.find`, `string.match`, and
+`string.gsub`, literal string-replacement `string.gsub`, `string.match`,
+`string.len`, `string.lower`, `string.upper`, `string.reverse`, `string.rep`,
+and `string.sub` are executable and covered through stdlib-backed API
+evaluation.
 Table natives `table.concat`, `table.insert`, `table.move`, `table.pack`,
 `table.remove`, default-comparator `table.sort`, and `table.unpack` are
 executable and covered through stdlib-backed API evaluation.
@@ -229,6 +231,7 @@ Completed:
   - M11.2 executable string.format hex-float precision modifiers.
   - M11.2 executable literal string-replacement string.gsub native spec.
   - M11.2 executable literal-search string.match native spec.
+  - M11.2 executable `.` wildcard matching for string.find, string.match, and string.gsub.
   - M11.2 executable string.len native spec.
   - M11.2 executable string lower, upper, and reverse native specs.
   - M11.2 executable string.rep native spec.
@@ -774,8 +777,8 @@ Delivered:
   executable native functions as runtime/API native-call support becomes
   available.
 - Add runtime callback support for custom `table.sort` comparators.
-- Add full string pattern matching for `string.find`, `string.match`,
-  `string.gmatch`, and `string.gsub`.
+- Add full string pattern matching beyond `.` wildcard support for
+  `string.find`, `string.match`, `string.gmatch`, and `string.gsub`.
 
 ### Product Gaps
 
@@ -800,13 +803,13 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable string.format hex-float precision verification passed:
+M11.2 executable string pattern dot-wildcard verification passed:
 
 ```bash
 cargo fmt --all
-cargo test -p elara-stdlib string_format
+cargo test -p elara-stdlib string
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
-cargo test -p elara-api eval_simple_with_stdlib_executes_string_format
+cargo test -p elara-api eval_simple_with_stdlib_executes_string
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
 

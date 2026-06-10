@@ -10,6 +10,7 @@ mod find;
 mod format;
 mod gsub;
 mod match_;
+mod pattern;
 
 use find::string_find;
 use format::string_format;

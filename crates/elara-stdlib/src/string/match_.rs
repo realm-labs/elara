@@ -4,7 +4,11 @@ use elara_core::Value;
 
 use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
-use super::{optional_integer_arg, relative_start, string_arg};
+use super::{
+    optional_integer_arg,
+    pattern::{has_unsupported_pattern_special, simple_pattern_find},
+    relative_start, string_arg,
+};
 
 pub(super) fn string_match(
     runtime: &mut dyn NativeRuntime,
@@ -28,7 +32,7 @@ pub(super) fn string_match(
     if init > subject.len() {
         return Ok(vec![Value::nil()]);
     }
-    if has_pattern_special(pattern) {
+    if has_unsupported_pattern_special(pattern) {
         return Err(NativeErrorKind::RuntimeError {
             message: "string pattern matching is not supported yet".into(),
         }
@@ -36,31 +40,13 @@ pub(super) fn string_match(
     }
 
     let offset = init - 1;
-    let Some(start) = plain_find(&subject[offset..], pattern) else {
+    let Some((start, end)) = simple_pattern_find(&subject[offset..], pattern) else {
         return Ok(vec![Value::nil()]);
     };
     let start = offset + start;
-    let end = start + pattern.len();
+    let end = offset + end;
     let matched = subject[start..end].to_vec();
     Ok(vec![runtime.intern_short_string(&matched)?])
-}
-
-fn plain_find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    if needle.is_empty() {
-        return Some(0);
-    }
-    haystack
-        .windows(needle.len())
-        .position(|window| window == needle)
-}
-
-fn has_pattern_special(pattern: &[u8]) -> bool {
-    pattern.iter().any(|byte| {
-        matches!(
-            byte,
-            b'^' | b'$' | b'*' | b'+' | b'?' | b'.' | b'(' | b'[' | b'%' | b'-'
-        )
-    })
 }
 
 #[cfg(test)]
@@ -124,6 +110,20 @@ mod tests {
     }
 
     #[test]
+    fn string_match_matches_dot_wildcard() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abcabc");
+        let pattern = runtime.push_string(b"b.");
+
+        let values = string_match(&mut runtime, &[subject, pattern]).expect("match should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"bc".as_slice())
+        );
+    }
+
+    #[test]
     fn string_match_returns_nil_when_literal_match_is_absent() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
@@ -139,7 +139,7 @@ mod tests {
     fn string_match_reports_pattern_gap_for_magic_patterns() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
-        let pattern = runtime.push_string(b"a.");
+        let pattern = runtime.push_string(b"a+");
 
         assert_eq!(
             string_match(&mut runtime, &[subject, pattern])
