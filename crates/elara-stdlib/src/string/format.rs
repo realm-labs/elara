@@ -38,10 +38,10 @@ pub(super) fn string_format(
             output.extend_from_slice(&format_quoted_arg(runtime, value, arg_index + 1)?);
             arg_index += 1;
             index += 2;
-        } else if format.get(index + 1) == Some(&b'f') {
+        } else if let Some(spec @ (b'e' | b'E' | b'f')) = format.get(index + 1).copied() {
             let value =
                 float_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
-            output.extend_from_slice(format!("{value:.6}").as_bytes());
+            output.extend_from_slice(format_float_conversion(spec, value).as_bytes());
             arg_index += 1;
             index += 2;
         } else if let Some(spec @ (b'c' | b'd' | b'i' | b'u' | b'o' | b'x' | b'X')) =
@@ -142,6 +142,36 @@ fn format_float_literal(value: LuaFloat) -> String {
     } else {
         format!("{value:?}")
     }
+}
+
+fn format_float_conversion(spec: u8, value: LuaFloat) -> String {
+    match spec {
+        b'e' => format_exponential(value, false),
+        b'E' => format_exponential(value, true),
+        b'f' => format!("{value:.6}"),
+        _ => unreachable!("caller filters float conversion specifiers"),
+    }
+}
+
+fn format_exponential(value: LuaFloat, upper: bool) -> String {
+    let formatted = if upper {
+        format!("{value:.6E}")
+    } else {
+        format!("{value:.6e}")
+    };
+    let Some((mantissa, exponent)) = formatted.split_once(if upper { 'E' } else { 'e' }) else {
+        return if upper {
+            formatted.to_ascii_uppercase()
+        } else {
+            formatted
+        };
+    };
+    let exponent = exponent
+        .parse::<i32>()
+        .expect("Rust exponential formatter emits an integer exponent");
+    let marker = if upper { 'E' } else { 'e' };
+    let sign = if exponent < 0 { '-' } else { '+' };
+    format!("{mantissa}{marker}{sign}{:02}", exponent.abs())
 }
 
 fn integer_format_arg(
@@ -425,18 +455,25 @@ mod tests {
     #[test]
     fn string_format_formats_basic_float_conversion() {
         let mut runtime = TestRuntime::default();
-        let format = runtime.push_string(b"%f:%f:%f");
+        let format = runtime.push_string(b"%f:%f:%f:%e:%E");
         let numeric_string = runtime.push_string(b"2.25");
 
         let values = string_format(
             &mut runtime,
-            &[format, Value::integer(7), Value::float(1.5), numeric_string],
+            &[
+                format,
+                Value::integer(7),
+                Value::float(1.5),
+                numeric_string,
+                Value::float(12.5),
+                Value::float(12.5),
+            ],
         )
         .expect("format should pass");
 
         assert_eq!(
             runtime.short_string_bytes(values[0]),
-            Some(b"7.000000:1.500000:2.250000".as_slice())
+            Some(b"7.000000:1.500000:2.250000:1.250000e+01:1.250000E+01".as_slice())
         );
     }
 
@@ -530,7 +567,7 @@ mod tests {
     #[test]
     fn string_format_reports_conversion_gap() {
         let mut runtime = TestRuntime::default();
-        let format = runtime.push_string(b"%e");
+        let format = runtime.push_string(b"%g");
 
         assert_eq!(
             string_format(&mut runtime, &[format])
