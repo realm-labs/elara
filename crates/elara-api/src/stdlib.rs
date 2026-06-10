@@ -1,6 +1,7 @@
 //! Standard-library integration for the public Rust API.
 
 use std::{
+    io::{self, Write},
     sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -232,6 +233,15 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
             })?;
         *random_state = LuaRandomState::from_seeds(seed1, seed2);
         Ok(())
+    }
+
+    fn write_output(&mut self, bytes: &[u8]) -> Result<(), NativeError> {
+        io::stdout().write_all(bytes).map_err(|error| {
+            NativeErrorKind::RuntimeError {
+                message: error.to_string().into(),
+            }
+            .into()
+        })
     }
 }
 

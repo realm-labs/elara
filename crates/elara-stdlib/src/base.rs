@@ -16,6 +16,7 @@ pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         base_getmetatable,
     ),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "next"), base_next),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "print"), base_print),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawequal"), base_rawequal),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawget"), base_rawget),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawlen"), base_rawlen),
@@ -84,6 +85,18 @@ fn base_next(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
     Ok(runtime
         .table_next(table, key)?
         .map_or_else(|| vec![Value::nil()], |(key, value)| vec![key, value]))
+}
+
+fn base_print(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    for (index, value) in args.iter().copied().enumerate() {
+        if index > 0 {
+            runtime.write_output(b"\t")?;
+        }
+        let bytes = printable_bytes(runtime, value);
+        runtime.write_output(&bytes)?;
+    }
+    runtime.write_output(b"\n")?;
+    Ok(Vec::new())
 }
 
 fn base_rawequal(
@@ -282,6 +295,12 @@ fn tostring_bytes(value: Value) -> String {
     } else {
         format!("{}: 0x0", type_name(value))
     }
+}
+
+fn printable_bytes(runtime: &dyn NativeRuntime, value: Value) -> Vec<u8> {
+    runtime
+        .short_string_bytes(value)
+        .map_or_else(|| tostring_bytes(value).into_bytes(), <[u8]>::to_vec)
 }
 
 fn error_message(runtime: &dyn NativeRuntime, value: Value) -> String {

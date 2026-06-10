@@ -119,6 +119,14 @@ pub trait NativeRuntime {
         }
         .into())
     }
+
+    /// Writes bytes to the host output stream used by base `print`.
+    fn write_output(&mut self, _bytes: &[u8]) -> Result<(), NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support output".into(),
+        }
+        .into())
+    }
 }
 
 /// Executable standard-library native function.

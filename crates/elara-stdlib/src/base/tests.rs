@@ -1,9 +1,9 @@
 use elara_core::Value;
 
 use super::{
-    BASE_NATIVE_FUNCTIONS, base_assert, base_error, base_getmetatable, base_next, base_rawequal,
-    base_rawget, base_rawlen, base_rawset, base_select, base_setmetatable, base_tonumber,
-    base_tostring, base_type,
+    BASE_NATIVE_FUNCTIONS, base_assert, base_error, base_getmetatable, base_next, base_print,
+    base_rawequal, base_rawget, base_rawlen, base_rawset, base_select, base_setmetatable,
+    base_tonumber, base_tostring, base_type,
 };
 use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -12,6 +12,7 @@ struct TestRuntime {
     strings: Vec<Box<[u8]>>,
     tables: Vec<Vec<(Value, Value)>>,
     metatables: Vec<Option<Value>>,
+    output: Vec<u8>,
 }
 
 impl TestRuntime {
@@ -130,6 +131,11 @@ impl NativeRuntime for TestRuntime {
         self.metatables[table_index] = (!metatable.is_nil()).then_some(metatable);
         Ok(())
     }
+
+    fn write_output(&mut self, bytes: &[u8]) -> Result<(), NativeError> {
+        self.output.extend_from_slice(bytes);
+        Ok(())
+    }
 }
 
 fn non_table_error() -> NativeError {
@@ -162,6 +168,7 @@ fn base_native_specs_cover_executable_subset() {
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "error")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "getmetatable")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "next")));
+    assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "print")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawequal")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawget")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawlen")));
@@ -208,6 +215,38 @@ fn base_error_raises_lua_error_with_string_message() {
     let error = base_error(&mut runtime, &[message]).expect_err("error should raise");
     assert_eq!(error.kind(), &NativeErrorKind::LuaError);
     assert_eq!(error.message(), "boom");
+}
+
+#[test]
+fn base_print_writes_tab_separated_values_and_newline() {
+    let mut runtime = TestRuntime::default();
+    let string = runtime.push_string(b"hello");
+
+    assert_eq!(
+        base_print(
+            &mut runtime,
+            &[
+                string,
+                Value::integer(7),
+                Value::nil(),
+                Value::boolean(true)
+            ]
+        )
+        .expect("print should pass"),
+        Vec::<Value>::new()
+    );
+    assert_eq!(runtime.output, b"hello\t7\tnil\ttrue\n");
+}
+
+#[test]
+fn base_print_without_arguments_writes_newline() {
+    let mut runtime = TestRuntime::default();
+
+    assert_eq!(
+        base_print(&mut runtime, &[]).expect("print should pass"),
+        Vec::<Value>::new()
+    );
+    assert_eq!(runtime.output, b"\n");
 }
 
 #[test]

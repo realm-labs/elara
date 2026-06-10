@@ -471,6 +471,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_base_print() {
+        let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local _ = print('hello', 7)\nreturn 1",
+                &profile,
+            ),
+            Ok(vec![Value::integer(1)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_raw_functions() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 

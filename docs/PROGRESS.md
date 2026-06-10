@@ -91,15 +91,15 @@ The API layer can build a primitive `RuntimeEnvironment` from implemented
 stdlib native specs, including shared reseedable math RNG state, and simple
 source evaluation can run with a selected stdlib profile for supported native
 paths.
-Base stdlib natives `assert`, `error`, `getmetatable`, `next`, `rawequal`,
-`rawget`, `rawlen`, `rawset`, numeric `select`, `setmetatable`, `tonumber`,
-`tostring`, and `type` are executable, and API stdlib profile registration now
-installs base natives as direct globals while keeping module libraries
-table-shaped. Native calls now receive a `NativeContext` that can allocate and
-inspect runtime-owned short strings, allocate runtime-owned tables, read/write
-raw runtime table entries, get/set runtime table metatable links, and traverse
-raw runtime table entries, preparing the remaining base, table, and string
-library functions.
+Base stdlib natives `assert`, `error`, `getmetatable`, `next`, `print`,
+`rawequal`, `rawget`, `rawlen`, `rawset`, numeric `select`, `setmetatable`,
+`tonumber`, `tostring`, and `type` are executable, and API stdlib profile
+registration now installs base natives as direct globals while keeping module
+libraries table-shaped. Native calls now receive a `NativeContext` that can
+allocate and inspect runtime-owned short strings, allocate runtime-owned tables,
+read/write raw runtime table entries, get/set runtime table metatable links,
+traverse raw runtime table entries, and write host output for `print`,
+preparing the remaining base, table, and string library functions.
 `elara-stdlib` native functions now receive a crate-local `NativeRuntime` trait,
 and the API bridge adapts it to the interpreter context without making stdlib
 depend on interpreter internals. Remaining executable base, table, math, and
@@ -187,6 +187,7 @@ Completed:
   - M11.2 executable base error native spec.
   - M11.2 executable base getmetatable and setmetatable native specs.
   - M11.2 executable base next native spec.
+  - M11.2 executable base print native spec.
   - M11.2 NativeContext support for runtime short strings.
   - M11.2 NativeRuntime abstraction for context-aware stdlib natives.
   - M11.2 NativeContext support for runtime table allocation.
@@ -781,11 +782,11 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable literal-search string.match verification passed:
+M11.2 executable base print verification passed:
 
 ```bash
 cargo fmt --all
-cargo test -p elara-stdlib string
+cargo test -p elara-stdlib base
 cargo test -p elara-api eval_simple_with_stdlib
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
