@@ -14,7 +14,9 @@ pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "ceil"), math_ceil),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "cos"), math_cos),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "deg"), math_deg),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "exp"), math_exp),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "floor"), math_floor),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "log"), math_log),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "max"), math_max),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "min"), math_min),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "random"), math_random),
@@ -147,6 +149,29 @@ fn math_rad(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
     )])
 }
 
+fn math_exp(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::float(number_float_arg(args, 1)?.exp())])
+}
+
+fn math_log(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = number_float_arg(args, 1)?;
+    let result = match args.get(1) {
+        None => value.ln(),
+        Some(base) if base.is_nil() => value.ln(),
+        Some(base) => {
+            let base = number_value_to_float(*base, 2)?;
+            if base == 2.0 {
+                value.log2()
+            } else if base == 10.0 {
+                value.log10()
+            } else {
+                value.ln() / base.ln()
+            }
+        }
+    };
+    Ok(vec![Value::float(result)])
+}
+
 fn math_min(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     extrema_arg(args, Extrema::Min).map(|value| vec![value])
 }
@@ -229,7 +254,18 @@ fn number_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {
 }
 
 fn number_float_arg(args: &[Value], index: usize) -> Result<LuaFloat, NativeError> {
-    number_arg(args, index).map(|value| value.to_float().expect("number_arg accepted only numbers"))
+    number_arg(args, index)
+        .map(|value| number_value_to_float(value, index).expect("number_arg accepted only numbers"))
+}
+
+fn number_value_to_float(value: Value, index: usize) -> Result<LuaFloat, NativeError> {
+    value.to_float().ok_or(
+        NativeErrorKind::TypeError {
+            index,
+            expected: "number",
+        }
+        .into(),
+    )
 }
 
 fn number_result(value: LuaFloat) -> Value {
@@ -297,8 +333,9 @@ mod tests {
     use elara_core::{LuaInteger, Value};
 
     use super::{
-        LuaRandomState, MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_cos, math_deg, math_floor,
-        math_max, math_min, math_rad, math_random, math_sin, math_sqrt, math_tan, math_type,
+        LuaRandomState, MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_cos, math_deg, math_exp,
+        math_floor, math_log, math_max, math_min, math_rad, math_random, math_sin, math_sqrt,
+        math_tan, math_type,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -340,7 +377,9 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "ceil")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "cos")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "deg")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "exp")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "floor")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "log")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "max")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "min")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "random")));
@@ -420,6 +459,26 @@ mod tests {
         assert_eq!(
             call(math_rad, &[Value::integer(180)]),
             vec![Value::float(std::f64::consts::PI)]
+        );
+    }
+
+    #[test]
+    fn math_exp_and_log_return_floats() {
+        assert_eq!(
+            call(math_exp, &[Value::integer(0)]),
+            vec![Value::float(1.0)]
+        );
+        assert_eq!(
+            call(math_log, &[Value::integer(1)]),
+            vec![Value::float(0.0)]
+        );
+        assert_eq!(
+            call(math_log, &[Value::integer(8), Value::integer(2)]),
+            vec![Value::float(3.0)]
+        );
+        assert_eq!(
+            call(math_log, &[Value::integer(100), Value::integer(10)]),
+            vec![Value::float(2.0)]
         );
     }
 
