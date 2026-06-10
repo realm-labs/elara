@@ -686,6 +686,12 @@ mod tests {
             functions
                 .iter()
                 .any(|function| function.descriptor()
+                    == FunctionSpec::new(StdLib::Table, "concat"))
+        );
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor()
                     == FunctionSpec::new(StdLib::Table, "insert"))
         );
         assert!(

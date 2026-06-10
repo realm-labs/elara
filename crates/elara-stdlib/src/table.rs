@@ -6,8 +6,13 @@ use crate::{
     FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
 };
 
+mod concat;
+
+use concat::table_concat;
+
 /// Executable table-library functions currently implemented.
 pub const TABLE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "concat"), table_concat),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "insert"), table_insert),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "move"), table_move),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "pack"), table_pack),
@@ -192,6 +197,7 @@ fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
 
 fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i64, NativeError> {
     match args.get(index - 1) {
+        Some(value) if value.is_nil() => Ok(default),
         Some(value) => value.as_integer().ok_or(
             NativeErrorKind::TypeError {
                 index,
@@ -297,6 +303,7 @@ mod tests {
             .map(|function| function.descriptor())
             .collect();
 
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "concat")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "insert")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "move")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "pack")));
