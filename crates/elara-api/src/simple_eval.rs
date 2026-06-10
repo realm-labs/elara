@@ -335,6 +335,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_string_byte() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return string.byte('AZ', 2)",
+                &profile,
+            ),
+            Ok(vec![Value::integer(90)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_reverse() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 

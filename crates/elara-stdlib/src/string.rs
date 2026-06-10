@@ -8,6 +8,7 @@ use crate::{
 
 /// Executable string-library functions currently implemented.
 pub const STRING_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "byte"), string_byte),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "len"), string_len),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "lower"), string_lower),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "rep"), string_rep),
@@ -23,6 +24,31 @@ fn string_len(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
     let bytes = string_arg(runtime, value, 1)?;
     let len = i64::try_from(bytes.len()).expect("runtime string length must fit in LuaInteger");
     Ok(vec![Value::integer(len)])
+}
+
+fn string_byte(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let bytes = string_arg(runtime, value, 1)?;
+    let len = bytes.len();
+    let start_arg = optional_integer_arg(args, 2, 1)?;
+    let start = relative_start(start_arg, len);
+    let end = relative_end(optional_integer_arg(args, 3, start_arg)?, len);
+
+    if start > end {
+        return Ok(Vec::new());
+    }
+
+    let count = (end - start) + 1;
+    if count > i32::MAX as usize {
+        return Err(string_slice_too_long());
+    }
+
+    Ok(bytes[(start - 1)..end]
+        .iter()
+        .map(|byte| Value::integer(i64::from(*byte)))
+        .collect())
 }
 
 fn string_lower(
@@ -177,6 +203,13 @@ fn string_result_too_large() -> NativeError {
     .into()
 }
 
+fn string_slice_too_long() -> NativeError {
+    NativeErrorKind::RuntimeError {
+        message: "string slice too long".into(),
+    }
+    .into()
+}
+
 fn string_arg(
     runtime: &dyn NativeRuntime,
     value: Value,
@@ -196,8 +229,8 @@ mod tests {
     use elara_core::Value;
 
     use super::{
-        STRING_NATIVE_FUNCTIONS, string_len, string_lower, string_rep, string_reverse, string_sub,
-        string_upper,
+        STRING_NATIVE_FUNCTIONS, string_byte, string_len, string_lower, string_rep, string_reverse,
+        string_sub, string_upper,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -232,6 +265,7 @@ mod tests {
             .map(|function| function.descriptor())
             .collect();
 
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "byte")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "len")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "lower")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "rep")));
@@ -263,6 +297,41 @@ mod tests {
                 index: 1,
                 expected: "string"
             }
+        );
+    }
+
+    #[test]
+    fn string_byte_returns_integer_bytes_for_range() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"A\0C");
+
+        assert_eq!(
+            string_byte(&mut runtime, &[value, Value::integer(1), Value::integer(3)])
+                .expect("byte should pass"),
+            vec![Value::integer(65), Value::integer(0), Value::integer(67)]
+        );
+    }
+
+    #[test]
+    fn string_byte_defaults_end_to_start() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"AZ");
+
+        assert_eq!(
+            string_byte(&mut runtime, &[value, Value::integer(2)]).expect("byte should pass"),
+            vec![Value::integer(90)]
+        );
+    }
+
+    #[test]
+    fn string_byte_empty_interval_returns_no_values() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"AZ");
+
+        assert_eq!(
+            string_byte(&mut runtime, &[value, Value::integer(3), Value::integer(2)])
+                .expect("byte should pass"),
+            Vec::<Value>::new()
         );
     }
 
