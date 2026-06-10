@@ -691,6 +691,11 @@ mod tests {
         assert!(
             functions
                 .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Table, "move"))
+        );
+        assert!(
+            functions
+                .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Table, "pack"))
         );
         assert!(

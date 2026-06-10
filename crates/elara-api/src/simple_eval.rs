@@ -479,6 +479,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_table_move() {
+        let profile = StdLibProfile::Custom([StdLib::Table].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local source = table.pack(1, 2, 3)\nlocal dest = table.pack()\nlocal moved = table.move(source, 2, 3, 1, dest)\nreturn moved[1] + moved[2]",
+                &profile,
+            ),
+            Ok(vec![Value::integer(5)])
+        );
+    }
+
+    #[test]
     fn eval_simple_rejects_global_function_when_defined() {
         let error = eval_simple_source(
             SourceId::new(0),

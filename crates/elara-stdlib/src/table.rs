@@ -9,6 +9,7 @@ use crate::{
 /// Executable table-library functions currently implemented.
 pub const TABLE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "insert"), table_insert),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "move"), table_move),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "pack"), table_pack),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "remove"), table_remove),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "unpack"), table_unpack),
@@ -51,6 +52,49 @@ fn table_insert(
 
     runtime.table_set_integer(table, position, value)?;
     Ok(Vec::new())
+}
+
+fn table_move(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let source = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let first = integer_arg(args, 2)?;
+    let last = integer_arg(args, 3)?;
+    let target = integer_arg(args, 4)?;
+    let destination = args
+        .get(4)
+        .copied()
+        .filter(|value| !value.is_nil())
+        .unwrap_or(source);
+
+    if last >= first {
+        let count = last
+            .checked_sub(first)
+            .and_then(|n| n.checked_add(1))
+            .ok_or(NativeErrorKind::RuntimeError {
+                message: "too many elements to move".into(),
+            })?;
+        target
+            .checked_add(count - 1)
+            .ok_or(NativeErrorKind::RuntimeError {
+                message: "destination wrap around".into(),
+            })?;
+
+        let copy_forward = target > last || target <= first || destination != source;
+        if copy_forward {
+            for offset in 0..count {
+                let value = runtime.table_get_integer(source, first + offset)?;
+                runtime.table_set_integer(destination, target + offset, value)?;
+            }
+        } else {
+            for offset in (0..count).rev() {
+                let value = runtime.table_get_integer(source, first + offset)?;
+                runtime.table_set_integer(destination, target + offset, value)?;
+            }
+        }
+    }
+
+    Ok(vec![destination])
 }
 
 fn table_remove(
@@ -163,7 +207,9 @@ fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i6
 mod tests {
     use elara_core::Value;
 
-    use super::{TABLE_NATIVE_FUNCTIONS, table_insert, table_pack, table_remove, table_unpack};
+    use super::{
+        TABLE_NATIVE_FUNCTIONS, table_insert, table_move, table_pack, table_remove, table_unpack,
+    };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
     #[derive(Default)]
@@ -252,6 +298,7 @@ mod tests {
             .collect();
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "insert")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "move")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "pack")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "remove")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "unpack")));
@@ -326,6 +373,61 @@ mod tests {
             .expect_err("position should fail")
             .kind(),
             &NativeErrorKind::ArgumentOutOfRange { index: 2 }
+        );
+    }
+
+    #[test]
+    fn table_move_copies_range_to_destination_table() {
+        let mut runtime = TestRuntime::default();
+        let source = table_pack(
+            &mut runtime,
+            &[Value::integer(1), Value::integer(2), Value::integer(3)],
+        )
+        .expect("pack should pass");
+        let destination = table_pack(&mut runtime, &[]).expect("pack should pass");
+
+        let moved = table_move(
+            &mut runtime,
+            &[
+                source[0],
+                Value::integer(2),
+                Value::integer(3),
+                Value::integer(1),
+                destination[0],
+            ],
+        )
+        .expect("move should pass");
+
+        assert_eq!(moved, vec![destination[0]]);
+        assert_eq!(
+            table_unpack(&mut runtime, &[destination[0]]).expect("unpack should pass"),
+            vec![Value::integer(2), Value::integer(3)]
+        );
+    }
+
+    #[test]
+    fn table_move_copies_backward_for_overlapping_same_table_range() {
+        let mut runtime = TestRuntime::default();
+        let table = table_pack(
+            &mut runtime,
+            &[Value::integer(1), Value::integer(2), Value::integer(3)],
+        )
+        .expect("pack should pass");
+
+        table_move(
+            &mut runtime,
+            &[
+                table[0],
+                Value::integer(1),
+                Value::integer(2),
+                Value::integer(2),
+            ],
+        )
+        .expect("move should pass");
+
+        assert_eq!(
+            table_unpack(&mut runtime, &[table[0]]).expect("unpack should pass"),
+            vec![Value::integer(1), Value::integer(1), Value::integer(2)]
         );
     }
 

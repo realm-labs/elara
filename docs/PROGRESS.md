@@ -101,8 +101,9 @@ string functions, broader API surface, JIT, C API, conformance, and benchmark
 implementation work remain. String natives `string.byte`, `string.char`,
 `string.len`, `string.lower`, `string.upper`, `string.reverse`, `string.rep`,
 and `string.sub` are executable and covered through stdlib-backed API
-evaluation. Table natives `table.insert`, `table.pack`, `table.remove`, and
-`table.unpack` are executable and covered through stdlib-backed API evaluation.
+evaluation. Table natives `table.insert`, `table.move`, `table.pack`,
+`table.remove`, and `table.unpack` are executable and covered through
+stdlib-backed API evaluation.
 
 Current state:
 
@@ -172,6 +173,7 @@ Completed:
   - M11.2 NativeContext support for raw runtime table length and reads.
   - M11.2 NativeContext support for raw runtime table writes.
   - M11.2 executable table.insert native spec.
+  - M11.2 executable table.move native spec.
   - M11.2 executable table.pack native spec.
   - M11.2 executable table.remove native spec.
   - M11.2 executable table.unpack native spec.
@@ -748,12 +750,11 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable table.remove verification passed:
+M11.2 executable table.move verification passed:
 
 ```bash
 cargo test -p elara-stdlib table
 cargo test -p elara-api eval_simple_with_stdlib
-cargo clippy -p elara-interp --all-targets -- -D warnings
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
