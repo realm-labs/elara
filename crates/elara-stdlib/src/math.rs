@@ -6,15 +6,19 @@ use crate::{
     FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
 };
 
+const PI: LuaFloat = std::f64::consts::PI;
+
 /// Executable math-library functions currently implemented.
 pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "abs"), math_abs),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "ceil"), math_ceil),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "cos"), math_cos),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "deg"), math_deg),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "floor"), math_floor),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "max"), math_max),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "min"), math_min),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "random"), math_random),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "rad"), math_rad),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "sin"), math_sin),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "sqrt"), math_sqrt),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "tan"), math_tan),
@@ -129,6 +133,18 @@ fn math_cos(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
 
 fn math_tan(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     Ok(vec![Value::float(number_float_arg(args, 1)?.tan())])
+}
+
+fn math_deg(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::float(
+        number_float_arg(args, 1)? * (180.0 / PI),
+    )])
+}
+
+fn math_rad(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::float(
+        number_float_arg(args, 1)? * (PI / 180.0),
+    )])
 }
 
 fn math_min(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -281,8 +297,8 @@ mod tests {
     use elara_core::{LuaInteger, Value};
 
     use super::{
-        LuaRandomState, MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_cos, math_floor, math_max,
-        math_min, math_random, math_sin, math_sqrt, math_tan, math_type,
+        LuaRandomState, MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_cos, math_deg, math_floor,
+        math_max, math_min, math_rad, math_random, math_sin, math_sqrt, math_tan, math_type,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -323,10 +339,12 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "abs")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "ceil")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "cos")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "deg")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "floor")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "max")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "min")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "random")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "rad")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "sin")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "sqrt")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "tan")));
@@ -390,6 +408,18 @@ mod tests {
         assert_eq!(
             call(math_tan, &[Value::integer(0)]),
             vec![Value::float(0.0)]
+        );
+    }
+
+    #[test]
+    fn math_angle_conversion_functions_return_floats() {
+        assert_eq!(
+            call(math_deg, &[Value::float(std::f64::consts::PI)]),
+            vec![Value::float(180.0)]
+        );
+        assert_eq!(
+            call(math_rad, &[Value::integer(180)]),
+            vec![Value::float(std::f64::consts::PI)]
         );
     }
 
