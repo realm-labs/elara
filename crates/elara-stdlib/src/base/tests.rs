@@ -1,8 +1,9 @@
 use elara_core::Value;
 
 use super::{
-    BASE_NATIVE_FUNCTIONS, base_assert, base_error, base_rawequal, base_rawget, base_rawlen,
-    base_rawset, base_select, base_tonumber, base_tostring, base_type,
+    BASE_NATIVE_FUNCTIONS, base_assert, base_error, base_getmetatable, base_rawequal, base_rawget,
+    base_rawlen, base_rawset, base_select, base_setmetatable, base_tonumber, base_tostring,
+    base_type,
 };
 use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -10,10 +11,19 @@ use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 struct TestRuntime {
     strings: Vec<Box<[u8]>>,
     tables: Vec<Vec<(Value, Value)>>,
+    metatables: Vec<Option<Value>>,
 }
 
 impl TestRuntime {
     fn push_string(&mut self, bytes: &[u8]) -> Value {
+        if let Some(index) = self
+            .strings
+            .iter()
+            .position(|string| string.as_ref() == bytes)
+        {
+            let index = u32::try_from(index).expect("test string index fits in u32");
+            return Value::closure_index(index);
+        }
         let index = u32::try_from(self.strings.len()).expect("test string index fits in u32");
         self.strings.push(bytes.into());
         Value::closure_index(index)
@@ -22,6 +32,7 @@ impl TestRuntime {
     fn push_table(&mut self, entries: Vec<(Value, Value)>) -> Value {
         let index = u32::try_from(self.tables.len()).expect("test table index fits in u32");
         self.tables.push(entries);
+        self.metatables.push(None);
         Value::table_index(index)
     }
 }
@@ -78,6 +89,30 @@ impl NativeRuntime for TestRuntime {
         table.push((key, value));
         Ok(())
     }
+
+    fn table_metatable(&self, table: Value) -> Result<Value, NativeError> {
+        let table_index = table.as_table_index().ok_or_else(non_table_error)? as usize;
+        self.tables.get(table_index).ok_or_else(non_table_error)?;
+        Ok(self
+            .metatables
+            .get(table_index)
+            .copied()
+            .flatten()
+            .unwrap_or_else(Value::nil))
+    }
+
+    fn table_set_metatable(&mut self, table: Value, metatable: Value) -> Result<(), NativeError> {
+        let table_index = table.as_table_index().ok_or_else(non_table_error)? as usize;
+        self.tables.get(table_index).ok_or_else(non_table_error)?;
+        if !metatable.is_nil() {
+            let metatable_index = metatable.as_table_index().ok_or_else(non_table_error)? as usize;
+            self.tables
+                .get(metatable_index)
+                .ok_or_else(non_table_error)?;
+        }
+        self.metatables[table_index] = (!metatable.is_nil()).then_some(metatable);
+        Ok(())
+    }
 }
 
 fn non_table_error() -> NativeError {
@@ -108,11 +143,13 @@ fn base_native_specs_cover_executable_subset() {
 
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "assert")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "error")));
+    assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "getmetatable")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawequal")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawget")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawlen")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawset")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "select")));
+    assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "setmetatable")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "tonumber")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "tostring")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "type")));
@@ -179,6 +216,92 @@ fn base_error_validates_optional_level() {
         &NativeErrorKind::TypeError {
             index: 2,
             expected: "integer",
+        }
+    );
+}
+
+#[test]
+fn base_getmetatable_returns_nil_without_metatable() {
+    let mut runtime = TestRuntime::default();
+    let table = runtime.push_table(Vec::new());
+
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_getmetatable, &[table]),
+        vec![Value::nil()]
+    );
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_getmetatable, &[Value::integer(1)]),
+        vec![Value::nil()]
+    );
+}
+
+#[test]
+fn base_setmetatable_sets_and_clears_metatable() {
+    let mut runtime = TestRuntime::default();
+    let table = runtime.push_table(Vec::new());
+    let metatable = runtime.push_table(Vec::new());
+
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_setmetatable, &[table, metatable]),
+        vec![table]
+    );
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_getmetatable, &[table]),
+        vec![metatable]
+    );
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_setmetatable, &[table, Value::nil()]),
+        vec![table]
+    );
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_getmetatable, &[table]),
+        vec![Value::nil()]
+    );
+}
+
+#[test]
+fn base_metatable_respects_protected_metatable_field() {
+    let mut runtime = TestRuntime::default();
+    let key = runtime.push_string(b"__metatable");
+    let protected = runtime.push_string(b"locked");
+    let metatable = runtime.push_table(vec![(key, protected)]);
+    let replacement = runtime.push_table(Vec::new());
+    let table = runtime.push_table(Vec::new());
+
+    call_with_runtime(&mut runtime, base_setmetatable, &[table, metatable]);
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_getmetatable, &[table]),
+        vec![protected]
+    );
+    let error = base_setmetatable(&mut runtime, &[table, replacement])
+        .expect_err("protected metatable should reject changes");
+    assert_eq!(error.kind(), &NativeErrorKind::LuaError);
+    assert_eq!(error.message(), "cannot change a protected metatable");
+}
+
+#[test]
+fn base_setmetatable_reports_type_errors() {
+    assert_eq!(
+        base_setmetatable(
+            &mut TestRuntime::default(),
+            &[Value::integer(1), Value::nil()]
+        )
+        .expect_err("receiver should be table")
+        .kind(),
+        &NativeErrorKind::TypeError {
+            index: 1,
+            expected: "table",
+        }
+    );
+    let mut runtime = TestRuntime::default();
+    let table = runtime.push_table(Vec::new());
+    assert_eq!(
+        base_setmetatable(&mut runtime, &[table, Value::integer(1)])
+            .expect_err("metatable should be table or nil")
+            .kind(),
+        &NativeErrorKind::TypeError {
+            index: 2,
+            expected: "nil or table",
         }
     );
 }

@@ -158,6 +158,26 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
         })
     }
 
+    fn table_metatable(&self, table: Value) -> Result<Value, NativeError> {
+        self.context.table_metatable(table).map_err(|error| {
+            NativeErrorKind::RuntimeError {
+                message: error.to_string().into(),
+            }
+            .into()
+        })
+    }
+
+    fn table_set_metatable(&mut self, table: Value, metatable: Value) -> Result<(), NativeError> {
+        self.context
+            .table_set_metatable(table, metatable)
+            .map_err(|error| {
+                NativeErrorKind::RuntimeError {
+                    message: error.to_string().into(),
+                }
+                .into()
+            })
+    }
+
     fn next_random_u64(&mut self) -> Result<u64, NativeError> {
         let random_state =
             self.random_state

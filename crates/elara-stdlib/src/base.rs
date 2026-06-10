@@ -10,11 +10,19 @@ use crate::{
 pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "assert"), base_assert),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "error"), base_error),
+    NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Base, "getmetatable"),
+        base_getmetatable,
+    ),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawequal"), base_rawequal),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawget"), base_rawget),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawlen"), base_rawlen),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawset"), base_rawset),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "select"), base_select),
+    NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Base, "setmetatable"),
+        base_setmetatable,
+    ),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "tonumber"), base_tonumber),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "tostring"), base_tostring),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "type"), base_type),
@@ -43,6 +51,29 @@ fn base_error(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
     }
     let value = args.first().copied().unwrap_or_else(Value::nil);
     Err(NativeError::lua_error(error_message(runtime, value)))
+}
+
+fn base_getmetatable(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    if !value.is_table() {
+        return Ok(vec![Value::nil()]);
+    }
+    let metatable = runtime.table_metatable(value)?;
+    if metatable.is_nil() {
+        return Ok(vec![Value::nil()]);
+    }
+    let metatable_key = metatable_field_key(runtime)?;
+    let protected = runtime.table_get(metatable, metatable_key)?;
+    if protected.is_nil() {
+        Ok(vec![metatable])
+    } else {
+        Ok(vec![protected])
+    }
 }
 
 fn base_rawequal(
@@ -110,6 +141,35 @@ fn base_select(
     let value_count = args.len().saturating_sub(1);
     let start = select_start(index, value_count)?;
     Ok(args[start..].to_vec())
+}
+
+fn base_setmetatable(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let table = table_arg(args, 1)?;
+    let metatable = *args
+        .get(1)
+        .ok_or(NativeErrorKind::MissingArgument { index: 2 })?;
+    if !metatable.is_nil() && !metatable.is_table() {
+        return Err(NativeErrorKind::TypeError {
+            index: 2,
+            expected: "nil or table",
+        }
+        .into());
+    }
+    let current = runtime.table_metatable(table)?;
+    if !current.is_nil() {
+        let metatable_key = metatable_field_key(runtime)?;
+        let protected = runtime.table_get(current, metatable_key)?;
+        if !protected.is_nil() {
+            return Err(NativeError::lua_error(
+                "cannot change a protected metatable",
+            ));
+        }
+    }
+    runtime.table_set_metatable(table, metatable)?;
+    Ok(vec![table])
 }
 
 fn base_tonumber(
@@ -219,6 +279,10 @@ fn error_message(runtime: &dyn NativeRuntime, value: Value) -> String {
         || tostring_bytes(value),
         |bytes| String::from_utf8_lossy(bytes).into_owned(),
     )
+}
+
+fn metatable_field_key(runtime: &mut dyn NativeRuntime) -> Result<Value, NativeError> {
+    runtime.intern_short_string(b"__metatable")
 }
 
 fn table_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {

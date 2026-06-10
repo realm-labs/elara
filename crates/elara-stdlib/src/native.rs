@@ -68,6 +68,22 @@ pub trait NativeRuntime {
         .into())
     }
 
+    /// Returns a runtime-owned table's metatable, or nil when absent.
+    fn table_metatable(&self, _table: Value) -> Result<Value, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support table metatables".into(),
+        }
+        .into())
+    }
+
+    /// Sets a runtime-owned table's metatable to nil or another table.
+    fn table_set_metatable(&mut self, _table: Value, _metatable: Value) -> Result<(), NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support table metatables".into(),
+        }
+        .into())
+    }
+
     /// Returns the next 64 bits from this runtime's standard-library RNG.
     fn next_random_u64(&mut self) -> Result<u64, NativeError> {
         Err(NativeErrorKind::RuntimeError {

@@ -141,6 +141,37 @@ impl<'a> NativeContext<'a> {
             Err(RuntimeErrorKind::InvalidTableKey.into())
         }
     }
+
+    /// Returns a runtime-owned table's metatable, or nil when absent.
+    pub fn table_metatable(&self, table: Value) -> RuntimeResult<Value> {
+        let table_index = table
+            .as_table_index()
+            .ok_or(RuntimeErrorKind::NonTableValue)? as usize;
+        self.tables
+            .get(table_index)
+            .ok_or(RuntimeErrorKind::NonTableValue)?;
+        Ok(self
+            .tables
+            .metatable(table_index)
+            .map_or_else(Value::nil, Value::table_index))
+    }
+
+    /// Sets a runtime-owned table's metatable to nil or another table.
+    pub fn table_set_metatable(&mut self, table: Value, metatable: Value) -> RuntimeResult<()> {
+        let table_index = table
+            .as_table_index()
+            .ok_or(RuntimeErrorKind::NonTableValue)? as usize;
+        let metatable = if metatable.is_nil() {
+            None
+        } else {
+            Some(
+                metatable
+                    .as_table_index()
+                    .ok_or(RuntimeErrorKind::NonTableValue)?,
+            )
+        };
+        self.tables.set_metatable(table_index, metatable)
+    }
 }
 
 /// Runtime-owned native function registry.
