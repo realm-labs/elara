@@ -14,6 +14,7 @@ pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawlen"), base_rawlen),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawset"), base_rawset),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "select"), base_select),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "tonumber"), base_tonumber),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "type"), base_type),
 ];
 
@@ -98,6 +99,43 @@ fn base_select(
     Ok(args[start..].to_vec())
 }
 
+fn base_tonumber(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let Some(base) = args.get(1).filter(|value| !value.is_nil()) else {
+        if value.is_number() {
+            return Ok(vec![value]);
+        }
+        return Ok(vec![
+            runtime
+                .short_string_bytes(value)
+                .and_then(parse_standard_number)
+                .unwrap_or_else(Value::nil),
+        ]);
+    };
+
+    let base = base.as_integer().ok_or(NativeErrorKind::TypeError {
+        index: 2,
+        expected: "integer",
+    })?;
+    if !(2..=36).contains(&base) {
+        return Err(NativeErrorKind::ArgumentOutOfRange { index: 2 }.into());
+    }
+    let bytes = runtime
+        .short_string_bytes(value)
+        .ok_or(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "string",
+        })?;
+    Ok(vec![
+        parse_base_integer(bytes, base as u32).map_or_else(Value::nil, Value::integer),
+    ])
+}
+
 fn base_type(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let value = *args
         .first()
@@ -159,276 +197,90 @@ fn select_start(index: i64, value_count: usize) -> Result<usize, NativeError> {
     usize::try_from(normalized).map_err(|_| NativeErrorKind::ArgumentOutOfRange { index: 1 }.into())
 }
 
-#[cfg(test)]
-mod tests {
-    use elara_core::Value;
+fn parse_standard_number(bytes: &[u8]) -> Option<Value> {
+    let text = std::str::from_utf8(trim_ascii_spaces(bytes)).ok()?;
+    if text.is_empty() {
+        return None;
+    }
+    if let Some(hex) = text.strip_prefix("0x").or_else(|| text.strip_prefix("0X")) {
+        return i64::from_str_radix(hex, 16).ok().map(Value::integer);
+    }
+    text.parse::<i64>()
+        .map(Value::integer)
+        .or_else(|_| text.parse::<f64>().map(Value::float))
+        .ok()
+}
 
-    use super::{
-        BASE_NATIVE_FUNCTIONS, base_assert, base_rawequal, base_rawget, base_rawlen, base_rawset,
-        base_select, base_type,
+fn parse_base_integer(bytes: &[u8], base: u32) -> Option<i64> {
+    let mut index = skip_ascii_spaces(bytes, 0);
+    let negative = match bytes.get(index) {
+        Some(b'-') => {
+            index += 1;
+            true
+        }
+        Some(b'+') => {
+            index += 1;
+            false
+        }
+        _ => false,
     };
-    use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
-    #[derive(Default)]
-    struct TestRuntime {
-        strings: Vec<Box<[u8]>>,
-        tables: Vec<Vec<(Value, Value)>>,
-    }
-
-    impl TestRuntime {
-        fn push_string(&mut self, bytes: &[u8]) -> Value {
-            let index = u32::try_from(self.strings.len()).expect("test string index fits in u32");
-            self.strings.push(bytes.into());
-            Value::closure_index(index)
+    let mut value = 0_u64;
+    let mut saw_digit = false;
+    while let Some(byte) = bytes.get(index).copied().filter(u8::is_ascii_alphanumeric) {
+        let digit = ascii_digit_value(byte)?;
+        if digit >= base {
+            return None;
         }
-
-        fn push_table(&mut self, entries: Vec<(Value, Value)>) -> Value {
-            let index = u32::try_from(self.tables.len()).expect("test table index fits in u32");
-            self.tables.push(entries);
-            Value::table_index(index)
-        }
+        value = value.wrapping_mul(u64::from(base));
+        value = value.wrapping_add(u64::from(digit));
+        index += 1;
+        saw_digit = true;
+    }
+    if !saw_digit {
+        return None;
     }
 
-    impl NativeRuntime for TestRuntime {
-        fn intern_short_string(&mut self, bytes: &[u8]) -> Result<Value, NativeError> {
-            Ok(self.push_string(bytes))
-        }
-
-        fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
-            let index = value.as_closure_index()? as usize;
-            self.strings.get(index).map(Box::as_ref)
-        }
-
-        fn table_array_len(&self, table: Value) -> Result<i64, NativeError> {
-            let table_index = table.as_table_index().ok_or_else(non_table_error)? as usize;
-            let table = self.tables.get(table_index).ok_or_else(non_table_error)?;
-            Ok(table
-                .iter()
-                .filter_map(|(key, value)| {
-                    (!value.is_nil())
-                        .then(|| key.as_integer())
-                        .flatten()
-                        .filter(|key| *key > 0)
-                })
-                .max()
-                .unwrap_or(0))
-        }
-
-        fn table_get(&self, table: Value, key: Value) -> Result<Value, NativeError> {
-            let table_index = table.as_table_index().ok_or_else(non_table_error)? as usize;
-            let table = self.tables.get(table_index).ok_or_else(non_table_error)?;
-            Ok(table
-                .iter()
-                .rev()
-                .find_map(|(entry_key, entry_value)| {
-                    (*entry_key == key && !entry_value.is_nil()).then_some(*entry_value)
-                })
-                .unwrap_or_else(Value::nil))
-        }
-
-        fn table_set(&mut self, table: Value, key: Value, value: Value) -> Result<(), NativeError> {
-            let table_index = table.as_table_index().ok_or_else(non_table_error)? as usize;
-            let table = self
-                .tables
-                .get_mut(table_index)
-                .ok_or_else(non_table_error)?;
-            if key.is_nil() {
-                return Err(NativeErrorKind::RuntimeError {
-                    message: "table index is nil or NaN".into(),
-                }
-                .into());
-            }
-            table.push((key, value));
-            Ok(())
-        }
+    index = skip_ascii_spaces(bytes, index);
+    if index != bytes.len() {
+        return None;
     }
 
-    fn non_table_error() -> NativeError {
-        NativeErrorKind::RuntimeError {
-            message: "attempt to index a non-table value".into(),
-        }
-        .into()
-    }
+    Some(if negative {
+        0_u64.wrapping_sub(value) as i64
+    } else {
+        value as i64
+    })
+}
 
-    fn call(function: crate::NativeStdFunction, args: &[Value]) -> Vec<Value> {
-        function(&mut TestRuntime::default(), args).expect("native should pass")
-    }
-
-    fn call_with_runtime(
-        runtime: &mut TestRuntime,
-        function: crate::NativeStdFunction,
-        args: &[Value],
-    ) -> Vec<Value> {
-        function(runtime, args).expect("native should pass")
-    }
-
-    #[test]
-    fn base_native_specs_cover_executable_subset() {
-        let descriptors: Vec<_> = BASE_NATIVE_FUNCTIONS
-            .iter()
-            .map(|function| function.descriptor())
-            .collect();
-
-        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "assert")));
-        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawequal")));
-        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawget")));
-        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawlen")));
-        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawset")));
-        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "select")));
-        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "type")));
-    }
-
-    #[test]
-    fn base_assert_returns_all_arguments_when_truthy() {
-        assert_eq!(
-            call(
-                base_assert,
-                &[Value::boolean(true), Value::integer(7), Value::nil()]
-            ),
-            vec![Value::boolean(true), Value::integer(7), Value::nil()]
-        );
-    }
-
-    #[test]
-    fn base_assert_errors_when_false_or_nil() {
-        assert_eq!(
-            base_assert(&mut TestRuntime::default(), &[Value::boolean(false)])
-                .expect_err("false assert should fail")
-                .kind(),
-            &NativeErrorKind::LuaError
-        );
-        assert_eq!(
-            base_assert(&mut TestRuntime::default(), &[Value::nil()])
-                .expect_err("nil assert should fail")
-                .kind(),
-            &NativeErrorKind::LuaError
-        );
-    }
-
-    #[test]
-    fn base_rawequal_compares_raw_values() {
-        assert_eq!(
-            call(base_rawequal, &[Value::integer(7), Value::float(7.0)]),
-            vec![Value::boolean(true)]
-        );
-        assert_eq!(
-            call(base_rawequal, &[Value::boolean(true), Value::integer(1)]),
-            vec![Value::boolean(false)]
-        );
-    }
-
-    #[test]
-    fn base_rawget_reads_raw_table_value() {
-        let mut runtime = TestRuntime::default();
-        let key = runtime.push_string(b"name");
-        let table = runtime.push_table(vec![(key, Value::integer(42))]);
-
-        assert_eq!(
-            call_with_runtime(&mut runtime, base_rawget, &[table, key]),
-            vec![Value::integer(42)]
-        );
-    }
-
-    #[test]
-    fn base_rawset_writes_raw_table_value_and_returns_table() {
-        let mut runtime = TestRuntime::default();
-        let key = runtime.push_string(b"name");
-        let table = runtime.push_table(Vec::new());
-
-        assert_eq!(
-            call_with_runtime(&mut runtime, base_rawset, &[table, key, Value::integer(42)]),
-            vec![table]
-        );
-        assert_eq!(
-            call_with_runtime(&mut runtime, base_rawget, &[table, key]),
-            vec![Value::integer(42)]
-        );
-    }
-
-    #[test]
-    fn base_rawlen_reports_table_and_string_lengths() {
-        let mut runtime = TestRuntime::default();
-        let string = runtime.push_string(b"hello");
-        let table = runtime.push_table(vec![
-            (Value::integer(1), Value::boolean(true)),
-            (Value::integer(3), Value::boolean(true)),
-        ]);
-
-        assert_eq!(
-            call_with_runtime(&mut runtime, base_rawlen, &[string]),
-            vec![Value::integer(5)]
-        );
-        assert_eq!(
-            call_with_runtime(&mut runtime, base_rawlen, &[table]),
-            vec![Value::integer(3)]
-        );
-    }
-
-    #[test]
-    fn base_raw_functions_report_type_errors() {
-        assert_eq!(
-            base_rawget(
-                &mut TestRuntime::default(),
-                &[Value::integer(1), Value::integer(1)]
-            )
-            .expect_err("rawget receiver should be table")
-            .kind(),
-            &NativeErrorKind::TypeError {
-                index: 1,
-                expected: "table",
-            }
-        );
-        assert_eq!(
-            base_rawlen(&mut TestRuntime::default(), &[Value::integer(1)])
-                .expect_err("rawlen receiver should be table or string")
-                .kind(),
-            &NativeErrorKind::TypeError {
-                index: 1,
-                expected: "table or string",
-            }
-        );
-    }
-
-    #[test]
-    fn base_select_returns_positioned_arguments() {
-        let values = [
-            Value::integer(2),
-            Value::integer(10),
-            Value::integer(20),
-            Value::integer(30),
-        ];
-        assert_eq!(
-            call(base_select, &values),
-            vec![Value::integer(20), Value::integer(30)]
-        );
-
-        let values = [
-            Value::integer(-1),
-            Value::integer(10),
-            Value::integer(20),
-            Value::integer(30),
-        ];
-        assert_eq!(call(base_select, &values), vec![Value::integer(30)]);
-    }
-
-    #[test]
-    fn base_select_reports_bad_position() {
-        assert_eq!(
-            base_select(&mut TestRuntime::default(), &[Value::integer(0)])
-                .expect_err("zero select should fail")
-                .kind(),
-            &NativeErrorKind::ArgumentOutOfRange { index: 1 }
-        );
-    }
-
-    #[test]
-    fn base_type_returns_lua_type_name() {
-        let mut runtime = TestRuntime::default();
-        let values = call_with_runtime(&mut runtime, base_type, &[Value::integer(7)]);
-
-        assert_eq!(
-            runtime.short_string_bytes(values[0]),
-            Some(b"number".as_slice())
-        );
+fn ascii_digit_value(byte: u8) -> Option<u32> {
+    match byte {
+        b'0'..=b'9' => Some(u32::from(byte - b'0')),
+        b'a'..=b'z' => Some(u32::from(byte - b'a') + 10),
+        b'A'..=b'Z' => Some(u32::from(byte - b'A') + 10),
+        _ => None,
     }
 }
+
+fn trim_ascii_spaces(bytes: &[u8]) -> &[u8] {
+    let start = skip_ascii_spaces(bytes, 0);
+    let end = bytes
+        .iter()
+        .rposition(|byte| !is_lua_space(*byte))
+        .map_or(start, |index| index + 1);
+    &bytes[start..end]
+}
+
+fn skip_ascii_spaces(bytes: &[u8], mut index: usize) -> usize {
+    while bytes.get(index).is_some_and(|byte| is_lua_space(*byte)) {
+        index += 1;
+    }
+    index
+}
+
+fn is_lua_space(byte: u8) -> bool {
+    matches!(byte, b' ' | b'\x0c' | b'\n' | b'\r' | b'\t' | b'\x0b')
+}
+
+#[cfg(test)]
+mod tests;

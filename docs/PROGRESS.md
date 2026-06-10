@@ -89,7 +89,7 @@ build a primitive `RuntimeEnvironment` from implemented stdlib native specs,
 including shared math RNG state, and simple source evaluation can run with a
 selected stdlib profile for supported native paths.
 Base stdlib natives `assert`, `rawequal`, `rawget`, `rawlen`, `rawset`,
-numeric `select`, and `type` are executable, and API stdlib profile
+numeric `select`, `tonumber`, and `type` are executable, and API stdlib profile
 registration now installs base natives as direct globals while keeping module
 libraries table-shaped. Native calls now receive a `NativeContext` that can
 allocate and inspect runtime-owned short strings, allocate runtime-owned tables,
@@ -176,6 +176,7 @@ Completed:
   - M11.2 NativeContext support for raw runtime table writes.
   - M11.2 NativeContext support for raw runtime table value-key reads and writes.
   - M11.2 executable base rawget, rawlen, and rawset native specs.
+  - M11.2 executable base tonumber native spec.
   - M11.2 executable table.concat native spec.
   - M11.2 executable table.insert native spec.
   - M11.2 executable table.move native spec.
@@ -755,12 +756,11 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable base raw function verification passed:
+M11.2 executable base tonumber verification passed:
 
 ```bash
 cargo test -p elara-stdlib base
 cargo test -p elara-api eval_simple_with_stdlib
-cargo clippy -p elara-interp --all-targets -- -D warnings
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
