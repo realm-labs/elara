@@ -11,6 +11,9 @@ const PI: LuaFloat = std::f64::consts::PI;
 /// Executable math-library functions currently implemented.
 pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "abs"), math_abs),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "acos"), math_acos),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "asin"), math_asin),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "atan"), math_atan),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "ceil"), math_ceil),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "cos"), math_cos),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "deg"), math_deg),
@@ -126,6 +129,26 @@ fn math_sqrt(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
             .expect("number_arg accepted only numbers")
             .sqrt(),
     )])
+}
+
+fn math_asin(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::float(number_float_arg(args, 1)?.asin())])
+}
+
+fn math_acos(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::float(number_float_arg(args, 1)?.acos())])
+}
+
+fn math_atan(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let y = number_float_arg(args, 1)?;
+    let x = args.get(1).map_or(Ok(1.0), |value| {
+        if value.is_nil() {
+            Ok(1.0)
+        } else {
+            number_value_to_float(*value, 2)
+        }
+    })?;
+    Ok(vec![Value::float(y.atan2(x))])
 }
 
 fn math_sin(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -421,6 +444,9 @@ mod tests {
             .collect();
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "abs")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "acos")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "asin")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "atan")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "ceil")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "cos")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "deg")));

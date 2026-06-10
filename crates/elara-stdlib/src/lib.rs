@@ -445,6 +445,9 @@ pub const TABLE_FUNCTIONS: &[FunctionSpec] = &[
 /// Essential math library function descriptors.
 pub const MATH_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Math, "abs"),
+    FunctionSpec::new(StdLib::Math, "acos"),
+    FunctionSpec::new(StdLib::Math, "asin"),
+    FunctionSpec::new(StdLib::Math, "atan"),
     FunctionSpec::new(StdLib::Math, "ceil"),
     FunctionSpec::new(StdLib::Math, "cos"),
     FunctionSpec::new(StdLib::Math, "deg"),

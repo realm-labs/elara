@@ -84,11 +84,11 @@ standard-library crate now exposes a profile/set/registry framework plus
 generic global registration adapters, and contains descriptor-based essential
 base, table, math, and string library entries. The stdlib crate also exposes
 executable native specs for the currently implemented math functions `abs`,
-`ceil`, `cos`, `deg`, `exp`, `floor`, `fmod`, `log`, `max`, `min`, `modf`,
-`rad`, `random`, `sin`, `sqrt`, `tan`, `type`, and `ult`. The API layer can
-build a primitive `RuntimeEnvironment` from implemented stdlib native specs,
-including shared math RNG state, and simple source evaluation can run with a
-selected stdlib profile for supported native paths.
+`acos`, `asin`, `atan`, `ceil`, `cos`, `deg`, `exp`, `floor`, `fmod`, `log`,
+`max`, `min`, `modf`, `rad`, `random`, `sin`, `sqrt`, `tan`, `type`, and `ult`.
+The API layer can build a primitive `RuntimeEnvironment` from implemented
+stdlib native specs, including shared math RNG state, and simple source
+evaluation can run with a selected stdlib profile for supported native paths.
 Base stdlib natives `assert`, `error`, `getmetatable`, `next`, `rawequal`,
 `rawget`, `rawlen`, `rawset`, numeric `select`, `setmetatable`, `tonumber`,
 `tostring`, and `type` are executable, and API stdlib profile registration now
@@ -164,6 +164,7 @@ Completed:
   - M11.1 Add library registration framework.
   - M11.2 runtime native-call support for executable standard-library functions.
   - M11.2 executable math native specs for abs, ceil, floor, and sqrt.
+  - M11.2 executable math acos, asin, and atan native specs.
   - M11.2 executable math sin, cos, and tan native specs.
   - M11.2 executable math deg and rad native specs.
   - M11.2 executable math exp and log native specs.
@@ -770,7 +771,7 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable math ult verification passed:
+M11.2 executable math inverse trig verification passed:
 
 ```bash
 cargo test -p elara-stdlib math

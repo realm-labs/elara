@@ -335,6 +335,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_math_inverse_trig() {
+        let profile = StdLibProfile::Custom([StdLib::Math].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return math.asin(0) + math.acos(1) + math.atan(0)",
+                &profile,
+            ),
+            Ok(vec![Value::float(0.0)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_math_angle_conversion() {
         let profile = StdLibProfile::Custom([StdLib::Math].into_iter().collect());
 

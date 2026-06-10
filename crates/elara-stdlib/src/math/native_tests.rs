@@ -1,8 +1,8 @@
 use elara_core::{LuaInteger, Value};
 
 use super::{
-    LuaRandomState, math_cos, math_deg, math_exp, math_fmod, math_log, math_modf, math_rad,
-    math_sin, math_tan, math_ult,
+    LuaRandomState, math_acos, math_asin, math_atan, math_cos, math_deg, math_exp, math_fmod,
+    math_log, math_modf, math_rad, math_sin, math_tan, math_ult,
 };
 use crate::{NativeError, NativeRuntime};
 
@@ -42,6 +42,26 @@ fn math_trig_functions_return_floats() {
     assert_eq!(
         call(math_tan, &[Value::integer(0)]),
         vec![Value::float(0.0)]
+    );
+}
+
+#[test]
+fn math_inverse_trig_functions_return_floats() {
+    assert_eq!(
+        call(math_asin, &[Value::integer(0)]),
+        vec![Value::float(0.0)]
+    );
+    assert_eq!(
+        call(math_acos, &[Value::integer(1)]),
+        vec![Value::float(0.0)]
+    );
+    assert_eq!(
+        call(math_atan, &[Value::integer(0)]),
+        vec![Value::float(0.0)]
+    );
+    assert_eq!(
+        call(math_atan, &[Value::integer(1), Value::integer(0)]),
+        vec![Value::float(std::f64::consts::FRAC_PI_2)]
     );
 }
 
