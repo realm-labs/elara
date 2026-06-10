@@ -11,6 +11,7 @@ pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "assert"), base_assert),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawequal"), base_rawequal),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "select"), base_select),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "type"), base_type),
 ];
 
 fn base_assert(
@@ -56,8 +57,35 @@ fn base_select(
     Ok(args[start..].to_vec())
 }
 
+fn base_type(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    Ok(vec![
+        runtime.intern_short_string(type_name(value).as_bytes())?,
+    ])
+}
+
 fn is_truthy(value: Value) -> bool {
     !value.is_nil() && value.as_bool() != Some(false)
+}
+
+fn type_name(value: Value) -> &'static str {
+    if value.is_nil() {
+        "nil"
+    } else if value.is_bool() {
+        "boolean"
+    } else if value.is_number() {
+        "number"
+    } else if value.is_string() {
+        "string"
+    } else if value.is_table() {
+        "table"
+    } else if value.is_closure() {
+        "function"
+    } else {
+        "unknown"
+    }
 }
 
 fn select_start(index: i64, value_count: usize) -> Result<usize, NativeError> {
@@ -79,23 +107,37 @@ fn select_start(index: i64, value_count: usize) -> Result<usize, NativeError> {
 mod tests {
     use elara_core::Value;
 
-    use super::{BASE_NATIVE_FUNCTIONS, base_assert, base_rawequal, base_select};
+    use super::{BASE_NATIVE_FUNCTIONS, base_assert, base_rawequal, base_select, base_type};
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
-    struct TestRuntime;
+    #[derive(Default)]
+    struct TestRuntime {
+        strings: Vec<Box<[u8]>>,
+    }
 
     impl NativeRuntime for TestRuntime {
-        fn intern_short_string(&mut self, _bytes: &[u8]) -> Result<Value, NativeError> {
-            unimplemented!("base native tests do not allocate strings")
+        fn intern_short_string(&mut self, bytes: &[u8]) -> Result<Value, NativeError> {
+            let index = u32::try_from(self.strings.len()).expect("test string index fits in u32");
+            self.strings.push(bytes.into());
+            Ok(Value::table_index(index))
         }
 
-        fn short_string_bytes(&self, _value: Value) -> Option<&[u8]> {
-            None
+        fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
+            let index = value.as_table_index()? as usize;
+            self.strings.get(index).map(Box::as_ref)
         }
     }
 
     fn call(function: crate::NativeStdFunction, args: &[Value]) -> Vec<Value> {
-        function(&mut TestRuntime, args).expect("native should pass")
+        function(&mut TestRuntime::default(), args).expect("native should pass")
+    }
+
+    fn call_with_runtime(
+        runtime: &mut TestRuntime,
+        function: crate::NativeStdFunction,
+        args: &[Value],
+    ) -> Vec<Value> {
+        function(runtime, args).expect("native should pass")
     }
 
     #[test]
@@ -108,6 +150,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "assert")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawequal")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "select")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "type")));
     }
 
     #[test]
@@ -124,13 +167,13 @@ mod tests {
     #[test]
     fn base_assert_errors_when_false_or_nil() {
         assert_eq!(
-            base_assert(&mut TestRuntime, &[Value::boolean(false)])
+            base_assert(&mut TestRuntime::default(), &[Value::boolean(false)])
                 .expect_err("false assert should fail")
                 .kind(),
             &NativeErrorKind::LuaError
         );
         assert_eq!(
-            base_assert(&mut TestRuntime, &[Value::nil()])
+            base_assert(&mut TestRuntime::default(), &[Value::nil()])
                 .expect_err("nil assert should fail")
                 .kind(),
             &NativeErrorKind::LuaError
@@ -174,10 +217,21 @@ mod tests {
     #[test]
     fn base_select_reports_bad_position() {
         assert_eq!(
-            base_select(&mut TestRuntime, &[Value::integer(0)])
+            base_select(&mut TestRuntime::default(), &[Value::integer(0)])
                 .expect_err("zero select should fail")
                 .kind(),
             &NativeErrorKind::ArgumentOutOfRange { index: 1 }
+        );
+    }
+
+    #[test]
+    fn base_type_returns_lua_type_name() {
+        let mut runtime = TestRuntime::default();
+        let values = call_with_runtime(&mut runtime, base_type, &[Value::integer(7)]);
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"number".as_slice())
         );
     }
 }

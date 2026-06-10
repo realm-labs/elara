@@ -87,15 +87,15 @@ executable native specs for the currently implemented math functions `abs`,
 `ceil`, `floor`, `max`, `min`, and `sqrt`. The API layer can build a primitive
 `RuntimeEnvironment` from implemented stdlib native specs, and simple source
 evaluation can run with a selected stdlib profile for supported native paths.
-Base stdlib natives `assert`, `rawequal`, and numeric `select` are executable,
-and API stdlib profile registration now installs base natives as direct globals
-while keeping module libraries table-shaped. Native calls now receive a
-`NativeContext` that can allocate and inspect runtime-owned short strings,
-preparing the remaining base and string library functions. `elara-stdlib`
-native functions now receive a crate-local `NativeRuntime` trait, and the API
-bridge adapts it to the interpreter context without making stdlib depend on
-interpreter internals. Remaining executable base, table, math, and string
-functions, broader API surface, JIT, C API, conformance, and benchmark
+Base stdlib natives `assert`, `rawequal`, numeric `select`, and `type` are
+executable, and API stdlib profile registration now installs base natives as
+direct globals while keeping module libraries table-shaped. Native calls now
+receive a `NativeContext` that can allocate and inspect runtime-owned short
+strings, preparing the remaining base and string library functions.
+`elara-stdlib` native functions now receive a crate-local `NativeRuntime` trait,
+and the API bridge adapts it to the interpreter context without making stdlib
+depend on interpreter internals. Remaining executable base, table, math, and
+string functions, broader API surface, JIT, C API, conformance, and benchmark
 implementation work remain.
 
 Current state:
@@ -161,6 +161,7 @@ Completed:
   - M11.2 executable base assert, rawequal, and numeric select native specs.
   - M11.2 NativeContext support for runtime short strings.
   - M11.2 NativeRuntime abstraction for context-aware stdlib natives.
+  - M11.2 executable base type native spec.
 
 In progress:
   - M11.2 Implement base, table, math, and string essentials.
@@ -727,14 +728,12 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 NativeRuntime abstraction verification passed:
+M11.2 executable base type verification passed:
 
 ```bash
 cargo test -p elara-api eval_simple_with_stdlib
 cargo test -p elara-stdlib base
-cargo test -p elara-stdlib math
 cargo clippy -p elara-api --all-targets -- -D warnings
-cargo clippy -p elara-interp --all-targets -- -D warnings
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 ```
 
