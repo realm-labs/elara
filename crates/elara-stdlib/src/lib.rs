@@ -668,6 +668,11 @@ mod tests {
                 .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Math, "abs"))
         );
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Math, "type"))
+        );
         assert!(native_functions(StdLib::Table).is_empty());
     }
 

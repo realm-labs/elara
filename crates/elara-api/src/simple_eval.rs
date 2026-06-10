@@ -294,6 +294,23 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_math_type() {
+        let profile = StdLibProfile::Custom([StdLib::Math].into_iter().collect());
+
+        let values =
+            eval_simple_source_with_stdlib(SourceId::new(0), "return math.type(7)", &profile)
+                .expect("math.type should execute");
+
+        assert_eq!(values.len(), 1);
+        assert!(values[0].is_string());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(SourceId::new(0), "return math.type(false)", &profile),
+            Ok(vec![Value::nil()])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_assert() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 

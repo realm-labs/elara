@@ -14,6 +14,7 @@ pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "max"), math_max),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "min"), math_min),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "sqrt"), math_sqrt),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "type"), math_type),
 ];
 
 fn math_abs(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -83,6 +84,20 @@ fn math_max(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
     extrema_arg(args, Extrema::Max).map(|value| vec![value])
 }
 
+fn math_type(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let result = if value.as_integer().is_some() {
+        runtime.intern_short_string(b"integer")?
+    } else if value.as_float().is_some() {
+        runtime.intern_short_string(b"float")?
+    } else {
+        Value::nil()
+    };
+    Ok(vec![result])
+}
+
 fn number_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {
     let value = *args
         .get(index - 1)
@@ -139,23 +154,30 @@ mod tests {
 
     use super::{
         MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_floor, math_max, math_min, math_sqrt,
+        math_type,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
-    struct TestRuntime;
+    #[derive(Default)]
+    struct TestRuntime {
+        strings: Vec<Box<[u8]>>,
+    }
 
     impl NativeRuntime for TestRuntime {
-        fn intern_short_string(&mut self, _bytes: &[u8]) -> Result<Value, NativeError> {
-            unimplemented!("math native tests do not allocate strings")
+        fn intern_short_string(&mut self, bytes: &[u8]) -> Result<Value, NativeError> {
+            let index = u32::try_from(self.strings.len()).expect("test string index fits in u32");
+            self.strings.push(bytes.into());
+            Ok(Value::table_index(index))
         }
 
-        fn short_string_bytes(&self, _value: Value) -> Option<&[u8]> {
-            None
+        fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
+            let index = value.as_table_index()? as usize;
+            self.strings.get(index).map(Box::as_ref)
         }
     }
 
     fn call(function: crate::NativeStdFunction, args: &[Value]) -> Vec<Value> {
-        function(&mut TestRuntime, args).expect("native should pass")
+        function(&mut TestRuntime::default(), args).expect("native should pass")
     }
 
     #[test]
@@ -171,6 +193,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "max")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "min")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "sqrt")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "type")));
     }
 
     #[test]
@@ -237,11 +260,12 @@ mod tests {
 
     #[test]
     fn math_natives_report_argument_errors() {
-        let error = math_abs(&mut TestRuntime, &[]).expect_err("missing argument should fail");
+        let mut runtime = TestRuntime::default();
+        let error = math_abs(&mut runtime, &[]).expect_err("missing argument should fail");
         assert_eq!(error.kind(), &NativeErrorKind::MissingArgument { index: 1 });
 
-        let error = math_abs(&mut TestRuntime, &[Value::nil()])
-            .expect_err("non-number argument should fail");
+        let error =
+            math_abs(&mut runtime, &[Value::nil()]).expect_err("non-number argument should fail");
         assert_eq!(
             error.kind(),
             &NativeErrorKind::TypeError {
@@ -250,7 +274,7 @@ mod tests {
             }
         );
 
-        let error = math_min(&mut TestRuntime, &[Value::integer(1), Value::nil()])
+        let error = math_min(&mut runtime, &[Value::integer(1), Value::nil()])
             .expect_err("non-number arg should fail");
         assert_eq!(
             error.kind(),
@@ -258,6 +282,31 @@ mod tests {
                 index: 2,
                 expected: "number"
             }
+        );
+    }
+
+    #[test]
+    fn math_type_reports_numeric_subtype() {
+        let mut runtime = TestRuntime::default();
+
+        let integer = math_type(&mut runtime, &[Value::integer(7)]).expect("type should pass");
+        let float = math_type(&mut runtime, &[Value::float(7.0)]).expect("type should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(integer[0]),
+            Some(b"integer".as_slice())
+        );
+        assert_eq!(
+            runtime.short_string_bytes(float[0]),
+            Some(b"float".as_slice())
+        );
+    }
+
+    #[test]
+    fn math_type_returns_nil_for_non_numbers() {
+        assert_eq!(
+            call(math_type, &[Value::boolean(false)]),
+            vec![Value::nil()]
         );
     }
 }
