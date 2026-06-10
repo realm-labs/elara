@@ -12,6 +12,7 @@ mod base;
 mod math;
 mod native;
 mod string;
+mod table;
 
 pub use base::BASE_NATIVE_FUNCTIONS;
 pub use math::MATH_NATIVE_FUNCTIONS;
@@ -20,6 +21,7 @@ pub use native::{
     NativeStdFunction,
 };
 pub use string::STRING_NATIVE_FUNCTIONS;
+pub use table::TABLE_NATIVE_FUNCTIONS;
 
 /// One standard-library module that can register itself into a target runtime.
 pub trait Library<Target> {
@@ -476,6 +478,7 @@ pub const fn native_functions(library: StdLib) -> &'static [NativeFunctionSpec] 
         StdLib::Base => BASE_NATIVE_FUNCTIONS,
         StdLib::Math => MATH_NATIVE_FUNCTIONS,
         StdLib::String => STRING_NATIVE_FUNCTIONS,
+        StdLib::Table => TABLE_NATIVE_FUNCTIONS,
         _ => &[],
     }
 }
@@ -673,7 +676,17 @@ mod tests {
                 .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Math, "type"))
         );
-        assert!(native_functions(StdLib::Table).is_empty());
+    }
+
+    #[test]
+    fn table_native_functions_are_discoverable() {
+        let functions = native_functions(StdLib::Table);
+
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Table, "pack"))
+        );
     }
 
     #[test]

@@ -52,6 +52,7 @@ pub type NativeFunction = dyn for<'a> Fn(&mut NativeContext<'a>, &[Value]) -> Ru
 
 /// Runtime services available to native functions during a call.
 pub struct NativeContext<'a> {
+    tables: &'a mut RuntimeTables,
     strings: &'a mut RuntimeStrings,
 }
 
@@ -69,6 +70,20 @@ impl<'a> NativeContext<'a> {
     #[must_use]
     pub fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
         self.strings.short_string_bytes(value)
+    }
+
+    /// Allocates a runtime-owned Lua table from raw key/value entries.
+    pub fn create_table<I>(&mut self, entries: I) -> RuntimeResult<Value>
+    where
+        I: IntoIterator<Item = (Value, Value)>,
+    {
+        let mut table = Table::new();
+        for (key, value) in entries {
+            if !table.raw_set_value(key, value) {
+                return Err(RuntimeErrorKind::InvalidTableKey.into());
+            }
+        }
+        Ok(Value::table_index(self.tables.push_table(table)))
     }
 }
 
@@ -1307,6 +1322,7 @@ fn call_function(
                 },
             )?;
             let mut native_context = NativeContext {
+                tables: context.tables,
                 strings: context.strings,
             };
             function(&mut native_context, &args)

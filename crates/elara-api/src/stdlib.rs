@@ -79,6 +79,17 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
     fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
         self.context.short_string_bytes(value)
     }
+
+    fn create_table(&mut self, entries: &[(Value, Value)]) -> Result<Value, NativeError> {
+        self.context
+            .create_table(entries.iter().copied())
+            .map_err(|error| {
+                NativeErrorKind::RuntimeError {
+                    message: error.to_string().into(),
+                }
+                .into()
+            })
+    }
 }
 
 fn native_error_to_runtime_error(error: NativeError) -> elara_interp::RuntimeError {

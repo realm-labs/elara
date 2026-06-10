@@ -14,6 +14,14 @@ pub trait NativeRuntime {
 
     /// Returns bytes for a short Lua string owned by this runtime.
     fn short_string_bytes(&self, value: Value) -> Option<&[u8]>;
+
+    /// Allocates a runtime-owned Lua table from raw key/value entries.
+    fn create_table(&mut self, _entries: &[(Value, Value)]) -> Result<Value, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support table allocation".into(),
+        }
+        .into())
+    }
 }
 
 /// Executable standard-library native function.
