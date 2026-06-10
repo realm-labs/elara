@@ -15,7 +15,7 @@ mod string;
 mod table;
 
 pub use base::BASE_NATIVE_FUNCTIONS;
-pub use math::MATH_NATIVE_FUNCTIONS;
+pub use math::{LuaRandomState, MATH_NATIVE_FUNCTIONS};
 pub use native::{
     NativeError, NativeErrorKind, NativeFunctionSpec, NativeResult, NativeRuntime,
     NativeStdFunction,
@@ -670,6 +670,11 @@ mod tests {
             functions
                 .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Math, "abs"))
+        );
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Math, "random"))
         );
         assert!(
             functions

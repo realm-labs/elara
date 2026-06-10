@@ -51,6 +51,14 @@ pub trait NativeRuntime {
         }
         .into())
     }
+
+    /// Returns the next 64 bits from this runtime's standard-library RNG.
+    fn next_random_u64(&mut self) -> Result<u64, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support random numbers".into(),
+        }
+        .into())
+    }
 }
 
 /// Executable standard-library native function.

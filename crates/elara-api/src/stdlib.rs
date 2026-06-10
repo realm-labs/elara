@@ -1,9 +1,12 @@
 //! Standard-library integration for the public Rust API.
 
+use std::sync::{Arc, Mutex};
+
 use elara_core::Value;
 use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
 use elara_stdlib::{
-    NativeError, NativeErrorKind, NativeRuntime, StdLib, StdLibProfile, StdLibSet, native_functions,
+    LuaRandomState, NativeError, NativeErrorKind, NativeRuntime, StdLib, StdLibProfile, StdLibSet,
+    native_functions,
 };
 
 /// Builds a primitive runtime environment containing implemented stdlib natives
@@ -38,19 +41,28 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
         for spec in functions {
             let function = spec.function();
             environment.register_native_global(spec.descriptor().name(), move |context, args| {
-                let mut runtime = InterpNativeRuntime { context };
+                let mut runtime = InterpNativeRuntime {
+                    context,
+                    random_state: None,
+                };
                 function(&mut runtime, args).map_err(native_error_to_runtime_error)
             });
         }
         return;
     }
 
+    let random_state =
+        (library == StdLib::Math).then(|| Arc::new(Mutex::new(LuaRandomState::default())));
     let fields: Vec<_> = functions
         .iter()
         .map(|spec| {
             let function = spec.function();
+            let random_state = random_state.clone();
             let index = environment.push_native(move |context, args| {
-                let mut runtime = InterpNativeRuntime { context };
+                let mut runtime = InterpNativeRuntime {
+                    context,
+                    random_state: random_state.clone(),
+                };
                 function(&mut runtime, args).map_err(native_error_to_runtime_error)
             });
             (
@@ -64,6 +76,7 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
 
 struct InterpNativeRuntime<'a, 'runtime> {
     context: &'a mut NativeContext<'runtime>,
+    random_state: Option<Arc<Mutex<LuaRandomState>>>,
 }
 
 impl NativeRuntime for InterpNativeRuntime<'_, '_> {
@@ -125,6 +138,21 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
                 }
                 .into()
             })
+    }
+
+    fn next_random_u64(&mut self) -> Result<u64, NativeError> {
+        let random_state =
+            self.random_state
+                .as_ref()
+                .ok_or_else(|| NativeErrorKind::RuntimeError {
+                    message: "native runtime does not support random numbers".into(),
+                })?;
+        let mut random_state = random_state
+            .lock()
+            .map_err(|_| NativeErrorKind::RuntimeError {
+                message: "random state lock poisoned".into(),
+            })?;
+        Ok(random_state.next_u64())
     }
 }
 

@@ -13,9 +13,49 @@ pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "floor"), math_floor),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "max"), math_max),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "min"), math_min),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "random"), math_random),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "sqrt"), math_sqrt),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "type"), math_type),
 ];
+
+/// Lua 5.5-style xoshiro256** random state.
+#[derive(Clone, Debug)]
+pub struct LuaRandomState {
+    state: [u64; 4],
+}
+
+impl LuaRandomState {
+    /// Creates a random state from two Lua integer seeds.
+    #[must_use]
+    pub fn from_seeds(seed1: u64, seed2: u64) -> Self {
+        let mut state = Self {
+            state: [seed1, 0xff, seed2, 0],
+        };
+        for _ in 0..16 {
+            state.next_u64();
+        }
+        state
+    }
+
+    /// Returns the next 64-bit random value.
+    pub fn next_u64(&mut self) -> u64 {
+        let result = self.state[1].wrapping_mul(5).rotate_left(7).wrapping_mul(9);
+        let t = self.state[1] << 17;
+        self.state[2] ^= self.state[0];
+        self.state[3] ^= self.state[1];
+        self.state[1] ^= self.state[2];
+        self.state[0] ^= self.state[3];
+        self.state[2] ^= t;
+        self.state[3] = self.state[3].rotate_left(45);
+        result
+    }
+}
+
+impl Default for LuaRandomState {
+    fn default() -> Self {
+        Self::from_seeds(0x0123_4567_89ab_cdef, 0xfedc_ba98_7654_3210)
+    }
+}
 
 fn math_abs(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let value = number_arg(args, 1)?;
@@ -84,6 +124,37 @@ fn math_max(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
     extrema_arg(args, Extrema::Max).map(|value| vec![value])
 }
 
+fn math_random(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let random = runtime.next_random_u64()?;
+    let (low, high) = match args.len() {
+        0 => return Ok(vec![Value::float(random_float(random))]),
+        1 => {
+            let high = integer_arg(args, 1)?;
+            if high == 0 {
+                return Ok(vec![Value::integer(random as i64)]);
+            }
+            (1, high)
+        }
+        2 => (integer_arg(args, 1)?, integer_arg(args, 2)?),
+        _ => {
+            return Err(NativeErrorKind::RuntimeError {
+                message: "wrong number of arguments".into(),
+            }
+            .into());
+        }
+    };
+
+    if low > high {
+        return Err(NativeErrorKind::ArgumentOutOfRange { index: 1 }.into());
+    }
+
+    let span = (high as u64).wrapping_sub(low as u64);
+    let projected = project_random(runtime, random, span)?;
+    Ok(vec![Value::integer(
+        projected.wrapping_add(low as u64) as i64
+    )])
+}
+
 fn math_type(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let value = *args
         .first()
@@ -96,6 +167,19 @@ fn math_type(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
         Value::nil()
     };
     Ok(vec![result])
+}
+
+fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
+    args.get(index - 1)
+        .ok_or(NativeErrorKind::MissingArgument { index })?
+        .as_integer()
+        .ok_or(
+            NativeErrorKind::TypeError {
+                index,
+                expected: "integer",
+            }
+            .into(),
+        )
 }
 
 fn number_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {
@@ -115,6 +199,31 @@ fn number_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {
 
 fn number_result(value: LuaFloat) -> Value {
     float_to_integer_exact(value).map_or_else(|| Value::float(value), Value::integer)
+}
+
+fn random_float(value: u64) -> LuaFloat {
+    const SCALE: LuaFloat = 1.0 / ((1_u64 << 53) as LuaFloat);
+    ((value >> 11) as LuaFloat) * SCALE
+}
+
+fn project_random(
+    runtime: &mut dyn NativeRuntime,
+    mut random: u64,
+    limit: u64,
+) -> Result<u64, NativeError> {
+    let mut mask = limit;
+    let mut shift = 1;
+    while (mask & mask.wrapping_add(1)) != 0 {
+        mask |= mask >> shift;
+        shift *= 2;
+    }
+    loop {
+        random &= mask;
+        if random <= limit {
+            return Ok(random);
+        }
+        random = runtime.next_random_u64()?;
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -153,14 +262,15 @@ mod tests {
     use elara_core::{LuaInteger, Value};
 
     use super::{
-        MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_floor, math_max, math_min, math_sqrt,
-        math_type,
+        LuaRandomState, MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_floor, math_max, math_min,
+        math_random, math_sqrt, math_type,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
     #[derive(Default)]
     struct TestRuntime {
         strings: Vec<Box<[u8]>>,
+        random: LuaRandomState,
     }
 
     impl NativeRuntime for TestRuntime {
@@ -173,6 +283,10 @@ mod tests {
         fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
             let index = value.as_table_index()? as usize;
             self.strings.get(index).map(Box::as_ref)
+        }
+
+        fn next_random_u64(&mut self) -> Result<u64, NativeError> {
+            Ok(self.random.next_u64())
         }
     }
 
@@ -192,6 +306,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "floor")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "max")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "min")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "random")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "sqrt")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "type")));
     }
@@ -255,6 +370,52 @@ mod tests {
                 &[Value::float(3.5), Value::integer(7), Value::float(7.0)]
             ),
             vec![Value::integer(7)]
+        );
+    }
+
+    #[test]
+    fn math_random_without_bounds_returns_float_unit_interval() {
+        let values = call(math_random, &[]);
+
+        let value = values[0].as_float().expect("random should return a float");
+        assert!((0.0..1.0).contains(&value));
+    }
+
+    #[test]
+    fn math_random_returns_integer_inside_bounds() {
+        let values = call(math_random, &[Value::integer(3), Value::integer(5)]);
+
+        let value = values[0]
+            .as_integer()
+            .expect("random should return integer");
+        assert!((3..=5).contains(&value));
+    }
+
+    #[test]
+    fn math_random_zero_returns_full_integer() {
+        let values = call(math_random, &[Value::integer(0)]);
+
+        assert!(values[0].as_integer().is_some());
+    }
+
+    #[test]
+    fn math_random_rejects_bad_arguments() {
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            math_random(&mut runtime, &[Value::integer(5), Value::integer(3)])
+                .expect_err("empty interval should fail")
+                .kind(),
+            &NativeErrorKind::ArgumentOutOfRange { index: 1 }
+        );
+        assert_eq!(
+            math_random(&mut runtime, &[Value::nil()])
+                .expect_err("non-integer argument should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "integer"
+            }
         );
     }
 

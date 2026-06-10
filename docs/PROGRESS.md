@@ -84,10 +84,10 @@ standard-library crate now exposes a profile/set/registry framework plus
 generic global registration adapters, and contains descriptor-based essential
 base, table, math, and string library entries. The stdlib crate also exposes
 executable native specs for the currently implemented math functions `abs`,
-`ceil`, `floor`, `max`, `min`, `sqrt`, and `type`. The API layer can build a
-primitive `RuntimeEnvironment` from implemented stdlib native specs, and simple
-source evaluation can run with a selected stdlib profile for supported native
-paths.
+`ceil`, `floor`, `max`, `min`, `random`, `sqrt`, and `type`. The API layer can
+build a primitive `RuntimeEnvironment` from implemented stdlib native specs,
+including shared math RNG state, and simple source evaluation can run with a
+selected stdlib profile for supported native paths.
 Base stdlib natives `assert`, `rawequal`, numeric `select`, and `type` are
 executable, and API stdlib profile registration now installs base natives as
 direct globals while keeping module libraries table-shaped. Native calls now
@@ -166,6 +166,7 @@ Completed:
   - M11.2 API bridge from implemented stdlib native specs to RuntimeEnvironment.
   - M11.2 executable math min/max native specs.
   - M11.2 executable math.type native spec.
+  - M11.2 executable math.random native spec.
   - M11.2 executable base assert, rawequal, and numeric select native specs.
   - M11.2 NativeContext support for runtime short strings.
   - M11.2 NativeRuntime abstraction for context-aware stdlib natives.
@@ -751,10 +752,10 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable table.concat verification passed:
+M11.2 executable math.random verification passed:
 
 ```bash
-cargo test -p elara-stdlib table
+cargo test -p elara-stdlib math
 cargo test -p elara-api eval_simple_with_stdlib
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
