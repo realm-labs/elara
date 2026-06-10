@@ -103,6 +103,22 @@ pub trait NativeRuntime {
         }
         .into())
     }
+
+    /// Returns a runtime-provided seed for randomizing the standard-library RNG.
+    fn random_seed(&mut self) -> Result<u64, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support random seeding".into(),
+        }
+        .into())
+    }
+
+    /// Replaces this runtime's standard-library RNG state.
+    fn set_random_seed(&mut self, _seed1: u64, _seed2: u64) -> Result<(), NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support random seeding".into(),
+        }
+        .into())
+    }
 }
 
 /// Executable standard-library native function.

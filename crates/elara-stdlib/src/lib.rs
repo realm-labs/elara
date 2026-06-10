@@ -460,6 +460,7 @@ pub const MATH_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Math, "min"),
     FunctionSpec::new(StdLib::Math, "modf"),
     FunctionSpec::new(StdLib::Math, "random"),
+    FunctionSpec::new(StdLib::Math, "randomseed"),
     FunctionSpec::new(StdLib::Math, "rad"),
     FunctionSpec::new(StdLib::Math, "sin"),
     FunctionSpec::new(StdLib::Math, "sqrt"),

@@ -26,6 +26,10 @@ pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "min"), math_min),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "modf"), math_modf),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "random"), math_random),
+    NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Math, "randomseed"),
+        math_randomseed,
+    ),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "rad"), math_rad),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "sin"), math_sin),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "sqrt"), math_sqrt),
@@ -281,6 +285,31 @@ fn math_random(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
     )])
 }
 
+fn math_randomseed(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let (seed1, seed2) = match args.len() {
+        0 => (runtime.random_seed()?, runtime.next_random_u64()?),
+        1 => (integer_arg(args, 1)? as u64, 0),
+        2 => (
+            integer_arg(args, 1)? as u64,
+            optional_integer_arg(args, 2, 0)? as u64,
+        ),
+        _ => {
+            return Err(NativeErrorKind::RuntimeError {
+                message: "wrong number of arguments".into(),
+            }
+            .into());
+        }
+    };
+    runtime.set_random_seed(seed1, seed2)?;
+    Ok(vec![
+        Value::integer(seed1 as i64),
+        Value::integer(seed2 as i64),
+    ])
+}
+
 fn math_type(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let value = *args
         .first()
@@ -320,6 +349,20 @@ fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
             }
             .into(),
         )
+}
+
+fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i64, NativeError> {
+    match args.get(index - 1) {
+        Some(value) if value.is_nil() => Ok(default),
+        Some(value) => value.as_integer().ok_or(
+            NativeErrorKind::TypeError {
+                index,
+                expected: "integer",
+            }
+            .into(),
+        ),
+        None => Ok(default),
+    }
 }
 
 fn number_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {
@@ -430,7 +473,7 @@ mod tests {
 
     use super::{
         LuaRandomState, MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_floor, math_max, math_min,
-        math_random, math_sqrt, math_tointeger, math_type,
+        math_random, math_randomseed, math_sqrt, math_tointeger, math_type,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -454,6 +497,15 @@ mod tests {
 
         fn next_random_u64(&mut self) -> Result<u64, NativeError> {
             Ok(self.random.next_u64())
+        }
+
+        fn random_seed(&mut self) -> Result<u64, NativeError> {
+            Ok(0x4567_89ab)
+        }
+
+        fn set_random_seed(&mut self, seed1: u64, seed2: u64) -> Result<(), NativeError> {
+            self.random = LuaRandomState::from_seeds(seed1, seed2);
+            Ok(())
         }
     }
 
@@ -483,6 +535,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "min")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "modf")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "random")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "randomseed")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "rad")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "sin")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "sqrt")));
@@ -597,6 +650,37 @@ mod tests {
                 index: 1,
                 expected: "integer"
             }
+        );
+    }
+
+    #[test]
+    fn math_randomseed_returns_seeds_and_resets_sequence() {
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            math_randomseed(&mut runtime, &[Value::integer(7), Value::integer(9)]),
+            Ok(vec![Value::integer(7), Value::integer(9)])
+        );
+        let first = math_random(&mut runtime, &[Value::integer(0)]).expect("random should pass");
+        math_randomseed(&mut runtime, &[Value::integer(7), Value::integer(9)])
+            .expect("randomseed should pass");
+
+        assert_eq!(
+            math_random(&mut runtime, &[Value::integer(0)]).expect("random should pass"),
+            first
+        );
+    }
+
+    #[test]
+    fn math_randomseed_without_arguments_uses_runtime_seed() {
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            math_randomseed(&mut runtime, &[]),
+            Ok(vec![
+                Value::integer(0x4567_89ab),
+                Value::integer(270_385_360_242_450_737)
+            ])
         );
     }
 

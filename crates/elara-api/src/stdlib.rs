@@ -1,6 +1,9 @@
 //! Standard-library integration for the public Rust API.
 
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use elara_core::Value;
 use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
@@ -200,6 +203,35 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
                 message: "random state lock poisoned".into(),
             })?;
         Ok(random_state.next_u64())
+    }
+
+    fn random_seed(&mut self) -> Result<u64, NativeError> {
+        self.random_state
+            .as_ref()
+            .ok_or_else(|| NativeErrorKind::RuntimeError {
+                message: "native runtime does not support random seeding".into(),
+            })?;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default();
+        let stack_marker = (&now as *const _) as usize as u64;
+        Ok((now.as_nanos() as u64) ^ stack_marker.rotate_left(17))
+    }
+
+    fn set_random_seed(&mut self, seed1: u64, seed2: u64) -> Result<(), NativeError> {
+        let random_state =
+            self.random_state
+                .as_ref()
+                .ok_or_else(|| NativeErrorKind::RuntimeError {
+                    message: "native runtime does not support random seeding".into(),
+                })?;
+        let mut random_state = random_state
+            .lock()
+            .map_err(|_| NativeErrorKind::RuntimeError {
+                message: "random state lock poisoned".into(),
+            })?;
+        *random_state = LuaRandomState::from_seeds(seed1, seed2);
+        Ok(())
     }
 }
 
