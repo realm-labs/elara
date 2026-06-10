@@ -51,13 +51,14 @@ pub(super) fn string_format(
             output.extend_from_slice(format_float_conversion(spec, value).as_bytes());
             arg_index += 1;
             index += 2;
-        } else if let Some((spec, width, next_index)) =
+        } else if let Some((spec, width, left_adjust, next_index)) =
             parse_integer_width_spec(&format, index + 1)?
         {
             let value =
                 integer_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
-            output
-                .extend_from_slice(format_integer_width_conversion(spec, value, width).as_bytes());
+            output.extend_from_slice(
+                format_integer_width_conversion(spec, value, width, left_adjust).as_bytes(),
+            );
             arg_index += 1;
             index = next_index;
         } else if let Some(spec @ (b'c' | b'd' | b'i' | b'u' | b'o' | b'x' | b'X')) =
@@ -197,8 +198,8 @@ fn invalid_format_spec() -> NativeError {
 fn parse_integer_width_spec(
     format: &[u8],
     start: usize,
-) -> Result<Option<(u8, usize, usize)>, NativeError> {
-    if !matches!(format.get(start), Some(b'1'..=b'9')) {
+) -> Result<Option<(u8, usize, bool, usize)>, NativeError> {
+    if !matches!(format.get(start), Some(b'-' | b'1'..=b'9')) {
         return Ok(None);
     }
 
@@ -211,11 +212,20 @@ fn parse_integer_width_spec(
     };
 
     let mut cursor = start;
+    let left_adjust = if format.get(cursor) == Some(&b'-') {
+        cursor += 1;
+        true
+    } else {
+        false
+    };
+    if !matches!(format.get(cursor), Some(b'1'..=b'9')) {
+        return Ok(None);
+    }
     let width = parse_two_digit_field(format, &mut cursor)?.unwrap_or(0);
     if cursor != conversion {
         return Err(invalid_format_spec());
     }
-    Ok(Some((spec, width, conversion + 1)))
+    Ok(Some((spec, width, left_adjust, conversion + 1)))
 }
 
 fn format_string_arg(
@@ -480,12 +490,22 @@ fn format_integer_conversion(spec: u8, value: LuaInteger) -> String {
     }
 }
 
-fn format_integer_width_conversion(spec: u8, value: LuaInteger, width: usize) -> String {
+fn format_integer_width_conversion(
+    spec: u8,
+    value: LuaInteger,
+    width: usize,
+    left_adjust: bool,
+) -> String {
     let formatted = format_integer_conversion(spec, value);
     if formatted.len() >= width {
         return formatted;
     }
-    format!("{}{}", " ".repeat(width - formatted.len()), formatted)
+    let padding = " ".repeat(width - formatted.len());
+    if left_adjust {
+        format!("{formatted}{padding}")
+    } else {
+        format!("{padding}{formatted}")
+    }
 }
 
 fn tostring_bytes(value: Value) -> String {

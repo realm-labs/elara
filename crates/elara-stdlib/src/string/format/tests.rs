@@ -150,7 +150,7 @@ fn string_format_formats_basic_integer_conversions() {
 #[test]
 fn string_format_formats_integer_width() {
     let mut runtime = TestRuntime::default();
-    let format = runtime.push_string(b"%5d:%3i:%2d:%3u:%4o:%4x:%4X");
+    let format = runtime.push_string(b"%5d:%3i:%2d:%3u:%4o:%4x:%4X:%-5d:%-4x");
     let numeric_string = runtime.push_string(b"12.9");
 
     let values = string_format(
@@ -164,13 +164,15 @@ fn string_format_formats_integer_width() {
             Value::integer(8),
             Value::integer(255),
             Value::integer(255),
+            Value::integer(7),
+            Value::integer(255),
         ],
     )
     .expect("format should pass");
 
     assert_eq!(
         runtime.short_string_bytes(values[0]),
-        Some(b"    7: -7:12:  7:  10:  ff:  FF".as_slice())
+        Some(b"    7: -7:12:  7:  10:  ff:  FF:7    :ff  ".as_slice())
     );
 }
 
