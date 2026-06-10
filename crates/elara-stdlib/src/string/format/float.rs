@@ -58,9 +58,6 @@ pub(super) fn parse_float_spec(
 
     let width = parse_two_digit_field(format, &mut cursor)?.unwrap_or(0);
     let precision = if format.get(cursor) == Some(&b'.') {
-        if matches!(spec, b'a' | b'A') {
-            return Ok(None);
-        }
         cursor += 1;
         Some(parse_two_digit_field(format, &mut cursor)?.unwrap_or(0))
     } else {
@@ -139,14 +136,18 @@ fn zero_padding_prefix_len(spec: FloatFormatSpec, formatted: &str) -> usize {
 }
 
 fn format_hex_float_conversion(spec: FloatFormatSpec, value: LuaFloat) -> String {
-    let mut formatted = format_hex_float_lower(value, spec.alternate_form);
+    let mut formatted = format_hex_float_lower(value, spec.alternate_form, spec.precision);
     if spec.conversion == b'A' {
         formatted = formatted.to_ascii_uppercase();
     }
     formatted
 }
 
-fn format_hex_float_lower(value: LuaFloat, alternate_form: bool) -> String {
+fn format_hex_float_lower(
+    value: LuaFloat,
+    alternate_form: bool,
+    precision: Option<usize>,
+) -> String {
     if value.is_nan() || value.is_infinite() {
         return value.to_string();
     }
@@ -156,20 +157,23 @@ fn format_hex_float_lower(value: LuaFloat, alternate_form: bool) -> String {
     let exponent_bits = ((bits >> 52) & 0x7ff) as i32;
     let fraction_bits = bits & 0x000f_ffff_ffff_ffff;
     if exponent_bits == 0 && fraction_bits == 0 {
-        return if alternate_form {
-            format!("{sign}0x0.p+0")
-        } else {
-            format!("{sign}0x0p+0")
-        };
+        return format_hex_zero(sign, alternate_form, precision);
     }
 
     let (head, exponent) = if exponent_bits == 0 {
-        ("0", -1022)
+        (0, -1022)
     } else {
-        ("1", exponent_bits - 1023)
+        (1, exponent_bits - 1023)
     };
-    let digits = trimmed_hex_fraction(fraction_bits);
-    if digits.is_empty() && !alternate_form {
+    let full_digits = format!("{fraction_bits:013x}");
+    let (head, digits) = if let Some(precision) = precision {
+        round_hex_fraction(head, &full_digits, precision)
+    } else {
+        (head, trimmed_hex_fraction(&full_digits))
+    };
+    let head = hex_digit(head);
+    let needs_point = alternate_form || precision.is_some_and(|precision| precision > 0);
+    if digits.is_empty() && !needs_point {
         format!("{sign}0x{head}p{exponent:+}")
     } else if digits.is_empty() {
         format!("{sign}0x{head}.p{exponent:+}")
@@ -178,9 +182,71 @@ fn format_hex_float_lower(value: LuaFloat, alternate_form: bool) -> String {
     }
 }
 
-fn trimmed_hex_fraction(fraction_bits: u64) -> String {
-    let digits = format!("{fraction_bits:013x}");
-    digits.trim_end_matches('0').to_owned()
+fn format_hex_zero(sign: &str, alternate_form: bool, precision: Option<usize>) -> String {
+    match precision {
+        Some(0) if alternate_form => format!("{sign}0x0.p+0"),
+        Some(0) => format!("{sign}0x0p+0"),
+        Some(precision) => format!("{sign}0x0.{}p+0", "0".repeat(precision)),
+        None if alternate_form => format!("{sign}0x0.p+0"),
+        None => format!("{sign}0x0p+0"),
+    }
+}
+
+fn round_hex_fraction(head: u8, full_digits: &str, precision: usize) -> (u8, String) {
+    let mut retained = full_digits
+        .bytes()
+        .take(precision)
+        .map(hex_digit_value)
+        .collect::<Vec<_>>();
+    if precision >= full_digits.len() {
+        retained.resize(precision, 0);
+        return (head, retained.into_iter().map(hex_digit).collect());
+    }
+
+    let next = hex_digit_value(full_digits.as_bytes()[precision]);
+    let rest_nonzero = full_digits.as_bytes()[precision + 1..]
+        .iter()
+        .copied()
+        .map(hex_digit_value)
+        .any(|digit| digit != 0);
+    let last_retained_odd = !retained.last().copied().unwrap_or(head).is_multiple_of(2);
+    let round_up = next > 8 || next == 8 && (rest_nonzero || last_retained_odd);
+    if !round_up {
+        return (head, retained.into_iter().map(hex_digit).collect());
+    }
+
+    if retained.is_empty() {
+        return (head + 1, String::new());
+    }
+    for digit in retained.iter_mut().rev() {
+        if *digit < 15 {
+            *digit += 1;
+            return (head, retained.into_iter().map(hex_digit).collect());
+        }
+        *digit = 0;
+    }
+    (head + 1, retained.into_iter().map(hex_digit).collect())
+}
+
+fn trimmed_hex_fraction(full_digits: &str) -> String {
+    full_digits.trim_end_matches('0').to_owned()
+}
+
+fn hex_digit(value: u8) -> char {
+    match value {
+        0..=9 => char::from(b'0' + value),
+        10..=15 => char::from(b'a' + value - 10),
+        _ => unreachable!("hex digit fits in one nibble"),
+    }
+}
+
+fn hex_digit_value(value: u8) -> u8 {
+    match value {
+        b'0'..=b'9' => value - b'0',
+        b'a'..=b'f' => value - b'a' + 10,
+        b'A'..=b'F' => value - b'A' + 10,
+        _ => unreachable!("formatted hex fraction contains only hex digits"),
+    }
 }
 
 fn format_float_body(spec: FloatFormatSpec, value: LuaFloat) -> String {

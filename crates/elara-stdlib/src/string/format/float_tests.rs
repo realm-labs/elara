@@ -188,21 +188,6 @@ fn string_format_formats_hex_float_width_and_flags() {
 }
 
 #[test]
-fn string_format_reports_hex_float_precision_gap() {
-    let mut runtime = TestRuntime::default();
-    let format = runtime.push_string(b"%.3a");
-
-    assert_eq!(
-        string_format(&mut runtime, &[format, Value::float(12.5)])
-            .expect_err("hex precision should still be explicit gap")
-            .kind(),
-        &NativeErrorKind::RuntimeError {
-            message: "string.format conversions are not supported yet".into(),
-        }
-    );
-}
-
-#[test]
 fn string_format_reports_invalid_float_precision() {
     let mut runtime = TestRuntime::default();
     let format = runtime.push_string(b"%.123f");
@@ -214,5 +199,36 @@ fn string_format_reports_invalid_float_precision() {
         &NativeErrorKind::RuntimeError {
             message: "invalid conversion specification".into(),
         }
+    );
+}
+
+#[test]
+fn string_format_formats_hex_float_precision() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%.0a:%#.0a:%.3a:%.13a:%.14a:%.3A:%.3a:%.3a:%.3a");
+
+    let values = string_format(
+        &mut runtime,
+        &[
+            format,
+            Value::float(12.5),
+            Value::float(12.5),
+            Value::float(12.5),
+            Value::float(12.5),
+            Value::float(12.5),
+            Value::float(12.5),
+            Value::float(0.1),
+            Value::float(1.9999),
+            Value::float(0.0),
+        ],
+    )
+    .expect("format should pass");
+
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(
+            b"0x2p+3:0x2.p+3:0x1.900p+3:0x1.9000000000000p+3:0x1.90000000000000p+3:0X1.900P+3:0x1.99ap-4:0x2.000p+0:0x0.000p+0"
+                .as_slice()
+        )
     );
 }
