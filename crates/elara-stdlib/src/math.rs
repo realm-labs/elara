@@ -16,9 +16,11 @@ pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "deg"), math_deg),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "exp"), math_exp),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "floor"), math_floor),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "fmod"), math_fmod),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "log"), math_log),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "max"), math_max),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "min"), math_min),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "modf"), math_modf),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "random"), math_random),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "rad"), math_rad),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "sin"), math_sin),
@@ -170,6 +172,42 @@ fn math_log(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
         }
     };
     Ok(vec![Value::float(result)])
+}
+
+fn math_fmod(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let left = number_arg(args, 1)?;
+    let right = number_arg(args, 2)?;
+    if let (Some(left), Some(right)) = (left.as_integer(), right.as_integer()) {
+        if right == 0 {
+            return Err(NativeErrorKind::ArgumentOutOfRange { index: 2 }.into());
+        }
+        if right == -1 {
+            return Ok(vec![Value::integer(0)]);
+        }
+        return Ok(vec![Value::integer(left % right)]);
+    }
+    Ok(vec![Value::float(
+        number_value_to_float(left, 1)? % number_value_to_float(right, 2)?,
+    )])
+}
+
+fn math_modf(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = number_arg(args, 1)?;
+    if value.as_integer().is_some() {
+        return Ok(vec![value, Value::float(0.0)]);
+    }
+    let value = number_value_to_float(value, 1)?;
+    let integer = if value < 0.0 {
+        value.ceil()
+    } else {
+        value.floor()
+    };
+    let fraction = if value == integer {
+        0.0
+    } else {
+        value - integer
+    };
+    Ok(vec![number_result(integer), Value::float(fraction)])
 }
 
 fn math_min(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -329,13 +367,15 @@ fn extrema_arg(args: &[Value], extrema: Extrema) -> Result<Value, NativeError> {
 }
 
 #[cfg(test)]
+mod native_tests;
+
+#[cfg(test)]
 mod tests {
     use elara_core::{LuaInteger, Value};
 
     use super::{
-        LuaRandomState, MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_cos, math_deg, math_exp,
-        math_floor, math_log, math_max, math_min, math_rad, math_random, math_sin, math_sqrt,
-        math_tan, math_type,
+        LuaRandomState, MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_floor, math_max, math_min,
+        math_random, math_sqrt, math_type,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -379,9 +419,11 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "deg")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "exp")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "floor")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "fmod")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "log")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "max")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "min")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "modf")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "random")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "rad")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "sin")));
@@ -431,54 +473,6 @@ mod tests {
         assert_eq!(
             call(math_sqrt, &[Value::integer(9)]),
             vec![Value::float(3.0)]
-        );
-    }
-
-    #[test]
-    fn math_trig_functions_return_floats() {
-        assert_eq!(
-            call(math_sin, &[Value::integer(0)]),
-            vec![Value::float(0.0)]
-        );
-        assert_eq!(
-            call(math_cos, &[Value::integer(0)]),
-            vec![Value::float(1.0)]
-        );
-        assert_eq!(
-            call(math_tan, &[Value::integer(0)]),
-            vec![Value::float(0.0)]
-        );
-    }
-
-    #[test]
-    fn math_angle_conversion_functions_return_floats() {
-        assert_eq!(
-            call(math_deg, &[Value::float(std::f64::consts::PI)]),
-            vec![Value::float(180.0)]
-        );
-        assert_eq!(
-            call(math_rad, &[Value::integer(180)]),
-            vec![Value::float(std::f64::consts::PI)]
-        );
-    }
-
-    #[test]
-    fn math_exp_and_log_return_floats() {
-        assert_eq!(
-            call(math_exp, &[Value::integer(0)]),
-            vec![Value::float(1.0)]
-        );
-        assert_eq!(
-            call(math_log, &[Value::integer(1)]),
-            vec![Value::float(0.0)]
-        );
-        assert_eq!(
-            call(math_log, &[Value::integer(8), Value::integer(2)]),
-            vec![Value::float(3.0)]
-        );
-        assert_eq!(
-            call(math_log, &[Value::integer(100), Value::integer(10)]),
-            vec![Value::float(2.0)]
         );
     }
 

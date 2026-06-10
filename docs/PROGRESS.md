@@ -84,8 +84,8 @@ standard-library crate now exposes a profile/set/registry framework plus
 generic global registration adapters, and contains descriptor-based essential
 base, table, math, and string library entries. The stdlib crate also exposes
 executable native specs for the currently implemented math functions `abs`,
-`ceil`, `cos`, `deg`, `exp`, `floor`, `log`, `max`, `min`, `rad`, `random`,
-`sin`, `sqrt`, `tan`, and `type`. The API layer can build a primitive
+`ceil`, `cos`, `deg`, `exp`, `floor`, `fmod`, `log`, `max`, `min`, `modf`,
+`rad`, `random`, `sin`, `sqrt`, `tan`, and `type`. The API layer can build a primitive
 `RuntimeEnvironment` from implemented stdlib native specs, including shared
 math RNG state, and simple source evaluation can run with a selected stdlib
 profile for supported native paths.
@@ -167,6 +167,7 @@ Completed:
   - M11.2 executable math sin, cos, and tan native specs.
   - M11.2 executable math deg and rad native specs.
   - M11.2 executable math exp and log native specs.
+  - M11.2 executable math fmod and modf native specs.
   - M11.2 primitive runtime environment seeding for native globals.
   - M11.2 closure-backed runtime native registry entries.
   - M11.2 primitive runtime environment seeding for table-valued globals.
@@ -768,7 +769,7 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable math exp/log verification passed:
+M11.2 executable math fmod/modf verification passed:
 
 ```bash
 cargo test -p elara-stdlib math
