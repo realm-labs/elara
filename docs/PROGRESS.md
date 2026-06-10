@@ -105,9 +105,10 @@ and the API bridge adapts it to the interpreter context without making stdlib
 depend on interpreter internals. Remaining executable base, table, math, and
 string functions, broader API surface, JIT, C API, conformance, and benchmark
 implementation work remain. String natives `string.byte`, `string.char`,
-literal-search `string.find`, `string.len`, `string.lower`, `string.upper`,
-`string.reverse`, `string.rep`, and `string.sub` are executable and covered
-through stdlib-backed API evaluation. Table natives `table.concat`,
+literal-search `string.find`, `string.match`, `string.len`, `string.lower`,
+`string.upper`, `string.reverse`, `string.rep`, and `string.sub` are
+executable and covered through stdlib-backed API evaluation. Table natives
+`table.concat`,
 `table.insert`, `table.move`, `table.pack`, `table.remove`,
 default-comparator `table.sort`, and `table.unpack` are executable and covered
 through stdlib-backed API evaluation.
@@ -208,6 +209,7 @@ Completed:
   - M11.2 executable string.byte native spec.
   - M11.2 executable string.char native spec.
   - M11.2 executable literal-search string.find native spec.
+  - M11.2 executable literal-search string.match native spec.
   - M11.2 executable string.len native spec.
   - M11.2 executable string lower, upper, and reverse native specs.
   - M11.2 executable string.rep native spec.
@@ -779,7 +781,7 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable literal-search string.find verification passed:
+M11.2 executable literal-search string.match verification passed:
 
 ```bash
 cargo fmt --all

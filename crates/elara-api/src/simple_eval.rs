@@ -616,6 +616,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_string_match() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return string.len(string.match('abcabc', 'ca'))",
+                &profile,
+            ),
+            Ok(vec![Value::integer(2)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_rep() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 
