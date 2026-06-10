@@ -27,7 +27,7 @@ pub(super) fn parse_float_spec(
         format.get(start),
         Some(
             b'-' | b'+' | b'#' | b'0' | b' ' | b'1'
-                ..=b'9' | b'.' | b'e' | b'E' | b'f' | b'g' | b'G'
+                ..=b'9' | b'.' | b'a' | b'A' | b'e' | b'E' | b'f' | b'g' | b'G'
         )
     ) {
         return Ok(None);
@@ -36,7 +36,9 @@ pub(super) fn parse_float_spec(
     let Some(conversion) = conversion_index(format, start) else {
         return Ok(None);
     };
-    let Some(spec @ (b'e' | b'E' | b'f' | b'g' | b'G')) = format.get(conversion).copied() else {
+    let Some(spec @ (b'a' | b'A' | b'e' | b'E' | b'f' | b'g' | b'G')) =
+        format.get(conversion).copied()
+    else {
         return Ok(None);
     };
 
@@ -56,6 +58,9 @@ pub(super) fn parse_float_spec(
 
     let width = parse_two_digit_field(format, &mut cursor)?.unwrap_or(0);
     let precision = if format.get(cursor) == Some(&b'.') {
+        if matches!(spec, b'a' | b'A') {
+            return Ok(None);
+        }
         cursor += 1;
         Some(parse_two_digit_field(format, &mut cursor)?.unwrap_or(0))
     } else {
@@ -108,23 +113,40 @@ pub(super) fn format_float_conversion(spec: FloatFormatSpec, value: LuaFloat) ->
     let padding = pad_byte.to_string().repeat(spec.width - formatted.len());
     if spec.left_adjust {
         format!("{formatted}{padding}")
-    } else if pad_byte == '0' && matches!(formatted.as_bytes().first(), Some(b'-' | b'+' | b' ')) {
-        let (sign, body) = formatted.split_at(1);
-        format!("{sign}{padding}{body}")
+    } else if pad_byte == '0' && zero_padding_prefix_len(spec, &formatted) > 0 {
+        let prefix_len = zero_padding_prefix_len(spec, &formatted);
+        let (prefix, body) = formatted.split_at(prefix_len);
+        format!("{prefix}{padding}{body}")
     } else {
         format!("{padding}{formatted}")
     }
 }
 
-pub(super) fn format_hex_float_conversion(spec: u8, value: LuaFloat) -> String {
-    let mut formatted = format_hex_float_lower(value);
-    if spec == b'A' {
+fn zero_padding_prefix_len(spec: FloatFormatSpec, formatted: &str) -> usize {
+    let sign_len = usize::from(matches!(
+        formatted.as_bytes().first(),
+        Some(b'-' | b'+' | b' ')
+    ));
+    if matches!(spec.conversion, b'a' | b'A')
+        && formatted
+            .get(sign_len..)
+            .is_some_and(|body| body.starts_with("0x") || body.starts_with("0X"))
+    {
+        sign_len + 2
+    } else {
+        sign_len
+    }
+}
+
+fn format_hex_float_conversion(spec: FloatFormatSpec, value: LuaFloat) -> String {
+    let mut formatted = format_hex_float_lower(value, spec.alternate_form);
+    if spec.conversion == b'A' {
         formatted = formatted.to_ascii_uppercase();
     }
     formatted
 }
 
-fn format_hex_float_lower(value: LuaFloat) -> String {
+fn format_hex_float_lower(value: LuaFloat, alternate_form: bool) -> String {
     if value.is_nan() || value.is_infinite() {
         return value.to_string();
     }
@@ -134,7 +156,11 @@ fn format_hex_float_lower(value: LuaFloat) -> String {
     let exponent_bits = ((bits >> 52) & 0x7ff) as i32;
     let fraction_bits = bits & 0x000f_ffff_ffff_ffff;
     if exponent_bits == 0 && fraction_bits == 0 {
-        return format!("{sign}0x0p+0");
+        return if alternate_form {
+            format!("{sign}0x0.p+0")
+        } else {
+            format!("{sign}0x0p+0")
+        };
     }
 
     let (head, exponent) = if exponent_bits == 0 {
@@ -143,8 +169,10 @@ fn format_hex_float_lower(value: LuaFloat) -> String {
         ("1", exponent_bits - 1023)
     };
     let digits = trimmed_hex_fraction(fraction_bits);
-    if digits.is_empty() {
+    if digits.is_empty() && !alternate_form {
         format!("{sign}0x{head}p{exponent:+}")
+    } else if digits.is_empty() {
+        format!("{sign}0x{head}.p{exponent:+}")
     } else {
         format!("{sign}0x{head}.{digits}p{exponent:+}")
     }
@@ -158,6 +186,7 @@ fn trimmed_hex_fraction(fraction_bits: u64) -> String {
 fn format_float_body(spec: FloatFormatSpec, value: LuaFloat) -> String {
     let precision = spec.precision.unwrap_or(6);
     match spec.conversion {
+        b'a' | b'A' => format_hex_float_conversion(spec, value),
         b'e' => format_exponential_with_precision(value, false, precision, spec.alternate_form),
         b'E' => format_exponential_with_precision(value, true, precision, spec.alternate_form),
         b'f' => format_fixed_float(value, precision, spec.alternate_form),

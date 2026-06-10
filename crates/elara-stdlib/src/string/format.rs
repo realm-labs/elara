@@ -8,7 +8,7 @@ use super::string_arg;
 
 mod float;
 mod integer;
-use float::{format_float_conversion, format_hex_float_conversion, parse_float_spec};
+use float::{format_float_conversion, parse_float_spec};
 use integer::{
     format_integer_conversion, format_integer_width_conversion, parse_integer_width_spec,
 };
@@ -56,12 +56,6 @@ pub(super) fn string_format(
             output.extend_from_slice(format_float_conversion(spec, value).as_bytes());
             arg_index += 1;
             index = spec.next_index;
-        } else if let Some(spec @ (b'a' | b'A')) = format.get(index + 1).copied() {
-            let value =
-                float_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
-            output.extend_from_slice(format_hex_float_conversion(spec, value).as_bytes());
-            arg_index += 1;
-            index += 2;
         } else if let Some(spec) = parse_integer_width_spec(&format, index + 1)? {
             let value =
                 integer_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
