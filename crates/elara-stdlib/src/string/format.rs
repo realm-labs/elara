@@ -1,0 +1,112 @@
+//! `string.format` native implementation.
+
+use elara_core::Value;
+
+use crate::{NativeError, NativeErrorKind, NativeRuntime};
+
+use super::string_arg;
+
+pub(super) fn string_format(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let format = string_arg(
+        runtime,
+        *args
+            .first()
+            .ok_or(NativeErrorKind::MissingArgument { index: 1 })?,
+        1,
+    )?
+    .to_vec();
+    let mut output = Vec::with_capacity(format.len());
+    let mut index = 0;
+    while index < format.len() {
+        if format[index] != b'%' {
+            output.push(format[index]);
+            index += 1;
+        } else if format.get(index + 1) == Some(&b'%') {
+            output.push(b'%');
+            index += 2;
+        } else {
+            return Err(NativeErrorKind::RuntimeError {
+                message: "string.format conversions are not supported yet".into(),
+            }
+            .into());
+        }
+    }
+
+    Ok(vec![runtime.intern_short_string(&output)?])
+}
+
+#[cfg(test)]
+mod tests {
+    use elara_core::Value;
+
+    use super::string_format;
+    use crate::{NativeError, NativeErrorKind, NativeRuntime};
+
+    #[derive(Default)]
+    struct TestRuntime {
+        strings: Vec<Box<[u8]>>,
+    }
+
+    impl TestRuntime {
+        fn push_string(&mut self, bytes: &[u8]) -> Value {
+            let index = u32::try_from(self.strings.len()).expect("test string index fits in u32");
+            self.strings.push(bytes.into());
+            Value::table_index(index)
+        }
+    }
+
+    impl NativeRuntime for TestRuntime {
+        fn intern_short_string(&mut self, bytes: &[u8]) -> Result<Value, NativeError> {
+            Ok(self.push_string(bytes))
+        }
+
+        fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
+            let index = value.as_table_index()? as usize;
+            self.strings.get(index).map(Box::as_ref)
+        }
+    }
+
+    #[test]
+    fn string_format_returns_literal_format_without_conversions() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"hello");
+
+        let values = string_format(&mut runtime, &[format]).expect("format should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"hello".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_format_unescapes_double_percent() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"a%%b%%%%");
+
+        let values = string_format(&mut runtime, &[format]).expect("format should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"a%b%%".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_format_reports_conversion_gap() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%s");
+
+        assert_eq!(
+            string_format(&mut runtime, &[format])
+                .expect_err("conversion should be explicit gap")
+                .kind(),
+            &NativeErrorKind::RuntimeError {
+                message: "string.format conversions are not supported yet".into()
+            }
+        );
+    }
+}

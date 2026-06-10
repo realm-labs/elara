@@ -105,11 +105,11 @@ and the API bridge adapts it to the interpreter context without making stdlib
 depend on interpreter internals. Remaining executable base, table, math, and
 string functions, broader API surface, JIT, C API, conformance, and benchmark
 implementation work remain. String natives `string.byte`, `string.char`,
-literal-search `string.find`, `string.match`, `string.len`, `string.lower`,
-`string.upper`, `string.reverse`, `string.rep`, and `string.sub` are
-executable and covered through stdlib-backed API evaluation. Table natives
-`table.concat`,
-`table.insert`, `table.move`, `table.pack`, `table.remove`,
+literal-search `string.find`, literal/escaped-percent `string.format`,
+`string.match`, `string.len`, `string.lower`, `string.upper`, `string.reverse`,
+`string.rep`, and `string.sub` are executable and covered through
+stdlib-backed API evaluation. Table natives `table.concat`, `table.insert`,
+`table.move`, `table.pack`, `table.remove`,
 default-comparator `table.sort`, and `table.unpack` are executable and covered
 through stdlib-backed API evaluation.
 
@@ -210,6 +210,7 @@ Completed:
   - M11.2 executable string.byte native spec.
   - M11.2 executable string.char native spec.
   - M11.2 executable literal-search string.find native spec.
+  - M11.2 executable literal/escaped-percent string.format native spec.
   - M11.2 executable literal-search string.match native spec.
   - M11.2 executable string.len native spec.
   - M11.2 executable string lower, upper, and reverse native specs.
@@ -758,6 +759,7 @@ Delivered:
 - Add runtime callback support for custom `table.sort` comparators.
 - Add full string pattern matching for `string.find`, `string.match`,
   `string.gmatch`, and `string.gsub`.
+- Add full conversion handling for `string.format`.
 
 ### Product Gaps
 
@@ -782,11 +784,11 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable base print verification passed:
+M11.2 executable literal/escaped-percent string.format verification passed:
 
 ```bash
 cargo fmt --all
-cargo test -p elara-stdlib base
+cargo test -p elara-stdlib string
 cargo test -p elara-api eval_simple_with_stdlib
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
