@@ -212,6 +212,7 @@ Completed:
   - M11.2 executable string.char native spec.
   - M11.2 executable literal-search string.find native spec.
   - M11.2 executable basic `%s`, `%c`, `%q`, `%p`, `%f`, `%e`, `%E`, `%g`, `%G`, integer-family, and escaped-percent string.format native spec.
+  - M11.2 split string.format tests into a focused sibling module.
   - M11.2 executable literal string-replacement string.gsub native spec.
   - M11.2 executable literal-search string.match native spec.
   - M11.2 executable string.len native spec.
@@ -787,14 +788,12 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable basic `%p` string.format verification passed:
+M11.2 string.format test module split verification passed:
 
 ```bash
 cargo fmt --all
 cargo test -p elara-stdlib string
-cargo test -p elara-api eval_simple_with_stdlib
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
-cargo clippy -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
