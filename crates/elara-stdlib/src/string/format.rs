@@ -38,7 +38,9 @@ pub(super) fn string_format(
             output.extend_from_slice(&format_quoted_arg(runtime, value, arg_index + 1)?);
             arg_index += 1;
             index += 2;
-        } else if let Some(spec @ (b'e' | b'E' | b'f')) = format.get(index + 1).copied() {
+        } else if let Some(spec @ (b'e' | b'E' | b'f' | b'g' | b'G')) =
+            format.get(index + 1).copied()
+        {
             let value =
                 float_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
             output.extend_from_slice(format_float_conversion(spec, value).as_bytes());
@@ -149,15 +151,21 @@ fn format_float_conversion(spec: u8, value: LuaFloat) -> String {
         b'e' => format_exponential(value, false),
         b'E' => format_exponential(value, true),
         b'f' => format!("{value:.6}"),
+        b'g' => format_general_float(value, false),
+        b'G' => format_general_float(value, true),
         _ => unreachable!("caller filters float conversion specifiers"),
     }
 }
 
 fn format_exponential(value: LuaFloat, upper: bool) -> String {
+    format_exponential_with_precision(value, upper, 6)
+}
+
+fn format_exponential_with_precision(value: LuaFloat, upper: bool, precision: usize) -> String {
     let formatted = if upper {
-        format!("{value:.6E}")
+        format!("{value:.precision$E}")
     } else {
-        format!("{value:.6e}")
+        format!("{value:.precision$e}")
     };
     let Some((mantissa, exponent)) = formatted.split_once(if upper { 'E' } else { 'e' }) else {
         return if upper {
@@ -172,6 +180,39 @@ fn format_exponential(value: LuaFloat, upper: bool) -> String {
     let marker = if upper { 'E' } else { 'e' };
     let sign = if exponent < 0 { '-' } else { '+' };
     format!("{mantissa}{marker}{sign}{:02}", exponent.abs())
+}
+
+fn format_general_float(value: LuaFloat, upper: bool) -> String {
+    if !value.is_finite() {
+        let formatted = value.to_string();
+        return if upper {
+            formatted.to_ascii_uppercase()
+        } else {
+            formatted
+        };
+    }
+    if value == 0.0 {
+        return "0".to_owned();
+    }
+
+    const PRECISION: i32 = 6;
+    let exponent = value.abs().log10().floor() as i32;
+    if !(-4..PRECISION).contains(&exponent) {
+        let formatted = format_exponential_with_precision(value, upper, (PRECISION - 1) as usize);
+        let marker = if upper { 'E' } else { 'e' };
+        let (mantissa, exponent) = formatted
+            .split_once(marker)
+            .expect("exponential formatter returns an exponent marker");
+        return format!("{}{marker}{exponent}", trim_float_zeros(mantissa));
+    }
+
+    let decimals = (PRECISION - exponent - 1).max(0) as usize;
+    trim_float_zeros(&format!("{value:.decimals$}")).to_owned()
+}
+
+fn trim_float_zeros(value: &str) -> &str {
+    let trimmed = value.trim_end_matches('0');
+    trimmed.strip_suffix('.').unwrap_or(trimmed)
 }
 
 fn integer_format_arg(
@@ -455,7 +496,7 @@ mod tests {
     #[test]
     fn string_format_formats_basic_float_conversion() {
         let mut runtime = TestRuntime::default();
-        let format = runtime.push_string(b"%f:%f:%f:%e:%E");
+        let format = runtime.push_string(b"%f:%f:%f:%e:%E:%g:%g:%G");
         let numeric_string = runtime.push_string(b"2.25");
 
         let values = string_format(
@@ -467,13 +508,19 @@ mod tests {
                 numeric_string,
                 Value::float(12.5),
                 Value::float(12.5),
+                Value::float(12.5),
+                Value::float(0.0000125),
+                Value::float(1_200_000.0),
             ],
         )
         .expect("format should pass");
 
         assert_eq!(
             runtime.short_string_bytes(values[0]),
-            Some(b"7.000000:1.500000:2.250000:1.250000e+01:1.250000E+01".as_slice())
+            Some(
+                b"7.000000:1.500000:2.250000:1.250000e+01:1.250000E+01:12.5:1.25e-05:1.2E+06"
+                    .as_slice()
+            )
         );
     }
 
@@ -567,7 +614,7 @@ mod tests {
     #[test]
     fn string_format_reports_conversion_gap() {
         let mut runtime = TestRuntime::default();
-        let format = runtime.push_string(b"%g");
+        let format = runtime.push_string(b"%a");
 
         assert_eq!(
             string_format(&mut runtime, &[format])
