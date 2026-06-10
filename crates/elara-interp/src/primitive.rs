@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
 use elara_core::{
-    CallFrame, GcArena, LuaError, LuaFloat, LuaInteger, LuaThread, ResultCount, StringInterner,
-    Table, ThreadStatus, TraceFrame, Value,
+    CallFrame, GcArena, LuaError, LuaFloat, LuaInteger, LuaThread, ResultCount,
+    SHORT_STRING_MAX_BYTES, StringInterner, Table, ThreadStatus, TraceFrame, Value,
 };
 
 mod environment;
@@ -14,6 +14,7 @@ mod loops;
 mod metamethod;
 mod table;
 
+use environment::InitialValue;
 pub use environment::RuntimeEnvironment;
 use global::{RuntimeGlobals, execute_decl_global, execute_get_env, execute_set_env};
 use loops::{
@@ -593,12 +594,8 @@ fn execute_proto_with_output_in_mode(
     let global_table = tables.push_table(Table::new());
     let mut globals = RuntimeGlobals::new(global_table);
     for initial_global in initial_globals {
-        globals.set_named(
-            initial_global.name(),
-            initial_global.value(),
-            &mut strings,
-            &mut tables,
-        )?;
+        let value = seed_initial_value(initial_global.value(), &mut tables, &mut strings)?;
+        globals.set_named(initial_global.name(), value, &mut strings, &mut tables)?;
     }
     let global_value = globals.value();
     let mut to_be_closed = Vec::new();
@@ -616,6 +613,33 @@ fn execute_proto_with_output_in_mode(
         tables,
         strings,
     })
+}
+
+fn seed_initial_value(
+    value: &InitialValue,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<Value> {
+    match value {
+        InitialValue::Value(value) => Ok(*value),
+        InitialValue::Table(fields) => {
+            let mut table = Table::new();
+            for field in fields {
+                let key = environment_key(field.name(), strings)?;
+                if !table.raw_set_value(key, field.value()) {
+                    return Err(RuntimeErrorKind::InvalidTableKey.into());
+                }
+            }
+            Ok(Value::table_index(tables.push_table(table)))
+        }
+    }
+}
+
+fn environment_key(name: &[u8], strings: &mut RuntimeStrings) -> RuntimeResult<Value> {
+    if name.len() > SHORT_STRING_MAX_BYTES {
+        return Err(RuntimeErrorKind::GlobalNameTooLong.into());
+    }
+    Ok(strings.intern_short_value(name))
 }
 
 fn execute_proto_with_upvalues(

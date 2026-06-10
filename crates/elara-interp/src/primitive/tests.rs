@@ -170,6 +170,30 @@ fn native_functions_can_capture_host_state() {
 }
 
 #[test]
+fn native_functions_register_inside_initial_global_tables() {
+    let mut environment = RuntimeEnvironment::new();
+    let native = environment.push_native(native_add);
+    environment.set_global_table("math", [("add", Value::native_function_index(native))]);
+
+    let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+    let module = builder.add_string_constant("math");
+    let field = builder.add_string_constant("add");
+    let left = builder.add_constant(Value::integer(20));
+    let right = builder.add_constant(Value::integer(22));
+    builder.emit_abx(Op::GetEnv, 0, u64::from(module));
+    builder.emit_abx(Op::LoadString, 1, u64::from(field));
+    builder.emit_abc(Op::GetTable, 0, 0, 1);
+    builder.emit_abx(Op::LoadK, 1, u64::from(left));
+    builder.emit_abx(Op::LoadK, 2, u64::from(right));
+    builder.emit_abc(Op::Call, 0, 3, 1);
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    let output = execute_proto_with_environment(&builder.finish(), environment)
+        .expect("registered native table field should execute");
+    assert_eq!(output.values, vec![Value::integer(42)]);
+}
+
+#[test]
 fn arithmetic_reports_non_numeric_operands() {
     let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
     builder.emit_abc(Op::LoadBool, 0, 1, 0);

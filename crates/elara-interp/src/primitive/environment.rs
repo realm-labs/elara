@@ -34,8 +34,36 @@ impl RuntimeEnvironment {
     pub fn set_global(&mut self, name: impl Into<Box<str>>, value: Value) {
         self.globals.push(InitialGlobal {
             name: name.into(),
-            value,
+            value: InitialValue::Value(value),
         });
+    }
+
+    /// Registers one initial global table with prebuilt field values.
+    pub fn set_global_table<I, N>(&mut self, name: impl Into<Box<str>>, fields: I)
+    where
+        I: IntoIterator<Item = (N, Value)>,
+        N: Into<Box<str>>,
+    {
+        self.globals.push(InitialGlobal {
+            name: name.into(),
+            value: InitialValue::Table(
+                fields
+                    .into_iter()
+                    .map(|(name, value)| InitialField {
+                        name: name.into(),
+                        value,
+                    })
+                    .collect(),
+            ),
+        });
+    }
+
+    /// Registers one native function and returns its runtime index.
+    pub fn push_native<F>(&mut self, function: F) -> u32
+    where
+        F: Fn(&[Value]) -> super::RuntimeResult<Vec<Value>> + Send + Sync + 'static,
+    {
+        self.natives.push(function)
     }
 
     /// Registers one native function as a callable global and returns its index.
@@ -43,7 +71,7 @@ impl RuntimeEnvironment {
     where
         F: Fn(&[Value]) -> super::RuntimeResult<Vec<Value>> + Send + Sync + 'static,
     {
-        let index = self.natives.push(function);
+        let index = self.push_native(function);
         self.set_global(name, Value::native_function_index(index));
         index
     }
@@ -56,10 +84,32 @@ impl RuntimeEnvironment {
 #[derive(Clone)]
 pub(super) struct InitialGlobal {
     name: Box<str>,
-    value: Value,
+    value: InitialValue,
 }
 
 impl InitialGlobal {
+    pub(super) fn name(&self) -> &[u8] {
+        self.name.as_bytes()
+    }
+
+    pub(super) const fn value(&self) -> &InitialValue {
+        &self.value
+    }
+}
+
+#[derive(Clone)]
+pub(super) enum InitialValue {
+    Value(Value),
+    Table(Vec<InitialField>),
+}
+
+#[derive(Clone)]
+pub(super) struct InitialField {
+    name: Box<str>,
+    value: Value,
+}
+
+impl InitialField {
     pub(super) fn name(&self) -> &[u8] {
         self.name.as_bytes()
     }

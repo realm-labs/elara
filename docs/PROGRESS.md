@@ -78,14 +78,15 @@ execution also accepts a `RuntimeEnvironment` that can seed initial globals,
 including callable native globals, before running a Proto. Runtime native
 registries can store closure-backed host functions, which allows API adapters to
 wrap stdlib-native errors without making `elara-stdlib` depend on
-`elara-interp`. The standard-library crate now exposes a profile/set/registry
-framework plus generic global registration adapters, and contains
-descriptor-based essential base, table, math, and string library entries. The
-stdlib crate also exposes executable native specs for the currently implemented
-math functions `abs`, `ceil`, `floor`, and `sqrt`. Adapting stdlib native specs
-into runtime/global registration, remaining executable base/table/math/string
-functions, full API, JIT, C API, conformance, and benchmark implementation work
-remain.
+`elara-interp`. `RuntimeEnvironment` can also seed table-valued globals with
+native fields, enabling module-shaped entries such as `math.abs`. The
+standard-library crate now exposes a profile/set/registry framework plus
+generic global registration adapters, and contains descriptor-based essential
+base, table, math, and string library entries. The stdlib crate also exposes
+executable native specs for the currently implemented math functions `abs`,
+`ceil`, `floor`, and `sqrt`. Adapting stdlib native specs into runtime/global
+registration, remaining executable base/table/math/string functions, full API,
+JIT, C API, conformance, and benchmark implementation work remain.
 
 Current state:
 
@@ -144,6 +145,7 @@ Completed:
   - M11.2 executable math native specs for abs, ceil, floor, and sqrt.
   - M11.2 primitive runtime environment seeding for native globals.
   - M11.2 closure-backed runtime native registry entries.
+  - M11.2 primitive runtime environment seeding for table-valued globals.
 
 In progress:
   - M11.2 Implement base, table, math, and string essentials.
@@ -710,7 +712,7 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 closure-backed native registry verification passed:
+M11.2 table-valued runtime environment verification passed:
 
 ```bash
 cargo test -p elara-interp native_functions
