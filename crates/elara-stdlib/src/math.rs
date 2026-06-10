@@ -27,6 +27,7 @@ pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "sqrt"), math_sqrt),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "tan"), math_tan),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "type"), math_type),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "ult"), math_ult),
 ];
 
 /// Lua 5.5-style xoshiro256** random state.
@@ -208,6 +209,12 @@ fn math_modf(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
         value - integer
     };
     Ok(vec![number_result(integer), Value::float(fraction)])
+}
+
+fn math_ult(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::boolean(
+        (integer_arg(args, 1)? as u64) < (integer_arg(args, 2)? as u64),
+    )])
 }
 
 fn math_min(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -430,6 +437,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "sqrt")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "tan")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "type")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "ult")));
     }
 
     #[test]

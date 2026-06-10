@@ -373,6 +373,16 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_math_ult() {
+        let profile = StdLibProfile::Custom([StdLib::Math].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(SourceId::new(0), "return math.ult(1, 2)", &profile),
+            Ok(vec![Value::boolean(true)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_assert() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 

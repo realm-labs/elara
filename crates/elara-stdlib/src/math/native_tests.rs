@@ -2,7 +2,7 @@ use elara_core::{LuaInteger, Value};
 
 use super::{
     LuaRandomState, math_cos, math_deg, math_exp, math_fmod, math_log, math_modf, math_rad,
-    math_sin, math_tan,
+    math_sin, math_tan, math_ult,
 };
 use crate::{NativeError, NativeRuntime};
 
@@ -105,5 +105,17 @@ fn math_modf_returns_integral_and_fractional_parts() {
     assert_eq!(
         call(math_modf, &[Value::float(-3.25)]),
         vec![Value::integer(-3), Value::float(-0.25)]
+    );
+}
+
+#[test]
+fn math_ult_compares_integer_bits_as_unsigned() {
+    assert_eq!(
+        call(math_ult, &[Value::integer(1), Value::integer(2)]),
+        vec![Value::boolean(true)]
+    );
+    assert_eq!(
+        call(math_ult, &[Value::integer(-1), Value::integer(1)]),
+        vec![Value::boolean(false)]
     );
 }

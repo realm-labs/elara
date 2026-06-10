@@ -461,6 +461,7 @@ pub const MATH_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Math, "sqrt"),
     FunctionSpec::new(StdLib::Math, "tan"),
     FunctionSpec::new(StdLib::Math, "type"),
+    FunctionSpec::new(StdLib::Math, "ult"),
 ];
 
 /// Essential string library function descriptors.
