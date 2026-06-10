@@ -33,6 +33,11 @@ pub(super) fn string_format(
             output.extend_from_slice(&format_string_arg(runtime, value));
             arg_index += 1;
             index += 2;
+        } else if format.get(index + 1) == Some(&b'q') {
+            let value = next_format_arg(args, arg_index)?;
+            output.extend_from_slice(&format_quoted_arg(runtime, value, arg_index + 1)?);
+            arg_index += 1;
+            index += 2;
         } else if let Some(spec @ (b'c' | b'd' | b'i' | b'u' | b'o' | b'x' | b'X')) =
             format.get(index + 1).copied()
         {
@@ -69,6 +74,68 @@ fn format_string_arg(runtime: &dyn NativeRuntime, value: Value) -> Vec<u8> {
     runtime
         .short_string_bytes(value)
         .map_or_else(|| tostring_bytes(value).into_bytes(), <[u8]>::to_vec)
+}
+
+fn format_quoted_arg(
+    runtime: &dyn NativeRuntime,
+    value: Value,
+    index: usize,
+) -> Result<Vec<u8>, NativeError> {
+    if let Some(bytes) = runtime.short_string_bytes(value) {
+        return Ok(quote_string(bytes));
+    }
+    if value.is_nil() || value.as_bool().is_some() {
+        return Ok(tostring_bytes(value).into_bytes());
+    }
+    if let Some(integer) = value.as_integer() {
+        if integer == LuaInteger::MIN {
+            return Ok(format!("0x{:x}", integer as u64).into_bytes());
+        }
+        return Ok(integer.to_string().into_bytes());
+    }
+    if let Some(float) = value.as_float() {
+        return Ok(format_float_literal(float).into_bytes());
+    }
+    Err(NativeErrorKind::TypeError {
+        index,
+        expected: "literal",
+    }
+    .into())
+}
+
+fn quote_string(bytes: &[u8]) -> Vec<u8> {
+    let mut output = Vec::with_capacity(bytes.len() + 2);
+    output.push(b'"');
+    for (index, byte) in bytes.iter().copied().enumerate() {
+        if matches!(byte, b'"' | b'\\' | b'\n') {
+            output.push(b'\\');
+            output.push(byte);
+        } else if byte.is_ascii_control() {
+            output.push(b'\\');
+            let next_is_digit = bytes.get(index + 1).is_some_and(u8::is_ascii_digit);
+            if next_is_digit {
+                output.extend_from_slice(format!("{byte:03}").as_bytes());
+            } else {
+                output.extend_from_slice(byte.to_string().as_bytes());
+            }
+        } else {
+            output.push(byte);
+        }
+    }
+    output.push(b'"');
+    output
+}
+
+fn format_float_literal(value: LuaFloat) -> String {
+    if value == LuaFloat::INFINITY {
+        "1e9999".to_owned()
+    } else if value == LuaFloat::NEG_INFINITY {
+        "-1e9999".to_owned()
+    } else if value.is_nan() {
+        "(0/0)".to_owned()
+    } else {
+        format!("{value:?}")
+    }
 }
 
 fn integer_format_arg(
@@ -275,6 +342,73 @@ mod tests {
         assert_eq!(
             runtime.short_string_bytes(values[0]),
             Some(b"A\0".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_format_formats_quoted_strings() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%q");
+        let value = runtime.push_string(b"a\"\\\n");
+
+        let values = string_format(&mut runtime, &[format, value]).expect("format should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"\"a\\\"\\\\\\\n\"".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_format_pads_quoted_control_bytes_before_digits() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%q");
+        let value = runtime.push_string(b"\x012");
+
+        let values = string_format(&mut runtime, &[format, value]).expect("format should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"\"\\0012\"".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_format_formats_quoted_scalar_literals() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%q:%q:%q:%q");
+
+        let values = string_format(
+            &mut runtime,
+            &[
+                format,
+                Value::nil(),
+                Value::boolean(true),
+                Value::integer(-7),
+                Value::float(1.5),
+            ],
+        )
+        .expect("format should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"nil:true:-7:1.5".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_format_reports_non_literal_quoted_argument() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%q");
+
+        assert_eq!(
+            string_format(&mut runtime, &[format, Value::closure_index(0)])
+                .expect_err("non-literal value should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "literal",
+            }
         );
     }
 
