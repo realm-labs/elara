@@ -694,6 +694,11 @@ mod tests {
         assert!(
             functions
                 .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::String, "char"))
+        );
+        assert!(
+            functions
+                .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::String, "len"))
         );
         assert!(

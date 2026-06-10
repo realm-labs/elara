@@ -9,6 +9,7 @@ use crate::{
 /// Executable string-library functions currently implemented.
 pub const STRING_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "byte"), string_byte),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "char"), string_char),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "len"), string_len),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "lower"), string_lower),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "rep"), string_rep),
@@ -49,6 +50,17 @@ fn string_byte(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
         .iter()
         .map(|byte| Value::integer(i64::from(*byte)))
         .collect())
+}
+
+fn string_char(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let mut bytes = Vec::with_capacity(args.len());
+    for index in 1..=args.len() {
+        let value = integer_arg(args, index)?;
+        let byte =
+            u8::try_from(value).map_err(|_| NativeErrorKind::ArgumentOutOfRange { index })?;
+        bytes.push(byte);
+    }
+    Ok(vec![runtime.intern_short_string(&bytes)?])
 }
 
 fn string_lower(
@@ -229,8 +241,8 @@ mod tests {
     use elara_core::Value;
 
     use super::{
-        STRING_NATIVE_FUNCTIONS, string_byte, string_len, string_lower, string_rep, string_reverse,
-        string_sub, string_upper,
+        STRING_NATIVE_FUNCTIONS, string_byte, string_char, string_len, string_lower, string_rep,
+        string_reverse, string_sub, string_upper,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -266,6 +278,7 @@ mod tests {
             .collect();
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "byte")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "char")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "len")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "lower")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "rep")));
@@ -332,6 +345,41 @@ mod tests {
             string_byte(&mut runtime, &[value, Value::integer(3), Value::integer(2)])
                 .expect("byte should pass"),
             Vec::<Value>::new()
+        );
+    }
+
+    #[test]
+    fn string_char_converts_integer_arguments_to_bytes() {
+        let mut runtime = TestRuntime::default();
+        let value = string_char(
+            &mut runtime,
+            &[Value::integer(65), Value::integer(0), Value::integer(67)],
+        )
+        .expect("char should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(value[0]),
+            Some(b"A\0C".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_char_allows_empty_argument_list() {
+        let mut runtime = TestRuntime::default();
+        let value = string_char(&mut runtime, &[]).expect("char should pass");
+
+        assert_eq!(runtime.short_string_bytes(value[0]), Some(b"".as_slice()));
+    }
+
+    #[test]
+    fn string_char_rejects_out_of_range_bytes() {
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            string_char(&mut runtime, &[Value::integer(256)])
+                .expect_err("out-of-range byte should fail")
+                .kind(),
+            &NativeErrorKind::ArgumentOutOfRange { index: 1 }
         );
     }
 
