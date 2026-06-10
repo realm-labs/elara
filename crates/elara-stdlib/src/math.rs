@@ -9,6 +9,8 @@ pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "abs"), math_abs),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "ceil"), math_ceil),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "floor"), math_floor),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "max"), math_max),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "min"), math_min),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "sqrt"), math_sqrt),
 ];
 
@@ -71,6 +73,14 @@ fn math_sqrt(args: &[Value]) -> Result<Vec<Value>, NativeError> {
     )])
 }
 
+fn math_min(args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    extrema_arg(args, Extrema::Min).map(|value| vec![value])
+}
+
+fn math_max(args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    extrema_arg(args, Extrema::Max).map(|value| vec![value])
+}
+
 fn number_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {
     let value = *args
         .get(index - 1)
@@ -90,11 +100,44 @@ fn number_result(value: LuaFloat) -> Value {
     float_to_integer_exact(value).map_or_else(|| Value::float(value), Value::integer)
 }
 
+#[derive(Clone, Copy)]
+enum Extrema {
+    Min,
+    Max,
+}
+
+fn extrema_arg(args: &[Value], extrema: Extrema) -> Result<Value, NativeError> {
+    if args.is_empty() {
+        return Err(NativeErrorKind::MissingArgument { index: 1 }.into());
+    }
+
+    let mut selected = number_arg(args, 1)?;
+    for index in 2..=args.len() {
+        let candidate = number_arg(args, index)?;
+        let candidate_float = candidate
+            .to_float()
+            .expect("number_arg accepted only numbers");
+        let selected_float = selected
+            .to_float()
+            .expect("number_arg accepted only numbers");
+        let replace = match extrema {
+            Extrema::Min => candidate_float < selected_float,
+            Extrema::Max => selected_float < candidate_float,
+        };
+        if replace {
+            selected = candidate;
+        }
+    }
+    Ok(selected)
+}
+
 #[cfg(test)]
 mod tests {
     use elara_core::{LuaInteger, Value};
 
-    use super::{MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_floor, math_sqrt};
+    use super::{
+        MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_floor, math_max, math_min, math_sqrt,
+    };
     use crate::{FunctionSpec, NativeErrorKind, StdLib};
 
     fn call(function: crate::NativeStdFunction, args: &[Value]) -> Vec<Value> {
@@ -111,6 +154,8 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "abs")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "ceil")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "floor")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "max")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "min")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "sqrt")));
     }
 
@@ -159,6 +204,24 @@ mod tests {
     }
 
     #[test]
+    fn math_min_and_max_return_selected_original_value() {
+        assert_eq!(
+            call(
+                math_min,
+                &[Value::integer(3), Value::float(1.5), Value::integer(2)]
+            ),
+            vec![Value::float(1.5)]
+        );
+        assert_eq!(
+            call(
+                math_max,
+                &[Value::float(3.5), Value::integer(7), Value::float(7.0)]
+            ),
+            vec![Value::integer(7)]
+        );
+    }
+
+    #[test]
     fn math_natives_report_argument_errors() {
         let error = math_abs(&[]).expect_err("missing argument should fail");
         assert_eq!(error.kind(), &NativeErrorKind::MissingArgument { index: 1 });
@@ -168,6 +231,16 @@ mod tests {
             error.kind(),
             &NativeErrorKind::TypeError {
                 index: 1,
+                expected: "number"
+            }
+        );
+
+        let error =
+            math_min(&[Value::integer(1), Value::nil()]).expect_err("non-number arg should fail");
+        assert_eq!(
+            error.kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
                 expected: "number"
             }
         );
