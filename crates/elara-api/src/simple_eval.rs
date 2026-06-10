@@ -388,6 +388,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_base_tostring() {
+        let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return tonumber(tostring(42))",
+                &profile,
+            ),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_len() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 

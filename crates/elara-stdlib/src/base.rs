@@ -15,6 +15,7 @@ pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawset"), base_rawset),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "select"), base_select),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "tonumber"), base_tonumber),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "tostring"), base_tostring),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "type"), base_type),
 ];
 
@@ -136,6 +137,20 @@ fn base_tonumber(
     ])
 }
 
+fn base_tostring(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    if runtime.short_string_bytes(value).is_some() {
+        return Ok(vec![value]);
+    }
+    let text = tostring_bytes(value);
+    Ok(vec![runtime.intern_short_string(text.as_bytes())?])
+}
+
 fn base_type(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let value = *args
         .first()
@@ -164,6 +179,26 @@ fn type_name(value: Value) -> &'static str {
         "function"
     } else {
         "unknown"
+    }
+}
+
+fn tostring_bytes(value: Value) -> String {
+    if value.is_nil() {
+        "nil".to_owned()
+    } else if let Some(value) = value.as_bool() {
+        value.to_string()
+    } else if let Some(value) = value.as_integer() {
+        value.to_string()
+    } else if let Some(value) = value.as_float() {
+        value.to_string()
+    } else if let Some(index) = value.as_table_index() {
+        format!("table: 0x{index:x}")
+    } else if let Some(index) = value.as_closure_index() {
+        format!("function: 0x{index:x}")
+    } else if let Some(index) = value.as_native_function_index() {
+        format!("function: 0x{index:x}")
+    } else {
+        format!("{}: 0x0", type_name(value))
     }
 }
 

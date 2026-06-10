@@ -2,7 +2,7 @@ use elara_core::Value;
 
 use super::{
     BASE_NATIVE_FUNCTIONS, base_assert, base_rawequal, base_rawget, base_rawlen, base_rawset,
-    base_select, base_tonumber, base_type,
+    base_select, base_tonumber, base_tostring, base_type,
 };
 use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -113,6 +113,7 @@ fn base_native_specs_cover_executable_subset() {
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawset")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "select")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "tonumber")));
+    assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "tostring")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "type")));
 }
 
@@ -351,6 +352,62 @@ fn base_tonumber_reports_base_errors() {
             .expect_err("base must be in range")
             .kind(),
         &NativeErrorKind::ArgumentOutOfRange { index: 2 }
+    );
+}
+
+#[test]
+fn base_tostring_returns_strings_unchanged() {
+    let mut runtime = TestRuntime::default();
+    let string = runtime.push_string(b"already");
+
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_tostring, &[string]),
+        vec![string]
+    );
+}
+
+#[test]
+fn base_tostring_formats_scalar_values() {
+    let mut runtime = TestRuntime::default();
+
+    let values = call_with_runtime(&mut runtime, base_tostring, &[Value::nil()]);
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"nil".as_slice())
+    );
+
+    let values = call_with_runtime(&mut runtime, base_tostring, &[Value::boolean(true)]);
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"true".as_slice())
+    );
+
+    let values = call_with_runtime(&mut runtime, base_tostring, &[Value::integer(-42)]);
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"-42".as_slice())
+    );
+}
+
+#[test]
+fn base_tostring_formats_table_and_function_identities() {
+    let mut runtime = TestRuntime::default();
+    let table = runtime.push_table(Vec::new());
+
+    let values = call_with_runtime(&mut runtime, base_tostring, &[table]);
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"table: 0x0".as_slice())
+    );
+
+    let values = call_with_runtime(
+        &mut runtime,
+        base_tostring,
+        &[Value::native_function_index(3)],
+    );
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"function: 0x3".as_slice())
     );
 }
 
