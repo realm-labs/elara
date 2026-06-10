@@ -10,6 +10,7 @@ use crate::{
 pub const STRING_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "len"), string_len),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "lower"), string_lower),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "rep"), string_rep),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "reverse"), string_reverse),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "upper"), string_upper),
 ];
@@ -59,6 +60,55 @@ fn string_reverse(
     Ok(vec![runtime.intern_short_string(&reversed)?])
 }
 
+fn string_rep(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let bytes = string_arg(runtime, value, 1)?.to_vec();
+    let count = args
+        .get(1)
+        .ok_or(NativeErrorKind::MissingArgument { index: 2 })?
+        .as_integer()
+        .ok_or(NativeErrorKind::TypeError {
+            index: 2,
+            expected: "integer",
+        })?;
+    let separator = match args.get(2) {
+        Some(value) => string_arg(runtime, *value, 3)?.to_vec(),
+        None => Vec::new(),
+    };
+
+    if count <= 0 {
+        return Ok(vec![runtime.intern_short_string(b"")?]);
+    }
+
+    let count = usize::try_from(count).map_err(|_| string_result_too_large())?;
+    let repeated_len = bytes
+        .len()
+        .checked_add(separator.len())
+        .ok_or_else(string_result_too_large)?;
+    let total_len = count
+        .checked_mul(repeated_len)
+        .and_then(|len| len.checked_sub(separator.len()))
+        .ok_or_else(string_result_too_large)?;
+
+    let mut output = Vec::with_capacity(total_len);
+    for index in 0..count {
+        if index > 0 {
+            output.extend_from_slice(&separator);
+        }
+        output.extend_from_slice(&bytes);
+    }
+    Ok(vec![runtime.intern_short_string(&output)?])
+}
+
+fn string_result_too_large() -> NativeError {
+    NativeErrorKind::RuntimeError {
+        message: "resulting string too large".into(),
+    }
+    .into()
+}
+
 fn string_arg(
     runtime: &dyn NativeRuntime,
     value: Value,
@@ -77,7 +127,9 @@ fn string_arg(
 mod tests {
     use elara_core::Value;
 
-    use super::{STRING_NATIVE_FUNCTIONS, string_len, string_lower, string_reverse, string_upper};
+    use super::{
+        STRING_NATIVE_FUNCTIONS, string_len, string_lower, string_rep, string_reverse, string_upper,
+    };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
     #[derive(Default)]
@@ -113,6 +165,7 @@ mod tests {
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "len")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "lower")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "rep")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "reverse")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "upper")));
     }
@@ -170,6 +223,49 @@ mod tests {
         assert_eq!(
             runtime.short_string_bytes(reversed[0]),
             Some(b"cb\0a".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_rep_repeats_with_optional_separator() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"ab");
+        let separator = runtime.push_string(b",");
+        let repeated = string_rep(&mut runtime, &[value, Value::integer(3), separator])
+            .expect("rep should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(repeated[0]),
+            Some(b"ab,ab,ab".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_rep_non_positive_count_returns_empty_string() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"ab");
+        let repeated =
+            string_rep(&mut runtime, &[value, Value::integer(0)]).expect("rep should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(repeated[0]),
+            Some(b"".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_rep_requires_integer_count() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"ab");
+
+        assert_eq!(
+            string_rep(&mut runtime, &[value, Value::float(2.5)])
+                .expect_err("float count should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "integer"
+            }
         );
     }
 }
