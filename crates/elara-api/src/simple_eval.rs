@@ -636,7 +636,7 @@ mod tests {
         assert_eq!(
             eval_simple_source_with_stdlib(
                 SourceId::new(0),
-                "return string.len(string.format('a%%b'))",
+                "return string.len(string.format('%s%%', 'ab'))",
                 &profile,
             ),
             Ok(vec![Value::integer(3)])

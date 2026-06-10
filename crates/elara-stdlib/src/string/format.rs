@@ -20,12 +20,22 @@ pub(super) fn string_format(
     .to_vec();
     let mut output = Vec::with_capacity(format.len());
     let mut index = 0;
+    let mut arg_index = 1;
     while index < format.len() {
         if format[index] != b'%' {
             output.push(format[index]);
             index += 1;
         } else if format.get(index + 1) == Some(&b'%') {
             output.push(b'%');
+            index += 2;
+        } else if format.get(index + 1) == Some(&b's') {
+            let value = *args
+                .get(arg_index)
+                .ok_or(NativeErrorKind::MissingArgument {
+                    index: arg_index + 1,
+                })?;
+            output.extend_from_slice(&format_string_arg(runtime, value));
+            arg_index += 1;
             index += 2;
         } else {
             return Err(NativeErrorKind::RuntimeError {
@@ -36,6 +46,32 @@ pub(super) fn string_format(
     }
 
     Ok(vec![runtime.intern_short_string(&output)?])
+}
+
+fn format_string_arg(runtime: &dyn NativeRuntime, value: Value) -> Vec<u8> {
+    runtime
+        .short_string_bytes(value)
+        .map_or_else(|| tostring_bytes(value).into_bytes(), <[u8]>::to_vec)
+}
+
+fn tostring_bytes(value: Value) -> String {
+    if value.is_nil() {
+        "nil".to_owned()
+    } else if let Some(value) = value.as_bool() {
+        value.to_string()
+    } else if let Some(value) = value.as_integer() {
+        value.to_string()
+    } else if let Some(value) = value.as_float() {
+        value.to_string()
+    } else if let Some(index) = value.as_table_index() {
+        format!("table: 0x{index:x}")
+    } else if let Some(index) = value.as_closure_index() {
+        format!("function: 0x{index:x}")
+    } else if let Some(index) = value.as_native_function_index() {
+        format!("function: 0x{index:x}")
+    } else {
+        "unknown: 0x0".to_owned()
+    }
 }
 
 #[cfg(test)]
@@ -96,9 +132,40 @@ mod tests {
     }
 
     #[test]
-    fn string_format_reports_conversion_gap() {
+    fn string_format_formats_basic_string_conversions() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%s:%s:%s");
+        let label = runtime.push_string(b"value");
+
+        let values = string_format(
+            &mut runtime,
+            &[format, label, Value::integer(7), Value::boolean(true)],
+        )
+        .expect("format should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"value:7:true".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_format_reports_missing_string_conversion_argument() {
         let mut runtime = TestRuntime::default();
         let format = runtime.push_string(b"%s");
+
+        assert_eq!(
+            string_format(&mut runtime, &[format])
+                .expect_err("missing conversion argument should fail")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 2 }
+        );
+    }
+
+    #[test]
+    fn string_format_reports_conversion_gap() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%d");
 
         assert_eq!(
             string_format(&mut runtime, &[format])
