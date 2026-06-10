@@ -11,6 +11,7 @@ use std::collections::BTreeSet;
 mod base;
 mod math;
 mod native;
+mod string;
 
 pub use base::BASE_NATIVE_FUNCTIONS;
 pub use math::MATH_NATIVE_FUNCTIONS;
@@ -18,6 +19,7 @@ pub use native::{
     NativeError, NativeErrorKind, NativeFunctionSpec, NativeResult, NativeRuntime,
     NativeStdFunction,
 };
+pub use string::STRING_NATIVE_FUNCTIONS;
 
 /// One standard-library module that can register itself into a target runtime.
 pub trait Library<Target> {
@@ -473,6 +475,7 @@ pub const fn native_functions(library: StdLib) -> &'static [NativeFunctionSpec] 
     match library {
         StdLib::Base => BASE_NATIVE_FUNCTIONS,
         StdLib::Math => MATH_NATIVE_FUNCTIONS,
+        StdLib::String => STRING_NATIVE_FUNCTIONS,
         _ => &[],
     }
 }
@@ -676,6 +679,17 @@ mod tests {
             functions
                 .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Base, "assert"))
+        );
+    }
+
+    #[test]
+    fn string_native_functions_are_discoverable() {
+        let functions = native_functions(StdLib::String);
+
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::String, "len"))
         );
     }
 }
