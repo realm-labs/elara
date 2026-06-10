@@ -61,17 +61,45 @@ impl RuntimeEnvironment {
     /// Registers one native function and returns its runtime index.
     pub fn push_native<F>(&mut self, function: F) -> u32
     where
-        F: Fn(&[Value]) -> super::RuntimeResult<Vec<Value>> + Send + Sync + 'static,
+        F: for<'a> Fn(&mut super::NativeContext<'a>, &[Value]) -> super::RuntimeResult<Vec<Value>>
+            + Send
+            + Sync
+            + 'static,
     {
         self.natives.push(function)
+    }
+
+    /// Registers one arg-only native function and returns its runtime index.
+    pub fn push_simple_native<F>(&mut self, function: F) -> u32
+    where
+        F: Fn(&[Value]) -> super::RuntimeResult<Vec<Value>> + Send + Sync + 'static,
+    {
+        self.natives.push_simple(function)
     }
 
     /// Registers one native function as a callable global and returns its index.
     pub fn register_native_global<F>(&mut self, name: impl Into<Box<str>>, function: F) -> u32
     where
-        F: Fn(&[Value]) -> super::RuntimeResult<Vec<Value>> + Send + Sync + 'static,
+        F: for<'a> Fn(&mut super::NativeContext<'a>, &[Value]) -> super::RuntimeResult<Vec<Value>>
+            + Send
+            + Sync
+            + 'static,
     {
         let index = self.push_native(function);
+        self.set_global(name, Value::native_function_index(index));
+        index
+    }
+
+    /// Registers one arg-only native function as a callable global.
+    pub fn register_simple_native_global<F>(
+        &mut self,
+        name: impl Into<Box<str>>,
+        function: F,
+    ) -> u32
+    where
+        F: Fn(&[Value]) -> super::RuntimeResult<Vec<Value>> + Send + Sync + 'static,
+    {
+        let index = self.push_simple_native(function);
         self.set_global(name, Value::native_function_index(index));
         index
     }

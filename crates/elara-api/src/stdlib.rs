@@ -35,7 +35,7 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
     if library == StdLib::Base {
         for spec in functions {
             let function = spec.function();
-            environment.register_native_global(spec.descriptor().name(), move |args| {
+            environment.register_simple_native_global(spec.descriptor().name(), move |args| {
                 function(args).map_err(native_error_to_runtime_error)
             });
         }
@@ -46,8 +46,9 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
         .iter()
         .map(|spec| {
             let function = spec.function();
-            let index = environment
-                .push_native(move |args| function(args).map_err(native_error_to_runtime_error));
+            let index = environment.push_simple_native(move |args| {
+                function(args).map_err(native_error_to_runtime_error)
+            });
             (
                 spec.descriptor().name(),
                 Value::native_function_index(index),

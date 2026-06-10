@@ -83,7 +83,7 @@ fn arithmetic_executes_unary_minus() {
 #[test]
 fn native_functions_execute_call() {
     let mut natives = RuntimeNatives::new();
-    let native = natives.push(native_add);
+    let native = natives.push_simple(native_add);
 
     let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
     let callee = builder.add_constant(Value::native_function_index(native));
@@ -122,7 +122,7 @@ fn native_functions_reject_missing_registry_entry() {
 #[test]
 fn native_functions_register_as_initial_globals() {
     let mut environment = RuntimeEnvironment::new();
-    environment.register_native_global("add", native_add);
+    environment.register_simple_native_global("add", native_add);
 
     let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
     let name = builder.add_string_constant("add");
@@ -143,7 +143,7 @@ fn native_functions_register_as_initial_globals() {
 fn native_functions_can_capture_host_state() {
     let mut natives = RuntimeNatives::new();
     let offset = 5;
-    let native = natives.push(move |args: &[Value]| {
+    let native = natives.push_simple(move |args: &[Value]| {
         let mut values = native_add(args)?;
         values[0] = Value::integer(
             values[0]
@@ -172,7 +172,7 @@ fn native_functions_can_capture_host_state() {
 #[test]
 fn native_functions_register_inside_initial_global_tables() {
     let mut environment = RuntimeEnvironment::new();
-    let native = environment.push_native(native_add);
+    let native = environment.push_simple_native(native_add);
     environment.set_global_table("math", [("add", Value::native_function_index(native))]);
 
     let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
@@ -191,6 +191,28 @@ fn native_functions_register_inside_initial_global_tables() {
     let output = execute_proto_with_environment(&builder.finish(), environment)
         .expect("registered native table field should execute");
     assert_eq!(output.values, vec![Value::integer(42)]);
+}
+
+#[test]
+fn native_functions_can_allocate_runtime_strings() {
+    let mut environment = RuntimeEnvironment::new();
+    environment.register_native_global("label", |context, _args| {
+        Ok(vec![context.intern_short_string("ok")?])
+    });
+
+    let mut builder = ProtoBuilder::new().with_signature(1, 0, false);
+    let name = builder.add_string_constant("label");
+    builder.emit_abx(Op::GetEnv, 0, u64::from(name));
+    builder.emit_abc(Op::Call, 0, 1, 1);
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    let mut output = execute_proto_with_environment(&builder.finish(), environment)
+        .expect("native string allocation should execute");
+    let value = output.values.pop().expect("native should return a value");
+    assert_eq!(
+        output.strings.short_string_bytes(value),
+        Some(b"ok".as_slice())
+    );
 }
 
 #[test]

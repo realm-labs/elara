@@ -45,7 +45,32 @@ pub struct RuntimeOutput {
 }
 
 /// Native function callable by primitive execution.
-pub type NativeFunction = dyn Fn(&[Value]) -> RuntimeResult<Vec<Value>> + Send + Sync + 'static;
+pub type NativeFunction = dyn for<'a> Fn(&mut NativeContext<'a>, &[Value]) -> RuntimeResult<Vec<Value>>
+    + Send
+    + Sync
+    + 'static;
+
+/// Runtime services available to native functions during a call.
+pub struct NativeContext<'a> {
+    strings: &'a mut RuntimeStrings,
+}
+
+impl<'a> NativeContext<'a> {
+    /// Interns a short string in the current runtime and returns it as a Lua value.
+    pub fn intern_short_string(&mut self, bytes: impl AsRef<[u8]>) -> RuntimeResult<Value> {
+        let bytes = bytes.as_ref();
+        if bytes.len() > SHORT_STRING_MAX_BYTES {
+            return Err(RuntimeErrorKind::StringConcatTooLong.into());
+        }
+        Ok(self.strings.intern_short_value(bytes))
+    }
+
+    /// Returns bytes for a short string owned by this runtime.
+    #[must_use]
+    pub fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
+        self.strings.short_string_bytes(value)
+    }
+}
 
 /// Runtime-owned native function registry.
 #[derive(Clone, Default)]
@@ -65,12 +90,23 @@ impl RuntimeNatives {
     /// Registers one native function and returns its runtime index.
     pub fn push<F>(&mut self, function: F) -> u32
     where
-        F: Fn(&[Value]) -> RuntimeResult<Vec<Value>> + Send + Sync + 'static,
+        F: for<'a> Fn(&mut NativeContext<'a>, &[Value]) -> RuntimeResult<Vec<Value>>
+            + Send
+            + Sync
+            + 'static,
     {
         let index =
             u32::try_from(self.functions.len()).expect("native function index must fit in u32");
         self.functions.push(Arc::new(function));
         index
+    }
+
+    /// Registers an arg-only native function and returns its runtime index.
+    pub fn push_simple<F>(&mut self, function: F) -> u32
+    where
+        F: Fn(&[Value]) -> RuntimeResult<Vec<Value>> + Send + Sync + 'static,
+    {
+        self.push(move |_context, args| function(args))
     }
 
     fn get(&self, index: usize) -> Option<&NativeFunction> {
@@ -1270,7 +1306,10 @@ fn call_function(
                     index: native_index,
                 },
             )?;
-            function(&args)
+            let mut native_context = NativeContext {
+                strings: context.strings,
+            };
+            function(&mut native_context, &args)
         }
     }
 }
