@@ -105,8 +105,8 @@ and the API bridge adapts it to the interpreter context without making stdlib
 depend on interpreter internals. Remaining executable base, table, math, and
 string functions, broader API surface, JIT, C API, conformance, and benchmark
 implementation work remain. String natives `string.byte`, `string.char`,
-literal-search `string.find`, basic `%s`, `%c`, `%q`, `%f`, `%e`, `%E`, `%g`,
-`%G`, integer-family, and escaped-percent `string.format`, literal
+literal-search `string.find`, basic `%s`, `%c`, `%q`, `%p`, `%f`, `%e`, `%E`,
+`%g`, `%G`, integer-family, and escaped-percent `string.format`, literal
 string-replacement `string.gsub`, `string.match`, `string.len`, `string.lower`,
 `string.upper`, `string.reverse`, `string.rep`, and `string.sub` are executable
 and covered through stdlib-backed API evaluation.
@@ -211,7 +211,7 @@ Completed:
   - M11.2 executable string.byte native spec.
   - M11.2 executable string.char native spec.
   - M11.2 executable literal-search string.find native spec.
-  - M11.2 executable basic `%s`, `%c`, `%q`, `%f`, `%e`, `%E`, `%g`, `%G`, integer-family, and escaped-percent string.format native spec.
+  - M11.2 executable basic `%s`, `%c`, `%q`, `%p`, `%f`, `%e`, `%E`, `%g`, `%G`, integer-family, and escaped-percent string.format native spec.
   - M11.2 executable literal string-replacement string.gsub native spec.
   - M11.2 executable literal-search string.match native spec.
   - M11.2 executable string.len native spec.
@@ -761,7 +761,7 @@ Delivered:
 - Add runtime callback support for custom `table.sort` comparators.
 - Add full string pattern matching for `string.find`, `string.match`,
   `string.gmatch`, and `string.gsub`.
-- Add remaining hex float, pointer, width, precision, and flag handling for
+- Add remaining hex float, width, precision, and flag handling for
   `string.format`.
 
 ### Product Gaps
@@ -787,7 +787,7 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable basic `%g`/`%G` string.format verification passed:
+M11.2 executable basic `%p` string.format verification passed:
 
 ```bash
 cargo fmt --all

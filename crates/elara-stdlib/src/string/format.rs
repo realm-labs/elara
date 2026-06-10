@@ -38,6 +38,11 @@ pub(super) fn string_format(
             output.extend_from_slice(&format_quoted_arg(runtime, value, arg_index + 1)?);
             arg_index += 1;
             index += 2;
+        } else if format.get(index + 1) == Some(&b'p') {
+            let value = next_format_arg(args, arg_index)?;
+            output.extend_from_slice(format_pointer_arg(runtime, value).as_bytes());
+            arg_index += 1;
+            index += 2;
         } else if let Some(spec @ (b'e' | b'E' | b'f' | b'g' | b'G')) =
             format.get(index + 1).copied()
         {
@@ -109,6 +114,32 @@ fn format_quoted_arg(
         expected: "literal",
     }
     .into())
+}
+
+fn format_pointer_arg(runtime: &dyn NativeRuntime, value: Value) -> String {
+    if value.is_nil() || value.as_bool().is_some() || value.is_number() {
+        return "(null)".to_owned();
+    }
+    if let Some(index) = value.as_table_index() {
+        return pseudo_pointer(index);
+    }
+    if let Some(index) = value.as_closure_index() {
+        return pseudo_pointer(index);
+    }
+    if let Some(index) = value.as_native_function_index() {
+        return pseudo_pointer(index);
+    }
+    if runtime.short_string_bytes(value).is_some()
+        || value.as_short_string().is_some()
+        || value.as_long_string().is_some()
+    {
+        return "0x1".to_owned();
+    }
+    "(null)".to_owned()
+}
+
+fn pseudo_pointer(index: u32) -> String {
+    format!("0x{:x}", u64::from(index) + 1)
 }
 
 fn quote_string(bytes: &[u8]) -> Vec<u8> {
@@ -521,6 +552,50 @@ mod tests {
                 b"7.000000:1.500000:2.250000:1.250000e+01:1.250000E+01:12.5:1.25e-05:1.2E+06"
                     .as_slice()
             )
+        );
+    }
+
+    #[test]
+    fn string_format_formats_basic_pointer_conversion() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%p:%p:%p");
+
+        let values = string_format(
+            &mut runtime,
+            &[
+                format,
+                Value::table_index(0),
+                Value::closure_index(3),
+                Value::native_function_index(4),
+            ],
+        )
+        .expect("format should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"0x1:0x4:0x5".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_format_formats_null_pointer_for_scalar_values() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%p:%p:%p");
+
+        let values = string_format(
+            &mut runtime,
+            &[
+                format,
+                Value::nil(),
+                Value::boolean(false),
+                Value::integer(7),
+            ],
+        )
+        .expect("format should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"(null):(null):(null)".as_slice())
         );
     }
 
