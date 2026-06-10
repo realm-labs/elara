@@ -1,51 +1,32 @@
 # Elara Codex Goal
 
-Status: Draft 5
-Purpose: keep the reusable `/goal` prompt small enough for long-running Codex
-work while preserving the project rules by reference.
+Status: Draft 6
+Purpose: keep the reusable `/goal` prompt minimal. Detailed project rules live
+in the referenced docs and must be read on demand.
 
 ## Prompt To Paste
 
 ```text
-/goal Continue Elara by following docs/CODEX_GOAL.md until every milestone in
-docs/MILESTONES.md is complete.
+/goal Continue Elara from docs/PROGRESS.md. Follow docs/CODEX_GOAL.md by
+reference until every milestone in docs/MILESTONES.md is complete.
 ```
 
-## Reference Reading
+## Operating Contract
 
-Do not paste the full project rules into the `/goal` prompt. Use these files as
-references and read only what is needed for the current step:
+Do not expand the `/goal` prompt with the full project plan. For each work
+cycle, read only the relevant parts of these references:
 
 - `docs/PROGRESS.md`: current milestone, next incomplete step, known gaps, last
   verification.
-- `docs/MILESTONES.md`: only the section for the current milestone and step.
-- `docs/ARCHITECTURE.md`: only the boundaries and invariants touched by the
-  current change.
-- `~/Downloads/lua-lua-a5522f0`: local official Lua source for actual Lua 5.5
-  behavior and implementation details.
+- `docs/MILESTONES.md`: current milestone step plan.
+- `docs/ARCHITECTURE.md`: boundaries and invariants touched by the change.
+- `~/Downloads/lua-lua-a5522f0`: official Lua 5.5 source for behavior.
 
-## Step Loop
+Implement one small, verifiable unit at a time. Add focused tests, run the
+narrowest meaningful verification plus formatting, update `docs/PROGRESS.md` as
+rolling status, and commit each completed unit with a conventional commit
+message.
 
-For each unit of work:
-
-1. Read `docs/PROGRESS.md` to find the current milestone and next incomplete
-   step.
-2. Read only the relevant `docs/MILESTONES.md` step and touched
-   `docs/ARCHITECTURE.md` boundaries.
-3. Check the matching official Lua source under `~/Downloads/lua-lua-a5522f0`
-   when implementing Lua behavior.
-4. Implement one verifiable step, or a smaller reviewable sub-step.
-5. Add or update focused tests.
-6. Run formatting and the narrowest meaningful verification.
-7. Update `docs/PROGRESS.md` as rolling status, not a changelog.
-8. Commit with a conventional commit message.
-9. Continue until all milestones are complete, the user asks to stop, or a
-   genuine blocker appears.
-
-## Rules
-
-- Preserve the documented architecture and layering.
-- Do not add old-Lua compatibility flags unless `docs/ARCHITECTURE.md` is
-  revised first.
-- Do not mark the `/goal` complete until every milestone is done.
-- If referenced docs conflict, stop and report the conflict explicitly.
+Continue across commits and milestones until all milestones are complete, the
+user asks to stop, or a genuine blocker appears. Do not mark the `/goal`
+complete earlier.
