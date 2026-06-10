@@ -4,6 +4,7 @@ use elara_core::{LuaFloat, Value, float_to_integer_exact};
 
 use crate::{
     FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
+    number::parse_standard_number,
 };
 
 const PI: LuaFloat = std::f64::consts::PI;
@@ -29,6 +30,7 @@ pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "sin"), math_sin),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "sqrt"), math_sqrt),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "tan"), math_tan),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "tointeger"), math_tointeger),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "type"), math_type),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "ult"), math_ult),
 ];
@@ -293,6 +295,20 @@ fn math_type(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
     Ok(vec![result])
 }
 
+fn math_tointeger(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    if let Some(integer) = to_integer(runtime, value) {
+        Ok(vec![Value::integer(integer)])
+    } else {
+        Ok(vec![Value::nil()])
+    }
+}
+
 fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
     args.get(index - 1)
         .ok_or(NativeErrorKind::MissingArgument { index })?
@@ -338,6 +354,15 @@ fn number_value_to_float(value: Value, index: usize) -> Result<LuaFloat, NativeE
 
 fn number_result(value: LuaFloat) -> Value {
     float_to_integer_exact(value).map_or_else(|| Value::float(value), Value::integer)
+}
+
+fn to_integer(runtime: &dyn NativeRuntime, value: Value) -> Option<i64> {
+    value.to_integer_exact().or_else(|| {
+        runtime
+            .short_string_bytes(value)
+            .and_then(parse_standard_number)
+            .and_then(Value::to_integer_exact)
+    })
 }
 
 fn random_float(value: u64) -> LuaFloat {
@@ -405,7 +430,7 @@ mod tests {
 
     use super::{
         LuaRandomState, MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_floor, math_max, math_min,
-        math_random, math_sqrt, math_type,
+        math_random, math_sqrt, math_tointeger, math_type,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -462,6 +487,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "sin")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "sqrt")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "tan")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "tointeger")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "type")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "ult")));
     }
@@ -623,6 +649,48 @@ mod tests {
         assert_eq!(
             call(math_type, &[Value::boolean(false)]),
             vec![Value::nil()]
+        );
+    }
+
+    #[test]
+    fn math_tointeger_accepts_integral_numbers_and_strings() {
+        let mut runtime = TestRuntime::default();
+        let string = runtime
+            .intern_short_string(b"  7.0  ")
+            .expect("test string should intern");
+
+        assert_eq!(
+            math_tointeger(&mut runtime, &[Value::integer(7)]),
+            Ok(vec![Value::integer(7)])
+        );
+        assert_eq!(
+            math_tointeger(&mut runtime, &[Value::float(7.0)]),
+            Ok(vec![Value::integer(7)])
+        );
+        assert_eq!(
+            math_tointeger(&mut runtime, &[string]),
+            Ok(vec![Value::integer(7)])
+        );
+    }
+
+    #[test]
+    fn math_tointeger_returns_nil_for_non_integral_or_non_numeric_values() {
+        let mut runtime = TestRuntime::default();
+        let string = runtime
+            .intern_short_string(b"7.5")
+            .expect("test string should intern");
+
+        assert_eq!(
+            math_tointeger(&mut runtime, &[Value::float(7.5)]),
+            Ok(vec![Value::nil()])
+        );
+        assert_eq!(
+            math_tointeger(&mut runtime, &[string]),
+            Ok(vec![Value::nil()])
+        );
+        assert_eq!(
+            math_tointeger(&mut runtime, &[Value::boolean(false)]),
+            Ok(vec![Value::nil()])
         );
     }
 }

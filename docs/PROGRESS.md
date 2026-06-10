@@ -1,7 +1,7 @@
 # Elara Progress
 
 Status: Rolling current-state document  
-Last updated: 2026-06-10
+Last updated: 2026-06-11
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M11 Standard Library MVP
 Current step: M11.2 Implement base, table, math, and string essentials
@@ -85,7 +85,8 @@ generic global registration adapters, and contains descriptor-based essential
 base, table, math, and string library entries. The stdlib crate also exposes
 executable native specs for the currently implemented math functions `abs`,
 `acos`, `asin`, `atan`, `ceil`, `cos`, `deg`, `exp`, `floor`, `fmod`, `log`,
-`max`, `min`, `modf`, `rad`, `random`, `sin`, `sqrt`, `tan`, `type`, and `ult`.
+`max`, `min`, `modf`, `rad`, `random`, `sin`, `sqrt`, `tan`, `tointeger`,
+`type`, and `ult`.
 The API layer can build a primitive `RuntimeEnvironment` from implemented
 stdlib native specs, including shared math RNG state, and simple source
 evaluation can run with a selected stdlib profile for supported native paths.
@@ -170,6 +171,7 @@ Completed:
   - M11.2 executable math exp and log native specs.
   - M11.2 executable math fmod and modf native specs.
   - M11.2 executable math ult native spec.
+  - M11.2 executable math.tointeger native spec.
   - M11.2 primitive runtime environment seeding for native globals.
   - M11.2 closure-backed runtime native registry entries.
   - M11.2 primitive runtime environment seeding for table-valued globals.
@@ -771,16 +773,16 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable math inverse trig verification passed:
+M11.2 executable math.tointeger verification passed:
 
 ```bash
+cargo fmt --all
 cargo test -p elara-stdlib math
+cargo test -p elara-stdlib base
 cargo test -p elara-api eval_simple_with_stdlib
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
-
-`cargo fmt --all` completed successfully.
 
 ## Next Recommended Action
 

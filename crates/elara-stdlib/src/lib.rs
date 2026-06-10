@@ -11,6 +11,7 @@ use std::collections::BTreeSet;
 mod base;
 mod math;
 mod native;
+mod number;
 mod string;
 mod table;
 
@@ -463,6 +464,7 @@ pub const MATH_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Math, "sin"),
     FunctionSpec::new(StdLib::Math, "sqrt"),
     FunctionSpec::new(StdLib::Math, "tan"),
+    FunctionSpec::new(StdLib::Math, "tointeger"),
     FunctionSpec::new(StdLib::Math, "type"),
     FunctionSpec::new(StdLib::Math, "ult"),
 ];

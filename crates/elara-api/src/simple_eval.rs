@@ -397,6 +397,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_math_tointeger() {
+        let profile = StdLibProfile::Custom([StdLib::Math].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return math.tointeger(7.0), math.tointeger(7.5)",
+                &profile,
+            ),
+            Ok(vec![Value::integer(7), Value::nil()])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_assert() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 
