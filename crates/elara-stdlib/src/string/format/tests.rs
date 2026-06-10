@@ -72,6 +72,53 @@ fn string_format_formats_basic_string_conversions() {
 }
 
 #[test]
+fn string_format_formats_modified_string_conversions() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%5s:%-5s:%.3s:%5.2s");
+    let text = runtime.push_string(b"abcd");
+
+    let values =
+        string_format(&mut runtime, &[format, text, text, text, text]).expect("format should pass");
+
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b" abcd:abcd :abc:   ab".as_slice())
+    );
+}
+
+#[test]
+fn string_format_rejects_zero_bytes_in_modified_string_conversion() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%5s");
+    let text = runtime.push_string(b"a\0b");
+
+    assert_eq!(
+        string_format(&mut runtime, &[format, text])
+            .expect_err("modified string conversion should reject zeros")
+            .kind(),
+        &NativeErrorKind::RuntimeError {
+            message: "string contains zeros".into(),
+        }
+    );
+}
+
+#[test]
+fn string_format_reports_invalid_string_conversion_specification() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%05s");
+    let text = runtime.push_string(b"ab");
+
+    assert_eq!(
+        string_format(&mut runtime, &[format, text])
+            .expect_err("invalid string conversion should fail")
+            .kind(),
+        &NativeErrorKind::RuntimeError {
+            message: "invalid conversion specification".into(),
+        }
+    );
+}
+
+#[test]
 fn string_format_formats_basic_integer_conversions() {
     let mut runtime = TestRuntime::default();
     let format = runtime.push_string(b"%d:%i:%d:%i:%u:%o:%x:%X");

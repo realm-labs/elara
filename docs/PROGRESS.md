@@ -105,11 +105,12 @@ and the API bridge adapts it to the interpreter context without making stdlib
 depend on interpreter internals. Remaining executable base, table, math, and
 string functions, broader API surface, JIT, C API, conformance, and benchmark
 implementation work remain. String natives `string.byte`, `string.char`,
-literal-search `string.find`, basic `%s`, `%c`, `%q`, `%p`, `%f`, `%e`, `%E`,
-`%g`, `%G`, integer-family, and escaped-percent `string.format`, literal
-string-replacement `string.gsub`, `string.match`, `string.len`, `string.lower`,
-`string.upper`, `string.reverse`, `string.rep`, and `string.sub` are executable
-and covered through stdlib-backed API evaluation.
+literal-search `string.find`, basic `%s` with width/precision modifiers, `%c`,
+`%q`, `%p`, `%f`, `%e`, `%E`, `%g`, `%G`, integer-family, and escaped-percent
+`string.format`, literal string-replacement `string.gsub`, `string.match`,
+`string.len`, `string.lower`, `string.upper`, `string.reverse`, `string.rep`,
+and `string.sub` are executable and covered through stdlib-backed API
+evaluation.
 Table natives `table.concat`, `table.insert`, `table.move`, `table.pack`,
 `table.remove`, default-comparator `table.sort`, and `table.unpack` are
 executable and covered through stdlib-backed API evaluation.
@@ -213,6 +214,7 @@ Completed:
   - M11.2 executable literal-search string.find native spec.
   - M11.2 executable basic `%s`, `%c`, `%q`, `%p`, `%f`, `%e`, `%E`, `%g`, `%G`, integer-family, and escaped-percent string.format native spec.
   - M11.2 split string.format tests into a focused sibling module.
+  - M11.2 executable string.format `%s` width/precision modifiers.
   - M11.2 executable literal string-replacement string.gsub native spec.
   - M11.2 executable literal-search string.match native spec.
   - M11.2 executable string.len native spec.
@@ -762,8 +764,8 @@ Delivered:
 - Add runtime callback support for custom `table.sort` comparators.
 - Add full string pattern matching for `string.find`, `string.match`,
   `string.gmatch`, and `string.gsub`.
-- Add remaining hex float, width, precision, and flag handling for
-  `string.format`.
+- Add remaining hex float plus non-string width, precision, and flag handling
+  for `string.format`.
 
 ### Product Gaps
 
@@ -788,12 +790,14 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 string.format test module split verification passed:
+M11.2 executable string.format `%s` width/precision verification passed:
 
 ```bash
 cargo fmt --all
 cargo test -p elara-stdlib string
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
+cargo test -p elara-api eval_simple_with_stdlib
+cargo clippy -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action

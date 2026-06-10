@@ -28,11 +28,11 @@ pub(super) fn string_format(
         } else if format.get(index + 1) == Some(&b'%') {
             output.push(b'%');
             index += 2;
-        } else if format.get(index + 1) == Some(&b's') {
+        } else if let Some((spec, next_index)) = parse_string_spec(&format, index + 1)? {
             let value = next_format_arg(args, arg_index)?;
-            output.extend_from_slice(&format_string_arg(runtime, value));
+            output.extend_from_slice(&format_string_arg(runtime, value, &spec)?);
             arg_index += 1;
-            index += 2;
+            index = next_index;
         } else if format.get(index + 1) == Some(&b'q') {
             let value = next_format_arg(args, arg_index)?;
             output.extend_from_slice(&format_quoted_arg(runtime, value, arg_index + 1)?);
@@ -74,6 +74,25 @@ pub(super) fn string_format(
     Ok(vec![runtime.intern_short_string(&output)?])
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct StringFormatSpec {
+    left_adjust: bool,
+    width: Option<usize>,
+    precision: Option<usize>,
+}
+
+impl StringFormatSpec {
+    const PLAIN: Self = Self {
+        left_adjust: false,
+        width: None,
+        precision: None,
+    };
+
+    const fn has_modifiers(self) -> bool {
+        self.left_adjust || self.width.is_some() || self.precision.is_some()
+    }
+}
+
 fn next_format_arg(args: &[Value], arg_index: usize) -> Result<Value, NativeError> {
     args.get(arg_index).copied().ok_or(
         NativeErrorKind::MissingArgument {
@@ -83,10 +102,123 @@ fn next_format_arg(args: &[Value], arg_index: usize) -> Result<Value, NativeErro
     )
 }
 
-fn format_string_arg(runtime: &dyn NativeRuntime, value: Value) -> Vec<u8> {
-    runtime
+fn parse_string_spec(
+    format: &[u8],
+    start: usize,
+) -> Result<Option<(StringFormatSpec, usize)>, NativeError> {
+    if format.get(start) == Some(&b's') {
+        return Ok(Some((StringFormatSpec::PLAIN, start + 1)));
+    }
+
+    let Some(conversion) = conversion_index(format, start) else {
+        return Ok(None);
+    };
+    if format.get(conversion) != Some(&b's') {
+        return Ok(None);
+    }
+
+    let mut cursor = start;
+    let mut left_adjust = false;
+    while format.get(cursor) == Some(&b'-') {
+        left_adjust = true;
+        cursor += 1;
+    }
+    if matches!(format.get(cursor), Some(b'+' | b'#' | b'0' | b' ')) {
+        return Err(invalid_format_spec());
+    }
+
+    let width = parse_two_digit_field(format, &mut cursor)?;
+    let precision = if format.get(cursor) == Some(&b'.') {
+        cursor += 1;
+        Some(parse_two_digit_field(format, &mut cursor)?.unwrap_or(0))
+    } else {
+        None
+    };
+    if cursor != conversion {
+        return Err(invalid_format_spec());
+    }
+
+    Ok(Some((
+        StringFormatSpec {
+            left_adjust,
+            width,
+            precision,
+        },
+        conversion + 1,
+    )))
+}
+
+fn conversion_index(format: &[u8], start: usize) -> Option<usize> {
+    let mut cursor = start;
+    while let Some(byte) = format.get(cursor) {
+        if !matches!(byte, b'-' | b'+' | b'#' | b'0' | b' ' | b'1'..=b'9' | b'.') {
+            return byte.is_ascii_alphabetic().then_some(cursor);
+        }
+        cursor += 1;
+    }
+    None
+}
+
+fn parse_two_digit_field(format: &[u8], cursor: &mut usize) -> Result<Option<usize>, NativeError> {
+    let start = *cursor;
+    while format.get(*cursor).is_some_and(u8::is_ascii_digit) {
+        *cursor += 1;
+    }
+    let digits = *cursor - start;
+    if digits > 2 {
+        return Err(invalid_format_spec());
+    }
+    if digits == 0 {
+        return Ok(None);
+    }
+    let text = core::str::from_utf8(&format[start..*cursor]).expect("ASCII digits are valid UTF-8");
+    Ok(Some(
+        text.parse::<usize>()
+            .expect("two ASCII digits fit in usize"),
+    ))
+}
+
+fn invalid_format_spec() -> NativeError {
+    NativeErrorKind::RuntimeError {
+        message: "invalid conversion specification".into(),
+    }
+    .into()
+}
+
+fn format_string_arg(
+    runtime: &dyn NativeRuntime,
+    value: Value,
+    spec: &StringFormatSpec,
+) -> Result<Vec<u8>, NativeError> {
+    let mut bytes = runtime
         .short_string_bytes(value)
-        .map_or_else(|| tostring_bytes(value).into_bytes(), <[u8]>::to_vec)
+        .map_or_else(|| tostring_bytes(value).into_bytes(), <[u8]>::to_vec);
+    if !spec.has_modifiers() {
+        return Ok(bytes);
+    }
+    if bytes.contains(&0) {
+        return Err(NativeErrorKind::RuntimeError {
+            message: "string contains zeros".into(),
+        }
+        .into());
+    }
+    if let Some(precision) = spec.precision {
+        bytes.truncate(precision);
+    }
+
+    let width = spec.width.unwrap_or(0);
+    if bytes.len() >= width {
+        return Ok(bytes);
+    }
+    let padding = vec![b' '; width - bytes.len()];
+    if spec.left_adjust {
+        bytes.extend_from_slice(&padding);
+        Ok(bytes)
+    } else {
+        let mut output = padding;
+        output.extend_from_slice(&bytes);
+        Ok(output)
+    }
 }
 
 fn format_quoted_arg(
