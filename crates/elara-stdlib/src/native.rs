@@ -39,6 +39,14 @@ pub trait NativeRuntime {
         .into())
     }
 
+    /// Reads one raw value-keyed value from a runtime-owned table.
+    fn table_get(&self, _table: Value, _key: Value) -> Result<Value, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support table reads".into(),
+        }
+        .into())
+    }
+
     /// Writes one raw integer-keyed value into a runtime-owned table.
     fn table_set_integer(
         &mut self,
@@ -46,6 +54,14 @@ pub trait NativeRuntime {
         _index: i64,
         _value: Value,
     ) -> Result<(), NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support table writes".into(),
+        }
+        .into())
+    }
+
+    /// Writes one raw value-keyed value into a runtime-owned table.
+    fn table_set(&mut self, _table: Value, _key: Value, _value: Value) -> Result<(), NativeError> {
         Err(NativeErrorKind::RuntimeError {
             message: "native runtime does not support table writes".into(),
         }

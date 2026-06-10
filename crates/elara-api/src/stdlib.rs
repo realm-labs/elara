@@ -124,6 +124,15 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
             })
     }
 
+    fn table_get(&self, table: Value, key: Value) -> Result<Value, NativeError> {
+        self.context.table_get(table, key).map_err(|error| {
+            NativeErrorKind::RuntimeError {
+                message: error.to_string().into(),
+            }
+            .into()
+        })
+    }
+
     fn table_set_integer(
         &mut self,
         table: Value,
@@ -138,6 +147,15 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
                 }
                 .into()
             })
+    }
+
+    fn table_set(&mut self, table: Value, key: Value, value: Value) -> Result<(), NativeError> {
+        self.context.table_set(table, key, value).map_err(|error| {
+            NativeErrorKind::RuntimeError {
+                message: error.to_string().into(),
+            }
+            .into()
+        })
     }
 
     fn next_random_u64(&mut self) -> Result<u64, NativeError> {

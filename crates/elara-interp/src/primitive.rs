@@ -101,6 +101,11 @@ impl<'a> NativeContext<'a> {
 
     /// Reads one raw integer-keyed value from a runtime-owned table.
     pub fn table_get_integer(&self, table: Value, index: LuaInteger) -> RuntimeResult<Value> {
+        self.table_get(table, Value::integer(index))
+    }
+
+    /// Reads one raw value-keyed value from a runtime-owned table.
+    pub fn table_get(&self, table: Value, key: Value) -> RuntimeResult<Value> {
         let table_index = table
             .as_table_index()
             .ok_or(RuntimeErrorKind::NonTableValue)? as usize;
@@ -108,7 +113,7 @@ impl<'a> NativeContext<'a> {
             .tables
             .get(table_index)
             .ok_or(RuntimeErrorKind::NonTableValue)?;
-        Ok(table.raw_get_value(Value::integer(index)))
+        Ok(table.raw_get_value(key))
     }
 
     /// Writes one raw integer-keyed value into a runtime-owned table.
@@ -118,6 +123,11 @@ impl<'a> NativeContext<'a> {
         index: LuaInteger,
         value: Value,
     ) -> RuntimeResult<()> {
+        self.table_set(table, Value::integer(index), value)
+    }
+
+    /// Writes one raw value-keyed value into a runtime-owned table.
+    pub fn table_set(&mut self, table: Value, key: Value, value: Value) -> RuntimeResult<()> {
         let table_index = table
             .as_table_index()
             .ok_or(RuntimeErrorKind::NonTableValue)? as usize;
@@ -125,7 +135,7 @@ impl<'a> NativeContext<'a> {
             .tables
             .get_mut(table_index)
             .ok_or(RuntimeErrorKind::NonTableValue)?;
-        if table.raw_set_value(Value::integer(index), value) {
+        if table.raw_set_value(key, value) {
             Ok(())
         } else {
             Err(RuntimeErrorKind::InvalidTableKey.into())

@@ -352,6 +352,28 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_base_raw_functions() {
+        let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local t = {}\nlocal _ = rawset(t, 'name', 42)\nreturn rawget(t, 'name')",
+                &profile,
+            ),
+            Ok(vec![Value::integer(42)])
+        );
+        assert_eq!(
+            eval_simple_source_with_stdlib(SourceId::new(0), "return rawlen({1, 2, 3})", &profile),
+            Ok(vec![Value::integer(3)])
+        );
+        assert_eq!(
+            eval_simple_source_with_stdlib(SourceId::new(0), "return rawlen('abc')", &profile),
+            Ok(vec![Value::integer(3)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_len() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 
