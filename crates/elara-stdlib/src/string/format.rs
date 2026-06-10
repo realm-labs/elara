@@ -51,6 +51,15 @@ pub(super) fn string_format(
             output.extend_from_slice(format_float_conversion(spec, value).as_bytes());
             arg_index += 1;
             index += 2;
+        } else if let Some((spec, width, next_index)) =
+            parse_decimal_width_spec(&format, index + 1)?
+        {
+            let value =
+                integer_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
+            output
+                .extend_from_slice(format_decimal_width_conversion(spec, value, width).as_bytes());
+            arg_index += 1;
+            index = next_index;
         } else if let Some(spec @ (b'c' | b'd' | b'i' | b'u' | b'o' | b'x' | b'X')) =
             format.get(index + 1).copied()
         {
@@ -183,6 +192,29 @@ fn invalid_format_spec() -> NativeError {
         message: "invalid conversion specification".into(),
     }
     .into()
+}
+
+fn parse_decimal_width_spec(
+    format: &[u8],
+    start: usize,
+) -> Result<Option<(u8, usize, usize)>, NativeError> {
+    if !matches!(format.get(start), Some(b'1'..=b'9')) {
+        return Ok(None);
+    }
+
+    let Some(conversion) = conversion_index(format, start) else {
+        return Ok(None);
+    };
+    let Some(spec @ (b'd' | b'i')) = format.get(conversion).copied() else {
+        return Ok(None);
+    };
+
+    let mut cursor = start;
+    let width = parse_two_digit_field(format, &mut cursor)?.unwrap_or(0);
+    if cursor != conversion {
+        return Err(invalid_format_spec());
+    }
+    Ok(Some((spec, width, conversion + 1)))
 }
 
 fn format_string_arg(
@@ -445,6 +477,14 @@ fn format_integer_conversion(spec: u8, value: LuaInteger) -> String {
         b'X' => format!("{:X}", value as u64),
         _ => unreachable!("caller filters integer conversion specifiers"),
     }
+}
+
+fn format_decimal_width_conversion(spec: u8, value: LuaInteger, width: usize) -> String {
+    let formatted = format_integer_conversion(spec, value);
+    if formatted.len() >= width {
+        return formatted;
+    }
+    format!("{}{}", " ".repeat(width - formatted.len()), formatted)
 }
 
 fn tostring_bytes(value: Value) -> String {
