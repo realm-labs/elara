@@ -1,8 +1,8 @@
 //! `string.format` native implementation.
 
-use elara_core::Value;
+use elara_core::{LuaFloat, LuaInteger, Value};
 
-use crate::{NativeError, NativeErrorKind, NativeRuntime};
+use crate::{NativeError, NativeErrorKind, NativeRuntime, number::parse_standard_number};
 
 use super::string_arg;
 
@@ -29,12 +29,14 @@ pub(super) fn string_format(
             output.push(b'%');
             index += 2;
         } else if format.get(index + 1) == Some(&b's') {
-            let value = *args
-                .get(arg_index)
-                .ok_or(NativeErrorKind::MissingArgument {
-                    index: arg_index + 1,
-                })?;
+            let value = next_format_arg(args, arg_index)?;
             output.extend_from_slice(&format_string_arg(runtime, value));
+            arg_index += 1;
+            index += 2;
+        } else if matches!(format.get(index + 1), Some(b'd' | b'i')) {
+            let value =
+                integer_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
+            output.extend_from_slice(value.to_string().as_bytes());
             arg_index += 1;
             index += 2;
         } else {
@@ -48,10 +50,57 @@ pub(super) fn string_format(
     Ok(vec![runtime.intern_short_string(&output)?])
 }
 
+fn next_format_arg(args: &[Value], arg_index: usize) -> Result<Value, NativeError> {
+    args.get(arg_index).copied().ok_or(
+        NativeErrorKind::MissingArgument {
+            index: arg_index + 1,
+        }
+        .into(),
+    )
+}
+
 fn format_string_arg(runtime: &dyn NativeRuntime, value: Value) -> Vec<u8> {
     runtime
         .short_string_bytes(value)
         .map_or_else(|| tostring_bytes(value).into_bytes(), <[u8]>::to_vec)
+}
+
+fn integer_format_arg(
+    runtime: &dyn NativeRuntime,
+    value: Value,
+    index: usize,
+) -> Result<LuaInteger, NativeError> {
+    if let Some(integer) = value.as_integer() {
+        return Ok(integer);
+    }
+    if let Some(float) = value.as_float() {
+        return floor_to_integer(float).ok_or_else(|| integer_type_error(index));
+    }
+    if let Some(bytes) = runtime.short_string_bytes(value)
+        && let Some(number) = parse_standard_number(bytes)
+    {
+        return integer_format_arg(runtime, number, index);
+    }
+    Err(integer_type_error(index))
+}
+
+fn floor_to_integer(value: LuaFloat) -> Option<LuaInteger> {
+    if !value.is_finite() {
+        return None;
+    }
+    let value = value.floor();
+    if value < LuaInteger::MIN as LuaFloat || value >= (LuaInteger::MAX as LuaFloat + 1.0) {
+        return None;
+    }
+    Some(value as LuaInteger)
+}
+
+fn integer_type_error(index: usize) -> NativeError {
+    NativeErrorKind::TypeError {
+        index,
+        expected: "integer",
+    }
+    .into()
 }
 
 fn tostring_bytes(value: Value) -> String {
@@ -150,6 +199,31 @@ mod tests {
     }
 
     #[test]
+    fn string_format_formats_basic_integer_conversions() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%d:%i:%d:%i");
+        let numeric_string = runtime.push_string(b"12.9");
+        let negative_string = runtime.push_string(b"-2.1");
+
+        let values = string_format(
+            &mut runtime,
+            &[
+                format,
+                Value::integer(7),
+                Value::float(8.9),
+                numeric_string,
+                negative_string,
+            ],
+        )
+        .expect("format should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"7:8:12:-3".as_slice())
+        );
+    }
+
+    #[test]
     fn string_format_reports_missing_string_conversion_argument() {
         let mut runtime = TestRuntime::default();
         let format = runtime.push_string(b"%s");
@@ -163,9 +237,38 @@ mod tests {
     }
 
     #[test]
-    fn string_format_reports_conversion_gap() {
+    fn string_format_reports_missing_integer_conversion_argument() {
         let mut runtime = TestRuntime::default();
         let format = runtime.push_string(b"%d");
+
+        assert_eq!(
+            string_format(&mut runtime, &[format])
+                .expect_err("missing conversion argument should fail")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 2 }
+        );
+    }
+
+    #[test]
+    fn string_format_reports_non_integer_conversion_argument() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%d");
+
+        assert_eq!(
+            string_format(&mut runtime, &[format, Value::boolean(true)])
+                .expect_err("non-integer conversion argument should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "integer",
+            }
+        );
+    }
+
+    #[test]
+    fn string_format_reports_conversion_gap() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%f");
 
         assert_eq!(
             string_format(&mut runtime, &[format])
