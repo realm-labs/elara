@@ -108,8 +108,8 @@ implementation work remain. String natives `string.byte`, `string.char`,
 `string.len`, `string.lower`, `string.upper`, `string.reverse`, `string.rep`,
 and `string.sub` are executable and covered through stdlib-backed API
 evaluation. Table natives `table.concat`, `table.insert`, `table.move`,
-`table.pack`, `table.remove`, and `table.unpack` are executable and covered
-through stdlib-backed API evaluation.
+`table.pack`, `table.remove`, default-comparator `table.sort`, and
+`table.unpack` are executable and covered through stdlib-backed API evaluation.
 
 Current state:
 
@@ -201,6 +201,7 @@ Completed:
   - M11.2 executable table.move native spec.
   - M11.2 executable table.pack native spec.
   - M11.2 executable table.remove native spec.
+  - M11.2 executable default-comparator table.sort native spec.
   - M11.2 executable table.unpack native spec.
   - M11.2 executable base type native spec.
   - M11.2 executable string.byte native spec.
@@ -749,8 +750,7 @@ Delivered:
 - Replace descriptor-only essential base, table, math, and string entries with
   executable native functions as runtime/API native-call support becomes
   available.
-- Connect stdlib registration to an Elara runtime/global environment once the
-  primitive runtime has a public registration hook.
+- Add runtime callback support for custom `table.sort` comparators.
 
 ### Product Gaps
 
@@ -775,11 +775,11 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable math.randomseed verification passed:
+M11.2 executable default-comparator table.sort verification passed:
 
 ```bash
 cargo fmt --all
-cargo test -p elara-stdlib math
+cargo test -p elara-stdlib table
 cargo test -p elara-api eval_simple_with_stdlib
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings

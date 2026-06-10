@@ -7,8 +7,10 @@ use crate::{
 };
 
 mod concat;
+mod sort;
 
 use concat::table_concat;
+use sort::table_sort;
 
 /// Executable table-library functions currently implemented.
 pub const TABLE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
@@ -17,6 +19,7 @@ pub const TABLE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "move"), table_move),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "pack"), table_pack),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "remove"), table_remove),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "sort"), table_sort),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Table, "unpack"), table_unpack),
 ];
 
@@ -308,6 +311,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "move")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "pack")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "remove")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "sort")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Table, "unpack")));
     }
 
