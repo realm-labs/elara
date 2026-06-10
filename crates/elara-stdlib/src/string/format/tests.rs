@@ -206,6 +206,32 @@ fn string_format_formats_signed_decimal_flags() {
 }
 
 #[test]
+fn string_format_formats_integer_alternate_form() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%#o:%#x:%#X:%#08x:%#08X:%#05o:%#x");
+
+    let values = string_format(
+        &mut runtime,
+        &[
+            format,
+            Value::integer(8),
+            Value::integer(255),
+            Value::integer(255),
+            Value::integer(255),
+            Value::integer(255),
+            Value::integer(8),
+            Value::integer(0),
+        ],
+    )
+    .expect("format should pass");
+
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"010:0xff:0XFF:0x0000ff:0X0000FF:00010:0".as_slice())
+    );
+}
+
+#[test]
 fn string_format_reports_invalid_integer_width() {
     let mut runtime = TestRuntime::default();
     let format = runtime.push_string(b"%123x");
@@ -213,6 +239,21 @@ fn string_format_reports_invalid_integer_width() {
     assert_eq!(
         string_format(&mut runtime, &[format, Value::integer(7)])
             .expect_err("three-digit width should fail")
+            .kind(),
+        &NativeErrorKind::RuntimeError {
+            message: "invalid conversion specification".into(),
+        }
+    );
+}
+
+#[test]
+fn string_format_reports_invalid_decimal_alternate_form() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%#5d");
+
+    assert_eq!(
+        string_format(&mut runtime, &[format, Value::integer(7)])
+            .expect_err("decimal alternate form should fail")
             .kind(),
         &NativeErrorKind::RuntimeError {
             message: "invalid conversion specification".into(),

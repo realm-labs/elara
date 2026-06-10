@@ -6,6 +6,11 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime, number::parse_standard_
 
 use super::string_arg;
 
+mod integer;
+use integer::{
+    format_integer_conversion, format_integer_width_conversion, parse_integer_width_spec,
+};
+
 pub(super) fn string_format(
     runtime: &mut dyn NativeRuntime,
     args: &[Value],
@@ -85,17 +90,6 @@ struct StringFormatSpec {
     left_adjust: bool,
     width: Option<usize>,
     precision: Option<usize>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct IntegerFormatSpec {
-    conversion: u8,
-    width: usize,
-    left_adjust: bool,
-    zero_pad: bool,
-    force_sign: bool,
-    space_sign: bool,
-    next_index: usize,
 }
 
 impl StringFormatSpec {
@@ -200,65 +194,6 @@ fn invalid_format_spec() -> NativeError {
         message: "invalid conversion specification".into(),
     }
     .into()
-}
-
-fn parse_integer_width_spec(
-    format: &[u8],
-    start: usize,
-) -> Result<Option<IntegerFormatSpec>, NativeError> {
-    if !matches!(
-        format.get(start),
-        Some(b'-' | b'+' | b'0' | b' ' | b'1'..=b'9')
-    ) {
-        return Ok(None);
-    }
-
-    let Some(conversion) = conversion_index(format, start) else {
-        return Ok(None);
-    };
-    let Some(spec @ (b'd' | b'i' | b'u' | b'o' | b'x' | b'X')) = format.get(conversion).copied()
-    else {
-        return Ok(None);
-    };
-
-    let mut cursor = start;
-    let mut left_adjust = false;
-    let mut zero_pad = false;
-    let mut force_sign = false;
-    let mut space_sign = false;
-    let mut saw_flag = false;
-    while let Some(byte) = format.get(cursor).copied() {
-        match byte {
-            b'-' => left_adjust = true,
-            b'+' => force_sign = true,
-            b'0' => zero_pad = true,
-            b' ' => space_sign = true,
-            _ => break,
-        }
-        saw_flag = true;
-        cursor += 1;
-    }
-    if (force_sign || space_sign) && !matches!(spec, b'd' | b'i') {
-        return Err(invalid_format_spec());
-    }
-    let has_width = matches!(format.get(cursor), Some(b'1'..=b'9'));
-    let has_flags_only = saw_flag && cursor == conversion;
-    if !has_width && !has_flags_only {
-        return Ok(None);
-    }
-    let width = parse_two_digit_field(format, &mut cursor)?.unwrap_or(0);
-    if cursor != conversion {
-        return Err(invalid_format_spec());
-    }
-    Ok(Some(IntegerFormatSpec {
-        conversion: spec,
-        width,
-        left_adjust,
-        zero_pad,
-        force_sign,
-        space_sign,
-        next_index: conversion + 1,
-    }))
 }
 
 fn format_string_arg(
@@ -510,47 +445,6 @@ fn integer_type_error(index: usize) -> NativeError {
         expected: "integer",
     }
     .into()
-}
-
-fn format_integer_conversion(spec: u8, value: LuaInteger) -> String {
-    match spec {
-        b'd' | b'i' => value.to_string(),
-        b'u' => (value as u64).to_string(),
-        b'o' => format!("{:o}", value as u64),
-        b'x' => format!("{:x}", value as u64),
-        b'X' => format!("{:X}", value as u64),
-        _ => unreachable!("caller filters integer conversion specifiers"),
-    }
-}
-
-fn format_integer_width_conversion(spec: IntegerFormatSpec, value: LuaInteger) -> String {
-    let mut formatted = format_integer_conversion(spec.conversion, value);
-    if matches!(spec.conversion, b'd' | b'i') && !formatted.starts_with('-') {
-        if spec.force_sign {
-            formatted.insert(0, '+');
-        } else if spec.space_sign {
-            formatted.insert(0, ' ');
-        }
-    }
-    if formatted.len() >= spec.width {
-        return formatted;
-    }
-    let pad_byte = if spec.zero_pad && !spec.left_adjust {
-        '0'
-    } else {
-        ' '
-    };
-    let padding = pad_byte.to_string().repeat(spec.width - formatted.len());
-    if spec.left_adjust {
-        format!("{formatted}{padding}")
-    } else if pad_byte == '0'
-        && matches!(spec.conversion, b'd' | b'i')
-        && matches!(formatted.as_bytes().first(), Some(b'-' | b'+' | b' '))
-    {
-        format!("{}{}{}", &formatted[..1], padding, &formatted[1..])
-    } else {
-        format!("{padding}{formatted}")
-    }
 }
 
 fn tostring_bytes(value: Value) -> String {
