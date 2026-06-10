@@ -38,6 +38,12 @@ pub(super) fn string_format(
             output.extend_from_slice(&format_quoted_arg(runtime, value, arg_index + 1)?);
             arg_index += 1;
             index += 2;
+        } else if format.get(index + 1) == Some(&b'f') {
+            let value =
+                float_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
+            output.extend_from_slice(format!("{value:.6}").as_bytes());
+            arg_index += 1;
+            index += 2;
         } else if let Some(spec @ (b'c' | b'd' | b'i' | b'u' | b'o' | b'x' | b'X')) =
             format.get(index + 1).copied()
         {
@@ -155,6 +161,26 @@ fn integer_format_arg(
         return integer_format_arg(runtime, number, index);
     }
     Err(integer_type_error(index))
+}
+
+fn float_format_arg(
+    runtime: &dyn NativeRuntime,
+    value: Value,
+    index: usize,
+) -> Result<LuaFloat, NativeError> {
+    if let Some(float) = value.to_float() {
+        return Ok(float);
+    }
+    if let Some(bytes) = runtime.short_string_bytes(value)
+        && let Some(number) = parse_standard_number(bytes)
+    {
+        return float_format_arg(runtime, number, index);
+    }
+    Err(NativeErrorKind::TypeError {
+        index,
+        expected: "number",
+    }
+    .into())
 }
 
 fn floor_to_integer(value: LuaFloat) -> Option<LuaInteger> {
@@ -397,6 +423,24 @@ mod tests {
     }
 
     #[test]
+    fn string_format_formats_basic_float_conversion() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%f:%f:%f");
+        let numeric_string = runtime.push_string(b"2.25");
+
+        let values = string_format(
+            &mut runtime,
+            &[format, Value::integer(7), Value::float(1.5), numeric_string],
+        )
+        .expect("format should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"7.000000:1.500000:2.250000".as_slice())
+        );
+    }
+
+    #[test]
     fn string_format_reports_non_literal_quoted_argument() {
         let mut runtime = TestRuntime::default();
         let format = runtime.push_string(b"%q");
@@ -408,6 +452,35 @@ mod tests {
             &NativeErrorKind::TypeError {
                 index: 2,
                 expected: "literal",
+            }
+        );
+    }
+
+    #[test]
+    fn string_format_reports_missing_float_conversion_argument() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%f");
+
+        assert_eq!(
+            string_format(&mut runtime, &[format])
+                .expect_err("missing conversion argument should fail")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 2 }
+        );
+    }
+
+    #[test]
+    fn string_format_reports_non_number_float_conversion_argument() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%f");
+
+        assert_eq!(
+            string_format(&mut runtime, &[format, Value::boolean(true)])
+                .expect_err("non-number conversion argument should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "number",
             }
         );
     }
@@ -457,7 +530,7 @@ mod tests {
     #[test]
     fn string_format_reports_conversion_gap() {
         let mut runtime = TestRuntime::default();
-        let format = runtime.push_string(b"%f");
+        let format = runtime.push_string(b"%e");
 
         assert_eq!(
             string_format(&mut runtime, &[format])
