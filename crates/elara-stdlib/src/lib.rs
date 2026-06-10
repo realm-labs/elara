@@ -8,9 +8,11 @@
 
 use std::collections::BTreeSet;
 
+mod base;
 mod math;
 mod native;
 
+pub use base::BASE_NATIVE_FUNCTIONS;
 pub use math::MATH_NATIVE_FUNCTIONS;
 pub use native::{
     NativeError, NativeErrorKind, NativeFunctionSpec, NativeResult, NativeStdFunction,
@@ -468,6 +470,7 @@ pub const STRING_FUNCTIONS: &[FunctionSpec] = &[
 #[must_use]
 pub const fn native_functions(library: StdLib) -> &'static [NativeFunctionSpec] {
     match library {
+        StdLib::Base => BASE_NATIVE_FUNCTIONS,
         StdLib::Math => MATH_NATIVE_FUNCTIONS,
         _ => &[],
     }
@@ -661,6 +664,17 @@ mod tests {
                 .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Math, "abs"))
         );
-        assert!(native_functions(StdLib::Base).is_empty());
+        assert!(native_functions(StdLib::Table).is_empty());
+    }
+
+    #[test]
+    fn base_native_functions_are_discoverable() {
+        let functions = native_functions(StdLib::Base);
+
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Base, "assert"))
+        );
     }
 }

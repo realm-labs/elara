@@ -92,6 +92,10 @@ pub enum NativeErrorKind {
         index: usize,
         expected: &'static str,
     },
+    /// A Lua argument was outside the accepted range.
+    ArgumentOutOfRange { index: usize },
+    /// The native raised a Lua-level error.
+    LuaError,
 }
 
 impl NativeErrorKind {
@@ -101,6 +105,10 @@ impl NativeErrorKind {
             Self::TypeError { index, expected } => {
                 format!("bad argument #{index} ({expected} expected)")
             }
+            Self::ArgumentOutOfRange { index } => {
+                format!("bad argument #{index} (out of range)")
+            }
+            Self::LuaError => "native function error".to_owned(),
         }
     }
 }

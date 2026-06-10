@@ -32,6 +32,16 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
         return;
     }
 
+    if library == StdLib::Base {
+        for spec in functions {
+            let function = spec.function();
+            environment.register_native_global(spec.descriptor().name(), move |args| {
+                function(args).map_err(native_error_to_runtime_error)
+            });
+        }
+        return;
+    }
+
     let fields: Vec<_> = functions
         .iter()
         .map(|spec| {
