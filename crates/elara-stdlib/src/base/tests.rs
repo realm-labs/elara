@@ -1,8 +1,8 @@
 use elara_core::Value;
 
 use super::{
-    BASE_NATIVE_FUNCTIONS, base_assert, base_rawequal, base_rawget, base_rawlen, base_rawset,
-    base_select, base_tonumber, base_tostring, base_type,
+    BASE_NATIVE_FUNCTIONS, base_assert, base_error, base_rawequal, base_rawget, base_rawlen,
+    base_rawset, base_select, base_tonumber, base_tostring, base_type,
 };
 use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -107,6 +107,7 @@ fn base_native_specs_cover_executable_subset() {
         .collect();
 
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "assert")));
+    assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "error")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawequal")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawget")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawlen")));
@@ -141,6 +142,44 @@ fn base_assert_errors_when_false_or_nil() {
             .expect_err("nil assert should fail")
             .kind(),
         &NativeErrorKind::LuaError
+    );
+}
+
+#[test]
+fn base_error_raises_lua_error_with_string_message() {
+    let mut runtime = TestRuntime::default();
+    let message = runtime.push_string(b"boom");
+
+    let error = base_error(&mut runtime, &[message]).expect_err("error should raise");
+    assert_eq!(error.kind(), &NativeErrorKind::LuaError);
+    assert_eq!(error.message(), "boom");
+}
+
+#[test]
+fn base_error_accepts_absent_or_nil_message() {
+    let error = base_error(&mut TestRuntime::default(), &[]).expect_err("error should raise");
+    assert_eq!(error.kind(), &NativeErrorKind::LuaError);
+    assert_eq!(error.message(), "nil");
+
+    let error =
+        base_error(&mut TestRuntime::default(), &[Value::nil()]).expect_err("error should raise");
+    assert_eq!(error.kind(), &NativeErrorKind::LuaError);
+    assert_eq!(error.message(), "nil");
+}
+
+#[test]
+fn base_error_validates_optional_level() {
+    assert_eq!(
+        base_error(
+            &mut TestRuntime::default(),
+            &[Value::integer(1), Value::boolean(false)]
+        )
+        .expect_err("level should be integer")
+        .kind(),
+        &NativeErrorKind::TypeError {
+            index: 2,
+            expected: "integer",
+        }
     );
 }
 

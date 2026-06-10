@@ -88,7 +88,7 @@ executable native specs for the currently implemented math functions `abs`,
 build a primitive `RuntimeEnvironment` from implemented stdlib native specs,
 including shared math RNG state, and simple source evaluation can run with a
 selected stdlib profile for supported native paths.
-Base stdlib natives `assert`, `rawequal`, `rawget`, `rawlen`, `rawset`,
+Base stdlib natives `assert`, `error`, `rawequal`, `rawget`, `rawlen`, `rawset`,
 numeric `select`, `tonumber`, `tostring`, and `type` are executable, and API
 stdlib profile registration now installs base natives as direct globals while
 keeping module libraries table-shaped. Native calls now receive a
@@ -169,6 +169,7 @@ Completed:
   - M11.2 executable math.type native spec.
   - M11.2 executable math.random native spec.
   - M11.2 executable base assert, rawequal, and numeric select native specs.
+  - M11.2 executable base error native spec.
   - M11.2 NativeContext support for runtime short strings.
   - M11.2 NativeRuntime abstraction for context-aware stdlib natives.
   - M11.2 NativeContext support for runtime table allocation.
@@ -757,7 +758,7 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable base tostring verification passed:
+M11.2 executable base error verification passed:
 
 ```bash
 cargo test -p elara-stdlib base

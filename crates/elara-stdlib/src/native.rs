@@ -133,6 +133,15 @@ impl NativeError {
         Self { kind, message }
     }
 
+    /// Creates a Lua-level error with a custom message payload.
+    #[must_use]
+    pub fn lua_error(message: impl Into<Box<str>>) -> Self {
+        Self {
+            kind: NativeErrorKind::LuaError,
+            message: message.into(),
+        }
+    }
+
     /// Stable error kind.
     #[must_use]
     pub const fn kind(&self) -> &NativeErrorKind {

@@ -9,6 +9,7 @@ use crate::{
 /// Executable base-library functions currently implemented.
 pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "assert"), base_assert),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "error"), base_error),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawequal"), base_rawequal),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawget"), base_rawget),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawlen"), base_rawlen),
@@ -31,6 +32,17 @@ fn base_assert(
     } else {
         Err(NativeErrorKind::LuaError.into())
     }
+}
+
+fn base_error(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    if let Some(level) = args.get(1).filter(|value| !value.is_nil()) {
+        level.as_integer().ok_or(NativeErrorKind::TypeError {
+            index: 2,
+            expected: "integer",
+        })?;
+    }
+    let value = args.first().copied().unwrap_or_else(Value::nil);
+    Err(NativeError::lua_error(error_message(runtime, value)))
 }
 
 fn base_rawequal(
@@ -200,6 +212,13 @@ fn tostring_bytes(value: Value) -> String {
     } else {
         format!("{}: 0x0", type_name(value))
     }
+}
+
+fn error_message(runtime: &dyn NativeRuntime, value: Value) -> String {
+    runtime.short_string_bytes(value).map_or_else(
+        || tostring_bytes(value),
+        |bytes| String::from_utf8_lossy(bytes).into_owned(),
+    )
 }
 
 fn table_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {

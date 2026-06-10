@@ -331,6 +331,21 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_base_error() {
+        let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
+        let error =
+            eval_simple_source_with_stdlib(SourceId::new(0), "return error('boom')", &profile)
+                .expect_err("error should raise");
+
+        match error {
+            EvalError::Runtime(error) => assert_eq!(error.message(), "boom"),
+            EvalError::Diagnostics(diagnostics) => {
+                panic!("expected runtime error, got diagnostics {diagnostics:?}")
+            }
+        }
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_rawequal() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 
