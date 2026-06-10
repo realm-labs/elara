@@ -85,6 +85,55 @@ fn string_format_formats_float_precision() {
 }
 
 #[test]
+fn string_format_formats_float_width_and_flags() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%+8.2f:% 8.2f:%08.2f:%+08.2f:%-8.2f");
+
+    let values = string_format(
+        &mut runtime,
+        &[
+            format,
+            Value::float(1.25),
+            Value::float(1.25),
+            Value::float(1.25),
+            Value::float(1.25),
+            Value::float(1.25),
+        ],
+    )
+    .expect("format should pass");
+
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"   +1.25:    1.25:00001.25:+0001.25:1.25    ".as_slice())
+    );
+}
+
+#[test]
+fn string_format_formats_float_alternate_form() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%#.0f:%#.0e:%#.4g:%#.4G:%#8.4g:%#.0g");
+
+    let values = string_format(
+        &mut runtime,
+        &[
+            format,
+            Value::float(12.5),
+            Value::float(12.5),
+            Value::float(12.5),
+            Value::float(1_200_000.0),
+            Value::float(12.5),
+            Value::float(12.5),
+        ],
+    )
+    .expect("format should pass");
+
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"12.:1.e+01:12.50:1.200E+06:   12.50:1.e+01".as_slice())
+    );
+}
+
+#[test]
 fn string_format_reports_invalid_float_precision() {
     let mut runtime = TestRuntime::default();
     let format = runtime.push_string(b"%.123f");

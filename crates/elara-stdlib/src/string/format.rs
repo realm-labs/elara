@@ -6,7 +6,9 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime, number::parse_standard_
 
 use super::string_arg;
 
+mod float;
 mod integer;
+use float::{format_float_conversion, parse_float_spec};
 use integer::{
     format_integer_conversion, format_integer_width_conversion, parse_integer_width_spec,
 };
@@ -48,22 +50,12 @@ pub(super) fn string_format(
             output.extend_from_slice(format_pointer_arg(runtime, value).as_bytes());
             arg_index += 1;
             index += 2;
-        } else if let Some((spec, precision, next_index)) =
-            parse_float_precision_spec(&format, index + 1)?
-        {
+        } else if let Some(spec) = parse_float_spec(&format, index + 1)? {
             let value =
                 float_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
-            output.extend_from_slice(format_float_conversion(spec, value, precision).as_bytes());
+            output.extend_from_slice(format_float_conversion(spec, value).as_bytes());
             arg_index += 1;
-            index = next_index;
-        } else if let Some(spec @ (b'e' | b'E' | b'f' | b'g' | b'G')) =
-            format.get(index + 1).copied()
-        {
-            let value =
-                float_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
-            output.extend_from_slice(format_float_conversion(spec, value, None).as_bytes());
-            arg_index += 1;
-            index += 2;
+            index = spec.next_index;
         } else if let Some(spec) = parse_integer_width_spec(&format, index + 1)? {
             let value =
                 integer_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
@@ -204,28 +196,6 @@ fn invalid_format_spec() -> NativeError {
     .into()
 }
 
-fn parse_float_precision_spec(
-    format: &[u8],
-    start: usize,
-) -> Result<Option<(u8, Option<usize>, usize)>, NativeError> {
-    if format.get(start) != Some(&b'.') {
-        return Ok(None);
-    }
-    let Some(conversion) = conversion_index(format, start) else {
-        return Ok(None);
-    };
-    let Some(spec @ (b'e' | b'E' | b'f' | b'g' | b'G')) = format.get(conversion).copied() else {
-        return Ok(None);
-    };
-
-    let mut cursor = start + 1;
-    let precision = Some(parse_two_digit_field(format, &mut cursor)?.unwrap_or(0));
-    if cursor != conversion {
-        return Err(invalid_format_spec());
-    }
-    Ok(Some((spec, precision, conversion + 1)))
-}
-
 fn format_string_arg(
     runtime: &dyn NativeRuntime,
     value: Value,
@@ -348,72 +318,6 @@ fn format_float_literal(value: LuaFloat) -> String {
     } else {
         format!("{value:?}")
     }
-}
-
-fn format_float_conversion(spec: u8, value: LuaFloat, precision: Option<usize>) -> String {
-    let precision = precision.unwrap_or(6);
-    match spec {
-        b'e' => format_exponential_with_precision(value, false, precision),
-        b'E' => format_exponential_with_precision(value, true, precision),
-        b'f' => format!("{value:.precision$}"),
-        b'g' => format_general_float(value, false, precision.max(1)),
-        b'G' => format_general_float(value, true, precision.max(1)),
-        _ => unreachable!("caller filters float conversion specifiers"),
-    }
-}
-
-fn format_exponential_with_precision(value: LuaFloat, upper: bool, precision: usize) -> String {
-    let formatted = if upper {
-        format!("{value:.precision$E}")
-    } else {
-        format!("{value:.precision$e}")
-    };
-    let Some((mantissa, exponent)) = formatted.split_once(if upper { 'E' } else { 'e' }) else {
-        return if upper {
-            formatted.to_ascii_uppercase()
-        } else {
-            formatted
-        };
-    };
-    let exponent = exponent
-        .parse::<i32>()
-        .expect("Rust exponential formatter emits an integer exponent");
-    let marker = if upper { 'E' } else { 'e' };
-    let sign = if exponent < 0 { '-' } else { '+' };
-    format!("{mantissa}{marker}{sign}{:02}", exponent.abs())
-}
-
-fn format_general_float(value: LuaFloat, upper: bool, precision: usize) -> String {
-    if !value.is_finite() {
-        let formatted = value.to_string();
-        return if upper {
-            formatted.to_ascii_uppercase()
-        } else {
-            formatted
-        };
-    }
-    if value == 0.0 {
-        return "0".to_owned();
-    }
-
-    let precision = i32::try_from(precision).expect("format precision fits in i32");
-    let exponent = value.abs().log10().floor() as i32;
-    if !(-4..precision).contains(&exponent) {
-        let formatted = format_exponential_with_precision(value, upper, (precision - 1) as usize);
-        let marker = if upper { 'E' } else { 'e' };
-        let (mantissa, exponent) = formatted
-            .split_once(marker)
-            .expect("exponential formatter returns an exponent marker");
-        return format!("{}{marker}{exponent}", trim_float_zeros(mantissa));
-    }
-
-    let decimals = (precision - exponent - 1).max(0) as usize;
-    trim_float_zeros(&format!("{value:.decimals$}")).to_owned()
-}
-
-fn trim_float_zeros(value: &str) -> &str {
-    let trimmed = value.trim_end_matches('0');
-    trimmed.strip_suffix('.').unwrap_or(trimmed)
 }
 
 fn integer_format_arg(
