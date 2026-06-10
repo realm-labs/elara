@@ -41,6 +41,17 @@ impl RuntimeGlobals {
             Err(RuntimeErrorKind::InvalidTableKey.into())
         }
     }
+
+    pub(super) fn set_named(
+        &mut self,
+        name: &[u8],
+        value: Value,
+        strings: &mut RuntimeStrings,
+        tables: &mut RuntimeTables,
+    ) -> RuntimeResult<()> {
+        let key = global_key(name, strings)?;
+        self.set(key, value, tables)
+    }
 }
 
 pub(super) fn execute_get_env(

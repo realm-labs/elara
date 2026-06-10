@@ -73,14 +73,16 @@ close succeeds, and primitive coroutines keep close variables alive across
 yield before closing them on finish. The primitive interpreter can represent
 runtime-registered native functions as callable values, dispatch `CALL` to
 native or Lua functions, and thread the native registry through Lua closure,
-metamethod, table slow-path, generic-for, and close-metamethod calls. The
-standard-library crate now exposes a profile/set/registry framework plus
-generic global registration adapters, and contains descriptor-based essential
-base, table, math, and string library entries. The stdlib crate also exposes
-executable native specs for the currently implemented math functions `abs`,
-`ceil`, `floor`, and `sqrt`. Runtime/global registration for those native specs,
-remaining executable base/table/math/string functions, full API, JIT, C API,
-conformance, and benchmark implementation work remain.
+metamethod, table slow-path, generic-for, and close-metamethod calls. Primitive
+execution also accepts a `RuntimeEnvironment` that can seed initial globals,
+including callable native globals, before running a Proto. The standard-library
+crate now exposes a profile/set/registry framework plus generic global
+registration adapters, and contains descriptor-based essential base, table,
+math, and string library entries. The stdlib crate also exposes executable
+native specs for the currently implemented math functions `abs`, `ceil`,
+`floor`, and `sqrt`. Adapting stdlib native specs into runtime/global
+registration, remaining executable base/table/math/string functions, full API,
+JIT, C API, conformance, and benchmark implementation work remain.
 
 Current state:
 
@@ -137,6 +139,7 @@ Completed:
   - M11.1 Add library registration framework.
   - M11.2 runtime native-call support for executable standard-library functions.
   - M11.2 executable math native specs for abs, ceil, floor, and sqrt.
+  - M11.2 primitive runtime environment seeding for native globals.
 
 In progress:
   - M11.2 Implement base, table, math, and string essentials.
@@ -703,23 +706,20 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable math-native verification passed:
+M11.2 primitive runtime environment verification passed:
 
 ```bash
-cargo test -p elara-stdlib base
-cargo test -p elara-stdlib table
-cargo test -p elara-stdlib math
-cargo test -p elara-stdlib string
-cargo clippy -p elara-stdlib --all-targets -- -D warnings
+cargo test -p elara-interp native_functions
+cargo clippy -p elara-interp --all-targets -- -D warnings
 ```
 
 `cargo fmt --all` completed successfully.
 
 ## Next Recommended Action
 
-Continue M11.2 by registering executable standard-library native specs into the
-runtime/global environment through an API or semi-public runtime boundary, then
-fill the remaining base, table, math, and string executable functions.
+Continue M11.2 by adapting executable standard-library native specs into
+`RuntimeEnvironment`, then fill the remaining base, table, math, and string
+executable functions.
 
 ## Current Risk Notes
 

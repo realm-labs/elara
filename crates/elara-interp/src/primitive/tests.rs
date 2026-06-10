@@ -3,8 +3,9 @@ use elara_core::{Table, ThreadStatus, Value};
 
 use super::{
     CoroutineFrame, CoroutineResume, ExecutionContext, PrimitiveCoroutine, ProtectedRuntimeOutput,
-    RuntimeErrorKind, RuntimeGlobals, RuntimeNatives, RuntimeStrings, RuntimeTables, close_to_base,
-    execute_proto, execute_proto_protected, execute_proto_with_natives, execute_proto_with_output,
+    RuntimeEnvironment, RuntimeErrorKind, RuntimeGlobals, RuntimeNatives, RuntimeStrings,
+    RuntimeTables, close_to_base, execute_proto, execute_proto_protected,
+    execute_proto_with_environment, execute_proto_with_natives, execute_proto_with_output,
     execute_tbc,
 };
 
@@ -116,6 +117,26 @@ fn native_functions_reject_missing_registry_entry() {
         error.kind(),
         &RuntimeErrorKind::NativeFunctionOutOfBounds { index: 99 }
     );
+}
+
+#[test]
+fn native_functions_register_as_initial_globals() {
+    let mut environment = RuntimeEnvironment::new();
+    environment.register_native_global("add", native_add);
+
+    let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+    let name = builder.add_string_constant("add");
+    let left = builder.add_constant(Value::integer(20));
+    let right = builder.add_constant(Value::integer(22));
+    builder.emit_abx(Op::GetEnv, 0, u64::from(name));
+    builder.emit_abx(Op::LoadK, 1, u64::from(left));
+    builder.emit_abx(Op::LoadK, 2, u64::from(right));
+    builder.emit_abc(Op::Call, 0, 3, 1);
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    let output = execute_proto_with_environment(&builder.finish(), environment)
+        .expect("registered native global should execute");
+    assert_eq!(output.values, vec![Value::integer(42)]);
 }
 
 #[test]

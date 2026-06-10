@@ -151,6 +151,7 @@ fn negate(value: Value) -> Option<Value> {
     Some(Value::float(-value.to_float()?))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn call_binary_metamethod(
     op: Op,
     left: Value,
@@ -169,6 +170,7 @@ fn call_binary_metamethod(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn call_named_binary_metamethod(
     name: &'static str,
     left: Value,
@@ -283,6 +285,7 @@ fn call_named_unary_metamethod(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn call_unary_closure_metamethod(
     name: &'static str,
     metamethod: Value,
@@ -333,6 +336,7 @@ fn equality_comparison(
     Ok(is_truthy(result))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn order_comparison(
     op: Op,
     left: Value,
@@ -379,6 +383,7 @@ fn raw_order_comparison(op: Op, left: Value, right: Value) -> Option<bool> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn call_comparison_metamethod(
     name: &'static str,
     left: Value,

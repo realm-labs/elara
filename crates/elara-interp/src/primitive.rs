@@ -6,11 +6,13 @@ use elara_core::{
     Table, ThreadStatus, TraceFrame, Value,
 };
 
+mod environment;
 mod global;
 mod loops;
 mod metamethod;
 mod table;
 
+pub use environment::RuntimeEnvironment;
 use global::{RuntimeGlobals, execute_decl_global, execute_get_env, execute_set_env};
 use loops::{
     execute_generic_for_call, execute_generic_for_loop, execute_numeric_for_loop,
@@ -543,7 +545,7 @@ pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
 
 /// Executes a verified prototype and returns values plus runtime-owned tables.
 pub fn execute_proto_with_output(proto: &Proto) -> RuntimeResult<RuntimeOutput> {
-    execute_proto_with_output_in_mode(proto, false, RuntimeNatives::new())
+    execute_proto_with_output_in_mode(proto, false, RuntimeEnvironment::new())
 }
 
 /// Executes a verified prototype with a native function registry.
@@ -551,12 +553,20 @@ pub fn execute_proto_with_natives(
     proto: &Proto,
     natives: RuntimeNatives,
 ) -> RuntimeResult<RuntimeOutput> {
-    execute_proto_with_output_in_mode(proto, false, natives)
+    execute_proto_with_environment(proto, RuntimeEnvironment::with_natives(natives))
+}
+
+/// Executes a verified prototype with an initial runtime environment.
+pub fn execute_proto_with_environment(
+    proto: &Proto,
+    environment: RuntimeEnvironment,
+) -> RuntimeResult<RuntimeOutput> {
+    execute_proto_with_output_in_mode(proto, false, environment)
 }
 
 /// Executes a prototype and catches runtime errors at a protected boundary.
 pub fn execute_proto_protected(proto: &Proto) -> ProtectedRuntimeOutput {
-    let result = execute_proto_with_output_in_mode(proto, true, RuntimeNatives::new());
+    let result = execute_proto_with_output_in_mode(proto, true, RuntimeEnvironment::new());
     match result {
         Ok(output) => ProtectedRuntimeOutput::Ok(output),
         Err(error) => ProtectedRuntimeOutput::Err(error),
@@ -566,16 +576,25 @@ pub fn execute_proto_protected(proto: &Proto) -> ProtectedRuntimeOutput {
 fn execute_proto_with_output_in_mode(
     proto: &Proto,
     protected: bool,
-    natives: RuntimeNatives,
+    environment: RuntimeEnvironment,
 ) -> RuntimeResult<RuntimeOutput> {
     verify_proto(proto)
         .map_err(RuntimeErrorKind::Verification)
         .map_err(RuntimeError::from)?;
+    let (natives, initial_globals) = environment.into_parts();
     let mut closures = Vec::new();
     let mut tables = RuntimeTables::new();
     let mut strings = RuntimeStrings::new();
     let global_table = tables.push_table(Table::new());
     let mut globals = RuntimeGlobals::new(global_table);
+    for initial_global in initial_globals {
+        globals.set_named(
+            initial_global.name(),
+            initial_global.value(),
+            &mut strings,
+            &mut tables,
+        )?;
+    }
     let global_value = globals.value();
     let mut to_be_closed = Vec::new();
     let mut context = ExecutionContext {
@@ -1077,6 +1096,7 @@ pub(super) fn execute_tbc(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn close_to_count(
     thread: &LuaThread,
     closures: &mut Vec<RuntimeClosure>,
@@ -1096,6 +1116,7 @@ fn close_to_count(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn close_to_base(
     thread: &LuaThread,
     closures: &mut Vec<RuntimeClosure>,

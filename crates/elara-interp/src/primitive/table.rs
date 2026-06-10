@@ -191,6 +191,7 @@ impl RuntimeTables {
         .into())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn set_with_newindex(
         &mut self,
         table_index: usize,
