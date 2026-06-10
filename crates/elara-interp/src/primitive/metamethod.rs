@@ -4,8 +4,8 @@ use elara_bytecode::{Instr, Op};
 use elara_core::{LuaFloat, LuaInteger, LuaThread, SHORT_STRING_MAX_BYTES, Value};
 
 use super::{
-    RuntimeClosure, RuntimeErrorKind, RuntimeGlobals, RuntimeResult, RuntimeStrings, RuntimeTables,
-    call_closure, is_truthy, register, set_register,
+    RuntimeClosure, RuntimeErrorKind, RuntimeGlobals, RuntimeNatives, RuntimeResult,
+    RuntimeStrings, RuntimeTables, call_closure, is_truthy, register, set_register,
 };
 
 pub(super) fn execute_arithmetic(
@@ -14,6 +14,7 @@ pub(super) fn execute_arithmetic(
     instr: Instr,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<()> {
     let op = instr.op();
@@ -22,7 +23,7 @@ pub(super) fn execute_arithmetic(
         let result = if let Some(result) = negate(value) {
             result
         } else {
-            call_unary_metamethod(op, value, closures, tables, strings, globals)?
+            call_unary_metamethod(op, value, closures, tables, strings, natives, globals)?
                 .ok_or(RuntimeErrorKind::NonNumericOperand { op })?
         };
         return set_register(thread, instr.a().into(), result);
@@ -33,7 +34,7 @@ pub(super) fn execute_arithmetic(
     let result = if let Some(result) = binary_arithmetic(op, left, right) {
         result
     } else {
-        call_binary_metamethod(op, left, right, closures, tables, strings, globals)?
+        call_binary_metamethod(op, left, right, closures, tables, strings, natives, globals)?
             .ok_or(RuntimeErrorKind::NonNumericOperand { op })?
     };
     set_register(thread, instr.a().into(), result)
@@ -45,14 +46,17 @@ pub(super) fn execute_comparison(
     instr: Instr,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<()> {
     let op = instr.op();
     let left = register(thread, instr.b() as usize)?;
     let right = register(thread, instr.c() as usize)?;
     let result = match op {
-        Op::Eq => equality_comparison(left, right, closures, tables, strings, globals)?,
-        Op::Lt | Op::Le => order_comparison(op, left, right, closures, tables, strings, globals)?,
+        Op::Eq => equality_comparison(left, right, closures, tables, strings, natives, globals)?,
+        Op::Lt | Op::Le => {
+            order_comparison(op, left, right, closures, tables, strings, natives, globals)?
+        }
         _ => return Err(RuntimeErrorKind::UnsupportedOpcode { op }.into()),
     };
     set_register(thread, instr.a().into(), Value::boolean(result))
@@ -64,11 +68,12 @@ pub(super) fn execute_len(
     instr: Instr,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<()> {
     let value = register(thread, instr.b() as usize)?;
     let result = if let Some(result) =
-        call_named_unary_metamethod("__len", value, closures, tables, strings, globals)?
+        call_named_unary_metamethod("__len", value, closures, tables, strings, natives, globals)?
     {
         result
     } else if let Some(table_index) = value.as_table_index() {
@@ -90,6 +95,7 @@ pub(super) fn execute_concat(
     instr: Instr,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<()> {
     let left = register(thread, instr.b() as usize)?;
@@ -97,8 +103,10 @@ pub(super) fn execute_concat(
     let result = if let Some(result) = raw_concat(left, right, strings)? {
         result
     } else {
-        call_named_binary_metamethod("__concat", left, right, closures, tables, strings, globals)?
-            .ok_or(RuntimeErrorKind::NonConcatOperand)?
+        call_named_binary_metamethod(
+            "__concat", left, right, closures, tables, strings, natives, globals,
+        )?
+        .ok_or(RuntimeErrorKind::NonConcatOperand)?
     };
     set_register(thread, instr.a().into(), result)
 }
@@ -150,12 +158,15 @@ fn call_binary_metamethod(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<Value>> {
     let Some(name) = binary_metamethod_name(op) else {
         return Ok(None);
     };
-    call_named_binary_metamethod(name, left, right, closures, tables, strings, globals)
+    call_named_binary_metamethod(
+        name, left, right, closures, tables, strings, natives, globals,
+    )
 }
 
 fn call_named_binary_metamethod(
@@ -165,6 +176,7 @@ fn call_named_binary_metamethod(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<Value>> {
     let metamethod = match tables.metamethod_for_value(left, name, strings)? {
@@ -184,6 +196,7 @@ fn call_named_binary_metamethod(
         &[left, right],
         tables,
         strings,
+        natives,
         globals,
     )?;
     Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
@@ -219,6 +232,7 @@ fn call_unary_metamethod(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<Value>> {
     let Some(name) = unary_metamethod_name(op) else {
@@ -227,7 +241,9 @@ fn call_unary_metamethod(
     let Some(metamethod) = tables.metamethod_for_value(value, name, strings)? else {
         return Ok(None);
     };
-    call_unary_closure_metamethod(name, metamethod, value, closures, tables, strings, globals)
+    call_unary_closure_metamethod(
+        name, metamethod, value, closures, tables, strings, natives, globals,
+    )
 }
 
 fn binary_metamethod_name(op: Op) -> Option<&'static str> {
@@ -256,12 +272,15 @@ fn call_named_unary_metamethod(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<Value>> {
     let Some(metamethod) = tables.metamethod_for_value(value, name, strings)? else {
         return Ok(None);
     };
-    call_unary_closure_metamethod(name, metamethod, value, closures, tables, strings, globals)
+    call_unary_closure_metamethod(
+        name, metamethod, value, closures, tables, strings, natives, globals,
+    )
 }
 
 fn call_unary_closure_metamethod(
@@ -271,6 +290,7 @@ fn call_unary_closure_metamethod(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<Value>> {
     let Some(closure) = metamethod.as_closure_index() else {
@@ -283,6 +303,7 @@ fn call_unary_closure_metamethod(
         &[value],
         tables,
         strings,
+        natives,
         globals,
     )?;
     Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
@@ -294,6 +315,7 @@ fn equality_comparison(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<bool> {
     if left == right {
@@ -302,8 +324,9 @@ fn equality_comparison(
     if left.tag() != right.tag() {
         return Ok(false);
     }
-    let Some(result) =
-        call_comparison_metamethod("__eq", left, right, closures, tables, strings, globals)?
+    let Some(result) = call_comparison_metamethod(
+        "__eq", left, right, closures, tables, strings, natives, globals,
+    )?
     else {
         return Ok(false);
     };
@@ -317,6 +340,7 @@ fn order_comparison(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<bool> {
     if let Some(result) = raw_order_comparison(op, left, right) {
@@ -328,8 +352,9 @@ fn order_comparison(
         Op::Le => "__le",
         _ => return Err(RuntimeErrorKind::UnsupportedOpcode { op }.into()),
     };
-    let Some(result) =
-        call_comparison_metamethod(name, left, right, closures, tables, strings, globals)?
+    let Some(result) = call_comparison_metamethod(
+        name, left, right, closures, tables, strings, natives, globals,
+    )?
     else {
         return Err(RuntimeErrorKind::NonComparableOperand { op }.into());
     };
@@ -361,6 +386,7 @@ fn call_comparison_metamethod(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<Value>> {
     let metamethod = match tables.metamethod_for_value(left, name, strings)? {
@@ -380,6 +406,7 @@ fn call_comparison_metamethod(
         &[left, right],
         tables,
         strings,
+        natives,
         globals,
     )?;
     Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))

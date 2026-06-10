@@ -54,6 +54,7 @@ enum ValueRepr {
     LongString(GcRef<LongString>),
     Table(u32),
     Closure(u32),
+    NativeFunction(u32),
 }
 
 impl Value {
@@ -124,6 +125,14 @@ impl Value {
         }
     }
 
+    /// Creates a temporary Lua native-function value from a runtime native index.
+    #[must_use]
+    pub const fn native_function_index(value: u32) -> Self {
+        Self {
+            repr: ValueRepr::NativeFunction(value),
+        }
+    }
+
     /// Returns the value tag.
     #[must_use]
     pub const fn tag(self) -> ValueTag {
@@ -135,7 +144,7 @@ impl Value {
             ValueRepr::ShortString(_) => ValueTag::ShortString,
             ValueRepr::LongString(_) => ValueTag::LongString,
             ValueRepr::Table(_) => ValueTag::Table,
-            ValueRepr::Closure(_) => ValueTag::Closure,
+            ValueRepr::Closure(_) | ValueRepr::NativeFunction(_) => ValueTag::Closure,
         }
     }
 
@@ -175,7 +184,10 @@ impl Value {
     /// Returns true for Lua closure placeholders.
     #[must_use]
     pub const fn is_closure(self) -> bool {
-        matches!(self.repr, ValueRepr::Closure(_))
+        matches!(
+            self.repr,
+            ValueRepr::Closure(_) | ValueRepr::NativeFunction(_)
+        )
     }
 
     /// Returns the boolean payload when this value is a boolean.
@@ -241,6 +253,15 @@ impl Value {
         }
     }
 
+    /// Returns the runtime native-function index when this value is a native function.
+    #[must_use]
+    pub const fn as_native_function_index(self) -> Option<u32> {
+        match self.repr {
+            ValueRepr::NativeFunction(value) => Some(value),
+            _ => None,
+        }
+    }
+
     /// Converts an integer or float value to a float.
     #[must_use]
     pub fn to_float(self) -> Option<LuaFloat> {
@@ -293,6 +314,7 @@ impl PartialEq for Value {
             (ValueRepr::LongString(left), ValueRepr::LongString(right)) => left == right,
             (ValueRepr::Table(left), ValueRepr::Table(right)) => left == right,
             (ValueRepr::Closure(left), ValueRepr::Closure(right)) => left == right,
+            (ValueRepr::NativeFunction(left), ValueRepr::NativeFunction(right)) => left == right,
             _ => false,
         }
     }
@@ -367,6 +389,16 @@ mod tests {
         assert_eq!(value.tag(), ValueTag::Table);
         assert!(value.is_table());
         assert_eq!(value.as_table_index(), Some(7));
+    }
+
+    #[test]
+    fn value_native_function_placeholder_round_trips() {
+        let value = Value::native_function_index(3);
+
+        assert_eq!(value.tag(), ValueTag::Closure);
+        assert!(value.is_closure());
+        assert_eq!(value.as_native_function_index(), Some(3));
+        assert_eq!(value.as_closure_index(), None);
     }
 
     #[test]

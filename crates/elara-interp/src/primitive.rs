@@ -39,6 +39,37 @@ pub struct RuntimeOutput {
     pub strings: RuntimeStrings,
 }
 
+/// Native function callable by primitive execution.
+pub type NativeFunction = fn(&[Value]) -> RuntimeResult<Vec<Value>>;
+
+/// Runtime-owned native function registry.
+#[derive(Clone, Default)]
+pub struct RuntimeNatives {
+    functions: Vec<NativeFunction>,
+}
+
+impl RuntimeNatives {
+    /// Creates an empty native function registry.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            functions: Vec::new(),
+        }
+    }
+
+    /// Registers one native function and returns its runtime index.
+    pub fn push(&mut self, function: NativeFunction) -> u32 {
+        let index =
+            u32::try_from(self.functions.len()).expect("native function index must fit in u32");
+        self.functions.push(function);
+        index
+    }
+
+    fn get(&self, index: usize) -> Option<NativeFunction> {
+        self.functions.get(index).copied()
+    }
+}
+
 /// Result of executing a prototype behind a protected-call boundary.
 pub enum ProtectedRuntimeOutput {
     /// Execution completed normally.
@@ -64,6 +95,7 @@ pub struct PrimitiveCoroutine {
     closures: Vec<RuntimeClosure>,
     tables: RuntimeTables,
     strings: RuntimeStrings,
+    natives: RuntimeNatives,
     globals: RuntimeGlobals,
     frames: Vec<CoroutineFrame>,
     to_be_closed: Vec<usize>,
@@ -116,6 +148,7 @@ impl PrimitiveCoroutine {
             closures: Vec::new(),
             tables,
             strings: RuntimeStrings::new(),
+            natives: RuntimeNatives::new(),
             globals,
             frames: vec![frame],
             to_be_closed: Vec::new(),
@@ -211,6 +244,7 @@ impl PrimitiveCoroutine {
                 closures: &mut self.closures,
                 tables: &mut self.tables,
                 strings: &mut self.strings,
+                natives: &self.natives,
                 globals: &mut self.globals,
                 to_be_closed: &mut self.to_be_closed,
             };
@@ -283,6 +317,7 @@ impl PrimitiveCoroutine {
             &mut self.closures,
             &mut self.tables,
             &mut self.strings,
+            &self.natives,
             &mut self.globals,
             &mut self.to_be_closed,
             frame.tbc_start,
@@ -306,6 +341,7 @@ impl PrimitiveCoroutine {
             &mut self.closures,
             &mut self.tables,
             &mut self.strings,
+            &self.natives,
             &mut self.globals,
             &mut self.to_be_closed,
             0,
@@ -420,6 +456,8 @@ pub enum RuntimeErrorKind {
     NonClosableValue,
     /// To-be-closed variable has a close metamethod this interpreter cannot call yet.
     UnsupportedCloseMetamethod,
+    /// Native function index was not registered in this runtime.
+    NativeFunctionOutOfBounds { index: usize },
     /// Opcode is not supported by the primitive interpreter.
     UnsupportedOpcode { op: Op },
 }
@@ -479,6 +517,9 @@ impl RuntimeErrorKind {
             Self::CoroutineDead => "cannot resume dead coroutine".to_owned(),
             Self::NonClosableValue => "to-be-closed variable got a non-closable value".to_owned(),
             Self::UnsupportedCloseMetamethod => "unsupported '__close' metamethod shape".to_owned(),
+            Self::NativeFunctionOutOfBounds { index } => {
+                format!("native function index {index} is out of bounds")
+            }
             Self::UnsupportedOpcode { op } => format!("unsupported opcode '{}'", op.mnemonic()),
         }
     }
@@ -502,12 +543,20 @@ pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
 
 /// Executes a verified prototype and returns values plus runtime-owned tables.
 pub fn execute_proto_with_output(proto: &Proto) -> RuntimeResult<RuntimeOutput> {
-    execute_proto_with_output_in_mode(proto, false)
+    execute_proto_with_output_in_mode(proto, false, RuntimeNatives::new())
+}
+
+/// Executes a verified prototype with a native function registry.
+pub fn execute_proto_with_natives(
+    proto: &Proto,
+    natives: RuntimeNatives,
+) -> RuntimeResult<RuntimeOutput> {
+    execute_proto_with_output_in_mode(proto, false, natives)
 }
 
 /// Executes a prototype and catches runtime errors at a protected boundary.
 pub fn execute_proto_protected(proto: &Proto) -> ProtectedRuntimeOutput {
-    let result = execute_proto_with_output_in_mode(proto, true);
+    let result = execute_proto_with_output_in_mode(proto, true, RuntimeNatives::new());
     match result {
         Ok(output) => ProtectedRuntimeOutput::Ok(output),
         Err(error) => ProtectedRuntimeOutput::Err(error),
@@ -517,6 +566,7 @@ pub fn execute_proto_protected(proto: &Proto) -> ProtectedRuntimeOutput {
 fn execute_proto_with_output_in_mode(
     proto: &Proto,
     protected: bool,
+    natives: RuntimeNatives,
 ) -> RuntimeResult<RuntimeOutput> {
     verify_proto(proto)
         .map_err(RuntimeErrorKind::Verification)
@@ -532,6 +582,7 @@ fn execute_proto_with_output_in_mode(
         closures: &mut closures,
         tables: &mut tables,
         strings: &mut strings,
+        natives: &natives,
         globals: &mut globals,
         to_be_closed: &mut to_be_closed,
     };
@@ -599,6 +650,7 @@ fn execute_proto_with_upvalues(
                 context.closures,
                 context.tables,
                 context.strings,
+                context.natives,
                 context.globals,
                 context.to_be_closed,
                 0,
@@ -687,6 +739,7 @@ fn execute_instruction(
             instr,
             context.tables,
             context.strings,
+            context.natives,
             context.globals,
         )?,
         Op::SetTable => execute_set_table(
@@ -695,6 +748,7 @@ fn execute_instruction(
             instr,
             context.tables,
             context.strings,
+            context.natives,
             context.globals,
         )?,
         Op::GetIndex => execute_get_index(
@@ -703,6 +757,7 @@ fn execute_instruction(
             instr,
             context.tables,
             context.strings,
+            context.natives,
             context.globals,
         )?,
         Op::SetIndex => execute_set_index(
@@ -711,6 +766,7 @@ fn execute_instruction(
             instr,
             context.tables,
             context.strings,
+            context.natives,
             context.globals,
         )?,
         Op::GetUpvalue => {
@@ -748,6 +804,7 @@ fn execute_instruction(
                 instr,
                 context.tables,
                 context.strings,
+                context.natives,
                 context.globals,
             )?
         }
@@ -757,6 +814,7 @@ fn execute_instruction(
             instr,
             context.tables,
             context.strings,
+            context.natives,
             context.globals,
         )?,
         Op::Concat => execute_concat(
@@ -765,6 +823,7 @@ fn execute_instruction(
             instr,
             context.tables,
             context.strings,
+            context.natives,
             context.globals,
         )?,
         Op::Eq | Op::Lt | Op::Le => {
@@ -774,6 +833,7 @@ fn execute_instruction(
                 instr,
                 context.tables,
                 context.strings,
+                context.natives,
                 context.globals,
             )?;
         }
@@ -796,6 +856,7 @@ fn execute_instruction(
                 instr,
                 context.tables,
                 context.strings,
+                context.natives,
                 context.globals,
             )?;
         }
@@ -817,23 +878,25 @@ fn execute_instruction(
         }
         Op::VarargTable => execute_vararg_table(thread, instr, varargs, context.tables)?,
         Op::Call => {
-            if mode == ExecutionMode::Coroutine {
-                let callee = callable_closure(thread, context.tables, context.strings, instr)?;
-                return Ok(InstructionFlow::Call {
-                    closure_index: callee.closure_index,
-                    args: callee.args,
-                    base: usize::from(instr.a()),
-                    result_count: instr.c(),
-                });
-            } else if let Some(top) = execute_call(
-                thread,
-                context.closures,
-                instr,
-                context.tables,
-                context.strings,
-                context.globals,
-            )? {
-                *dynamic_top = top;
+            let callee = callable_function(thread, context.tables, context.strings, instr)?;
+            match callee {
+                CallableFunction::Lua {
+                    closure_index,
+                    args,
+                } if mode == ExecutionMode::Coroutine => {
+                    return Ok(InstructionFlow::Call {
+                        closure_index,
+                        args,
+                        base: usize::from(instr.a()),
+                        result_count: instr.c(),
+                    });
+                }
+                callable => {
+                    let returns = call_function(callable, context)?;
+                    if let Some(top) = write_call_returns(thread, instr, &returns)? {
+                        *dynamic_top = top;
+                    }
+                }
             }
         }
         Op::Tbc => execute_tbc(thread, context, instr)?,
@@ -842,6 +905,7 @@ fn execute_instruction(
             context.closures,
             context.tables,
             context.strings,
+            context.natives,
             context.globals,
             context.to_be_closed,
             usize::from(instr.a()),
@@ -852,6 +916,7 @@ fn execute_instruction(
                 context.closures,
                 context.tables,
                 context.strings,
+                context.natives,
                 context.globals,
                 context.to_be_closed,
                 0,
@@ -892,9 +957,15 @@ enum ExecutionMode {
     Coroutine,
 }
 
-struct CallableClosure {
-    closure_index: usize,
-    args: Vec<Value>,
+enum CallableFunction {
+    Lua {
+        closure_index: usize,
+        args: Vec<Value>,
+    },
+    Native {
+        native_index: usize,
+        args: Vec<Value>,
+    },
 }
 
 enum CoroutinePause {
@@ -934,6 +1005,7 @@ pub(super) struct ExecutionContext<'a> {
     closures: &'a mut Vec<RuntimeClosure>,
     tables: &'a mut RuntimeTables,
     strings: &'a mut RuntimeStrings,
+    natives: &'a RuntimeNatives,
     globals: &'a mut RuntimeGlobals,
     to_be_closed: &'a mut Vec<usize>,
 }
@@ -1010,13 +1082,16 @@ fn close_to_count(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
     to_be_closed: &mut Vec<usize>,
     keep_count: usize,
 ) -> RuntimeResult<()> {
     while to_be_closed.len() > keep_count {
         let register = to_be_closed.pop().expect("to-be-closed list is non-empty");
-        call_close_metamethod(thread, closures, tables, strings, globals, register)?;
+        call_close_metamethod(
+            thread, closures, tables, strings, natives, globals, register,
+        )?;
     }
     Ok(())
 }
@@ -1026,6 +1101,7 @@ pub(super) fn close_to_base(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
     to_be_closed: &mut Vec<usize>,
     base: usize,
@@ -1035,7 +1111,9 @@ pub(super) fn close_to_base(
         .is_some_and(|register| *register >= base)
     {
         let register = to_be_closed.pop().expect("to-be-closed list is non-empty");
-        call_close_metamethod(thread, closures, tables, strings, globals, register)?;
+        call_close_metamethod(
+            thread, closures, tables, strings, natives, globals, register,
+        )?;
     }
     Ok(())
 }
@@ -1045,6 +1123,7 @@ fn call_close_metamethod(
     closures: &mut Vec<RuntimeClosure>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
     register: usize,
 ) -> RuntimeResult<()> {
@@ -1064,6 +1143,7 @@ fn call_close_metamethod(
         &[value],
         tables,
         strings,
+        natives,
         globals,
     )?;
     Ok(())
@@ -1073,49 +1153,22 @@ fn register_value_for_close(thread: &LuaThread, index: usize) -> RuntimeResult<V
     register(thread, index)
 }
 
-fn execute_call(
-    thread: &mut LuaThread,
-    closures: &mut Vec<RuntimeClosure>,
-    instr: Instr,
-    tables: &mut RuntimeTables,
-    strings: &mut RuntimeStrings,
-    globals: &mut RuntimeGlobals,
-) -> RuntimeResult<Option<usize>> {
-    let callee = callable_closure(thread, tables, strings, instr)?;
-    let returns = call_closure(
-        closures,
-        callee.closure_index,
-        &callee.args,
-        tables,
-        strings,
-        globals,
-    )?;
-
-    let base = usize::from(instr.a());
-    let count = if instr.c() == 0 {
-        returns.len()
-    } else {
-        instr.c() as usize
-    };
-
-    for index in 0..count {
-        let value = returns.get(index).copied().unwrap_or_else(Value::nil);
-        set_register(thread, base + index, value)?;
-    }
-
-    Ok((instr.c() == 0).then_some(base + count))
-}
-
-fn callable_closure(
+fn callable_function(
     thread: &LuaThread,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
     instr: Instr,
-) -> RuntimeResult<CallableClosure> {
+) -> RuntimeResult<CallableFunction> {
     let callee = register(thread, instr.a().into())?;
     if let Some(closure_index) = callee.as_closure_index() {
-        return Ok(CallableClosure {
+        return Ok(CallableFunction::Lua {
             closure_index: closure_index as usize,
+            args: collect_call_args(thread, instr)?,
+        });
+    }
+    if let Some(native_index) = callee.as_native_function_index() {
+        return Ok(CallableFunction::Native {
+            native_index: native_index as usize,
             args: collect_call_args(thread, instr)?,
         });
     }
@@ -1123,16 +1176,83 @@ fn callable_closure(
     let Some(metamethod) = tables.metamethod_for_value(callee, "__call", strings)? else {
         return Err(RuntimeErrorKind::NonCallableValue.into());
     };
-    let Some(closure_index) = metamethod.as_closure_index() else {
-        return Err(RuntimeErrorKind::UnsupportedMetamethod { name: "__call" }.into());
-    };
     let mut args = Vec::with_capacity(instr.b() as usize);
     args.push(callee);
     args.extend(collect_call_args(thread, instr)?);
-    Ok(CallableClosure {
-        closure_index: closure_index as usize,
-        args,
-    })
+    if let Some(closure_index) = metamethod.as_closure_index() {
+        return Ok(CallableFunction::Lua {
+            closure_index: closure_index as usize,
+            args,
+        });
+    }
+    if let Some(native_index) = metamethod.as_native_function_index() {
+        return Ok(CallableFunction::Native {
+            native_index: native_index as usize,
+            args,
+        });
+    }
+    Err(RuntimeErrorKind::UnsupportedMetamethod { name: "__call" }.into())
+}
+
+fn call_function(
+    callable: CallableFunction,
+    context: &mut ExecutionContext<'_>,
+) -> RuntimeResult<Vec<Value>> {
+    match callable {
+        CallableFunction::Lua {
+            closure_index,
+            args,
+        } => call_closure(
+            context.closures,
+            closure_index,
+            &args,
+            context.tables,
+            context.strings,
+            context.natives,
+            context.globals,
+        ),
+        CallableFunction::Native { native_index, args } => {
+            let function = context.natives.get(native_index).ok_or(
+                RuntimeErrorKind::NativeFunctionOutOfBounds {
+                    index: native_index,
+                },
+            )?;
+            function(&args)
+        }
+    }
+}
+
+#[cfg(test)]
+fn execute_call(
+    thread: &mut LuaThread,
+    closures: &mut Vec<RuntimeClosure>,
+    instr: Instr,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
+    globals: &mut RuntimeGlobals,
+) -> RuntimeResult<Option<usize>> {
+    let callable = callable_function(thread, tables, strings, instr)?;
+    let mut to_be_closed = Vec::new();
+    let mut context = ExecutionContext {
+        closures,
+        tables,
+        strings,
+        natives,
+        globals,
+        to_be_closed: &mut to_be_closed,
+    };
+    let returns = call_function(callable, &mut context)?;
+    write_call_returns(thread, instr, &returns)
+}
+
+fn write_call_returns(
+    thread: &mut LuaThread,
+    instr: Instr,
+    returns: &[Value],
+) -> RuntimeResult<Option<usize>> {
+    let top = write_values(thread, usize::from(instr.a()), returns, instr.c())?;
+    Ok((instr.c() == 0).then_some(top))
 }
 
 fn write_values(
@@ -1159,6 +1279,7 @@ fn call_closure(
     args: &[Value],
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Vec<Value>> {
     let closure = closures
@@ -1170,6 +1291,7 @@ fn call_closure(
         closures,
         tables,
         strings,
+        natives,
         globals,
         to_be_closed: &mut to_be_closed,
     };

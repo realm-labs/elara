@@ -4,8 +4,8 @@ use elara_bytecode::Instr;
 use elara_core::{LuaFloat, LuaInteger, LuaThread, Value};
 
 use super::{
-    RuntimeClosure, RuntimeErrorKind, RuntimeGlobals, RuntimeResult, RuntimeStrings, RuntimeTables,
-    call_closure, register, set_register,
+    RuntimeClosure, RuntimeErrorKind, RuntimeGlobals, RuntimeNatives, RuntimeResult,
+    RuntimeStrings, RuntimeTables, call_closure, register, set_register,
 };
 
 pub(super) fn prepare_numeric_for(thread: &mut LuaThread, instr: Instr) -> RuntimeResult<bool> {
@@ -160,6 +160,7 @@ pub(super) fn execute_generic_for_call(
     instr: Instr,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<()> {
     let base = usize::from(instr.a());
@@ -174,6 +175,7 @@ pub(super) fn execute_generic_for_call(
         &[state, control],
         tables,
         strings,
+        natives,
         globals,
     )?;
 

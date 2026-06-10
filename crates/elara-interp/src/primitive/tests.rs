@@ -3,8 +3,9 @@ use elara_core::{Table, ThreadStatus, Value};
 
 use super::{
     CoroutineFrame, CoroutineResume, ExecutionContext, PrimitiveCoroutine, ProtectedRuntimeOutput,
-    RuntimeErrorKind, RuntimeGlobals, RuntimeStrings, RuntimeTables, close_to_base, execute_proto,
-    execute_proto_protected, execute_proto_with_output, execute_tbc,
+    RuntimeErrorKind, RuntimeGlobals, RuntimeNatives, RuntimeStrings, RuntimeTables, close_to_base,
+    execute_proto, execute_proto_protected, execute_proto_with_natives, execute_proto_with_output,
+    execute_tbc,
 };
 
 fn assert_runtime_error_kind(
@@ -18,6 +19,18 @@ fn assert_runtime_error_kind(
 fn runtime_globals(tables: &mut RuntimeTables) -> RuntimeGlobals {
     let global_table = tables.push_table(Table::new());
     RuntimeGlobals::new(global_table)
+}
+
+fn native_add(args: &[Value]) -> super::RuntimeResult<Vec<Value>> {
+    let left = args
+        .first()
+        .and_then(|value| value.as_integer())
+        .ok_or(RuntimeErrorKind::NonNumericOperand { op: Op::Add })?;
+    let right = args
+        .get(1)
+        .and_then(|value| value.as_integer())
+        .ok_or(RuntimeErrorKind::NonNumericOperand { op: Op::Add })?;
+    Ok(vec![Value::integer(left + right)])
 }
 
 #[test]
@@ -63,6 +76,45 @@ fn arithmetic_executes_unary_minus() {
     assert_eq!(
         execute_proto(&builder.finish()),
         Ok(vec![Value::integer(-4)])
+    );
+}
+
+#[test]
+fn native_functions_execute_call() {
+    let mut natives = RuntimeNatives::new();
+    let native = natives.push(native_add);
+
+    let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+    let callee = builder.add_constant(Value::native_function_index(native));
+    let left = builder.add_constant(Value::integer(20));
+    let right = builder.add_constant(Value::integer(22));
+    builder.emit_abx(Op::LoadK, 0, u64::from(callee));
+    builder.emit_abx(Op::LoadK, 1, u64::from(left));
+    builder.emit_abx(Op::LoadK, 2, u64::from(right));
+    builder.emit_abc(Op::Call, 0, 3, 1);
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    let output =
+        execute_proto_with_natives(&builder.finish(), natives).expect("native call should pass");
+    assert_eq!(output.values, vec![Value::integer(42)]);
+}
+
+#[test]
+fn native_functions_reject_missing_registry_entry() {
+    let mut builder = ProtoBuilder::new().with_signature(1, 0, false);
+    let callee = builder.add_constant(Value::native_function_index(99));
+    builder.emit_abx(Op::LoadK, 0, u64::from(callee));
+    builder.emit_abc(Op::Call, 0, 1, 1);
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    let result = execute_proto_with_natives(&builder.finish(), RuntimeNatives::new());
+    let error = match result {
+        Ok(_) => panic!("missing native should error"),
+        Err(error) => error,
+    };
+    assert_eq!(
+        error.kind(),
+        &RuntimeErrorKind::NativeFunctionOutOfBounds { index: 99 }
     );
 }
 
@@ -320,6 +372,7 @@ fn to_be_closed_close_calls_close_metamethod_in_reverse_order() {
         .set_metatable(second_table as usize, Some(second_metatable))
         .expect("metatable link should be valid");
     let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
     let mut to_be_closed = Vec::new();
     let mut thread = elara_core::LuaThread::new();
     thread.push_value(Value::table_index(first_table));
@@ -330,6 +383,7 @@ fn to_be_closed_close_calls_close_metamethod_in_reverse_order() {
             closures: &mut closures,
             tables: &mut tables,
             strings: &mut strings,
+            natives: &natives,
             globals: &mut globals,
             to_be_closed: &mut to_be_closed,
         };
@@ -343,6 +397,7 @@ fn to_be_closed_close_calls_close_metamethod_in_reverse_order() {
         &mut closures,
         &mut tables,
         &mut strings,
+        &natives,
         &mut globals,
         &mut to_be_closed,
         0,
@@ -410,6 +465,7 @@ fn to_be_closed_error_unwind_runs_close_metamethod() {
         .set_metatable(table as usize, Some(metatable))
         .expect("metatable link should be valid");
     let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
     let mut to_be_closed = Vec::new();
     let mut thread = elara_core::LuaThread::new();
     thread.push_value(Value::table_index(table));
@@ -422,6 +478,7 @@ fn to_be_closed_error_unwind_runs_close_metamethod() {
             closures: &mut closures,
             tables: &mut tables,
             strings: &mut strings,
+            natives: &natives,
             globals: &mut globals,
             to_be_closed: &mut to_be_closed,
         };
@@ -434,6 +491,7 @@ fn to_be_closed_error_unwind_runs_close_metamethod() {
         Instr::abc(Op::Add, 3, 1, 2),
         &mut tables,
         &mut strings,
+        &natives,
         &mut globals,
     )
     .unwrap_err();
@@ -442,6 +500,7 @@ fn to_be_closed_error_unwind_runs_close_metamethod() {
         &mut closures,
         &mut tables,
         &mut strings,
+        &natives,
         &mut globals,
         &mut to_be_closed,
         0,

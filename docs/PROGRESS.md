@@ -1,7 +1,7 @@
 # Elara Progress
 
 Status: Rolling current-state document  
-Last updated: 2026-06-09  
+Last updated: 2026-06-10
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M11 Standard Library MVP
 Current step: M11.2 Implement base, table, math, and string essentials
@@ -70,11 +70,15 @@ To-be-closed locals now lower to `TBC`/`CLOSE`, and primitive normal-return
 close paths can validate and invoke `__close` metamethods. Runtime error
 unwinding runs pending close methods before returning the original error when
 close succeeds, and primitive coroutines keep close variables alive across
-yield before closing them on finish. The standard-library crate now exposes a
-profile/set/registry framework plus generic global registration adapters, and
-contains descriptor-based essential base, table, math, and string library
-entries. Executable native standard-library functions, full API, JIT, C API,
-conformance, and benchmark implementation work remain.
+yield before closing them on finish. The primitive interpreter can represent
+runtime-registered native functions as callable values, dispatch `CALL` to
+native or Lua functions, and thread the native registry through Lua closure,
+metamethod, table slow-path, generic-for, and close-metamethod calls. The
+standard-library crate now exposes a profile/set/registry framework plus
+generic global registration adapters, and contains descriptor-based essential
+base, table, math, and string library entries. Executable native standard-library
+functions, full API, JIT, C API, conformance, and benchmark implementation work
+remain.
 
 Current state:
 
@@ -129,6 +133,7 @@ Completed:
   - M10.3 Implement coroutines and yield/resume.
   - M10.4 Implement to-be-closed variables.
   - M11.1 Add library registration framework.
+  - M11.2 runtime native-call support for executable standard-library functions.
 
 In progress:
   - M11.2 Implement base, table, math, and string essentials.
@@ -695,20 +700,23 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 descriptor essential-library slice verification passed:
+M11.2 native-call support verification passed:
 
 ```bash
-cargo test -p elara-stdlib
-cargo clippy -p elara-stdlib --all-targets -- -D warnings
+cargo check -p elara-interp
+cargo test -p elara-core native_function
+cargo test -p elara-interp native_functions
+cargo test -p elara-interp metamethods
+cargo test -p elara-interp to_be_closed
 ```
 
-`cargo fmt --all -- --check` currently reports workspace-wide newline-style
-issues on Windows even after the touched files are formatted.
+`cargo fmt --all` completed successfully.
 
 ## Next Recommended Action
 
-Continue M11.2 by adding runtime/API native-call support so essential standard
-library descriptors can become executable Lua functions.
+Continue M11.2 by connecting essential standard-library descriptors to
+executable native functions and registering them into the runtime/global
+environment through the available public or semi-public boundary.
 
 ## Current Risk Notes
 

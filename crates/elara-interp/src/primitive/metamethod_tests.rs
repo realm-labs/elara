@@ -2,8 +2,8 @@ use elara_bytecode::{Instr, Op, ProtoBuilder};
 use elara_core::{LuaThread, Table, Value};
 
 use super::{
-    RuntimeClosure, RuntimeGlobals, RuntimeStrings, RuntimeTables, execute_arithmetic,
-    execute_call, execute_comparison, execute_concat, execute_len,
+    RuntimeClosure, RuntimeGlobals, RuntimeNatives, RuntimeStrings, RuntimeTables,
+    execute_arithmetic, execute_call, execute_comparison, execute_concat, execute_len,
 };
 
 fn constant_closure(value: Value) -> RuntimeClosure {
@@ -36,6 +36,7 @@ fn metamethods_arithmetic_calls_left_operand_add() {
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::integer(42))];
     let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(table));
     thread.push_value(Value::integer(1));
@@ -47,6 +48,7 @@ fn metamethods_arithmetic_calls_left_operand_add() {
         Instr::abc(Op::Add, 2, 0, 1),
         &mut tables,
         &mut strings,
+        &natives,
         &mut globals,
     )
     .expect("__add should execute");
@@ -69,6 +71,7 @@ fn metamethods_arithmetic_calls_right_operand_add() {
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::integer(99))];
     let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(left));
     thread.push_value(Value::table_index(right));
@@ -80,6 +83,7 @@ fn metamethods_arithmetic_calls_right_operand_add() {
         Instr::abc(Op::Add, 2, 0, 1),
         &mut tables,
         &mut strings,
+        &natives,
         &mut globals,
     )
     .expect("__add should execute");
@@ -101,6 +105,7 @@ fn metamethods_arithmetic_calls_unary_minus() {
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::integer(-7))];
     let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(table));
     thread.push_value(Value::nil());
@@ -111,6 +116,7 @@ fn metamethods_arithmetic_calls_unary_minus() {
         Instr::abc(Op::Unm, 1, 0, 0),
         &mut tables,
         &mut strings,
+        &natives,
         &mut globals,
     )
     .expect("__unm should execute");
@@ -124,6 +130,7 @@ fn metamethods_comparison_executes_raw_less_than() {
     let mut tables = RuntimeTables::new();
     let mut strings = RuntimeStrings::new();
     let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
     let mut thread = LuaThread::new();
     thread.push_value(Value::integer(1));
     thread.push_value(Value::integer(2));
@@ -135,6 +142,7 @@ fn metamethods_comparison_executes_raw_less_than() {
         Instr::abc(Op::Lt, 2, 0, 1),
         &mut tables,
         &mut strings,
+        &natives,
         &mut globals,
     )
     .expect("raw less-than should execute");
@@ -157,6 +165,7 @@ fn metamethods_comparison_calls_eq_for_distinct_tables() {
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::boolean(true))];
     let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(left));
     thread.push_value(Value::table_index(right));
@@ -168,6 +177,7 @@ fn metamethods_comparison_calls_eq_for_distinct_tables() {
         Instr::abc(Op::Eq, 2, 0, 1),
         &mut tables,
         &mut strings,
+        &natives,
         &mut globals,
     )
     .expect("__eq should execute");
@@ -190,6 +200,7 @@ fn metamethods_comparison_calls_less_than() {
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::boolean(true))];
     let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(left));
     thread.push_value(Value::table_index(right));
@@ -201,6 +212,7 @@ fn metamethods_comparison_calls_less_than() {
         Instr::abc(Op::Lt, 2, 0, 1),
         &mut tables,
         &mut strings,
+        &natives,
         &mut globals,
     )
     .expect("__lt should execute");
@@ -214,6 +226,7 @@ fn metamethods_len_executes_raw_table_length() {
     let mut strings = RuntimeStrings::new();
     let mut tables = RuntimeTables::new();
     let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
     let mut table_value = Table::new();
     assert!(table_value.raw_set_integer(1, Value::integer(10)));
     assert!(table_value.raw_set_integer(2, Value::integer(20)));
@@ -228,6 +241,7 @@ fn metamethods_len_executes_raw_table_length() {
         Instr::abc(Op::Len, 1, 0, 0),
         &mut tables,
         &mut strings,
+        &natives,
         &mut globals,
     )
     .expect("raw table length should execute");
@@ -249,6 +263,7 @@ fn metamethods_len_calls_function_fallback() {
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::integer(77))];
     let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(table));
     thread.push_value(Value::nil());
@@ -259,6 +274,7 @@ fn metamethods_len_calls_function_fallback() {
         Instr::abc(Op::Len, 1, 0, 0),
         &mut tables,
         &mut strings,
+        &natives,
         &mut globals,
     )
     .expect("__len should execute");
@@ -280,6 +296,7 @@ fn metamethods_call_invokes_function_fallback() {
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::integer(123))];
     let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(table));
     thread.push_value(Value::integer(1));
@@ -290,6 +307,7 @@ fn metamethods_call_invokes_function_fallback() {
         Instr::abc(Op::Call, 0, 2, 1),
         &mut tables,
         &mut strings,
+        &natives,
         &mut globals,
     )
     .expect("__call should execute");
@@ -303,6 +321,7 @@ fn metamethods_concat_executes_raw_short_strings() {
     let mut tables = RuntimeTables::new();
     let mut strings = RuntimeStrings::new();
     let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
     let left = strings.intern_short_value("a");
     let right = strings.intern_short_value("b");
     let mut thread = LuaThread::new();
@@ -316,6 +335,7 @@ fn metamethods_concat_executes_raw_short_strings() {
         Instr::abc(Op::Concat, 2, 0, 1),
         &mut tables,
         &mut strings,
+        &natives,
         &mut globals,
     )
     .expect("raw short-string concat should execute");
@@ -338,6 +358,7 @@ fn metamethods_concat_calls_function_fallback() {
         .expect("metatable link should be valid");
     let mut closures = vec![constant_closure(Value::integer(321))];
     let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
     let mut thread = LuaThread::new();
     thread.push_value(Value::table_index(table));
     thread.push_value(Value::integer(1));
@@ -349,6 +370,7 @@ fn metamethods_concat_calls_function_fallback() {
         Instr::abc(Op::Concat, 2, 0, 1),
         &mut tables,
         &mut strings,
+        &natives,
         &mut globals,
     )
     .expect("__concat should execute");
