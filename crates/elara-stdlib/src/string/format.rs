@@ -48,12 +48,20 @@ pub(super) fn string_format(
             output.extend_from_slice(format_pointer_arg(runtime, value).as_bytes());
             arg_index += 1;
             index += 2;
+        } else if let Some((spec, precision, next_index)) =
+            parse_float_precision_spec(&format, index + 1)?
+        {
+            let value =
+                float_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
+            output.extend_from_slice(format_float_conversion(spec, value, precision).as_bytes());
+            arg_index += 1;
+            index = next_index;
         } else if let Some(spec @ (b'e' | b'E' | b'f' | b'g' | b'G')) =
             format.get(index + 1).copied()
         {
             let value =
                 float_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
-            output.extend_from_slice(format_float_conversion(spec, value).as_bytes());
+            output.extend_from_slice(format_float_conversion(spec, value, None).as_bytes());
             arg_index += 1;
             index += 2;
         } else if let Some(spec) = parse_integer_width_spec(&format, index + 1)? {
@@ -196,6 +204,28 @@ fn invalid_format_spec() -> NativeError {
     .into()
 }
 
+fn parse_float_precision_spec(
+    format: &[u8],
+    start: usize,
+) -> Result<Option<(u8, Option<usize>, usize)>, NativeError> {
+    if format.get(start) != Some(&b'.') {
+        return Ok(None);
+    }
+    let Some(conversion) = conversion_index(format, start) else {
+        return Ok(None);
+    };
+    let Some(spec @ (b'e' | b'E' | b'f' | b'g' | b'G')) = format.get(conversion).copied() else {
+        return Ok(None);
+    };
+
+    let mut cursor = start + 1;
+    let precision = Some(parse_two_digit_field(format, &mut cursor)?.unwrap_or(0));
+    if cursor != conversion {
+        return Err(invalid_format_spec());
+    }
+    Ok(Some((spec, precision, conversion + 1)))
+}
+
 fn format_string_arg(
     runtime: &dyn NativeRuntime,
     value: Value,
@@ -320,19 +350,16 @@ fn format_float_literal(value: LuaFloat) -> String {
     }
 }
 
-fn format_float_conversion(spec: u8, value: LuaFloat) -> String {
+fn format_float_conversion(spec: u8, value: LuaFloat, precision: Option<usize>) -> String {
+    let precision = precision.unwrap_or(6);
     match spec {
-        b'e' => format_exponential(value, false),
-        b'E' => format_exponential(value, true),
-        b'f' => format!("{value:.6}"),
-        b'g' => format_general_float(value, false),
-        b'G' => format_general_float(value, true),
+        b'e' => format_exponential_with_precision(value, false, precision),
+        b'E' => format_exponential_with_precision(value, true, precision),
+        b'f' => format!("{value:.precision$}"),
+        b'g' => format_general_float(value, false, precision.max(1)),
+        b'G' => format_general_float(value, true, precision.max(1)),
         _ => unreachable!("caller filters float conversion specifiers"),
     }
-}
-
-fn format_exponential(value: LuaFloat, upper: bool) -> String {
-    format_exponential_with_precision(value, upper, 6)
 }
 
 fn format_exponential_with_precision(value: LuaFloat, upper: bool, precision: usize) -> String {
@@ -356,7 +383,7 @@ fn format_exponential_with_precision(value: LuaFloat, upper: bool, precision: us
     format!("{mantissa}{marker}{sign}{:02}", exponent.abs())
 }
 
-fn format_general_float(value: LuaFloat, upper: bool) -> String {
+fn format_general_float(value: LuaFloat, upper: bool, precision: usize) -> String {
     if !value.is_finite() {
         let formatted = value.to_string();
         return if upper {
@@ -369,10 +396,10 @@ fn format_general_float(value: LuaFloat, upper: bool) -> String {
         return "0".to_owned();
     }
 
-    const PRECISION: i32 = 6;
+    let precision = i32::try_from(precision).expect("format precision fits in i32");
     let exponent = value.abs().log10().floor() as i32;
-    if !(-4..PRECISION).contains(&exponent) {
-        let formatted = format_exponential_with_precision(value, upper, (PRECISION - 1) as usize);
+    if !(-4..precision).contains(&exponent) {
+        let formatted = format_exponential_with_precision(value, upper, (precision - 1) as usize);
         let marker = if upper { 'E' } else { 'e' };
         let (mantissa, exponent) = formatted
             .split_once(marker)
@@ -380,7 +407,7 @@ fn format_general_float(value: LuaFloat, upper: bool) -> String {
         return format!("{}{marker}{exponent}", trim_float_zeros(mantissa));
     }
 
-    let decimals = (PRECISION - exponent - 1).max(0) as usize;
+    let decimals = (precision - exponent - 1).max(0) as usize;
     trim_float_zeros(&format!("{value:.decimals$}")).to_owned()
 }
 
@@ -467,5 +494,7 @@ fn tostring_bytes(value: Value) -> String {
     }
 }
 
+#[cfg(test)]
+mod float_tests;
 #[cfg(test)]
 mod tests;

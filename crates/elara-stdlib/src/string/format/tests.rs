@@ -411,37 +411,6 @@ fn string_format_formats_quoted_scalar_literals() {
 }
 
 #[test]
-fn string_format_formats_basic_float_conversion() {
-    let mut runtime = TestRuntime::default();
-    let format = runtime.push_string(b"%f:%f:%f:%e:%E:%g:%g:%G");
-    let numeric_string = runtime.push_string(b"2.25");
-
-    let values = string_format(
-        &mut runtime,
-        &[
-            format,
-            Value::integer(7),
-            Value::float(1.5),
-            numeric_string,
-            Value::float(12.5),
-            Value::float(12.5),
-            Value::float(12.5),
-            Value::float(0.0000125),
-            Value::float(1_200_000.0),
-        ],
-    )
-    .expect("format should pass");
-
-    assert_eq!(
-        runtime.short_string_bytes(values[0]),
-        Some(
-            b"7.000000:1.500000:2.250000:1.250000e+01:1.250000E+01:12.5:1.25e-05:1.2E+06"
-                .as_slice()
-        )
-    );
-}
-
-#[test]
 fn string_format_formats_basic_pointer_conversion() {
     let mut runtime = TestRuntime::default();
     let format = runtime.push_string(b"%p:%p:%p");
