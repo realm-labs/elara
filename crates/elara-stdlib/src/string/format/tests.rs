@@ -232,6 +232,40 @@ fn string_format_formats_integer_alternate_form() {
 }
 
 #[test]
+fn string_format_formats_integer_precision() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(
+        b"%.3d:%+.3d:% .3i:%8.3d:%-8.3d:%08.3d:%.0d:%5.0d:%.3u:%.3x:%#.3x:%#.0o:%#.0x",
+    );
+
+    let values = string_format(
+        &mut runtime,
+        &[
+            format,
+            Value::integer(7),
+            Value::integer(7),
+            Value::integer(7),
+            Value::integer(7),
+            Value::integer(7),
+            Value::integer(7),
+            Value::integer(0),
+            Value::integer(0),
+            Value::integer(7),
+            Value::integer(10),
+            Value::integer(10),
+            Value::integer(0),
+            Value::integer(0),
+        ],
+    )
+    .expect("format should pass");
+
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"007:+007: 007:     007:007     :     007::     :007:00a:0x00a:0:".as_slice())
+    );
+}
+
+#[test]
 fn string_format_reports_invalid_integer_width() {
     let mut runtime = TestRuntime::default();
     let format = runtime.push_string(b"%123x");
@@ -239,6 +273,21 @@ fn string_format_reports_invalid_integer_width() {
     assert_eq!(
         string_format(&mut runtime, &[format, Value::integer(7)])
             .expect_err("three-digit width should fail")
+            .kind(),
+        &NativeErrorKind::RuntimeError {
+            message: "invalid conversion specification".into(),
+        }
+    );
+}
+
+#[test]
+fn string_format_reports_invalid_integer_precision() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%.123d");
+
+    assert_eq!(
+        string_format(&mut runtime, &[format, Value::integer(7)])
+            .expect_err("three-digit precision should fail")
             .kind(),
         &NativeErrorKind::RuntimeError {
             message: "invalid conversion specification".into(),
