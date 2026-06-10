@@ -335,6 +335,21 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_string_reverse() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        let values = eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "return string.reverse('abc')",
+            &profile,
+        )
+        .expect("string.reverse should execute");
+
+        assert_eq!(values.len(), 1);
+        assert!(values[0].is_string());
+    }
+
+    #[test]
     fn eval_simple_rejects_global_function_when_defined() {
         let error = eval_simple_source(
             SourceId::new(0),
