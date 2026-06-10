@@ -636,10 +636,10 @@ mod tests {
         assert_eq!(
             eval_simple_source_with_stdlib(
                 SourceId::new(0),
-                "return string.len(string.format('%s:%d:%i:%x%%', 'ab', 7, -2, 255))",
+                "return string.len(string.format('%s:%d:%i:%x:%c%%', 'ab', 7, -2, 255, 65))",
                 &profile,
             ),
-            Ok(vec![Value::integer(11)])
+            Ok(vec![Value::integer(13)])
         );
     }
 

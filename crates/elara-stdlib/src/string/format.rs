@@ -33,12 +33,16 @@ pub(super) fn string_format(
             output.extend_from_slice(&format_string_arg(runtime, value));
             arg_index += 1;
             index += 2;
-        } else if let Some(spec @ (b'd' | b'i' | b'u' | b'o' | b'x' | b'X')) =
+        } else if let Some(spec @ (b'c' | b'd' | b'i' | b'u' | b'o' | b'x' | b'X')) =
             format.get(index + 1).copied()
         {
             let value =
                 integer_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
-            output.extend_from_slice(format_integer_conversion(spec, value).as_bytes());
+            if spec == b'c' {
+                output.push(value as u8);
+            } else {
+                output.extend_from_slice(format_integer_conversion(spec, value).as_bytes());
+            }
             arg_index += 1;
             index += 2;
         } else {
@@ -254,6 +258,23 @@ mod tests {
         assert_eq!(
             runtime.short_string_bytes(values[0]),
             Some(format!("{}:{:x}", u64::MAX, u64::MAX).as_bytes())
+        );
+    }
+
+    #[test]
+    fn string_format_formats_basic_character_conversions() {
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"%c%c");
+
+        let values = string_format(
+            &mut runtime,
+            &[format, Value::integer(65), Value::integer(256)],
+        )
+        .expect("format should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"A\0".as_slice())
         );
     }
 
