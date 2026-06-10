@@ -15,7 +15,8 @@ mod native;
 pub use base::BASE_NATIVE_FUNCTIONS;
 pub use math::MATH_NATIVE_FUNCTIONS;
 pub use native::{
-    NativeError, NativeErrorKind, NativeFunctionSpec, NativeResult, NativeStdFunction,
+    NativeError, NativeErrorKind, NativeFunctionSpec, NativeResult, NativeRuntime,
+    NativeStdFunction,
 };
 
 /// One standard-library module that can register itself into a target runtime.

@@ -8,7 +8,8 @@
 pub mod primitive;
 
 pub use primitive::{
-    CoroutineResume, PrimitiveCoroutine, ProtectedRuntimeOutput, RuntimeEnvironment, RuntimeError,
-    RuntimeErrorKind, RuntimeNatives, RuntimeResult, execute_proto, execute_proto_protected,
-    execute_proto_with_environment, execute_proto_with_natives, execute_proto_with_output,
+    CoroutineResume, NativeContext, PrimitiveCoroutine, ProtectedRuntimeOutput, RuntimeEnvironment,
+    RuntimeError, RuntimeErrorKind, RuntimeNatives, RuntimeResult, execute_proto,
+    execute_proto_protected, execute_proto_with_environment, execute_proto_with_natives,
+    execute_proto_with_output,
 };

@@ -2,7 +2,9 @@
 
 use elara_core::Value;
 
-use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, StdLib};
+use crate::{
+    FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
+};
 
 /// Executable base-library functions currently implemented.
 pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
@@ -11,7 +13,10 @@ pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "select"), base_select),
 ];
 
-fn base_assert(args: &[Value]) -> Result<Vec<Value>, NativeError> {
+fn base_assert(
+    _runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
     let condition = *args
         .first()
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
@@ -22,7 +27,10 @@ fn base_assert(args: &[Value]) -> Result<Vec<Value>, NativeError> {
     }
 }
 
-fn base_rawequal(args: &[Value]) -> Result<Vec<Value>, NativeError> {
+fn base_rawequal(
+    _runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
     let left = *args
         .first()
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
@@ -32,7 +40,10 @@ fn base_rawequal(args: &[Value]) -> Result<Vec<Value>, NativeError> {
     Ok(vec![Value::boolean(left == right)])
 }
 
-fn base_select(args: &[Value]) -> Result<Vec<Value>, NativeError> {
+fn base_select(
+    _runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
     let index =
         args.first()
             .and_then(|value| value.as_integer())
@@ -69,10 +80,22 @@ mod tests {
     use elara_core::Value;
 
     use super::{BASE_NATIVE_FUNCTIONS, base_assert, base_rawequal, base_select};
-    use crate::{FunctionSpec, NativeErrorKind, StdLib};
+    use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
+
+    struct TestRuntime;
+
+    impl NativeRuntime for TestRuntime {
+        fn intern_short_string(&mut self, _bytes: &[u8]) -> Result<Value, NativeError> {
+            unimplemented!("base native tests do not allocate strings")
+        }
+
+        fn short_string_bytes(&self, _value: Value) -> Option<&[u8]> {
+            None
+        }
+    }
 
     fn call(function: crate::NativeStdFunction, args: &[Value]) -> Vec<Value> {
-        function(args).expect("native should pass")
+        function(&mut TestRuntime, args).expect("native should pass")
     }
 
     #[test]
@@ -101,13 +124,13 @@ mod tests {
     #[test]
     fn base_assert_errors_when_false_or_nil() {
         assert_eq!(
-            base_assert(&[Value::boolean(false)])
+            base_assert(&mut TestRuntime, &[Value::boolean(false)])
                 .expect_err("false assert should fail")
                 .kind(),
             &NativeErrorKind::LuaError
         );
         assert_eq!(
-            base_assert(&[Value::nil()])
+            base_assert(&mut TestRuntime, &[Value::nil()])
                 .expect_err("nil assert should fail")
                 .kind(),
             &NativeErrorKind::LuaError
@@ -151,7 +174,7 @@ mod tests {
     #[test]
     fn base_select_reports_bad_position() {
         assert_eq!(
-            base_select(&[Value::integer(0)])
+            base_select(&mut TestRuntime, &[Value::integer(0)])
                 .expect_err("zero select should fail")
                 .kind(),
             &NativeErrorKind::ArgumentOutOfRange { index: 1 }

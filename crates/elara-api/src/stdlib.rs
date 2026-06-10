@@ -1,8 +1,10 @@
 //! Standard-library integration for the public Rust API.
 
 use elara_core::Value;
-use elara_interp::{RuntimeEnvironment, RuntimeErrorKind};
-use elara_stdlib::{NativeError, StdLib, StdLibProfile, StdLibSet, native_functions};
+use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
+use elara_stdlib::{
+    NativeError, NativeErrorKind, NativeRuntime, StdLib, StdLibProfile, StdLibSet, native_functions,
+};
 
 /// Builds a primitive runtime environment containing implemented stdlib natives
 /// from the given profile.
@@ -35,8 +37,9 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
     if library == StdLib::Base {
         for spec in functions {
             let function = spec.function();
-            environment.register_simple_native_global(spec.descriptor().name(), move |args| {
-                function(args).map_err(native_error_to_runtime_error)
+            environment.register_native_global(spec.descriptor().name(), move |context, args| {
+                let mut runtime = InterpNativeRuntime { context };
+                function(&mut runtime, args).map_err(native_error_to_runtime_error)
             });
         }
         return;
@@ -46,8 +49,9 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
         .iter()
         .map(|spec| {
             let function = spec.function();
-            let index = environment.push_simple_native(move |args| {
-                function(args).map_err(native_error_to_runtime_error)
+            let index = environment.push_native(move |context, args| {
+                let mut runtime = InterpNativeRuntime { context };
+                function(&mut runtime, args).map_err(native_error_to_runtime_error)
             });
             (
                 spec.descriptor().name(),
@@ -56,6 +60,25 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
         })
         .collect();
     environment.set_global_table(library.name(), fields);
+}
+
+struct InterpNativeRuntime<'a, 'runtime> {
+    context: &'a mut NativeContext<'runtime>,
+}
+
+impl NativeRuntime for InterpNativeRuntime<'_, '_> {
+    fn intern_short_string(&mut self, bytes: &[u8]) -> Result<Value, NativeError> {
+        self.context.intern_short_string(bytes).map_err(|error| {
+            NativeErrorKind::RuntimeError {
+                message: error.to_string().into(),
+            }
+            .into()
+        })
+    }
+
+    fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
+        self.context.short_string_bytes(value)
+    }
 }
 
 fn native_error_to_runtime_error(error: NativeError) -> elara_interp::RuntimeError {

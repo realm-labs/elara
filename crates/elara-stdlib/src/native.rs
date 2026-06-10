@@ -7,8 +7,17 @@ use crate::FunctionSpec;
 /// Result returned by executable standard-library natives.
 pub type NativeResult = Result<Vec<Value>, NativeError>;
 
+/// Runtime services available to standard-library native functions.
+pub trait NativeRuntime {
+    /// Interns a short Lua string in the current runtime.
+    fn intern_short_string(&mut self, bytes: &[u8]) -> Result<Value, NativeError>;
+
+    /// Returns bytes for a short Lua string owned by this runtime.
+    fn short_string_bytes(&self, value: Value) -> Option<&[u8]>;
+}
+
 /// Executable standard-library native function.
-pub type NativeStdFunction = fn(&[Value]) -> NativeResult;
+pub type NativeStdFunction = fn(&mut dyn NativeRuntime, &[Value]) -> NativeResult;
 
 /// Descriptor plus executable implementation for one native function.
 #[derive(Clone, Copy, Debug)]
@@ -96,6 +105,8 @@ pub enum NativeErrorKind {
     ArgumentOutOfRange { index: usize },
     /// The native raised a Lua-level error.
     LuaError,
+    /// Runtime service used by the native failed.
+    RuntimeError { message: Box<str> },
 }
 
 impl NativeErrorKind {
@@ -109,6 +120,7 @@ impl NativeErrorKind {
                 format!("bad argument #{index} (out of range)")
             }
             Self::LuaError => "native function error".to_owned(),
+            Self::RuntimeError { message } => message.to_string(),
         }
     }
 }

@@ -2,7 +2,9 @@
 
 use elara_core::{LuaFloat, Value, float_to_integer_exact};
 
-use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, StdLib};
+use crate::{
+    FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
+};
 
 /// Executable math-library functions currently implemented.
 pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
@@ -14,7 +16,7 @@ pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "sqrt"), math_sqrt),
 ];
 
-fn math_abs(args: &[Value]) -> Result<Vec<Value>, NativeError> {
+fn math_abs(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let value = number_arg(args, 1)?;
     let result = if let Some(integer) = value.as_integer() {
         if integer < 0 {
@@ -33,7 +35,7 @@ fn math_abs(args: &[Value]) -> Result<Vec<Value>, NativeError> {
     Ok(vec![result])
 }
 
-fn math_floor(args: &[Value]) -> Result<Vec<Value>, NativeError> {
+fn math_floor(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let value = number_arg(args, 1)?;
     let result = if value.as_integer().is_some() {
         value
@@ -48,7 +50,7 @@ fn math_floor(args: &[Value]) -> Result<Vec<Value>, NativeError> {
     Ok(vec![result])
 }
 
-fn math_ceil(args: &[Value]) -> Result<Vec<Value>, NativeError> {
+fn math_ceil(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let value = number_arg(args, 1)?;
     let result = if value.as_integer().is_some() {
         value
@@ -63,7 +65,7 @@ fn math_ceil(args: &[Value]) -> Result<Vec<Value>, NativeError> {
     Ok(vec![result])
 }
 
-fn math_sqrt(args: &[Value]) -> Result<Vec<Value>, NativeError> {
+fn math_sqrt(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let value = number_arg(args, 1)?;
     Ok(vec![Value::float(
         value
@@ -73,11 +75,11 @@ fn math_sqrt(args: &[Value]) -> Result<Vec<Value>, NativeError> {
     )])
 }
 
-fn math_min(args: &[Value]) -> Result<Vec<Value>, NativeError> {
+fn math_min(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     extrema_arg(args, Extrema::Min).map(|value| vec![value])
 }
 
-fn math_max(args: &[Value]) -> Result<Vec<Value>, NativeError> {
+fn math_max(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     extrema_arg(args, Extrema::Max).map(|value| vec![value])
 }
 
@@ -138,10 +140,22 @@ mod tests {
     use super::{
         MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_floor, math_max, math_min, math_sqrt,
     };
-    use crate::{FunctionSpec, NativeErrorKind, StdLib};
+    use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
+
+    struct TestRuntime;
+
+    impl NativeRuntime for TestRuntime {
+        fn intern_short_string(&mut self, _bytes: &[u8]) -> Result<Value, NativeError> {
+            unimplemented!("math native tests do not allocate strings")
+        }
+
+        fn short_string_bytes(&self, _value: Value) -> Option<&[u8]> {
+            None
+        }
+    }
 
     fn call(function: crate::NativeStdFunction, args: &[Value]) -> Vec<Value> {
-        function(args).expect("native should pass")
+        function(&mut TestRuntime, args).expect("native should pass")
     }
 
     #[test]
@@ -223,10 +237,11 @@ mod tests {
 
     #[test]
     fn math_natives_report_argument_errors() {
-        let error = math_abs(&[]).expect_err("missing argument should fail");
+        let error = math_abs(&mut TestRuntime, &[]).expect_err("missing argument should fail");
         assert_eq!(error.kind(), &NativeErrorKind::MissingArgument { index: 1 });
 
-        let error = math_abs(&[Value::nil()]).expect_err("non-number argument should fail");
+        let error = math_abs(&mut TestRuntime, &[Value::nil()])
+            .expect_err("non-number argument should fail");
         assert_eq!(
             error.kind(),
             &NativeErrorKind::TypeError {
@@ -235,8 +250,8 @@ mod tests {
             }
         );
 
-        let error =
-            math_min(&[Value::integer(1), Value::nil()]).expect_err("non-number arg should fail");
+        let error = math_min(&mut TestRuntime, &[Value::integer(1), Value::nil()])
+            .expect_err("non-number arg should fail");
         assert_eq!(
             error.kind(),
             &NativeErrorKind::TypeError {
