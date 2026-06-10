@@ -180,6 +180,25 @@ mod tests {
     }
 
     #[test]
+    fn string_find_matches_percent_classes_and_escaped_literals() {
+        let mut runtime = TestRuntime::default();
+        let class_subject = runtime.push_string(b"abc123");
+        let class_pattern = runtime.push_string(b"%d%d");
+        let literal_subject = runtime.push_string(b"a+b");
+        let literal_pattern = runtime.push_string(b"a%+");
+
+        assert_eq!(
+            string_find(&mut runtime, &[class_subject, class_pattern]).expect("find should pass"),
+            vec![Value::integer(4), Value::integer(5)]
+        );
+        assert_eq!(
+            string_find(&mut runtime, &[literal_subject, literal_pattern])
+                .expect("find should pass"),
+            vec![Value::integer(1), Value::integer(2)]
+        );
+    }
+
+    #[test]
     fn string_find_returns_nil_when_plain_match_is_absent() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");

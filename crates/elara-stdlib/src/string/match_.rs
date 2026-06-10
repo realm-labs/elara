@@ -161,6 +161,29 @@ mod tests {
     }
 
     #[test]
+    fn string_match_matches_percent_classes_and_escaped_literals() {
+        let mut runtime = TestRuntime::default();
+        let class_subject = runtime.push_string(b"abc123");
+        let class_pattern = runtime.push_string(b"%d%d");
+        let literal_subject = runtime.push_string(b"a+b");
+        let literal_pattern = runtime.push_string(b"a%+");
+
+        let class_values = string_match(&mut runtime, &[class_subject, class_pattern])
+            .expect("class match should pass");
+        let literal_values = string_match(&mut runtime, &[literal_subject, literal_pattern])
+            .expect("literal match should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(class_values[0]),
+            Some(b"12".as_slice())
+        );
+        assert_eq!(
+            runtime.short_string_bytes(literal_values[0]),
+            Some(b"a+".as_slice())
+        );
+    }
+
+    #[test]
     fn string_match_returns_nil_when_literal_match_is_absent() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");

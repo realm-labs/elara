@@ -110,12 +110,12 @@ width, left-adjust, and zero-padding integer-family conversions, signed
 decimal `+`/space flags, alternate-form octal/hex integer flags, integer
 precision, float width/precision/sign/alternate-form flags for
 `%f`/`%e`/`%E`/`%g`/`%G`, `%a`/`%A` width/precision/sign/alternate-form
-flags, `%c`, `%q`, `%p`, and escaped-percent `string.format`, `.` wildcard and
-`^`/`$` anchor pattern matching for `string.find`, `string.match`, and
-`string.gsub`, literal string-replacement `string.gsub`, `string.match`,
-`string.len`, `string.lower`, `string.upper`, `string.reverse`, `string.rep`,
-and `string.sub` are executable and covered through stdlib-backed API
-evaluation.
+flags, `%c`, `%q`, `%p`, and escaped-percent `string.format`, `.` wildcard,
+`^`/`$` anchor, and `%` character-class pattern matching for `string.find`,
+`string.match`, and `string.gsub`, literal string-replacement `string.gsub`,
+`string.match`, `string.len`, `string.lower`, `string.upper`,
+`string.reverse`, `string.rep`, and `string.sub` are executable and covered
+through stdlib-backed API evaluation.
 Table natives `table.concat`, `table.insert`, `table.move`, `table.pack`,
 `table.remove`, default-comparator `table.sort`, and `table.unpack` are
 executable and covered through stdlib-backed API evaluation.
@@ -233,6 +233,7 @@ Completed:
   - M11.2 executable literal-search string.match native spec.
   - M11.2 executable `.` wildcard matching for string.find, string.match, and string.gsub.
   - M11.2 executable `^`/`$` anchor matching for string.find, string.match, and string.gsub.
+  - M11.2 executable `%` character-class matching for string.find, string.match, and string.gsub.
   - M11.2 executable string.len native spec.
   - M11.2 executable string lower, upper, and reverse native specs.
   - M11.2 executable string.rep native spec.
@@ -778,8 +779,9 @@ Delivered:
   executable native functions as runtime/API native-call support becomes
   available.
 - Add runtime callback support for custom `table.sort` comparators.
-- Add full string pattern matching beyond `.` wildcard and `^`/`$` anchor support for
-  `string.find`, `string.match`, `string.gmatch`, and `string.gsub`.
+- Add full string pattern matching beyond `.` wildcard, `^`/`$` anchor, and `%`
+  character-class support for `string.find`, `string.match`, `string.gmatch`,
+  and `string.gsub`.
 
 ### Product Gaps
 
@@ -804,7 +806,7 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable string pattern anchor verification passed:
+M11.2 executable string pattern class verification passed:
 
 ```bash
 cargo fmt --all
