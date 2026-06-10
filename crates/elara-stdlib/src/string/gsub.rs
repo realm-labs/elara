@@ -6,7 +6,7 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
 use super::{
     optional_integer_arg,
-    pattern::{has_unsupported_pattern_special, simple_pattern_find},
+    pattern::{has_unsupported_pattern_special, is_start_anchored, simple_pattern_find},
     string_arg,
 };
 
@@ -52,6 +52,7 @@ pub(super) fn string_gsub(
         }
         .into());
     }
+    let anchored = is_start_anchored(&pattern);
     if max <= 0 {
         return Ok(vec![
             runtime.intern_short_string(&subject)?,
@@ -71,16 +72,20 @@ pub(super) fn string_gsub(
         output.extend_from_slice(&subject[cursor..start]);
         output.extend_from_slice(&replacement);
         replacements += 1;
-        cursor = if pattern.is_empty() {
+        let matched_empty = start == end;
+        cursor = if matched_empty {
             start.saturating_add(1)
         } else {
             end
         };
-        if pattern.is_empty() && start < subject.len() {
+        if matched_empty && start < subject.len() {
             output.push(subject[start]);
         }
         if cursor > subject.len() {
             cursor = subject.len();
+            break;
+        }
+        if anchored {
             break;
         }
     }
@@ -177,6 +182,52 @@ mod tests {
             Some(b"xcxc".as_slice())
         );
         assert_eq!(values[1], Value::integer(2));
+    }
+
+    #[test]
+    fn string_gsub_honors_start_and_end_anchors() {
+        let mut runtime = TestRuntime::default();
+        let start_subject = runtime.push_string(b"abc");
+        let start_pattern = runtime.push_string(b"^");
+        let end_subject = runtime.push_string(b"abc");
+        let end_pattern = runtime.push_string(b"$");
+        let prefix_subject = runtime.push_string(b"abcabc");
+        let prefix_pattern = runtime.push_string(b"^a.");
+        let suffix_subject = runtime.push_string(b"abcabc");
+        let suffix_pattern = runtime.push_string(b"b.$");
+        let replacement = runtime.push_string(b"x");
+
+        let start_values = string_gsub(&mut runtime, &[start_subject, start_pattern, replacement])
+            .expect("start anchor gsub should pass");
+        let end_values = string_gsub(&mut runtime, &[end_subject, end_pattern, replacement])
+            .expect("end anchor gsub should pass");
+        let prefix_values =
+            string_gsub(&mut runtime, &[prefix_subject, prefix_pattern, replacement])
+                .expect("prefix anchor gsub should pass");
+        let suffix_values =
+            string_gsub(&mut runtime, &[suffix_subject, suffix_pattern, replacement])
+                .expect("suffix anchor gsub should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(start_values[0]),
+            Some(b"xabc".as_slice())
+        );
+        assert_eq!(start_values[1], Value::integer(1));
+        assert_eq!(
+            runtime.short_string_bytes(end_values[0]),
+            Some(b"abcx".as_slice())
+        );
+        assert_eq!(end_values[1], Value::integer(1));
+        assert_eq!(
+            runtime.short_string_bytes(prefix_values[0]),
+            Some(b"xcabc".as_slice())
+        );
+        assert_eq!(prefix_values[1], Value::integer(1));
+        assert_eq!(
+            runtime.short_string_bytes(suffix_values[0]),
+            Some(b"abcax".as_slice())
+        );
+        assert_eq!(suffix_values[1], Value::integer(1));
     }
 
     #[test]

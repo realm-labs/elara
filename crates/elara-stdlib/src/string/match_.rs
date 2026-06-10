@@ -124,6 +124,43 @@ mod tests {
     }
 
     #[test]
+    fn string_match_matches_start_and_end_anchors() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abcabc");
+        let start_pattern = runtime.push_string(b"^a.");
+        let end_pattern = runtime.push_string(b"b.$");
+
+        let start_values =
+            string_match(&mut runtime, &[subject, start_pattern]).expect("match should pass");
+        let end_values =
+            string_match(&mut runtime, &[subject, end_pattern]).expect("match should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(start_values[0]),
+            Some(b"ab".as_slice())
+        );
+        assert_eq!(
+            runtime.short_string_bytes(end_values[0]),
+            Some(b"bc".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_match_start_anchor_honors_init_position() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abcabc");
+        let pattern = runtime.push_string(b"^b.");
+
+        let values = string_match(&mut runtime, &[subject, pattern, Value::integer(2)])
+            .expect("match should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"bc".as_slice())
+        );
+    }
+
+    #[test]
     fn string_match_returns_nil_when_literal_match_is_absent() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");

@@ -145,6 +145,41 @@ mod tests {
     }
 
     #[test]
+    fn string_find_matches_start_and_end_anchors() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abcabc");
+        let start_pattern = runtime.push_string(b"^a.");
+        let end_pattern = runtime.push_string(b"b.$");
+        let absent_pattern = runtime.push_string(b"^b");
+
+        assert_eq!(
+            string_find(&mut runtime, &[subject, start_pattern]).expect("find should pass"),
+            vec![Value::integer(1), Value::integer(2)]
+        );
+        assert_eq!(
+            string_find(&mut runtime, &[subject, end_pattern]).expect("find should pass"),
+            vec![Value::integer(5), Value::integer(6)]
+        );
+        assert_eq!(
+            string_find(&mut runtime, &[subject, absent_pattern]).expect("find should pass"),
+            vec![Value::nil()]
+        );
+    }
+
+    #[test]
+    fn string_find_start_anchor_honors_init_position() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abcabc");
+        let pattern = runtime.push_string(b"^b.");
+
+        assert_eq!(
+            string_find(&mut runtime, &[subject, pattern, Value::integer(2)])
+                .expect("find should pass"),
+            vec![Value::integer(2), Value::integer(3)]
+        );
+    }
+
+    #[test]
     fn string_find_returns_nil_when_plain_match_is_absent() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");

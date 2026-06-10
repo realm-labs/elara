@@ -622,7 +622,7 @@ mod tests {
         assert_eq!(
             eval_simple_source_with_stdlib(
                 SourceId::new(0),
-                "local i = string.find('abcabc', 'a.')\nreturn i",
+                "local i = string.find('abcabc', '^a.')\nreturn i",
                 &profile,
             ),
             Ok(vec![Value::integer(1)])
@@ -650,7 +650,7 @@ mod tests {
         assert_eq!(
             eval_simple_source_with_stdlib(
                 SourceId::new(0),
-                "return string.len(string.gsub('abcadc', 'a.', 'x'))",
+                "return string.len(string.gsub('abc', '$', 'x'))",
                 &profile,
             ),
             Ok(vec![Value::integer(4)])
@@ -664,7 +664,7 @@ mod tests {
         assert_eq!(
             eval_simple_source_with_stdlib(
                 SourceId::new(0),
-                "return string.len(string.match('abcabc', 'b.'))",
+                "return string.len(string.match('abcabc', 'b.$'))",
                 &profile,
             ),
             Ok(vec![Value::integer(2)])
