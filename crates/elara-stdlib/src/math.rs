@@ -10,11 +10,14 @@ use crate::{
 pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "abs"), math_abs),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "ceil"), math_ceil),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "cos"), math_cos),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "floor"), math_floor),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "max"), math_max),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "min"), math_min),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "random"), math_random),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "sin"), math_sin),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "sqrt"), math_sqrt),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "tan"), math_tan),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "type"), math_type),
 ];
 
@@ -116,6 +119,18 @@ fn math_sqrt(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
     )])
 }
 
+fn math_sin(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::float(number_float_arg(args, 1)?.sin())])
+}
+
+fn math_cos(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::float(number_float_arg(args, 1)?.cos())])
+}
+
+fn math_tan(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::float(number_float_arg(args, 1)?.tan())])
+}
+
 fn math_min(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     extrema_arg(args, Extrema::Min).map(|value| vec![value])
 }
@@ -197,6 +212,10 @@ fn number_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {
     }
 }
 
+fn number_float_arg(args: &[Value], index: usize) -> Result<LuaFloat, NativeError> {
+    number_arg(args, index).map(|value| value.to_float().expect("number_arg accepted only numbers"))
+}
+
 fn number_result(value: LuaFloat) -> Value {
     float_to_integer_exact(value).map_or_else(|| Value::float(value), Value::integer)
 }
@@ -262,8 +281,8 @@ mod tests {
     use elara_core::{LuaInteger, Value};
 
     use super::{
-        LuaRandomState, MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_floor, math_max, math_min,
-        math_random, math_sqrt, math_type,
+        LuaRandomState, MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_cos, math_floor, math_max,
+        math_min, math_random, math_sin, math_sqrt, math_tan, math_type,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -303,11 +322,14 @@ mod tests {
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "abs")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "ceil")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "cos")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "floor")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "max")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "min")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "random")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "sin")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "sqrt")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "tan")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "type")));
     }
 
@@ -352,6 +374,22 @@ mod tests {
         assert_eq!(
             call(math_sqrt, &[Value::integer(9)]),
             vec![Value::float(3.0)]
+        );
+    }
+
+    #[test]
+    fn math_trig_functions_return_floats() {
+        assert_eq!(
+            call(math_sin, &[Value::integer(0)]),
+            vec![Value::float(0.0)]
+        );
+        assert_eq!(
+            call(math_cos, &[Value::integer(0)]),
+            vec![Value::float(1.0)]
+        );
+        assert_eq!(
+            call(math_tan, &[Value::integer(0)]),
+            vec![Value::float(0.0)]
         );
     }
 

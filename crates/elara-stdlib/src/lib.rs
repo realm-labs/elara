@@ -446,11 +446,14 @@ pub const TABLE_FUNCTIONS: &[FunctionSpec] = &[
 pub const MATH_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Math, "abs"),
     FunctionSpec::new(StdLib::Math, "ceil"),
+    FunctionSpec::new(StdLib::Math, "cos"),
     FunctionSpec::new(StdLib::Math, "floor"),
     FunctionSpec::new(StdLib::Math, "max"),
     FunctionSpec::new(StdLib::Math, "min"),
     FunctionSpec::new(StdLib::Math, "random"),
+    FunctionSpec::new(StdLib::Math, "sin"),
     FunctionSpec::new(StdLib::Math, "sqrt"),
+    FunctionSpec::new(StdLib::Math, "tan"),
     FunctionSpec::new(StdLib::Math, "type"),
 ];
 
