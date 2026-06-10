@@ -62,6 +62,9 @@ version = "0.1.0"
 [[package]]
 name = "elara-stdlib"
 version = "0.1.0"
+dependencies = [
+ "elara-core",
+]
 
 [[package]]
 name = "elara-syntax"

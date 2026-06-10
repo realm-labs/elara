@@ -76,9 +76,11 @@ native or Lua functions, and thread the native registry through Lua closure,
 metamethod, table slow-path, generic-for, and close-metamethod calls. The
 standard-library crate now exposes a profile/set/registry framework plus
 generic global registration adapters, and contains descriptor-based essential
-base, table, math, and string library entries. Executable native standard-library
-functions, full API, JIT, C API, conformance, and benchmark implementation work
-remain.
+base, table, math, and string library entries. The stdlib crate also exposes
+executable native specs for the currently implemented math functions `abs`,
+`ceil`, `floor`, and `sqrt`. Runtime/global registration for those native specs,
+remaining executable base/table/math/string functions, full API, JIT, C API,
+conformance, and benchmark implementation work remain.
 
 Current state:
 
@@ -134,6 +136,7 @@ Completed:
   - M10.4 Implement to-be-closed variables.
   - M11.1 Add library registration framework.
   - M11.2 runtime native-call support for executable standard-library functions.
+  - M11.2 executable math native specs for abs, ceil, floor, and sqrt.
 
 In progress:
   - M11.2 Implement base, table, math, and string essentials.
@@ -700,23 +703,23 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 native-call support verification passed:
+M11.2 executable math-native verification passed:
 
 ```bash
-cargo check -p elara-interp
-cargo test -p elara-core native_function
-cargo test -p elara-interp native_functions
-cargo test -p elara-interp metamethods
-cargo test -p elara-interp to_be_closed
+cargo test -p elara-stdlib base
+cargo test -p elara-stdlib table
+cargo test -p elara-stdlib math
+cargo test -p elara-stdlib string
+cargo clippy -p elara-stdlib --all-targets -- -D warnings
 ```
 
 `cargo fmt --all` completed successfully.
 
 ## Next Recommended Action
 
-Continue M11.2 by connecting essential standard-library descriptors to
-executable native functions and registering them into the runtime/global
-environment through the available public or semi-public boundary.
+Continue M11.2 by registering executable standard-library native specs into the
+runtime/global environment through an API or semi-public runtime boundary, then
+fill the remaining base, table, math, and string executable functions.
 
 ## Current Risk Notes
 

@@ -8,6 +8,14 @@
 
 use std::collections::BTreeSet;
 
+mod math;
+mod native;
+
+pub use math::MATH_NATIVE_FUNCTIONS;
+pub use native::{
+    NativeError, NativeErrorKind, NativeFunctionSpec, NativeResult, NativeStdFunction,
+};
+
 /// One standard-library module that can register itself into a target runtime.
 pub trait Library<Target> {
     /// Stable library name.
@@ -456,6 +464,15 @@ pub const STRING_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::String, "upper"),
 ];
 
+/// Returns executable native functions currently implemented for a library.
+#[must_use]
+pub const fn native_functions(library: StdLib) -> &'static [NativeFunctionSpec] {
+    match library {
+        StdLib::Math => MATH_NATIVE_FUNCTIONS,
+        _ => &[],
+    }
+}
+
 /// Creates a registry containing essential base, table, math, and string libraries.
 #[must_use]
 pub fn essential_registry<Target>() -> StdLibRegistry<Target>
@@ -492,7 +509,7 @@ impl<Target> Default for StdLibRegistry<Target> {
 mod tests {
     use super::{
         FunctionRegistry, FunctionSpec, GlobalLibrary, GlobalRegistry, Library, RegisterError,
-        StdLib, StdLibProfile, StdLibRegistry, StdLibSet, essential_registry,
+        StdLib, StdLibProfile, StdLibRegistry, StdLibSet, essential_registry, native_functions,
     };
 
     struct NamedLibrary(&'static str);
@@ -633,5 +650,17 @@ mod tests {
                 .0
                 .contains(&FunctionSpec::new(StdLib::Utf8, "len"))
         );
+    }
+
+    #[test]
+    fn math_native_functions_are_discoverable() {
+        let functions = native_functions(StdLib::Math);
+
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Math, "abs"))
+        );
+        assert!(native_functions(StdLib::Base).is_empty());
     }
 }
