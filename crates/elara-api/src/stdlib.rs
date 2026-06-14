@@ -93,6 +93,9 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
     }
     match library {
         StdLib::Package => {
+            let require = fields
+                .iter()
+                .find_map(|(name, value)| (*name == "require").then_some(*value));
             environment.set_global_table_with_string_and_empty_table_fields(
                 library.name(),
                 fields,
@@ -103,6 +106,9 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
                 ],
                 ["loaded", "preload", "searchers"],
             );
+            if let Some(require) = require {
+                environment.set_global("require", require);
+            }
         }
         StdLib::Utf8 => {
             environment.set_global_table_with_string_fields(

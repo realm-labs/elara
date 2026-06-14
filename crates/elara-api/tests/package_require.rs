@@ -18,6 +18,20 @@ fn package_require_loads_preloaded_module() {
 }
 
 #[test]
+fn global_require_loads_preloaded_module() {
+    let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
+
+    assert_eq!(
+        eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "local function loader()\n  return 42\nend\npackage.preload.mod = loader\nreturn require('mod')",
+            &profile,
+        ),
+        Ok(vec![Value::integer(42)])
+    );
+}
+
+#[test]
 fn package_require_caches_preload_result() {
     let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
 
