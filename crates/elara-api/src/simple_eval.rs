@@ -553,6 +553,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_os_functions_accept_long_strings() {
+        let profile = StdLibProfile::Custom([StdLib::Os, StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local format = string.rep('!%Y', 20)\nlocal name = string.rep('ELARA_ABSENT_', 5)\nlocal path = string.rep('missing-', 8)\nreturn string.len(os.date(format, 0)), os.getenv(name), os.remove(path)",
+                &profile,
+            ),
+            Ok(vec![Value::integer(99), Value::nil(), Value::nil()])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_os_clock() {
         let profile = StdLibProfile::Custom([StdLib::Os].into_iter().collect());
 

@@ -90,7 +90,7 @@ fn os_getenv(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
         expected: "utf-8 string",
     })?;
     match std::env::var(name) {
-        Ok(value) => Ok(vec![runtime.intern_short_string(value.as_bytes())?]),
+        Ok(value) => Ok(vec![runtime.intern_string(value.as_bytes())?]),
         Err(std::env::VarError::NotPresent) => Ok(vec![Value::nil()]),
         Err(std::env::VarError::NotUnicode(_)) => Err(NativeErrorKind::RuntimeError {
             message: "environment variable is not valid Unicode".into(),
@@ -124,7 +124,7 @@ fn os_tmpname(runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Va
         let count = TMPNAME_COUNTER.fetch_add(1, Ordering::Relaxed);
         let candidate = format!("elrtmp_{pid:x}_{count:x}");
         if !std::path::Path::new(&candidate).exists() {
-            return Ok(vec![runtime.intern_short_string(candidate.as_bytes())?]);
+            return Ok(vec![runtime.intern_string(candidate.as_bytes())?]);
         }
     }
 
@@ -148,7 +148,7 @@ fn os_setlocale(
     }
 
     match locale {
-        None | Some("C") => Ok(vec![runtime.intern_short_string(b"C")?]),
+        None | Some("C") => Ok(vec![runtime.intern_string(b"C")?]),
         Some(_) => Ok(vec![Value::nil()]),
     }
 }
@@ -273,7 +273,7 @@ pub(super) fn optional_utf8_string_arg<'a>(
         return Ok(None);
     }
     let bytes = runtime
-        .short_string_bytes(value)
+        .string_bytes(value)
         .ok_or(NativeErrorKind::TypeError {
             index,
             expected: "string",
@@ -296,7 +296,7 @@ fn string_arg<'a>(
         .get(index - 1)
         .ok_or(NativeErrorKind::MissingArgument { index })?;
     runtime
-        .short_string_bytes(value)
+        .string_bytes(value)
         .ok_or(NativeErrorKind::TypeError {
             index,
             expected: "string",
@@ -320,7 +320,7 @@ fn file_result(
             };
             Ok(vec![
                 Value::nil(),
-                runtime.intern_short_string(message.as_bytes())?,
+                runtime.intern_string(message.as_bytes())?,
                 Value::integer(i64::from(code)),
             ])
         }
