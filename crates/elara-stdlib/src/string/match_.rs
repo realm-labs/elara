@@ -235,6 +235,20 @@ mod tests {
     }
 
     #[test]
+    fn string_match_matches_frontiers() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abc 123");
+        let pattern = runtime.push_string(b"%f[%d]%d+");
+
+        let values = string_match(&mut runtime, &[subject, pattern]).expect("match should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"123".as_slice())
+        );
+    }
+
+    #[test]
     fn string_match_returns_nil_when_literal_match_is_absent() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");

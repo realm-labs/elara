@@ -714,6 +714,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_string_frontier_patterns() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local x = string.match('abc 123', '%f[%d]%d+')\nreturn string.len(x)",
+                &profile,
+            ),
+            Ok(vec![Value::integer(3)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_rep() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 

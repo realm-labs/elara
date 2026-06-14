@@ -245,6 +245,18 @@ mod tests {
     }
 
     #[test]
+    fn string_find_matches_frontiers() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abc 123");
+        let pattern = runtime.push_string(b"%f[%d]%d+");
+
+        assert_eq!(
+            string_find(&mut runtime, &[subject, pattern]).expect("find should pass"),
+            vec![Value::integer(5), Value::integer(7)]
+        );
+    }
+
+    #[test]
     fn string_find_returns_nil_when_plain_match_is_absent() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
