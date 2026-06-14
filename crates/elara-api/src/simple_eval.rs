@@ -651,6 +651,30 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_coroutine_close() {
+        let profile = StdLibProfile::Custom([StdLib::Coroutine].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local function f() return 1 end\nlocal co = coroutine.create(f)\nreturn coroutine.close(co)",
+                &profile,
+            ),
+            Ok(vec![Value::boolean(true)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_with_stdlib_rejects_closing_main_coroutine() {
+        let profile = StdLibProfile::Custom([StdLib::Coroutine].into_iter().collect());
+
+        assert!(
+            eval_simple_source_with_stdlib(SourceId::new(0), "return coroutine.close()", &profile)
+                .is_err()
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_marks_resumed_coroutine_dead() {
         let profile = StdLibProfile::Custom([StdLib::Coroutine].into_iter().collect());
 

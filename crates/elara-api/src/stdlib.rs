@@ -220,6 +220,33 @@ impl CoroutineRegistry {
         }
     }
 
+    fn close(&mut self, thread: Value) -> Result<Result<(), Box<str>>, NativeError> {
+        let index = thread.as_thread_index().ok_or(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "thread",
+        })? as usize;
+        let coroutine =
+            self.coroutines
+                .get_mut(index)
+                .ok_or_else(|| NativeErrorKind::RuntimeError {
+                    message: "unknown coroutine".into(),
+                })?;
+        match coroutine.status {
+            ThreadStatus::Runnable | ThreadStatus::Suspended | ThreadStatus::Dead => {
+                coroutine.status = ThreadStatus::Dead;
+                Ok(Ok(()))
+            }
+            ThreadStatus::Running if index == 0 => Err(NativeError::lua_error(
+                "cannot close main thread".to_owned().into_boxed_str(),
+            )),
+            ThreadStatus::Running => Err(NativeError::lua_error(
+                "cannot close a running coroutine"
+                    .to_owned()
+                    .into_boxed_str(),
+            )),
+        }
+    }
+
     fn finish_resume(&mut self, thread: Value) -> Result<(), NativeError> {
         let index = thread.as_thread_index().ok_or(NativeErrorKind::TypeError {
             index: 1,
@@ -479,6 +506,18 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
             message: "coroutine registry lock poisoned".into(),
         })?;
         Ok(registry.create(function))
+    }
+
+    fn close_coroutine(&mut self, thread: Value) -> Result<Result<(), Box<str>>, NativeError> {
+        let registry = self.helpers.coroutine_registry.as_ref().ok_or_else(|| {
+            NativeErrorKind::RuntimeError {
+                message: "coroutine registry is not registered".into(),
+            }
+        })?;
+        let mut registry = registry.lock().map_err(|_| NativeErrorKind::RuntimeError {
+            message: "coroutine registry lock poisoned".into(),
+        })?;
+        registry.close(thread)
     }
 
     fn resume_coroutine(

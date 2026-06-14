@@ -833,6 +833,9 @@ Delivered:
 - `coroutine.resume` invokes registered non-yielding Lua functions behind a
   protected-call boundary, prepends the Lua success flag, returns `false` plus
   an error message for protected failures, and marks completed handles dead.
+- `coroutine.close` closes registry-backed runnable, suspended, and dead
+  coroutine handles, marks closed handles dead, and rejects closing the main
+  thread through the Lua error path.
 - `coroutine.running` returns the current main thread handle and main-thread
   flag through the shared coroutine registry.
 - `coroutine.isyieldable` reports false for the main thread and true for live
@@ -842,8 +845,8 @@ Delivered:
 
 ### Immediate Gaps for M11
 
-- Implement coroutine yield, yielding resume, wrap, and close backed by
-  primitive coroutine support.
+- Implement coroutine yield, yielding resume, wrap, and full primitive-backed
+  close semantics.
 
 ### Product Gaps
 
@@ -869,7 +872,7 @@ M11.2 is complete.
 
 ## Last Verification
 
-M11.3 `coroutine.resume` verification passed:
+M11.3 `coroutine.close` verification passed:
 
 ```bash
 cargo fmt --all -- --check
@@ -881,8 +884,8 @@ cargo clippy -p elara-api --all-targets -- -D warnings
 
 ## Next Recommended Action
 
-Continue M11.3 with coroutine yielding resume/yield, wrap, and close backed by
-primitive coroutine support.
+Continue M11.3 with coroutine yielding resume/yield, wrap, and full
+primitive-backed close semantics.
 
 ## Current Risk Notes
 

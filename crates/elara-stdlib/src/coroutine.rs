@@ -9,6 +9,10 @@ use crate::{
 /// Executable coroutine-library functions currently implemented.
 pub const COROUTINE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Coroutine, "close"),
+        coroutine_close,
+    ),
+    NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Coroutine, "create"),
         coroutine_create,
     ),
@@ -29,6 +33,32 @@ pub const COROUTINE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         coroutine_status,
     ),
 ];
+
+fn coroutine_close(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let thread = match args.first().copied() {
+        Some(value) if !value.is_nil() => {
+            if !value.is_thread() {
+                return Err(NativeErrorKind::TypeError {
+                    index: 1,
+                    expected: "thread",
+                }
+                .into());
+            }
+            value
+        }
+        _ => runtime.running_thread()?.0,
+    };
+    match runtime.close_coroutine(thread)? {
+        Ok(()) => Ok(vec![Value::boolean(true)]),
+        Err(message) => Ok(vec![
+            Value::boolean(false),
+            runtime.intern_short_string(message.as_bytes())?,
+        ]),
+    }
+}
 
 fn coroutine_create(
     runtime: &mut dyn NativeRuntime,
@@ -139,8 +169,8 @@ mod tests {
     use elara_core::{ThreadStatus, Value};
 
     use super::{
-        COROUTINE_NATIVE_FUNCTIONS, coroutine_create, coroutine_isyieldable, coroutine_resume,
-        coroutine_running, coroutine_status,
+        COROUTINE_NATIVE_FUNCTIONS, coroutine_close, coroutine_create, coroutine_isyieldable,
+        coroutine_resume, coroutine_running, coroutine_status,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -182,6 +212,24 @@ mod tests {
                 .into());
             }
             Ok(self.push_thread(ThreadStatus::Runnable))
+        }
+
+        fn close_coroutine(&mut self, thread: Value) -> Result<Result<(), Box<str>>, NativeError> {
+            let index = thread.as_thread_index().ok_or(NativeErrorKind::TypeError {
+                index: 1,
+                expected: "thread",
+            })?;
+            match self.statuses.get_mut(&index) {
+                Some(ThreadStatus::Runnable | ThreadStatus::Suspended | ThreadStatus::Dead) => {
+                    self.statuses.insert(index, ThreadStatus::Dead);
+                    Ok(Ok(()))
+                }
+                Some(ThreadStatus::Running) => Ok(Err("cannot close a running coroutine".into())),
+                None => Err(NativeErrorKind::RuntimeError {
+                    message: "unknown coroutine".into(),
+                }
+                .into()),
+            }
         }
 
         fn resume_coroutine(
@@ -256,6 +304,7 @@ mod tests {
             .map(|function| function.descriptor())
             .collect();
 
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "close")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "status")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "create")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "isyieldable")));
@@ -275,6 +324,35 @@ mod tests {
         assert_eq!(
             runtime.thread_status(values[0]).expect("thread has status"),
             ThreadStatus::Runnable
+        );
+    }
+
+    #[test]
+    fn coroutine_close_marks_closeable_thread_dead() {
+        let mut runtime = TestRuntime::default();
+        let thread = runtime.push_thread(ThreadStatus::Runnable);
+
+        let values = coroutine_close(&mut runtime, &[thread]).expect("close should pass");
+
+        assert_eq!(values, vec![Value::boolean(true)]);
+        assert_eq!(
+            runtime.thread_status(thread).expect("thread has status"),
+            ThreadStatus::Dead
+        );
+    }
+
+    #[test]
+    fn coroutine_close_returns_false_and_error_message_on_runtime_close_failure() {
+        let mut runtime = TestRuntime::default();
+        let thread = runtime.push_thread(ThreadStatus::Running);
+
+        let values = coroutine_close(&mut runtime, &[thread]).expect("close should pass");
+
+        assert_eq!(values.len(), 2);
+        assert_eq!(values[0], Value::boolean(false));
+        assert_eq!(
+            runtime.short_string_bytes(values[1]),
+            Some(b"cannot close a running coroutine".as_slice())
         );
     }
 
@@ -413,6 +491,21 @@ mod tests {
 
         assert_eq!(
             coroutine_resume(&mut runtime, &[Value::nil()])
+                .expect_err("non-thread should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "thread"
+            }
+        );
+    }
+
+    #[test]
+    fn coroutine_close_requires_thread_argument() {
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            coroutine_close(&mut runtime, &[Value::integer(1)])
                 .expect_err("non-thread should fail")
                 .kind(),
             &NativeErrorKind::TypeError {

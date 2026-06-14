@@ -441,6 +441,7 @@ pub const BASE_FUNCTIONS: &[FunctionSpec] = &[
 
 /// Coroutine library function descriptors.
 pub const COROUTINE_FUNCTIONS: &[FunctionSpec] = &[
+    FunctionSpec::new(StdLib::Coroutine, "close"),
     FunctionSpec::new(StdLib::Coroutine, "create"),
     FunctionSpec::new(StdLib::Coroutine, "isyieldable"),
     FunctionSpec::new(StdLib::Coroutine, "resume"),

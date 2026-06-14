@@ -156,6 +156,14 @@ pub trait NativeRuntime {
         .into())
     }
 
+    /// Closes a runtime-owned coroutine.
+    fn close_coroutine(&mut self, _thread: Value) -> Result<Result<(), Box<str>>, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support coroutine close".into(),
+        }
+        .into())
+    }
+
     /// Resumes a runtime-owned coroutine with Lua values.
     fn resume_coroutine(
         &mut self,
