@@ -6,8 +6,10 @@ use core::{
     fmt,
     hash::{Hash, Hasher},
     marker::PhantomData,
+    panic::AssertUnwindSafe,
     ptr::NonNull,
 };
+use std::panic::catch_unwind;
 
 use crate::Value;
 
@@ -89,11 +91,51 @@ pub trait GcObject {
     /// Removes weak references to objects that are about to be swept.
     fn remove_dead_weak_references(&mut self, _sweeper: &GcWeakSweeper<'_>) {}
 
+    /// Returns true when this object should run a finalizer before sweep.
+    fn needs_finalizer(&self) -> bool {
+        false
+    }
+
+    /// Runs this object's finalizer.
+    fn finalize(&mut self) -> Result<(), GcFinalizeError> {
+        Ok(())
+    }
+
     /// Runtime object kind from the embedded header.
     fn kind(&self) -> GcKind {
         self.header().kind()
     }
 }
+
+/// Error returned by a GC finalizer.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GcFinalizeError {
+    message: Box<str>,
+}
+
+impl GcFinalizeError {
+    /// Creates a finalizer error with a stable message.
+    #[must_use]
+    pub fn new(message: impl Into<Box<str>>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+
+    /// Error message.
+    #[must_use]
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
+
+impl fmt::Display for GcFinalizeError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for GcFinalizeError {}
 
 /// Tracing context used during a stop-the-world mark phase.
 pub struct GcTracer<'arena> {
@@ -356,6 +398,10 @@ pub struct GcStats {
 pub struct GcCollectionStats {
     /// Objects reached from roots.
     pub marked: usize,
+    /// Unreachable finalizers run before sweep.
+    pub finalized: usize,
+    /// Finalizers that returned an error or panicked.
+    pub finalizer_errors: usize,
     /// Objects reclaimed by sweep.
     pub swept: usize,
     /// Objects remaining after collection.
@@ -473,12 +519,15 @@ impl GcArena {
         self.reset_marks();
         let marked = self.mark_roots();
         self.remove_dead_weak_references();
+        let finalizer_report = self.run_finalizers();
         let swept = self.sweep_unmarked();
         self.prune_dead_roots();
         self.reset_marks();
 
         GcCollectionStats {
             marked,
+            finalized: finalizer_report.finalized,
+            finalizer_errors: finalizer_report.errors,
             swept,
             live_objects: self.objects.len(),
         }
@@ -519,6 +568,34 @@ impl GcArena {
         }
     }
 
+    fn run_finalizers(&mut self) -> FinalizerReport {
+        let mut report = FinalizerReport::default();
+        let finalizer_queue = self
+            .objects
+            .iter()
+            .filter(|allocation| {
+                allocation.header().color() == GcColor::White && allocation.object.needs_finalizer()
+            })
+            .map(|allocation| allocation.ptr)
+            .collect::<Vec<_>>();
+
+        for ptr in finalizer_queue {
+            let Some(allocation) = self
+                .objects
+                .iter_mut()
+                .find(|allocation| allocation.ptr == ptr)
+            else {
+                continue;
+            };
+            report.finalized += 1;
+            let result = catch_unwind(AssertUnwindSafe(|| allocation.object.finalize()));
+            if !matches!(result, Ok(Ok(()))) {
+                report.errors += 1;
+            }
+        }
+        report
+    }
+
     fn sweep_unmarked(&mut self) -> usize {
         let before = self.objects.len();
         self.objects
@@ -534,6 +611,12 @@ impl GcArena {
             .collect::<Vec<_>>();
         self.roots.retain(|root| live_ptrs.contains(&root.ptr));
     }
+}
+
+#[derive(Default)]
+struct FinalizerReport {
+    finalized: usize,
+    errors: usize,
 }
 
 #[cfg(test)]

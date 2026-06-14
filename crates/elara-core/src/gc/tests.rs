@@ -1,11 +1,12 @@
 use core::ptr::NonNull;
 use std::sync::{
-    Arc,
+    Arc, Mutex,
     atomic::{AtomicUsize, Ordering},
 };
 
 use super::{
-    GcArena, GcCollectionStats, GcColor, GcHeader, GcKind, GcObject, GcRef, GcStats, GcTracer,
+    GcArena, GcCollectionStats, GcColor, GcFinalizeError, GcHeader, GcKind, GcObject, GcRef,
+    GcStats, GcTracer,
 };
 use crate::{LongString, LuaThread, ShortString, Table, Value, WeakMode};
 
@@ -75,6 +76,58 @@ impl GcObject for CapturedValueObject {
 
     fn trace(&self, tracer: &mut GcTracer<'_>) {
         tracer.mark_value(self.captured);
+    }
+}
+
+#[derive(Clone, Copy)]
+enum FinalizerBehavior {
+    Ok,
+    Error,
+}
+
+struct FinalizableUserData {
+    header: GcHeader,
+    events: Arc<Mutex<Vec<&'static str>>>,
+    behavior: FinalizerBehavior,
+}
+
+impl FinalizableUserData {
+    fn new(events: Arc<Mutex<Vec<&'static str>>>, behavior: FinalizerBehavior) -> Self {
+        Self {
+            header: GcHeader::new(GcKind::UserData),
+            events,
+            behavior,
+        }
+    }
+}
+
+impl Drop for FinalizableUserData {
+    fn drop(&mut self) {
+        self.events
+            .lock()
+            .expect("event log lock must not be poisoned")
+            .push("drop");
+    }
+}
+
+impl GcObject for FinalizableUserData {
+    fn header(&self) -> &GcHeader {
+        &self.header
+    }
+
+    fn needs_finalizer(&self) -> bool {
+        true
+    }
+
+    fn finalize(&mut self) -> Result<(), GcFinalizeError> {
+        self.events
+            .lock()
+            .expect("event log lock must not be poisoned")
+            .push("finalize");
+        match self.behavior {
+            FinalizerBehavior::Ok => Ok(()),
+            FinalizerBehavior::Error => Err(GcFinalizeError::new("finalizer failed")),
+        }
     }
 }
 
@@ -186,6 +239,117 @@ fn gc_alloc_arena_drops_owned_objects() {
 }
 
 #[test]
+fn finalizer_queue_runs_userdata_finalizer_before_drop() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let mut arena = GcArena::new();
+    arena.allocate(FinalizableUserData::new(
+        Arc::clone(&events),
+        FinalizerBehavior::Ok,
+    ));
+
+    let collection = arena.collect_garbage();
+
+    assert_eq!(
+        collection,
+        GcCollectionStats {
+            marked: 0,
+            finalized: 1,
+            finalizer_errors: 0,
+            swept: 1,
+            live_objects: 0,
+        }
+    );
+    assert_eq!(
+        events
+            .lock()
+            .expect("event log lock must not be poisoned")
+            .as_slice(),
+        ["finalize", "drop"]
+    );
+}
+
+#[test]
+fn finalizer_errors_are_recorded_and_do_not_block_sweep() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let mut arena = GcArena::new();
+    arena.allocate(FinalizableUserData::new(
+        Arc::clone(&events),
+        FinalizerBehavior::Error,
+    ));
+
+    let collection = arena.collect_garbage();
+
+    assert_eq!(
+        collection,
+        GcCollectionStats {
+            marked: 0,
+            finalized: 1,
+            finalizer_errors: 1,
+            swept: 1,
+            live_objects: 0,
+        }
+    );
+    assert_eq!(
+        events
+            .lock()
+            .expect("event log lock must not be poisoned")
+            .as_slice(),
+        ["finalize", "drop"]
+    );
+}
+
+#[test]
+fn finalizer_queue_skips_reachable_userdata_until_unrooted() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let mut arena = GcArena::new();
+    let userdata = arena.allocate(FinalizableUserData::new(
+        Arc::clone(&events),
+        FinalizerBehavior::Ok,
+    ));
+    let root = arena.add_root(userdata);
+
+    let collection = arena.collect_garbage();
+
+    assert_eq!(
+        collection,
+        GcCollectionStats {
+            marked: 1,
+            finalized: 0,
+            finalizer_errors: 0,
+            swept: 0,
+            live_objects: 1,
+        }
+    );
+    assert!(
+        events
+            .lock()
+            .expect("event log lock must not be poisoned")
+            .is_empty()
+    );
+
+    assert!(arena.remove_root(root));
+    let collection = arena.collect_garbage();
+
+    assert_eq!(
+        collection,
+        GcCollectionStats {
+            marked: 0,
+            finalized: 1,
+            finalizer_errors: 0,
+            swept: 1,
+            live_objects: 0,
+        }
+    );
+    assert_eq!(
+        events
+            .lock()
+            .expect("event log lock must not be poisoned")
+            .as_slice(),
+        ["finalize", "drop"]
+    );
+}
+
+#[test]
 fn gc_mark_sweep_collects_unrooted_objects() {
     let drops = Arc::new(AtomicUsize::new(0));
     let mut arena = GcArena::new();
@@ -199,6 +363,8 @@ fn gc_mark_sweep_collects_unrooted_objects() {
         collection,
         GcCollectionStats {
             marked: 0,
+            finalized: 0,
+            finalizer_errors: 0,
             swept: 2,
             live_objects: 0,
         }
@@ -222,6 +388,8 @@ fn gc_mark_sweep_keeps_rooted_objects() {
         collection,
         GcCollectionStats {
             marked: 1,
+            finalized: 0,
+            finalizer_errors: 0,
             swept: 1,
             live_objects: 1,
         }
@@ -238,6 +406,8 @@ fn gc_mark_sweep_keeps_rooted_objects() {
         collection,
         GcCollectionStats {
             marked: 0,
+            finalized: 0,
+            finalizer_errors: 0,
             swept: 1,
             live_objects: 0,
         }
@@ -265,6 +435,8 @@ fn gc_trace_table_marks_values_keys_and_metatable() {
         collection,
         GcCollectionStats {
             marked: 4,
+            finalized: 0,
+            finalizer_errors: 0,
             swept: 0,
             live_objects: 4,
         }
@@ -288,6 +460,8 @@ fn gc_trace_thread_stack_marks_value_references() {
         collection,
         GcCollectionStats {
             marked: 2,
+            finalized: 0,
+            finalizer_errors: 0,
             swept: 0,
             live_objects: 2,
         }
@@ -308,6 +482,8 @@ fn gc_trace_upvalue_marks_captured_value() {
         collection,
         GcCollectionStats {
             marked: 2,
+            finalized: 0,
+            finalizer_errors: 0,
             swept: 0,
             live_objects: 2,
         }
@@ -328,6 +504,8 @@ fn gc_trace_registry_roots_mark_objects_once() {
         collection,
         GcCollectionStats {
             marked: 1,
+            finalized: 0,
+            finalizer_errors: 0,
             swept: 0,
             live_objects: 1,
         }
@@ -352,6 +530,8 @@ fn weak_table_values_do_not_keep_entries_alive() {
         collection,
         GcCollectionStats {
             marked: 2,
+            finalized: 0,
+            finalizer_errors: 0,
             swept: 1,
             live_objects: 2,
         }
@@ -379,6 +559,8 @@ fn weak_table_keys_do_not_keep_ephemeron_values_alive_when_key_is_dead() {
         collection,
         GcCollectionStats {
             marked: 1,
+            finalized: 0,
+            finalizer_errors: 0,
             swept: 2,
             live_objects: 1,
         }
@@ -407,6 +589,8 @@ fn weak_table_keys_mark_ephemeron_values_when_key_is_live() {
         collection,
         GcCollectionStats {
             marked: 3,
+            finalized: 0,
+            finalizer_errors: 0,
             swept: 0,
             live_objects: 3,
         }
@@ -437,6 +621,8 @@ fn weak_table_keys_and_values_drop_collectable_entries() {
         collection,
         GcCollectionStats {
             marked: 1,
+            finalized: 0,
+            finalizer_errors: 0,
             swept: 2,
             live_objects: 1,
         }

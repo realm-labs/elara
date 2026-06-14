@@ -19,8 +19,8 @@ pub mod value;
 pub use diagnostics::{Diagnostic, DiagnosticLabel, DiagnosticSeverity, SourceId, Span, Spanned};
 pub use error::{LuaError, TraceFrame};
 pub use gc::{
-    GcArena, GcCollectionStats, GcColor, GcHeader, GcKind, GcObject, GcRef, GcRoot, GcStats,
-    GcTracer, GcWeakSweeper,
+    GcArena, GcCollectionStats, GcColor, GcFinalizeError, GcHeader, GcKind, GcObject, GcRef,
+    GcRoot, GcStats, GcTracer, GcWeakSweeper,
 };
 pub use spec::{LUA_SPEC, LUA_VERSION, LuaSpec, LuaVersion};
 pub use string::{
