@@ -8,6 +8,7 @@
 
 pub mod abi;
 pub mod arithmetic;
+pub mod deopt;
 pub mod runtime;
 
 use cranelift_codegen::{isa, settings, settings::Configurable};
@@ -18,6 +19,9 @@ pub use abi::{
     RuntimeHelperId, RuntimeHelperRegistry,
 };
 pub use arithmetic::{ArithmeticJitError, ArithmeticJitFunction, execute_arithmetic_proto};
+pub use deopt::{
+    DeoptError, DeoptPoint, DeoptPointId, LiveRegister, LiveRegisterValue, deopt_to_interpreter,
+};
 pub use runtime::{JitEntryStatus, JitRuntime, JitRuntimeMode, JitRuntimeStats};
 
 /// Baseline JIT configuration placeholder.

@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M17 JIT Guards, Deoptimization, and Hot Table Paths
-Current step: M17.1 Add guard and deopt metadata
+Current step: M17.2 Lower table array fast path
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -173,6 +173,9 @@ results against the interpreter for supported arithmetic paths.
 The JIT runtime wrapper now tracks per-Proto hot counters, caches compiled
 arithmetic JIT entries, transitions hot or always-JIT Protos into generated
 code, and falls back to interpreter execution for unsupported JIT paths.
+The JIT crate now has deoptimization metadata structures for live registers and
+program counters, VM stack synchronization for live values, and a
+deopt-to-interpreter fallback helper covered by focused tests.
 
 Current state:
 
@@ -346,6 +349,7 @@ Completed:
   - M16.3 Lower simple arithmetic Protos to Cranelift.
   - M16.4 Add JIT call integration and hot counters.
   - M16 exit criteria validation.
+  - M17.1 Add guard and deopt metadata.
 
 In progress:
   - JIT.
@@ -998,14 +1002,15 @@ M16.2 is complete.
 M16.3 is complete.
 M16.4 is complete.
 M16 is complete.
+M17.1 is complete.
 
 ## Last Verification
 
-M16.4 hot-counter JIT transition verification passed:
+M17.1 deoptimization metadata verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test --workspace --features jit jit_transition
+cargo test -p elara-jit --features jit deopt
 cargo test -p elara-jit --features jit
 cargo clippy -p elara-jit --all-targets --features jit -- -D warnings
 cargo test --workspace --features jit
@@ -1013,8 +1018,8 @@ cargo test --workspace --features jit
 
 ## Next Recommended Action
 
-Start M17.1 by adding deoptimization metadata structures, live-register sync
-metadata, and tests for deopt handoff back to the interpreter.
+Continue M17.2 by lowering table array get/set fast paths with tag checks,
+slow helper fallback, and table version guards.
 
 ## Current Risk Notes
 
@@ -1064,6 +1069,6 @@ metadata, and tests for deopt handoff back to the interpreter.
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
-| JIT | M16 complete | Optional Cranelift dependencies, `jit` feature plumbing, `JitMode` API placeholder, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, and interpreter fallback are implemented. |
+| JIT | M17.1 complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, and deopt metadata/stack sync are implemented. |
 | C API | Not started | Starts M19, optional/current-version only. |
 | Benchmarks | M15 baseline complete | Stable custom `cargo bench` runner covers arithmetic, table access, calls, strings, and representative macro workloads; `docs/PERFORMANCE.md` records the current baseline and comparison gaps. |
