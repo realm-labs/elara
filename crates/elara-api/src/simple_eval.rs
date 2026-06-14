@@ -503,6 +503,23 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_os_remove() {
+        let profile = StdLibProfile::Custom([StdLib::Os].into_iter().collect());
+        std::fs::create_dir_all("target").expect("target directory should exist");
+        std::fs::write("target/zz_rm", b"temporary").expect("test file should be written");
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return os.remove('target/zz_rm')",
+                &profile,
+            ),
+            Ok(vec![Value::boolean(true)])
+        );
+        assert!(!std::path::Path::new("target/zz_rm").exists());
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_package_searchpath_found() {
         let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
 

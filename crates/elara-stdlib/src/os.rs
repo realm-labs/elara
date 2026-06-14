@@ -1,6 +1,7 @@
 //! Executable operating-system library natives.
 
 use std::{
+    fs,
     sync::OnceLock,
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
@@ -16,6 +17,7 @@ pub const OS_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "clock"), os_clock),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "difftime"), os_difftime),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "getenv"), os_getenv),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "remove"), os_remove),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "time"), os_time),
 ];
 
@@ -67,6 +69,18 @@ fn os_getenv(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
     }
 }
 
+fn os_remove(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let filename = utf8_string_arg(runtime, args, 1)?.to_owned();
+    let result = fs::symlink_metadata(&filename).and_then(|metadata| {
+        if metadata.is_dir() {
+            fs::remove_dir(&filename)
+        } else {
+            fs::remove_file(&filename)
+        }
+    });
+    file_result(runtime, result, Some(&filename))
+}
+
 fn current_unix_time() -> Result<Vec<Value>, NativeError> {
     let seconds = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -78,6 +92,20 @@ fn current_unix_time() -> Result<Vec<Value>, NativeError> {
         message: "system time cannot be represented as Lua integer".into(),
     })?;
     Ok(vec![Value::integer(seconds)])
+}
+
+fn utf8_string_arg<'a>(
+    runtime: &'a dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<&'a str, NativeError> {
+    let bytes = string_arg(runtime, args, index)?;
+    std::str::from_utf8(bytes)
+        .map_err(|_| NativeErrorKind::TypeError {
+            index,
+            expected: "utf-8 string",
+        })
+        .map_err(Into::into)
 }
 
 fn string_arg<'a>(
@@ -97,6 +125,29 @@ fn string_arg<'a>(
         .map_err(Into::into)
 }
 
+fn file_result(
+    runtime: &mut dyn NativeRuntime,
+    result: std::io::Result<()>,
+    filename: Option<&str>,
+) -> Result<Vec<Value>, NativeError> {
+    match result {
+        Ok(()) => Ok(vec![Value::boolean(true)]),
+        Err(error) => {
+            let code = error.raw_os_error().unwrap_or(0);
+            let message = if let Some(filename) = filename {
+                format!("{filename}: {error}")
+            } else {
+                error.to_string()
+            };
+            Ok(vec![
+                Value::nil(),
+                runtime.intern_short_string(message.as_bytes())?,
+                Value::integer(i64::from(code)),
+            ])
+        }
+    }
+}
+
 fn time_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
     args.get(index - 1)
         .ok_or(NativeErrorKind::MissingArgument { index })?
@@ -110,11 +161,17 @@ fn time_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::{
+        fs,
+        sync::atomic::{AtomicU64, Ordering},
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     use elara_core::Value;
 
     use crate::{NativeErrorKind, StdLib, native_functions};
+
+    static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     #[derive(Default)]
     struct TestRuntime {
@@ -127,6 +184,11 @@ mod tests {
             self.strings.push(bytes.into());
             Value::closure_index(index)
         }
+
+        fn bytes(&self, value: Value) -> Option<&[u8]> {
+            let index = value.as_closure_index()? as usize;
+            self.strings.get(index).map(Box::as_ref)
+        }
     }
 
     impl crate::NativeRuntime for TestRuntime {
@@ -135,8 +197,7 @@ mod tests {
         }
 
         fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
-            let index = value.as_closure_index()? as usize;
-            self.strings.get(index).map(Box::as_ref)
+            self.bytes(value)
         }
     }
 
@@ -243,6 +304,61 @@ mod tests {
     }
 
     #[test]
+    fn os_remove_removes_existing_file() {
+        let function = function("remove");
+        let mut runtime = TestRuntime::default();
+        let path = unique_temp_path("remove");
+        fs::write(&path, b"temporary").expect("test file should be written");
+        let path_value = runtime.push_string(path.to_string_lossy().as_bytes());
+
+        assert_eq!(
+            function(&mut runtime, &[path_value]).expect("os.remove should pass"),
+            vec![Value::boolean(true)]
+        );
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn os_remove_returns_file_result_for_absent_file() {
+        let function = function("remove");
+        let mut runtime = TestRuntime::default();
+        let path = unique_temp_path("missing");
+        let path_value = runtime.push_string(path.to_string_lossy().as_bytes());
+
+        let result = function(&mut runtime, &[path_value]).expect("os.remove should pass");
+
+        assert_eq!(result[0], Value::nil());
+        assert!(
+            runtime
+                .bytes(result[1])
+                .is_some_and(|message| { message.starts_with(path.to_string_lossy().as_bytes()) })
+        );
+        assert!(result[2].as_integer().is_some_and(|code| code != 0));
+    }
+
+    #[test]
+    fn os_remove_validates_filename_argument() {
+        let function = function("remove");
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            function(&mut runtime, &[])
+                .expect_err("missing filename")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 1 }
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1)])
+                .expect_err("non-string filename")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "string",
+            }
+        );
+    }
+
+    #[test]
     fn os_clock_returns_nonnegative_elapsed_seconds() {
         let function = function("clock");
         let mut runtime = TestRuntime::default();
@@ -274,6 +390,15 @@ mod tests {
                 .as_secs(),
         )
         .expect("test system time should fit in i64")
+    }
+
+    fn unique_temp_path(label: &str) -> std::path::PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("test time should be after Unix epoch")
+            .as_nanos();
+        let count = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!("elara-os-{label}-{suffix}-{count}"))
     }
 
     fn assert_time_in_range(value: Value, before: i64, after: i64) {

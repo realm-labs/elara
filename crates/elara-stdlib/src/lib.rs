@@ -863,6 +863,11 @@ mod tests {
         assert!(
             functions
                 .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Os, "remove"))
+        );
+        assert!(
+            functions
+                .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Os, "time"))
         );
     }
