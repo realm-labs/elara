@@ -20,12 +20,12 @@ pub use diagnostics::{Diagnostic, DiagnosticLabel, DiagnosticSeverity, SourceId,
 pub use error::{LuaError, TraceFrame};
 pub use gc::{
     GcArena, GcCollectionStats, GcColor, GcHeader, GcKind, GcObject, GcRef, GcRoot, GcStats,
-    GcTracer,
+    GcTracer, GcWeakSweeper,
 };
 pub use spec::{LUA_SPEC, LUA_VERSION, LuaSpec, LuaVersion};
 pub use string::{
     LongString, SHORT_STRING_MAX_BYTES, ShortString, StringInterner, hash_string_bytes,
 };
-pub use table::{MetaFlags, Table};
+pub use table::{MetaFlags, Table, WeakMode};
 pub use thread::{CallFrame, FrameFlags, LuaThread, ResultCount, StackIndex, ThreadStatus, Vm};
 pub use value::{LuaFloat, LuaInteger, Value, ValueTag, float_to_integer_exact};

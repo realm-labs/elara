@@ -3,7 +3,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    GcHeader, GcKind, GcObject, GcRef, GcTracer, LuaFloat, LuaInteger, ShortString, Value,
+    GcHeader, GcKind, GcObject, GcRef, GcTracer, GcWeakSweeper, LuaFloat, LuaInteger, ShortString,
+    Value,
 };
 
 /// Placeholder cache flags for table metatable lookups.
@@ -39,6 +40,34 @@ impl MetaFlags {
     }
 }
 
+/// Weak-reference mode for a table.
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+pub enum WeakMode {
+    /// Keys and values are strong.
+    #[default]
+    None,
+    /// Collectable keys are weak and values are ephemeron-reachable from live keys.
+    Keys,
+    /// Values are weak.
+    Values,
+    /// Collectable keys and values are weak.
+    KeysAndValues,
+}
+
+impl WeakMode {
+    /// Returns true when collectable keys are weak.
+    #[must_use]
+    pub const fn weak_keys(self) -> bool {
+        matches!(self, Self::Keys | Self::KeysAndValues)
+    }
+
+    /// Returns true when values are weak.
+    #[must_use]
+    pub const fn weak_values(self) -> bool {
+        matches!(self, Self::Values | Self::KeysAndValues)
+    }
+}
+
 /// Lua table with split array/hash storage and metadata.
 #[derive(Debug)]
 pub struct Table {
@@ -46,6 +75,7 @@ pub struct Table {
     array: Vec<Value>,
     hash: HashMap<TableKey, Value>,
     metatable: Option<GcRef<Table>>,
+    weak_mode: WeakMode,
     flags: MetaFlags,
     version: u32,
 }
@@ -59,6 +89,7 @@ impl Table {
             array: Vec::new(),
             hash: HashMap::new(),
             metatable: None,
+            weak_mode: WeakMode::None,
             flags: MetaFlags::empty(),
             version: 0,
         }
@@ -113,6 +144,21 @@ impl Table {
     #[must_use]
     pub const fn metatable(&self) -> Option<GcRef<Table>> {
         self.metatable
+    }
+
+    /// Current table weak-reference mode.
+    #[must_use]
+    pub const fn weak_mode(&self) -> WeakMode {
+        self.weak_mode
+    }
+
+    /// Updates the table weak-reference mode.
+    pub fn set_weak_mode(&mut self, weak_mode: WeakMode) {
+        if self.weak_mode == weak_mode {
+            return;
+        }
+        self.weak_mode = weak_mode;
+        self.bump_version();
     }
 
     /// Updates the metatable reference.
@@ -307,14 +353,52 @@ impl GcObject for Table {
             tracer.mark_ref(metatable);
         }
 
-        for value in &self.array {
-            tracer.mark_value(*value);
+        if !self.weak_mode.weak_values() {
+            for value in &self.array {
+                tracer.mark_value(*value);
+            }
         }
 
         for (key, value) in &self.hash {
-            key.trace(tracer);
-            tracer.mark_value(*value);
+            if !self.weak_mode.weak_keys() {
+                key.trace(tracer);
+            }
+
+            if self.weak_mode.weak_values() {
+                continue;
+            }
+
+            if self.weak_mode.weak_keys() {
+                if key.is_collectable() {
+                    tracer.mark_ephemeron(key.to_value(), *value);
+                } else {
+                    tracer.mark_value(*value);
+                }
+            } else {
+                tracer.mark_value(*value);
+            }
         }
+    }
+
+    fn remove_dead_weak_references(&mut self, sweeper: &GcWeakSweeper<'_>) {
+        if self.weak_mode == WeakMode::None {
+            return;
+        }
+
+        if self.weak_mode.weak_values() {
+            for value in &mut self.array {
+                if !sweeper.is_value_live(*value) {
+                    *value = Value::nil();
+                }
+            }
+            self.trim_trailing_nil();
+        }
+
+        self.hash.retain(|key, value| {
+            let key_live = !self.weak_mode.weak_keys() || key.is_live(sweeper);
+            let value_live = !self.weak_mode.weak_values() || sweeper.is_value_live(*value);
+            key_live && value_live
+        });
     }
 }
 
@@ -338,6 +422,17 @@ impl TableKey {
     fn trace(self, tracer: &mut GcTracer<'_>) {
         if let Self::ShortString(reference) = self {
             tracer.mark_ref(reference);
+        }
+    }
+
+    fn is_collectable(self) -> bool {
+        matches!(self, Self::ShortString(_))
+    }
+
+    fn is_live(self, sweeper: &GcWeakSweeper<'_>) -> bool {
+        match self {
+            Self::ShortString(reference) => sweeper.is_ref_live(reference),
+            Self::Bool(_) | Self::Integer(_) | Self::Float(_) => true,
         }
     }
 

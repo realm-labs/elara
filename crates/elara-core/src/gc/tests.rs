@@ -7,7 +7,7 @@ use std::sync::{
 use super::{
     GcArena, GcCollectionStats, GcColor, GcHeader, GcKind, GcObject, GcRef, GcStats, GcTracer,
 };
-use crate::{LongString, LuaThread, ShortString, Table, Value};
+use crate::{LongString, LuaThread, ShortString, Table, Value, WeakMode};
 
 #[derive(Debug)]
 struct TestObject {
@@ -332,4 +332,116 @@ fn gc_trace_registry_roots_mark_objects_once() {
             live_objects: 1,
         }
     );
+}
+
+#[test]
+fn weak_table_values_do_not_keep_entries_alive() {
+    let mut arena = GcArena::new();
+
+    let key = arena.allocate(ShortString::new("key").expect("short string fits"));
+    let value = arena.allocate(LongString::new("weak value"));
+    let mut table = Table::new();
+    table.set_weak_mode(WeakMode::Values);
+    assert!(table.raw_set_value(Value::short_string(key), Value::long_string(value)));
+    let table = arena.allocate(table);
+    arena.add_root(table);
+
+    let collection = arena.collect_garbage();
+
+    assert_eq!(
+        collection,
+        GcCollectionStats {
+            marked: 2,
+            swept: 1,
+            live_objects: 2,
+        }
+    );
+    // SAFETY: The rooted table survived collection.
+    let table = unsafe { table.as_ref() };
+    assert_eq!(table.raw_get_value(Value::short_string(key)), Value::nil());
+}
+
+#[test]
+fn weak_table_keys_do_not_keep_ephemeron_values_alive_when_key_is_dead() {
+    let mut arena = GcArena::new();
+
+    let key = arena.allocate(ShortString::new("key").expect("short string fits"));
+    let value = arena.allocate(LongString::new("ephemeron value"));
+    let mut table = Table::new();
+    table.set_weak_mode(WeakMode::Keys);
+    assert!(table.raw_set_value(Value::short_string(key), Value::long_string(value)));
+    let table = arena.allocate(table);
+    arena.add_root(table);
+
+    let collection = arena.collect_garbage();
+
+    assert_eq!(
+        collection,
+        GcCollectionStats {
+            marked: 1,
+            swept: 2,
+            live_objects: 1,
+        }
+    );
+    // SAFETY: The rooted table survived collection.
+    let table = unsafe { table.as_ref() };
+    assert_eq!(table.raw_get_value(Value::short_string(key)), Value::nil());
+}
+
+#[test]
+fn weak_table_keys_mark_ephemeron_values_when_key_is_live() {
+    let mut arena = GcArena::new();
+
+    let key = arena.allocate(ShortString::new("key").expect("short string fits"));
+    let value = arena.allocate(LongString::new("ephemeron value"));
+    let mut table = Table::new();
+    table.set_weak_mode(WeakMode::Keys);
+    assert!(table.raw_set_value(Value::short_string(key), Value::long_string(value)));
+    let table = arena.allocate(table);
+    arena.add_root(table);
+    arena.add_root(key);
+
+    let collection = arena.collect_garbage();
+
+    assert_eq!(
+        collection,
+        GcCollectionStats {
+            marked: 3,
+            swept: 0,
+            live_objects: 3,
+        }
+    );
+    // SAFETY: The rooted table survived collection.
+    let table = unsafe { table.as_ref() };
+    assert_eq!(
+        table.raw_get_value(Value::short_string(key)),
+        Value::long_string(value)
+    );
+}
+
+#[test]
+fn weak_table_keys_and_values_drop_collectable_entries() {
+    let mut arena = GcArena::new();
+
+    let key = arena.allocate(ShortString::new("key").expect("short string fits"));
+    let value = arena.allocate(LongString::new("weak value"));
+    let mut table = Table::new();
+    table.set_weak_mode(WeakMode::KeysAndValues);
+    assert!(table.raw_set_value(Value::short_string(key), Value::long_string(value)));
+    let table = arena.allocate(table);
+    arena.add_root(table);
+
+    let collection = arena.collect_garbage();
+
+    assert_eq!(
+        collection,
+        GcCollectionStats {
+            marked: 1,
+            swept: 2,
+            live_objects: 1,
+        }
+    );
+    // SAFETY: The rooted table survived collection.
+    let table = unsafe { table.as_ref() };
+    assert_eq!(table.raw_get_value(Value::short_string(key)), Value::nil());
 }

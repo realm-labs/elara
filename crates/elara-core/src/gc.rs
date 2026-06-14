@@ -86,6 +86,9 @@ pub trait GcObject {
     /// Traces child GC references owned by this object.
     fn trace(&self, _tracer: &mut GcTracer<'_>) {}
 
+    /// Removes weak references to objects that are about to be swept.
+    fn remove_dead_weak_references(&mut self, _sweeper: &GcWeakSweeper<'_>) {}
+
     /// Runtime object kind from the embedded header.
     fn kind(&self) -> GcKind {
         self.header().kind()
@@ -96,39 +99,59 @@ pub trait GcObject {
 pub struct GcTracer<'arena> {
     arena: &'arena GcArena,
     marked: usize,
+    ephemerons: Vec<(Value, Value)>,
 }
 
 impl GcTracer<'_> {
     /// Marks a typed GC reference and recursively traces its children.
-    pub fn mark_ref<T>(&mut self, reference: GcRef<T>)
+    pub fn mark_ref<T>(&mut self, reference: GcRef<T>) -> bool
     where
         T: GcObject,
     {
-        self.mark_ptr(reference.ptr.cast());
+        self.mark_ptr(reference.ptr.cast())
     }
 
     /// Marks any GC-managed reference contained in a Lua value.
-    pub fn mark_value(&mut self, value: Value) {
+    pub fn mark_value(&mut self, value: Value) -> bool {
         if let Some(reference) = value.as_short_string() {
-            self.mark_ref(reference);
+            self.mark_ref(reference)
         } else if let Some(reference) = value.as_long_string() {
-            self.mark_ref(reference);
+            self.mark_ref(reference)
+        } else {
+            false
         }
     }
 
-    fn mark_ptr(&mut self, ptr: NonNull<()>) {
+    /// Defers ephemeron value tracing until all roots and strong edges are marked.
+    pub fn mark_ephemeron(&mut self, key: Value, value: Value) {
+        self.ephemerons.push((key, value));
+    }
+
+    /// Returns true when the GC-managed reference in `value` is already marked.
+    #[must_use]
+    pub fn is_value_marked(&self, value: Value) -> bool {
+        if let Some(reference) = value.as_short_string() {
+            self.is_ptr_marked(reference.ptr.cast())
+        } else if let Some(reference) = value.as_long_string() {
+            self.is_ptr_marked(reference.ptr.cast())
+        } else {
+            true
+        }
+    }
+
+    fn mark_ptr(&mut self, ptr: NonNull<()>) -> bool {
         let Some(allocation) = self
             .arena
             .objects
             .iter()
             .find(|allocation| allocation.ptr == ptr)
         else {
-            return;
+            return false;
         };
 
         let header = allocation.header() as *const GcHeader;
         if unsafe { (*header).color() } != GcColor::White {
-            return;
+            return false;
         }
 
         let object = allocation.object.as_ref() as *const dyn GcObject;
@@ -140,6 +163,54 @@ impl GcTracer<'_> {
             self.marked += 1;
             (*object).trace(self);
             (*header).set_color(GcColor::Black);
+        }
+        true
+    }
+
+    fn is_ptr_marked(&self, ptr: NonNull<()>) -> bool {
+        self.arena
+            .objects
+            .iter()
+            .find(|allocation| allocation.ptr == ptr)
+            .is_some_and(|allocation| allocation.header().color() != GcColor::White)
+    }
+
+    fn mark_ephemerons_to_fixpoint(&mut self) {
+        loop {
+            let mut changed = false;
+            for (key, value) in self.ephemerons.clone() {
+                if self.is_value_marked(key) {
+                    changed |= self.mark_value(value);
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+    }
+}
+
+/// Weak-reference sweep context used just before unreachable objects are removed.
+pub struct GcWeakSweeper<'live> {
+    live_ptrs: &'live [NonNull<()>],
+}
+
+impl GcWeakSweeper<'_> {
+    /// Returns true when a typed GC reference points at a marked live object.
+    #[must_use]
+    pub fn is_ref_live<T>(&self, reference: GcRef<T>) -> bool {
+        self.live_ptrs.contains(&reference.ptr.cast())
+    }
+
+    /// Returns true when `value` is not collectable or points at a live object.
+    #[must_use]
+    pub fn is_value_live(&self, value: Value) -> bool {
+        if let Some(reference) = value.as_short_string() {
+            self.is_ref_live(reference)
+        } else if let Some(reference) = value.as_long_string() {
+            self.is_ref_live(reference)
+        } else {
+            true
         }
     }
 }
@@ -401,6 +472,7 @@ impl GcArena {
     pub fn collect_garbage(&mut self) -> GcCollectionStats {
         self.reset_marks();
         let marked = self.mark_roots();
+        self.remove_dead_weak_references();
         let swept = self.sweep_unmarked();
         self.prune_dead_roots();
         self.reset_marks();
@@ -422,11 +494,29 @@ impl GcArena {
         let mut tracer = GcTracer {
             arena: self,
             marked: 0,
+            ephemerons: Vec::new(),
         };
         for root in &self.roots {
             tracer.mark_ptr(root.ptr);
         }
+        tracer.mark_ephemerons_to_fixpoint();
         tracer.marked
+    }
+
+    fn remove_dead_weak_references(&mut self) {
+        let live_ptrs = self
+            .objects
+            .iter()
+            .filter(|allocation| allocation.header().color() == GcColor::Black)
+            .map(|allocation| allocation.ptr)
+            .collect::<Vec<_>>();
+        let sweeper = GcWeakSweeper {
+            live_ptrs: &live_ptrs,
+        };
+
+        for allocation in &mut self.objects {
+            allocation.object.remove_dead_weak_references(&sweeper);
+        }
     }
 
     fn sweep_unmarked(&mut self) -> usize {

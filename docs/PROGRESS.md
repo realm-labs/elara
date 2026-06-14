@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M14 Production GC
-Current step: M14.2 Add weak tables and ephemeron behavior
+Current step: M14.3 Add finalization and userdata lifecycle
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -139,6 +139,9 @@ contexts.
 The core stop-the-world GC mark phase now traces transitive object references
 through `GcObject` hooks, including table array/hash/metatable references,
 thread stack values, registry roots, and closed-upvalue-style captured values.
+Core tables now have explicit weak-key, weak-value, and combined weak modes.
+The GC processes weak-key entries as ephemerons to a fixed point and prunes
+dead weak table entries before sweeping unreachable objects.
 
 Current state:
 
@@ -298,6 +301,7 @@ Completed:
   - M13.3 Add fuzz targets.
   - M13 exit criteria validation.
   - M14.1 Implement complete tracing for all object types.
+  - M14.2 Add weak tables and ephemeron behavior.
 
 In progress:
   - Production GC.
@@ -938,22 +942,23 @@ M13.2 is complete.
 M13.3 is complete.
 M13 is complete.
 M14.1 is complete.
+M14.2 is complete.
 
 ## Last Verification
 
-M14.1 GC tracing verification passed:
+M14.2 weak table verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-core gc_trace
+cargo test -p elara-core weak_table
 cargo test -p elara-core
 cargo clippy -p elara-core --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M14.2 with weak table modes, ephemeron marking, and weak table
-collection tests.
+Continue M14.3 with finalizer queue, userdata drop behavior, and error-safe
+finalization paths.
 
 ## Current Risk Notes
 
@@ -983,7 +988,7 @@ collection tests.
 | Value primitives | Complete | Nil, bool, integer, and float values are implemented. |
 | GC headers | Complete | Headers, colors, kinds, and typed refs are implemented. |
 | GC allocation | Complete | Arena allocation list, stats, roots, and drop cleanup are implemented. |
-| Mark-sweep GC | M14.1 tracing complete | Root marking, transitive object tracing, and allocation-list sweeping are implemented for tests. |
+| Mark-sweep GC | M14.2 weak tables complete | Root marking, transitive object tracing, weak table cleanup, ephemeron marking, and allocation-list sweeping are implemented for tests. |
 | Strings | Complete | Short strings, long strings, and interning are implemented. |
 | Table array | Complete | Raw 1-based array get/set and nil clearing are implemented. |
 | Table hash | Complete | Hash storage and numeric key canonicalization are implemented. |
