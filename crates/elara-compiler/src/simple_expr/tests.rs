@@ -122,6 +122,21 @@ fn generic_for_compiles_iterator_protocol() {
 }
 
 #[test]
+fn generic_for_compiles_call_iterator_triplet_at_loop_base() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local t = { 10 }\nfor i, v in ipairs(t) do\n  return i + v\nend\nreturn 0",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 NEW_TABLE     A=0 B=1 C=0\n0001 LOAD_K        A=1 Bx=0 ; 1\n0002 LOAD_K        A=2 Bx=1 ; 10\n0003 SET_TABLE     A=0 B=1 C=2\n0004 MOVE          A=3 B=0 C=0\n0005 GET_UPVALUE   A=4 B=0 C=0\n0006 LOAD_STRING   A=5 Bx=0 ; \"ipairs\"\n0007 GET_TABLE     A=6 B=4 C=5\n0008 MOVE          A=4 B=6 C=0\n0009 MOVE          A=5 B=3 C=0\n0010 CALL          A=4 B=2 C=3\n0011 TFOR_PREP     A=4 sBx=2\n0012 ADD           A=7 B=7 C=8\n0013 RETURN        A=7 B=1 C=0\n0014 TFOR_CALL     A=4 B=0 C=2\n0015 TFOR_LOOP     A=4 sBx=-4\n0016 LOAD_K        A=9 Bx=2 ; 0\n0017 RETURN        A=9 B=1 C=0\n",
+    );
+}
+
+#[test]
 fn table_constructor_compiles_array_record_and_keyed_fields() {
     let compiled = compile_simple_chunk(SourceId::new(0), "return { 1, named = 2, [3] = 4 }");
     assert_eq!(compiled.diagnostics, Vec::new());

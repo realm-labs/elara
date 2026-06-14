@@ -405,14 +405,48 @@ impl SimpleCompiler {
     }
 
     fn compile_call(&mut self, expr: &Expr<'_>, callee: &Expr<'_>, args: &[Expr<'_>]) -> u16 {
+        self.compile_call_with_result_count(expr, callee, args, 1)
+    }
+
+    fn compile_call_with_result_count(
+        &mut self,
+        expr: &Expr<'_>,
+        callee: &Expr<'_>,
+        args: &[Expr<'_>],
+        result_count: u32,
+    ) -> u16 {
         let register = self.compile_expr(callee);
+        self.compile_call_args_and_emit(expr, register, args, result_count);
+        register
+    }
+
+    pub(super) fn compile_call_into_register(
+        &mut self,
+        expr: &Expr<'_>,
+        callee: &Expr<'_>,
+        args: &[Expr<'_>],
+        register: u16,
+        result_count: u32,
+    ) {
+        let callee = self.compile_expr(callee);
+        self.emit_move(register, callee);
+        self.compile_call_args_and_emit(expr, register, args, result_count);
+    }
+
+    fn compile_call_args_and_emit(
+        &mut self,
+        expr: &Expr<'_>,
+        register: u16,
+        args: &[Expr<'_>],
+        result_count: u32,
+    ) {
         let arg_count = match u32::try_from(args.len() + 1) {
             Ok(count) => count,
             Err(_) => {
                 self.diagnostics.push(
                     Diagnostic::error("too many function arguments").with_primary_span(expr.span()),
                 );
-                return register;
+                return;
             }
         };
 
@@ -425,7 +459,7 @@ impl SimpleCompiler {
                 self.diagnostics.push(
                     Diagnostic::error("too many function arguments").with_primary_span(expr.span()),
                 );
-                return register;
+                return;
             };
             self.ensure_register_slot(target);
             self.emit_move(target, value);
@@ -435,11 +469,21 @@ impl SimpleCompiler {
             self.diagnostics.push(
                 Diagnostic::error("too many function arguments").with_primary_span(expr.span()),
             );
-            return register;
+            return;
         }
 
-        self.builder.emit_abc(Op::Call, register, arg_count, 1);
-        register
+        if result_count > 0 {
+            let last_result = register
+                .checked_add(
+                    u16::try_from(result_count - 1)
+                        .expect("call result count must fit in register range"),
+                )
+                .expect("call result range must fit in register range");
+            self.ensure_register_slot(last_result);
+        }
+
+        self.builder
+            .emit_abc(Op::Call, register, arg_count, result_count);
     }
 
     fn emit_move(&mut self, target: u16, source: u16) {

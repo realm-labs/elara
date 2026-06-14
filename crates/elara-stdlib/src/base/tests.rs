@@ -1,18 +1,32 @@
 use elara_core::Value;
 
 use super::{
-    BASE_NATIVE_FUNCTIONS, base_assert, base_error, base_getmetatable, base_next, base_print,
-    base_rawequal, base_rawget, base_rawlen, base_rawset, base_select, base_setmetatable,
-    base_tonumber, base_tostring, base_type,
+    BASE_NATIVE_FUNCTIONS, base_assert, base_error, base_getmetatable, base_ipairs,
+    base_ipairs_aux, base_next, base_pairs, base_print, base_rawequal, base_rawget, base_rawlen,
+    base_rawset, base_select, base_setmetatable, base_tonumber, base_tostring, base_type,
 };
 use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
-#[derive(Default)]
 struct TestRuntime {
     strings: Vec<Box<[u8]>>,
     tables: Vec<Vec<(Value, Value)>>,
     metatables: Vec<Option<Value>>,
     output: Vec<u8>,
+    base_next: Value,
+    base_ipairs_aux: Value,
+}
+
+impl Default for TestRuntime {
+    fn default() -> Self {
+        Self {
+            strings: Vec::new(),
+            tables: Vec::new(),
+            metatables: Vec::new(),
+            output: Vec::new(),
+            base_next: Value::nil(),
+            base_ipairs_aux: Value::nil(),
+        }
+    }
 }
 
 impl TestRuntime {
@@ -73,6 +87,10 @@ impl NativeRuntime for TestRuntime {
                 (*entry_key == key && !entry_value.is_nil()).then_some(*entry_value)
             })
             .unwrap_or_else(Value::nil))
+    }
+
+    fn table_get_integer(&self, table: Value, index: i64) -> Result<Value, NativeError> {
+        self.table_get(table, Value::integer(index))
     }
 
     fn table_next(&self, table: Value, key: Value) -> Result<Option<(Value, Value)>, NativeError> {
@@ -136,6 +154,17 @@ impl NativeRuntime for TestRuntime {
         self.output.extend_from_slice(bytes);
         Ok(())
     }
+
+    fn native_function(&self, library: StdLib, name: &str) -> Result<Value, NativeError> {
+        match (library, name) {
+            (StdLib::Base, "next") => Ok(self.base_next),
+            (StdLib::Base, "__ipairs_aux") => Ok(self.base_ipairs_aux),
+            _ => Err(NativeErrorKind::RuntimeError {
+                message: "unknown native helper".into(),
+            }
+            .into()),
+        }
+    }
 }
 
 fn non_table_error() -> NativeError {
@@ -167,7 +196,9 @@ fn base_native_specs_cover_executable_subset() {
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "assert")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "error")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "getmetatable")));
+    assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "ipairs")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "next")));
+    assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "pairs")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "print")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawequal")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "rawget")));
@@ -178,6 +209,42 @@ fn base_native_specs_cover_executable_subset() {
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "tonumber")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "tostring")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "type")));
+}
+
+#[test]
+fn base_ipairs_returns_hidden_iterator_state_and_zero_control() {
+    let mut runtime = TestRuntime {
+        base_ipairs_aux: Value::native_function_index(11),
+        ..TestRuntime::default()
+    };
+    let table = runtime.push_table(Vec::new());
+
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_ipairs, &[table]),
+        vec![Value::native_function_index(11), table, Value::integer(0)]
+    );
+}
+
+#[test]
+fn base_ipairs_aux_iterates_integer_keys_until_nil() {
+    let mut runtime = TestRuntime::default();
+    let table = runtime.push_table(vec![
+        (Value::integer(1), Value::integer(10)),
+        (Value::integer(2), Value::integer(20)),
+    ]);
+
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_ipairs_aux, &[table, Value::integer(0)]),
+        vec![Value::integer(1), Value::integer(10)]
+    );
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_ipairs_aux, &[table, Value::integer(1)]),
+        vec![Value::integer(2), Value::integer(20)]
+    );
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_ipairs_aux, &[table, Value::integer(2)]),
+        vec![Value::nil()]
+    );
 }
 
 #[test]
@@ -296,6 +363,25 @@ fn base_next_returns_next_pair_or_nil() {
     assert_eq!(
         call_with_runtime(&mut runtime, base_next, &[table, Value::integer(2)]),
         vec![Value::nil()]
+    );
+}
+
+#[test]
+fn base_pairs_returns_next_state_nil_control_and_nil_close() {
+    let mut runtime = TestRuntime {
+        base_next: Value::native_function_index(7),
+        ..TestRuntime::default()
+    };
+    let table = runtime.push_table(Vec::new());
+
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_pairs, &[table]),
+        vec![
+            Value::native_function_index(7),
+            table,
+            Value::nil(),
+            Value::nil()
+        ]
     );
 }
 

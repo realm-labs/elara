@@ -798,6 +798,34 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_base_ipairs() {
+        let profile = StdLibProfile::Custom([StdLib::Base, StdLib::Table].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local t = table.pack(10, 20, 30)\nlocal sum = 0\nfor i, v in ipairs(t) do\n  sum = sum + i + v\nend\nreturn sum",
+                &profile,
+            ),
+            Ok(vec![Value::integer(66)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_with_stdlib_executes_raw_base_pairs() {
+        let profile = StdLibProfile::Custom([StdLib::Base, StdLib::Table].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local t = table.pack(41)\nfor k, v in pairs(t) do\n  return k + v\nend\nreturn 0",
+                &profile,
+            ),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
     fn eval_simple_rejects_global_function_when_defined() {
         let error = eval_simple_source(
             SourceId::new(0),

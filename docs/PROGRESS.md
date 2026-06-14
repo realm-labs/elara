@@ -1,7 +1,7 @@
 # Elara Progress
 
 Status: Rolling current-state document  
-Last updated: 2026-06-11
+Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M11 Standard Library MVP
 Current step: M11.2 Implement base, table, math, and string essentials
@@ -91,15 +91,16 @@ The API layer can build a primitive `RuntimeEnvironment` from implemented
 stdlib native specs, including shared reseedable math RNG state, and simple
 source evaluation can run with a selected stdlib profile for supported native
 paths.
-Base stdlib natives `assert`, `error`, `getmetatable`, `next`, `print`,
-`rawequal`, `rawget`, `rawlen`, `rawset`, numeric `select`, `setmetatable`,
-`tonumber`, `tostring`, and `type` are executable, and API stdlib profile
-registration now installs base natives as direct globals while keeping module
-libraries table-shaped. Native calls now receive a `NativeContext` that can
-allocate and inspect runtime-owned short strings, allocate runtime-owned tables,
-read/write raw runtime table entries, get/set runtime table metatable links,
-traverse raw runtime table entries, and write host output for `print`,
-preparing the remaining base, table, and string library functions.
+Base stdlib natives `assert`, `error`, `getmetatable`, `ipairs`, `next`, raw
+`pairs`, `print`, `rawequal`, `rawget`, `rawlen`, `rawset`, numeric `select`,
+`setmetatable`, `tonumber`, `tostring`, and `type` are executable, and API
+stdlib profile registration now installs base natives as direct globals while
+keeping module libraries table-shaped. Native calls now receive a
+`NativeContext` that can allocate and inspect runtime-owned short strings,
+allocate runtime-owned tables, read/write raw runtime table entries, get/set
+runtime table metatable links, traverse raw runtime table entries, write host
+output for `print`, and return registered native helper functions for iterator
+factories, preparing the remaining base, table, and string library functions.
 `elara-stdlib` native functions now receive a crate-local `NativeRuntime` trait,
 and the API bridge adapts it to the interpreter context without making stdlib
 depend on interpreter internals. Remaining executable base, table, math, and
@@ -119,6 +120,10 @@ through stdlib-backed API evaluation.
 Table natives `table.concat`, `table.insert`, `table.move`, `table.pack`,
 `table.remove`, default-comparator `table.sort`, and `table.unpack` are
 executable and covered through stdlib-backed API evaluation.
+Generic-for lowering now preserves call-expression multiple returns in iterator
+protocol registers, and the primitive interpreter can call native iterator
+functions from `TFOR_CALL`, enabling stdlib-backed `ipairs` and raw `pairs`
+loops.
 
 Current state:
 
@@ -238,6 +243,8 @@ Completed:
   - M11.2 executable string lower, upper, and reverse native specs.
   - M11.2 executable string.rep native spec.
   - M11.2 executable string.sub native spec.
+  - M11.2 executable base ipairs and raw pairs native specs.
+  - M11.2 native iterator support for generic for loops.
 
 In progress:
   - M11.2 Implement base, table, math, and string essentials.
@@ -775,9 +782,10 @@ Delivered:
 
 ### Immediate Gaps for M11
 
-- Replace descriptor-only essential base, table, math, and string entries with
-  executable native functions as runtime/API native-call support becomes
-  available.
+- Fill the remaining executable base/string entries, including protected-call
+  backed `pcall`/`xpcall` and iterator-producing `string.gmatch`.
+- Add `__pairs` metamethod support once stdlib natives can call Lua callbacks
+  through the runtime.
 - Add runtime callback support for custom `table.sort` comparators.
 - Add full string pattern matching beyond `.` wildcard, `^`/`$` anchor, and `%`
   character-class support for `string.find`, `string.match`, `string.gmatch`,
@@ -806,20 +814,25 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable string pattern class verification passed:
+M11.2 executable base `ipairs` and raw `pairs` verification passed:
 
 ```bash
-cargo fmt --all
-cargo test -p elara-stdlib string
+cargo fmt --all -- --check
+cargo test -p elara-stdlib base
+cargo test -p elara-compiler generic_for_compiles
+cargo test -p elara-interp generic_for
+cargo test -p elara-api eval_simple_with_stdlib_executes
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
-cargo test -p elara-api eval_simple_with_stdlib_executes_string
+cargo clippy -p elara-compiler --all-targets -- -D warnings
+cargo clippy -p elara-interp --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M11.2 by filling the remaining executable base, table, math, and string
-functions and expanding stdlib-backed API evaluation coverage.
+Continue M11.2 by filling the remaining executable base and string functions,
+with `pcall`/`xpcall`, `string.gmatch`, and broader pattern support as the next
+known gaps.
 
 ## Current Risk Notes
 

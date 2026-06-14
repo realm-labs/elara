@@ -15,7 +15,9 @@ pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         FunctionSpec::new(StdLib::Base, "getmetatable"),
         base_getmetatable,
     ),
-    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "next"), base_next),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "ipairs"), base_ipairs),
+    BASE_NEXT_NATIVE,
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "pairs"), base_pairs),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "print"), base_print),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawequal"), base_rawequal),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawget"), base_rawget),
@@ -30,6 +32,16 @@ pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "tostring"), base_tostring),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "type"), base_type),
 ];
+
+/// Hidden helper used by `ipairs`.
+pub const BASE_IPAIRS_AUX_NATIVE: NativeFunctionSpec = NativeFunctionSpec::new(
+    FunctionSpec::new(StdLib::Base, "__ipairs_aux"),
+    base_ipairs_aux,
+);
+
+/// Raw table traversal helper used by `next` and `pairs`.
+pub const BASE_NEXT_NATIVE: NativeFunctionSpec =
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "next"), base_next);
 
 fn base_assert(
     _runtime: &mut dyn NativeRuntime,
@@ -79,12 +91,59 @@ fn base_getmetatable(
     }
 }
 
+fn base_ipairs(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    Ok(vec![
+        runtime.native_function(StdLib::Base, "__ipairs_aux")?,
+        value,
+        Value::integer(0),
+    ])
+}
+
+fn base_ipairs_aux(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let table = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let index = args
+        .get(1)
+        .and_then(|value| value.as_integer())
+        .ok_or(NativeErrorKind::TypeError {
+            index: 2,
+            expected: "integer",
+        })?
+        .checked_add(1)
+        .ok_or(NativeErrorKind::ArgumentOutOfRange { index: 2 })?;
+    let value = runtime.table_get_integer(table, index)?;
+    if value.is_nil() {
+        Ok(vec![Value::nil()])
+    } else {
+        Ok(vec![Value::integer(index), value])
+    }
+}
+
 fn base_next(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let table = table_arg(args, 1)?;
     let key = args.get(1).copied().unwrap_or_else(Value::nil);
     Ok(runtime
         .table_next(table, key)?
         .map_or_else(|| vec![Value::nil()], |(key, value)| vec![key, value]))
+}
+
+fn base_pairs(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    Ok(vec![
+        runtime.native_function(StdLib::Base, "next")?,
+        value,
+        Value::nil(),
+        Value::nil(),
+    ])
 }
 
 fn base_print(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {

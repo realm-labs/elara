@@ -2,7 +2,7 @@
 
 use elara_bytecode::Op;
 use elara_core::{Diagnostic, Span};
-use elara_syntax::{Block, Expr, IfClause};
+use elara_syntax::{Block, Expr, ExprKind, IfClause};
 
 use super::SimpleCompiler;
 
@@ -112,15 +112,22 @@ impl SimpleCompiler {
     ) {
         let base = self.next_register;
         let result_count = u16::try_from(names.len()).expect("generic for name count must fit");
-        self.ensure_register_slot(base + 2 + result_count);
 
-        for index in 0..3 {
-            let target = base + index;
-            if let Some(value) = values.get(index as usize) {
-                let register = self.compile_expr(value);
-                self.emit_move(target, register);
-            } else {
-                self.builder.emit_abc(Op::LoadNil, target, 0, 0);
+        if let [value] = values
+            && let ExprKind::Call { callee, args, .. } = value.kind()
+        {
+            self.compile_call_into_register(value, callee, args, base, 3);
+            self.ensure_register_slot(base + 2 + result_count);
+        } else {
+            self.ensure_register_slot(base + 2 + result_count);
+            for index in 0..3 {
+                let target = base + index;
+                if let Some(value) = values.get(index as usize) {
+                    let register = self.compile_expr(value);
+                    self.emit_move(target, register);
+                } else {
+                    self.builder.emit_abc(Op::LoadNil, target, 0, 0);
+                }
             }
         }
 

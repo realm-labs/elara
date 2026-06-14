@@ -9,8 +9,8 @@ use std::{
 use elara_core::Value;
 use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
 use elara_stdlib::{
-    LuaRandomState, NativeError, NativeErrorKind, NativeRuntime, StdLib, StdLibProfile, StdLibSet,
-    native_functions,
+    BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, LuaRandomState, NativeError, NativeErrorKind,
+    NativeRuntime, StdLib, StdLibProfile, StdLibSet, native_functions,
 };
 
 /// Builds a primitive runtime environment containing implemented stdlib natives
@@ -42,12 +42,15 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
     }
 
     if library == StdLib::Base {
+        let helpers = register_base_helpers(environment);
         for spec in functions {
             let function = spec.function();
+            let helpers = helpers.clone();
             environment.register_native_global(spec.descriptor().name(), move |context, args| {
                 let mut runtime = InterpNativeRuntime {
                     context,
                     random_state: None,
+                    helpers: helpers.clone(),
                 };
                 function(&mut runtime, args).map_err(native_error_to_runtime_error)
             });
@@ -66,6 +69,7 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
                 let mut runtime = InterpNativeRuntime {
                     context,
                     random_state: random_state.clone(),
+                    helpers: NativeHelpers::default(),
                 };
                 function(&mut runtime, args).map_err(native_error_to_runtime_error)
             });
@@ -78,9 +82,39 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
     environment.set_global_table(library.name(), fields);
 }
 
+fn register_base_helpers(environment: &mut RuntimeEnvironment) -> NativeHelpers {
+    let base_next = register_hidden_native(environment, BASE_NEXT_NATIVE.function());
+    let base_ipairs_aux = register_hidden_native(environment, BASE_IPAIRS_AUX_NATIVE.function());
+    NativeHelpers {
+        base_next: Some(base_next),
+        base_ipairs_aux: Some(base_ipairs_aux),
+    }
+}
+
+fn register_hidden_native(
+    environment: &mut RuntimeEnvironment,
+    function: elara_stdlib::NativeStdFunction,
+) -> u32 {
+    environment.push_native(move |context, args| {
+        let mut runtime = InterpNativeRuntime {
+            context,
+            random_state: None,
+            helpers: NativeHelpers::default(),
+        };
+        function(&mut runtime, args).map_err(native_error_to_runtime_error)
+    })
+}
+
+#[derive(Clone, Default)]
+struct NativeHelpers {
+    base_next: Option<u32>,
+    base_ipairs_aux: Option<u32>,
+}
+
 struct InterpNativeRuntime<'a, 'runtime> {
     context: &'a mut NativeContext<'runtime>,
     random_state: Option<Arc<Mutex<LuaRandomState>>>,
+    helpers: NativeHelpers,
 }
 
 impl NativeRuntime for InterpNativeRuntime<'_, '_> {
@@ -243,6 +277,32 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
             .into()
         })
     }
+
+    fn native_function(&self, library: StdLib, name: &str) -> Result<Value, NativeError> {
+        match (library, name) {
+            (StdLib::Base, "next") => self
+                .helpers
+                .base_next
+                .map(Value::native_function_index)
+                .ok_or_else(missing_native_helper),
+            (StdLib::Base, "__ipairs_aux") => self
+                .helpers
+                .base_ipairs_aux
+                .map(Value::native_function_index)
+                .ok_or_else(missing_native_helper),
+            _ => Err(NativeErrorKind::RuntimeError {
+                message: "native helper is not registered".into(),
+            }
+            .into()),
+        }
+    }
+}
+
+fn missing_native_helper() -> NativeError {
+    NativeErrorKind::RuntimeError {
+        message: "native helper is not registered".into(),
+    }
+    .into()
 }
 
 fn native_error_to_runtime_error(error: NativeError) -> elara_interp::RuntimeError {

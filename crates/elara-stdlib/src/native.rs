@@ -2,7 +2,7 @@
 
 use elara_core::Value;
 
-use crate::FunctionSpec;
+use crate::{FunctionSpec, StdLib};
 
 /// Result returned by executable standard-library natives.
 pub type NativeResult = Result<Vec<Value>, NativeError>;
@@ -124,6 +124,14 @@ pub trait NativeRuntime {
     fn write_output(&mut self, _bytes: &[u8]) -> Result<(), NativeError> {
         Err(NativeErrorKind::RuntimeError {
             message: "native runtime does not support output".into(),
+        }
+        .into())
+    }
+
+    /// Returns a runtime-owned function value for an already registered native helper.
+    fn native_function(&self, _library: StdLib, _name: &str) -> Result<Value, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support native function values".into(),
         }
         .into())
     }
