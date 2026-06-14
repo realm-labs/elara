@@ -43,16 +43,28 @@ pub(super) fn has_unsupported_pattern_special(pattern: &[u8]) -> bool {
     false
 }
 
+#[cfg(test)]
 pub(super) fn simple_pattern_find(haystack: &[u8], pattern: &[u8]) -> Option<(usize, usize)> {
+    simple_pattern_find_from(haystack, pattern, 0)
+}
+
+pub(super) fn simple_pattern_find_from(
+    haystack: &[u8],
+    pattern: &[u8],
+    start: usize,
+) -> Option<(usize, usize)> {
     let pattern = ParsedPattern::new(pattern);
     if pattern.body.is_empty() && !pattern.anchor_end {
-        return Some((0, 0));
+        return (start <= haystack.len()).then_some((start, start));
+    }
+    if start > haystack.len() {
+        return None;
     }
     if pattern.anchor_start {
-        return pattern_matches_at(haystack, &pattern, 0);
+        return pattern_matches_at(haystack, &pattern, start);
     }
 
-    (0..=haystack.len()).find_map(|start| pattern_matches_at(haystack, &pattern, start))
+    (start..=haystack.len()).find_map(|start| pattern_matches_at(haystack, &pattern, start))
 }
 
 pub(super) fn is_start_anchored(pattern: &[u8]) -> bool {
@@ -360,7 +372,7 @@ fn bracket_class_matches(byte: u8, class: &[u8]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{has_unsupported_pattern_special, simple_pattern_find};
+    use super::{has_unsupported_pattern_special, simple_pattern_find, simple_pattern_find_from};
 
     #[test]
     fn simple_pattern_find_matches_dot_wildcard() {
@@ -423,6 +435,15 @@ mod tests {
         assert_eq!(simple_pattern_find(b"abc", b"%f[%a]a"), Some((0, 1)));
         assert_eq!(simple_pattern_find(b"abc", b"%f[%z]"), Some((3, 3)));
         assert_eq!(simple_pattern_find(b"abc", b"%f[%d]"), None);
+    }
+
+    #[test]
+    fn simple_pattern_find_from_preserves_frontier_context() {
+        assert_eq!(
+            simple_pattern_find_from(b"abc def", b"%f[%a]%a+", 3),
+            Some((4, 7))
+        );
+        assert_eq!(simple_pattern_find_from(b"abc", b"%f[%a]%a+", 1), None);
     }
 
     #[test]

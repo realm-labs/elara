@@ -6,7 +6,7 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
 use super::{
     optional_integer_arg,
-    pattern::{has_unsupported_pattern_special, simple_pattern_find},
+    pattern::{has_unsupported_pattern_special, simple_pattern_find_from},
     relative_start, string_arg,
 };
 
@@ -40,11 +40,9 @@ pub(super) fn string_match(
     }
 
     let offset = init - 1;
-    let Some((start, end)) = simple_pattern_find(&subject[offset..], pattern) else {
+    let Some((start, end)) = simple_pattern_find_from(subject, pattern, offset) else {
         return Ok(vec![Value::nil()]);
     };
-    let start = offset + start;
-    let end = offset + end;
     let matched = subject[start..end].to_vec();
     Ok(vec![runtime.intern_short_string(&matched)?])
 }

@@ -6,7 +6,7 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
 use super::{
     optional_integer_arg,
-    pattern::{has_unsupported_pattern_special, simple_pattern_find},
+    pattern::{has_unsupported_pattern_special, simple_pattern_find_from},
     relative_start, string_arg,
 };
 
@@ -43,15 +43,16 @@ pub(super) fn string_find(
 
     let offset = init - 1;
     let found = if plain {
-        plain_find(&subject[offset..], pattern).map(|start| (start, start + pattern.len()))
+        plain_find(&subject[offset..], pattern).map(|start| {
+            let start = offset + start;
+            (start, start + pattern.len())
+        })
     } else {
-        simple_pattern_find(&subject[offset..], pattern)
+        simple_pattern_find_from(subject, pattern, offset)
     };
     Ok(found.map_or_else(
         || vec![Value::nil()],
         |(start, end)| {
-            let start = offset + start;
-            let end = offset + end;
             vec![
                 Value::integer(i64::try_from(start + 1).expect("string index fits LuaInteger")),
                 Value::integer(i64::try_from(end).expect("string index fits LuaInteger")),

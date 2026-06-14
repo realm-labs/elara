@@ -101,7 +101,7 @@ keeping module libraries table-shaped. Native calls now receive a
 allocate runtime-owned tables, read/write raw runtime table entries, get/set
 runtime table metatable links, traverse raw runtime table entries, write host
 output for `print`, and return registered native helper functions for iterator
-factories, preparing the remaining base, table, and string library functions.
+factories, enabling current base and string iterator natives.
 `elara-stdlib` native functions now receive a crate-local `NativeRuntime` trait,
 and the API bridge adapts it to the interpreter context without making stdlib
 depend on interpreter internals. Remaining executable base, table, math, and
@@ -116,9 +116,9 @@ flags, `%c`, `%q`, `%p`, and escaped-percent `string.format`, `.` wildcard,
 `^`/`$` anchor, `%` character-class, bracket-class, quantifier, `%b`
 balanced-delimiter, and `%f` frontier pattern matching for `string.find`,
 `string.match`, and `string.gsub`, literal string-replacement `string.gsub`,
-`string.match`, `string.len`, `string.lower`, `string.upper`,
-`string.reverse`, `string.rep`, and `string.sub` are executable and covered
-through stdlib-backed API evaluation.
+generic-for `string.gmatch`, `string.match`, `string.len`, `string.lower`,
+`string.upper`, `string.reverse`, `string.rep`, and `string.sub` are
+executable and covered through stdlib-backed API evaluation.
 Table natives `table.concat`, `table.insert`, `table.move`, `table.pack`,
 `table.remove`, default-comparator `table.sort`, and `table.unpack` are
 executable and covered through stdlib-backed API evaluation.
@@ -254,6 +254,7 @@ Completed:
   - M11.2 executable string.sub native spec.
   - M11.2 executable base ipairs and raw pairs native specs.
   - M11.2 native iterator support for generic for loops.
+  - M11.2 stdlib-backed string.gmatch generic-for iterator path.
 
 In progress:
   - M11.2 Implement base, table, math, and string essentials.
@@ -824,21 +825,22 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable math frexp/ldexp verification passed:
+M11.2 stdlib-backed string.gmatch verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib math_
-cargo test -p elara-api eval_simple_with_stdlib_executes_math_frexp_ldexp
+cargo test -p elara-stdlib string_
+cargo test -p elara-api eval_simple_with_stdlib_executes_string_gmatch
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M11.2 by filling the remaining executable base and string functions,
-with `pcall`/`xpcall`, `string.gmatch`, pattern captures, replacement
-captures, and table/function replacements for `gsub` as the next known gaps.
+Continue M11.2 by filling the remaining executable base and string behavior,
+with `pcall`/`xpcall`, Lua-style callable `string.gmatch` closures, pattern
+captures, replacement captures, and table/function replacements for `gsub` as
+the next known gaps.
 
 ## Current Risk Notes
 

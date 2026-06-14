@@ -10,7 +10,8 @@ use elara_core::Value;
 use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
 use elara_stdlib::{
     BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, LuaRandomState, MATH_CONSTANTS, NativeError,
-    NativeErrorKind, NativeRuntime, StdLib, StdLibProfile, StdLibSet, native_functions,
+    NativeErrorKind, NativeRuntime, STRING_GMATCH_AUX_NATIVE, StdLib, StdLibProfile, StdLibSet,
+    native_functions,
 };
 
 /// Builds a primitive runtime environment containing implemented stdlib natives
@@ -60,16 +61,22 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
 
     let random_state =
         (library == StdLib::Math).then(|| Arc::new(Mutex::new(LuaRandomState::default())));
+    let helpers = if library == StdLib::String {
+        register_string_helpers(environment)
+    } else {
+        NativeHelpers::default()
+    };
     let mut fields: Vec<_> = functions
         .iter()
         .map(|spec| {
             let function = spec.function();
             let random_state = random_state.clone();
+            let helpers = helpers.clone();
             let index = environment.push_native(move |context, args| {
                 let mut runtime = InterpNativeRuntime {
                     context,
                     random_state: random_state.clone(),
-                    helpers: NativeHelpers::default(),
+                    helpers: helpers.clone(),
                 };
                 function(&mut runtime, args).map_err(native_error_to_runtime_error)
             });
@@ -91,6 +98,16 @@ fn register_base_helpers(environment: &mut RuntimeEnvironment) -> NativeHelpers 
     NativeHelpers {
         base_next: Some(base_next),
         base_ipairs_aux: Some(base_ipairs_aux),
+        ..NativeHelpers::default()
+    }
+}
+
+fn register_string_helpers(environment: &mut RuntimeEnvironment) -> NativeHelpers {
+    let string_gmatch_aux =
+        register_hidden_native(environment, STRING_GMATCH_AUX_NATIVE.function());
+    NativeHelpers {
+        string_gmatch_aux: Some(string_gmatch_aux),
+        ..NativeHelpers::default()
     }
 }
 
@@ -112,6 +129,7 @@ fn register_hidden_native(
 struct NativeHelpers {
     base_next: Option<u32>,
     base_ipairs_aux: Option<u32>,
+    string_gmatch_aux: Option<u32>,
 }
 
 struct InterpNativeRuntime<'a, 'runtime> {
@@ -291,6 +309,11 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
             (StdLib::Base, "__ipairs_aux") => self
                 .helpers
                 .base_ipairs_aux
+                .map(Value::native_function_index)
+                .ok_or_else(missing_native_helper),
+            (StdLib::String, "__gmatch_aux") => self
+                .helpers
+                .string_gmatch_aux
                 .map(Value::native_function_index)
                 .ok_or_else(missing_native_helper),
             _ => Err(NativeErrorKind::RuntimeError {

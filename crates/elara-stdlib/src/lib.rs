@@ -21,7 +21,7 @@ pub use native::{
     NativeError, NativeErrorKind, NativeFunctionSpec, NativeResult, NativeRuntime,
     NativeStdFunction,
 };
-pub use string::STRING_NATIVE_FUNCTIONS;
+pub use string::{STRING_GMATCH_AUX_NATIVE, STRING_NATIVE_FUNCTIONS};
 pub use table::TABLE_NATIVE_FUNCTIONS;
 
 /// One standard-library module that can register itself into a target runtime.

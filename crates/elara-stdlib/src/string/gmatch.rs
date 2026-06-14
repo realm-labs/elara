@@ -1,0 +1,256 @@
+//! `string.gmatch` native implementation.
+
+use elara_core::Value;
+
+use crate::{NativeError, NativeErrorKind, NativeRuntime, StdLib};
+
+use super::{
+    optional_integer_arg,
+    pattern::{has_unsupported_pattern_special, simple_pattern_find_from},
+    relative_start, string_arg,
+};
+
+const SUBJECT_KEY: Value = Value::integer(1);
+const PATTERN_KEY: Value = Value::integer(2);
+const CURSOR_KEY: Value = Value::integer(3);
+
+pub(super) fn string_gmatch(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let subject_value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let subject = string_arg(runtime, subject_value, 1)?;
+    let pattern_value = *args
+        .get(1)
+        .ok_or(NativeErrorKind::MissingArgument { index: 2 })?;
+    let pattern = string_arg(runtime, pattern_value, 2)?;
+    let init = relative_start(optional_integer_arg(args, 3, 1)?, subject.len());
+
+    if has_unsupported_pattern_special(pattern) {
+        return Err(NativeErrorKind::RuntimeError {
+            message: "string pattern matching is not supported yet".into(),
+        }
+        .into());
+    }
+
+    let cursor = if init > subject.len() {
+        subject.len().saturating_add(1)
+    } else {
+        init - 1
+    };
+    let cursor =
+        i64::try_from(cursor).expect("runtime string cursor position must fit in LuaInteger");
+    let state = runtime.create_table(&[
+        (SUBJECT_KEY, subject_value),
+        (PATTERN_KEY, pattern_value),
+        (CURSOR_KEY, Value::integer(cursor)),
+    ])?;
+    Ok(vec![
+        runtime.native_function(StdLib::String, "__gmatch_aux")?,
+        state,
+        Value::nil(),
+    ])
+}
+
+pub(super) fn string_gmatch_aux(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let state = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    if !state.is_table() {
+        return Err(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "table",
+        }
+        .into());
+    }
+
+    let subject_value = runtime.table_get(state, SUBJECT_KEY)?;
+    let pattern_value = runtime.table_get(state, PATTERN_KEY)?;
+    let cursor =
+        runtime
+            .table_get(state, CURSOR_KEY)?
+            .as_integer()
+            .ok_or(NativeErrorKind::TypeError {
+                index: 1,
+                expected: "gmatch state",
+            })?;
+    let cursor =
+        usize::try_from(cursor).map_err(|_| NativeErrorKind::ArgumentOutOfRange { index: 1 })?;
+    let subject = string_arg(runtime, subject_value, 1)?.to_vec();
+    let pattern = string_arg(runtime, pattern_value, 2)?.to_vec();
+    if cursor > subject.len() {
+        return Ok(Vec::new());
+    }
+
+    let Some((start, end)) = simple_pattern_find_from(&subject, &pattern, cursor) else {
+        return Ok(Vec::new());
+    };
+    let next_cursor = if start == end {
+        end.saturating_add(1)
+    } else {
+        end
+    };
+    let next_cursor =
+        i64::try_from(next_cursor).expect("runtime string cursor position must fit in LuaInteger");
+    runtime.table_set(state, CURSOR_KEY, Value::integer(next_cursor))?;
+    Ok(vec![runtime.intern_short_string(&subject[start..end])?])
+}
+
+#[cfg(test)]
+mod tests {
+    use elara_core::Value;
+
+    use super::{string_gmatch, string_gmatch_aux};
+    use crate::{NativeError, NativeErrorKind, NativeRuntime, StdLib};
+
+    struct TestRuntime {
+        strings: Vec<Box<[u8]>>,
+        tables: Vec<Vec<(Value, Value)>>,
+        gmatch_aux: Value,
+    }
+
+    impl Default for TestRuntime {
+        fn default() -> Self {
+            Self {
+                strings: Vec::new(),
+                tables: Vec::new(),
+                gmatch_aux: Value::nil(),
+            }
+        }
+    }
+
+    impl TestRuntime {
+        fn push_string(&mut self, bytes: &[u8]) -> Value {
+            let index = u32::try_from(self.strings.len()).expect("test string index fits in u32");
+            self.strings.push(bytes.into());
+            Value::closure_index(index)
+        }
+    }
+
+    impl NativeRuntime for TestRuntime {
+        fn intern_short_string(&mut self, bytes: &[u8]) -> Result<Value, NativeError> {
+            Ok(self.push_string(bytes))
+        }
+
+        fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
+            let index = value.as_closure_index()? as usize;
+            self.strings.get(index).map(Box::as_ref)
+        }
+
+        fn create_table(&mut self, entries: &[(Value, Value)]) -> Result<Value, NativeError> {
+            let index = u32::try_from(self.tables.len()).expect("test table index fits in u32");
+            self.tables.push(entries.to_vec());
+            Ok(Value::table_index(index))
+        }
+
+        fn table_get(&self, table: Value, key: Value) -> Result<Value, NativeError> {
+            let table_index = table.as_table_index().ok_or_else(non_table_error)? as usize;
+            let table = self.tables.get(table_index).ok_or_else(non_table_error)?;
+            Ok(table
+                .iter()
+                .rev()
+                .find_map(|(entry_key, value)| (*entry_key == key).then_some(*value))
+                .unwrap_or_else(Value::nil))
+        }
+
+        fn table_set(&mut self, table: Value, key: Value, value: Value) -> Result<(), NativeError> {
+            let table_index = table.as_table_index().ok_or_else(non_table_error)? as usize;
+            let table = self
+                .tables
+                .get_mut(table_index)
+                .ok_or_else(non_table_error)?;
+            table.push((key, value));
+            Ok(())
+        }
+
+        fn native_function(&self, library: StdLib, name: &str) -> Result<Value, NativeError> {
+            match (library, name) {
+                (StdLib::String, "__gmatch_aux") => Ok(self.gmatch_aux),
+                _ => Err(NativeErrorKind::RuntimeError {
+                    message: "unknown native helper".into(),
+                }
+                .into()),
+            }
+        }
+    }
+
+    fn non_table_error() -> NativeError {
+        NativeErrorKind::RuntimeError {
+            message: "attempt to index a non-table value".into(),
+        }
+        .into()
+    }
+
+    #[test]
+    fn string_gmatch_returns_iterator_state_triplet() {
+        let mut runtime = TestRuntime {
+            gmatch_aux: Value::native_function_index(7),
+            ..TestRuntime::default()
+        };
+        let subject = runtime.push_string(b"a1 b22");
+        let pattern = runtime.push_string(b"%d+");
+
+        let values = string_gmatch(&mut runtime, &[subject, pattern]).expect("gmatch should pass");
+
+        assert_eq!(values[0], Value::native_function_index(7));
+        assert!(values[1].is_table());
+        assert!(values[2].is_nil());
+    }
+
+    #[test]
+    fn string_gmatch_aux_iterates_matches() {
+        let mut runtime = TestRuntime {
+            gmatch_aux: Value::native_function_index(7),
+            ..TestRuntime::default()
+        };
+        let subject = runtime.push_string(b"a1 b22");
+        let pattern = runtime.push_string(b"%d+");
+        let values = string_gmatch(&mut runtime, &[subject, pattern]).expect("gmatch should pass");
+        let state = values[1];
+
+        let first = string_gmatch_aux(&mut runtime, &[state, Value::nil()])
+            .expect("first gmatch aux should pass");
+        let second = string_gmatch_aux(&mut runtime, &[state, first[0]])
+            .expect("second gmatch aux should pass");
+        let end = string_gmatch_aux(&mut runtime, &[state, second[0]])
+            .expect("third gmatch aux should pass");
+
+        assert_eq!(runtime.short_string_bytes(first[0]), Some(b"1".as_slice()));
+        assert_eq!(
+            runtime.short_string_bytes(second[0]),
+            Some(b"22".as_slice())
+        );
+        assert_eq!(end, Vec::<Value>::new());
+    }
+
+    #[test]
+    fn string_gmatch_aux_advances_empty_matches() {
+        let mut runtime = TestRuntime {
+            gmatch_aux: Value::native_function_index(7),
+            ..TestRuntime::default()
+        };
+        let subject = runtime.push_string(b"ab");
+        let pattern = runtime.push_string(b"");
+        let values = string_gmatch(&mut runtime, &[subject, pattern]).expect("gmatch should pass");
+        let state = values[1];
+
+        let first = string_gmatch_aux(&mut runtime, &[state, Value::nil()])
+            .expect("first gmatch aux should pass");
+        let second = string_gmatch_aux(&mut runtime, &[state, first[0]])
+            .expect("second gmatch aux should pass");
+        let third = string_gmatch_aux(&mut runtime, &[state, second[0]])
+            .expect("third gmatch aux should pass");
+        let end = string_gmatch_aux(&mut runtime, &[state, third[0]])
+            .expect("fourth gmatch aux should pass");
+
+        assert_eq!(runtime.short_string_bytes(first[0]), Some(b"".as_slice()));
+        assert_eq!(runtime.short_string_bytes(second[0]), Some(b"".as_slice()));
+        assert_eq!(runtime.short_string_bytes(third[0]), Some(b"".as_slice()));
+        assert_eq!(end, Vec::<Value>::new());
+    }
+}

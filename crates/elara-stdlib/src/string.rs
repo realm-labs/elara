@@ -8,12 +8,14 @@ use crate::{
 
 mod find;
 mod format;
+mod gmatch;
 mod gsub;
 mod match_;
 mod pattern;
 
 use find::string_find;
 use format::string_format;
+use gmatch::string_gmatch;
 use gsub::string_gsub;
 use match_::string_match;
 
@@ -23,6 +25,7 @@ pub const STRING_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "char"), string_char),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "find"), string_find),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "format"), string_format),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "gmatch"), string_gmatch),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "gsub"), string_gsub),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "len"), string_len),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "lower"), string_lower),
@@ -32,6 +35,12 @@ pub const STRING_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "sub"), string_sub),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "upper"), string_upper),
 ];
+
+/// Hidden helper used by `string.gmatch`.
+pub const STRING_GMATCH_AUX_NATIVE: NativeFunctionSpec = NativeFunctionSpec::new(
+    FunctionSpec::new(StdLib::String, "__gmatch_aux"),
+    gmatch::string_gmatch_aux,
+);
 
 fn string_len(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let value = *args
@@ -297,6 +306,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "char")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "find")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "format")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "gmatch")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "gsub")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "len")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "lower")));

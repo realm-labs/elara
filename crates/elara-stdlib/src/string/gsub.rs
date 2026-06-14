@@ -6,7 +6,7 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
 use super::{
     optional_integer_arg,
-    pattern::{has_unsupported_pattern_special, is_start_anchored, simple_pattern_find},
+    pattern::{has_unsupported_pattern_special, is_start_anchored, simple_pattern_find_from},
     string_arg,
 };
 
@@ -64,11 +64,9 @@ pub(super) fn string_gsub(
     let mut cursor = 0;
     let mut replacements = 0_i64;
     while replacements < max {
-        let Some((offset, end)) = simple_pattern_find(&subject[cursor..], &pattern) else {
+        let Some((start, end)) = simple_pattern_find_from(&subject, &pattern, cursor) else {
             break;
         };
-        let start = cursor + offset;
-        let end = cursor + end;
         output.extend_from_slice(&subject[cursor..start]);
         output.extend_from_slice(&replacement);
         replacements += 1;
