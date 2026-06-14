@@ -122,8 +122,9 @@ string-replacement `string.gsub`, table/function replacement values for
 `string.lower`, `string.upper`, `string.reverse`, `string.rep`, and
 `string.sub` are executable and covered through stdlib-backed API evaluation.
 Table natives `table.concat`, `table.insert`, `table.move`, `table.pack`,
-`table.remove`, default-comparator `table.sort`, and `table.unpack` are
-executable and covered through stdlib-backed API evaluation.
+`table.remove`, default and custom-comparator `table.sort`, and
+`table.unpack` are executable and covered through stdlib-backed API
+evaluation.
 Generic-for lowering now preserves call-expression multiple returns in iterator
 protocol registers, and the primitive interpreter can call native iterator
 functions from `TFOR_CALL`, enabling stdlib-backed `ipairs` and `pairs` loops.
@@ -229,6 +230,7 @@ Completed:
   - M11.2 executable table.pack native spec.
   - M11.2 executable table.remove native spec.
   - M11.2 executable default-comparator table.sort native spec.
+  - M11.2 executable custom-comparator table.sort native spec.
   - M11.2 executable table.unpack native spec.
   - M11.2 executable base type native spec.
   - M11.2 executable string.byte native spec.
@@ -807,7 +809,6 @@ Delivered:
 
 ### Immediate Gaps for M11
 
-- Add runtime callback support for custom `table.sort` comparators.
 - Add full string pattern matching beyond `.` wildcard, `^`/`$` anchor, `%`
   character-class, bracket-class, quantifier, and `%b` balanced-delimiter
   and `%f` frontier support for `string.find`, `string.match`,
@@ -836,20 +837,20 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 base pairs `__pairs` metamethod verification passed:
+M11.2 custom-comparator table.sort verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib base_pairs
-cargo test -p elara-api base_pairs
+cargo test -p elara-stdlib table_sort
+cargo test -p elara-api table_sort
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M11.2 with runtime callback support for custom `table.sort`
-comparators as the next known gap.
+Continue M11.2 with remaining string pattern behavior, starting with capture
+back-references such as `%1`.
 
 ## Current Risk Notes
 

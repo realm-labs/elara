@@ -1067,6 +1067,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_table_sort_comparator() {
+        let profile = StdLibProfile::Custom([StdLib::Table].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local function before(... args)\n  return true\nend\nlocal t = table.pack(1, 2)\nlocal _ = table.sort(t, before)\nreturn t[1] * 10 + t[2]",
+                &profile,
+            ),
+            Ok(vec![Value::integer(21)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_ipairs() {
         let profile = StdLibProfile::Custom([StdLib::Base, StdLib::Table].into_iter().collect());
 

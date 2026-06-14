@@ -13,16 +13,13 @@ pub(super) fn table_sort(
     let table = *args
         .first()
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
-    if let Some(comparator) = args.get(1).filter(|value| !value.is_nil()) {
-        if !comparator.is_closure() {
-            return Err(NativeErrorKind::TypeError {
-                index: 2,
-                expected: "function",
-            }
-            .into());
-        }
-        return Err(NativeErrorKind::RuntimeError {
-            message: "custom table.sort comparators are not supported yet".into(),
+    let comparator = args.get(1).filter(|value| !value.is_nil()).copied();
+    if let Some(comparator) = comparator
+        && !comparator.is_closure()
+    {
+        return Err(NativeErrorKind::TypeError {
+            index: 2,
+            expected: "function",
         }
         .into());
     }
@@ -39,7 +36,7 @@ pub(super) fn table_sort(
     for index in 1..=len {
         values.push(runtime.table_get_integer(table, index)?);
     }
-    sort_values(runtime, &mut values)?;
+    sort_values(runtime, comparator, &mut values)?;
     for (offset, value) in values.into_iter().enumerate() {
         let index = i64::try_from(offset + 1).expect("sorted table index fits LuaInteger");
         runtime.table_set_integer(table, index, value)?;
@@ -48,11 +45,17 @@ pub(super) fn table_sort(
     Ok(Vec::new())
 }
 
-fn sort_values(runtime: &dyn NativeRuntime, values: &mut [Value]) -> Result<(), NativeError> {
+fn sort_values(
+    runtime: &mut dyn NativeRuntime,
+    comparator: Option<Value>,
+    values: &mut [Value],
+) -> Result<(), NativeError> {
     for index in 1..values.len() {
         let value = values[index];
         let mut cursor = index;
-        while cursor > 0 && compare_values(runtime, value, values[cursor - 1])? == Ordering::Less {
+        while cursor > 0
+            && compare_values(runtime, comparator, value, values[cursor - 1])? == Ordering::Less
+        {
             values[cursor] = values[cursor - 1];
             cursor -= 1;
         }
@@ -62,10 +65,26 @@ fn sort_values(runtime: &dyn NativeRuntime, values: &mut [Value]) -> Result<(), 
 }
 
 fn compare_values(
-    runtime: &dyn NativeRuntime,
+    runtime: &mut dyn NativeRuntime,
+    comparator: Option<Value>,
     left: Value,
     right: Value,
 ) -> Result<Ordering, NativeError> {
+    if let Some(comparator) = comparator {
+        let values = runtime
+            .protected_call(comparator, &[left, right])?
+            .map_err(NativeError::lua_error)?;
+        let before = values
+            .first()
+            .copied()
+            .is_some_and(|value| !value.is_nil() && value.as_bool() != Some(false));
+        return Ok(if before {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        });
+    }
+
     if let (Some(left), Some(right)) = (left.to_float(), right.to_float()) {
         return Ok(left.total_cmp(&right));
     }
@@ -92,6 +111,8 @@ mod tests {
     struct TestRuntime {
         strings: Vec<Box<[u8]>>,
         tables: Vec<Vec<(Value, Value)>>,
+        protected_results: Vec<Result<Vec<Value>, Box<str>>>,
+        protected_calls: Vec<(Value, Vec<Value>)>,
     }
 
     impl TestRuntime {
@@ -159,6 +180,18 @@ mod tests {
             }
             Ok(())
         }
+
+        fn protected_call(
+            &mut self,
+            function: Value,
+            args: &[Value],
+        ) -> Result<Result<Vec<Value>, Box<str>>, NativeError> {
+            self.protected_calls.push((function, args.to_vec()));
+            if self.protected_results.is_empty() {
+                return Ok(Err("missing protected result".into()));
+            }
+            Ok(self.protected_results.remove(0))
+        }
     }
 
     #[test]
@@ -219,6 +252,62 @@ mod tests {
                 index: 2,
                 expected: "function"
             }
+        );
+    }
+
+    #[test]
+    fn table_sort_uses_custom_comparator() {
+        let mut runtime = TestRuntime {
+            protected_results: vec![
+                Ok(vec![Value::boolean(true)]),
+                Ok(vec![Value::boolean(true)]),
+                Ok(vec![Value::boolean(false)]),
+            ],
+            ..TestRuntime::default()
+        };
+        let table = runtime.push_table(&[
+            (Value::integer(1), Value::integer(1)),
+            (Value::integer(2), Value::integer(3)),
+            (Value::integer(3), Value::integer(2)),
+        ]);
+        let comparator = Value::closure_index(1);
+
+        table_sort(&mut runtime, &[table, comparator]).expect("sort should pass");
+
+        assert_eq!(
+            [
+                runtime.table_get_integer(table, 1).expect("value"),
+                runtime.table_get_integer(table, 2).expect("value"),
+                runtime.table_get_integer(table, 3).expect("value"),
+            ],
+            [Value::integer(3), Value::integer(2), Value::integer(1)]
+        );
+        assert_eq!(
+            runtime.protected_calls,
+            vec![
+                (comparator, vec![Value::integer(3), Value::integer(1)]),
+                (comparator, vec![Value::integer(2), Value::integer(1)]),
+                (comparator, vec![Value::integer(2), Value::integer(3)]),
+            ]
+        );
+    }
+
+    #[test]
+    fn table_sort_propagates_comparator_errors() {
+        let mut runtime = TestRuntime {
+            protected_results: vec![Err("boom".into())],
+            ..TestRuntime::default()
+        };
+        let table = runtime.push_table(&[
+            (Value::integer(1), Value::integer(2)),
+            (Value::integer(2), Value::integer(1)),
+        ]);
+
+        assert_eq!(
+            table_sort(&mut runtime, &[table, Value::closure_index(1)])
+                .expect_err("comparator error should propagate")
+                .kind(),
+            &NativeErrorKind::LuaError
         );
     }
 
