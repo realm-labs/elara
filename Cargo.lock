@@ -79,5 +79,6 @@ dependencies = [
 name = "elara-test"
 version = "0.1.0"
 dependencies = [
+ "elara-api",
  "elara-core",
 ]

@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M13 Conformance and Differential Testing
-Current step: M13.1 Add official Lua runner integration
+Current step: M13.2 Add conformance test subsets
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -290,6 +290,7 @@ Completed:
   - M12.3 Add native Rust functions.
   - M12.4 Add tables, registry keys, and userdata.
   - M12 exit criteria validation.
+  - M13.1 Add official Lua runner integration.
 
 In progress:
   - Conformance and benchmark harnesses.
@@ -879,6 +880,10 @@ Delivered:
   and `AnyUserData` handles. Tables store and convert API-owned values, Lua
   registry keys round-trip stored values through a `Lua` handle, and userdata
   handles provide typed borrow checks without exposing runtime internals.
+- `elara-test` exposes configurable official-Lua runner helpers using
+  `ELARA_LUA`, captures stdout/stderr and success/error classes, and can compare
+  official Lua runs against Elara's public API evaluation path for differential
+  testing.
 
 ## Remaining Gaps
 
@@ -916,25 +921,23 @@ M12.2 is complete.
 M12.3 is complete.
 M12.4 is complete.
 M12 is complete.
+M13.1 is complete.
 
 ## Last Verification
 
-M12.4 table, registry, and userdata verification passed:
+M13.1 differential runner verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-api table
-cargo test -p elara-api registry
-cargo test -p elara-api userdata
-cargo test -p elara
-cargo clippy -p elara-api --all-targets -- -D warnings
-cargo clippy -p elara --all-targets -- -D warnings
+cargo test -p elara-test differential_runner
+cargo test -p elara-test
+cargo clippy -p elara-test --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Start M13.1 by adding configurable official-Lua runner integration for
-differential tests.
+Continue M13.2 with language, standard-library, error, and coroutine
+conformance fixture subsets.
 
 ## Current Risk Notes
 
