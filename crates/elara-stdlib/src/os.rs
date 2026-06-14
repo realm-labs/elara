@@ -18,6 +18,7 @@ pub const OS_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "difftime"), os_difftime),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "getenv"), os_getenv),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "remove"), os_remove),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "rename"), os_rename),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "time"), os_time),
 ];
 
@@ -79,6 +80,13 @@ fn os_remove(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
         }
     });
     file_result(runtime, result, Some(&filename))
+}
+
+fn os_rename(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let from = utf8_string_arg(runtime, args, 1)?.to_owned();
+    let to = utf8_string_arg(runtime, args, 2)?.to_owned();
+
+    file_result(runtime, fs::rename(from, to), None)
 }
 
 fn current_unix_time() -> Result<Vec<Value>, NativeError> {
@@ -353,6 +361,89 @@ mod tests {
                 .kind(),
             &NativeErrorKind::TypeError {
                 index: 1,
+                expected: "string",
+            }
+        );
+    }
+
+    #[test]
+    fn os_rename_renames_existing_file() {
+        let function = function("rename");
+        let mut runtime = TestRuntime::default();
+        let from = unique_temp_path("rename-from");
+        let to = unique_temp_path("rename-to");
+        fs::write(&from, b"temporary").expect("test file should be written");
+        let from_value = runtime.push_string(from.to_string_lossy().as_bytes());
+        let to_value = runtime.push_string(to.to_string_lossy().as_bytes());
+
+        assert_eq!(
+            function(&mut runtime, &[from_value, to_value]).expect("os.rename should pass"),
+            vec![Value::boolean(true)]
+        );
+        assert!(!from.exists());
+        assert_eq!(
+            fs::read(&to).expect("renamed file should exist"),
+            b"temporary"
+        );
+
+        fs::remove_file(to).expect("test file should be cleaned up");
+    }
+
+    #[test]
+    fn os_rename_returns_file_result_for_absent_source() {
+        let function = function("rename");
+        let mut runtime = TestRuntime::default();
+        let from = unique_temp_path("rename-missing");
+        let to = unique_temp_path("rename-destination");
+        let from_value = runtime.push_string(from.to_string_lossy().as_bytes());
+        let to_value = runtime.push_string(to.to_string_lossy().as_bytes());
+
+        let result =
+            function(&mut runtime, &[from_value, to_value]).expect("os.rename should pass");
+
+        assert_eq!(result[0], Value::nil());
+        assert!(
+            runtime
+                .bytes(result[1])
+                .is_some_and(|message| !message.starts_with(from.to_string_lossy().as_bytes()))
+        );
+        assert!(result[2].as_integer().is_some_and(|code| code != 0));
+        assert!(!to.exists());
+    }
+
+    #[test]
+    fn os_rename_validates_arguments() {
+        let function = function("rename");
+        let mut runtime = TestRuntime::default();
+        let from = runtime.push_string(b"from");
+
+        assert_eq!(
+            function(&mut runtime, &[])
+                .expect_err("missing source filename")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 1 }
+        );
+        assert_eq!(
+            function(&mut runtime, &[from])
+                .expect_err("missing destination filename")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 2 }
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1), from])
+                .expect_err("non-string source filename")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "string",
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[from, Value::integer(1)])
+                .expect_err("non-string destination filename")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
                 expected: "string",
             }
         );

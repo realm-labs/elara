@@ -520,6 +520,33 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_os_rename() {
+        let profile = StdLibProfile::Custom([StdLib::Os].into_iter().collect());
+        std::fs::create_dir_all("target").expect("target directory should exist");
+        let from = std::path::Path::new("target/zz_rn_from");
+        let to = std::path::Path::new("target/zz_rn_to");
+        let _ = std::fs::remove_file(from);
+        let _ = std::fs::remove_file(to);
+        std::fs::write(from, b"temporary").expect("test file should be written");
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return os.rename('target/zz_rn_from', 'target/zz_rn_to')",
+                &profile,
+            ),
+            Ok(vec![Value::boolean(true)])
+        );
+        assert!(!from.exists());
+        assert_eq!(
+            std::fs::read(to).expect("renamed file should exist"),
+            b"temporary"
+        );
+
+        std::fs::remove_file(to).expect("test file should be cleaned up");
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_package_searchpath_found() {
         let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
 
