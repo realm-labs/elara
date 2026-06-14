@@ -517,6 +517,68 @@ pub const UTF8_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Utf8, "offset"),
 ];
 
+/// I/O library function descriptors.
+pub const IO_FUNCTIONS: &[FunctionSpec] = &[
+    FunctionSpec::new(StdLib::Io, "close"),
+    FunctionSpec::new(StdLib::Io, "flush"),
+    FunctionSpec::new(StdLib::Io, "input"),
+    FunctionSpec::new(StdLib::Io, "lines"),
+    FunctionSpec::new(StdLib::Io, "open"),
+    FunctionSpec::new(StdLib::Io, "output"),
+    FunctionSpec::new(StdLib::Io, "popen"),
+    FunctionSpec::new(StdLib::Io, "read"),
+    FunctionSpec::new(StdLib::Io, "tmpfile"),
+    FunctionSpec::new(StdLib::Io, "type"),
+    FunctionSpec::new(StdLib::Io, "write"),
+];
+
+/// Operating-system library function descriptors.
+pub const OS_FUNCTIONS: &[FunctionSpec] = &[
+    FunctionSpec::new(StdLib::Os, "clock"),
+    FunctionSpec::new(StdLib::Os, "date"),
+    FunctionSpec::new(StdLib::Os, "difftime"),
+    FunctionSpec::new(StdLib::Os, "execute"),
+    FunctionSpec::new(StdLib::Os, "exit"),
+    FunctionSpec::new(StdLib::Os, "getenv"),
+    FunctionSpec::new(StdLib::Os, "remove"),
+    FunctionSpec::new(StdLib::Os, "rename"),
+    FunctionSpec::new(StdLib::Os, "setlocale"),
+    FunctionSpec::new(StdLib::Os, "time"),
+    FunctionSpec::new(StdLib::Os, "tmpname"),
+];
+
+/// Package/module-loading library function descriptors.
+pub const PACKAGE_FUNCTIONS: &[FunctionSpec] = &[
+    FunctionSpec::new(StdLib::Package, "loadlib"),
+    FunctionSpec::new(StdLib::Package, "searchpath"),
+    FunctionSpec::new(StdLib::Package, "preload"),
+    FunctionSpec::new(StdLib::Package, "cpath"),
+    FunctionSpec::new(StdLib::Package, "path"),
+    FunctionSpec::new(StdLib::Package, "searchers"),
+    FunctionSpec::new(StdLib::Package, "loaded"),
+    FunctionSpec::new(StdLib::Package, "require"),
+];
+
+/// Debug library function descriptors.
+pub const DEBUG_FUNCTIONS: &[FunctionSpec] = &[
+    FunctionSpec::new(StdLib::Debug, "debug"),
+    FunctionSpec::new(StdLib::Debug, "getuservalue"),
+    FunctionSpec::new(StdLib::Debug, "gethook"),
+    FunctionSpec::new(StdLib::Debug, "getinfo"),
+    FunctionSpec::new(StdLib::Debug, "getlocal"),
+    FunctionSpec::new(StdLib::Debug, "getregistry"),
+    FunctionSpec::new(StdLib::Debug, "getmetatable"),
+    FunctionSpec::new(StdLib::Debug, "getupvalue"),
+    FunctionSpec::new(StdLib::Debug, "upvaluejoin"),
+    FunctionSpec::new(StdLib::Debug, "upvalueid"),
+    FunctionSpec::new(StdLib::Debug, "setuservalue"),
+    FunctionSpec::new(StdLib::Debug, "sethook"),
+    FunctionSpec::new(StdLib::Debug, "setlocal"),
+    FunctionSpec::new(StdLib::Debug, "setmetatable"),
+    FunctionSpec::new(StdLib::Debug, "setupvalue"),
+    FunctionSpec::new(StdLib::Debug, "traceback"),
+];
+
 /// Returns executable native functions currently implemented for a library.
 #[must_use]
 pub const fn native_functions(library: StdLib) -> &'static [NativeFunctionSpec] {
@@ -531,7 +593,7 @@ pub const fn native_functions(library: StdLib) -> &'static [NativeFunctionSpec] 
     }
 }
 
-/// Creates a registry containing essential base, table, math, and string libraries.
+/// Creates a registry containing current standard-library function descriptors.
 #[must_use]
 pub fn essential_registry<Target>() -> StdLibRegistry<Target>
 where
@@ -561,6 +623,22 @@ where
     registry.add(
         StdLib::Utf8,
         FunctionLibrary::new(StdLib::Utf8, "utf8", UTF8_FUNCTIONS),
+    );
+    registry.add(
+        StdLib::Io,
+        FunctionLibrary::new(StdLib::Io, "io", IO_FUNCTIONS),
+    );
+    registry.add(
+        StdLib::Os,
+        FunctionLibrary::new(StdLib::Os, "os", OS_FUNCTIONS),
+    );
+    registry.add(
+        StdLib::Package,
+        FunctionLibrary::new(StdLib::Package, "package", PACKAGE_FUNCTIONS),
+    );
+    registry.add(
+        StdLib::Debug,
+        FunctionLibrary::new(StdLib::Debug, "debug", DEBUG_FUNCTIONS),
     );
     registry
 }
@@ -712,6 +790,43 @@ mod tests {
                 .0
                 .contains(&FunctionSpec::new(StdLib::Math, "abs"))
         );
+        assert!(!functions.0.contains(&FunctionSpec::new(StdLib::Io, "open")));
+        assert!(
+            !functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::Debug, "getinfo"))
+        );
+    }
+
+    #[test]
+    fn full_profile_registers_host_sensitive_library_descriptors() {
+        let registry = essential_registry();
+        let mut functions = Functions::default();
+
+        StdLibProfile::Full
+            .register(&registry, &mut functions)
+            .expect("full registration should pass");
+
+        assert!(functions.0.contains(&FunctionSpec::new(StdLib::Io, "open")));
+        assert!(functions.0.contains(&FunctionSpec::new(StdLib::Os, "time")));
+        assert!(
+            functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::Package, "require"))
+        );
+        assert!(
+            functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::Debug, "getinfo"))
+        );
+    }
+
+    #[test]
+    fn host_sensitive_libraries_are_not_executable_natives_yet() {
+        assert!(native_functions(StdLib::Io).is_empty());
+        assert!(native_functions(StdLib::Os).is_empty());
+        assert!(native_functions(StdLib::Package).is_empty());
+        assert!(native_functions(StdLib::Debug).is_empty());
     }
 
     #[test]
