@@ -8,6 +8,10 @@ use crate::{
     FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
 };
 
+mod loadlib;
+
+use self::loadlib::package_loadlib;
+
 const PATH_MARK: &str = "?";
 const PATH_SEPARATOR: &str = ";";
 const PACKAGE_GLOBAL: &[u8] = b"package";
@@ -44,6 +48,10 @@ pub const PACKAGE_CPATH: &str = if cfg!(windows) {
 
 /// Executable `package` library functions currently implemented.
 pub const PACKAGE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
+    NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Package, "loadlib"),
+        package_loadlib,
+    ),
     NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Package, "searchpath"),
         package_searchpath,

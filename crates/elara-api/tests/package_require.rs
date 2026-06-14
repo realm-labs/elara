@@ -97,3 +97,17 @@ fn package_require_reports_missing_preload() {
         }
     }
 }
+
+#[test]
+fn package_loadlib_reports_unsupported_dynamic_loading() {
+    let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
+
+    assert_eq!(
+        eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "return package.loadlib('missing.so', 'luaopen_missing')",
+            &profile,
+        ),
+        Ok(vec![Value::nil()])
+    );
+}
