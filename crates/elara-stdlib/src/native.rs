@@ -156,6 +156,14 @@ pub trait NativeRuntime {
         .into())
     }
 
+    /// Returns the currently running Lua thread and whether it is the main thread.
+    fn running_thread(&self) -> Result<(Value, bool), NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support current coroutine lookup".into(),
+        }
+        .into())
+    }
+
     /// Returns the status of a runtime-owned Lua thread.
     fn thread_status(&self, _thread: Value) -> Result<ThreadStatus, NativeError> {
         Err(NativeErrorKind::RuntimeError {

@@ -830,13 +830,15 @@ Delivered:
 - `coroutine.create` registers runtime coroutine handles through shared API-side
   coroutine state and returns Lua thread values that `coroutine.status` can
   inspect.
+- `coroutine.running` returns the current main thread handle and main-thread
+  flag through the shared coroutine registry.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M11
 
-- Implement coroutine resume/yield, running, wrap, isyieldable, and close backed
-  by primitive coroutine support.
+- Implement coroutine resume/yield, wrap, isyieldable, and close backed by
+  primitive coroutine support.
 
 ### Product Gaps
 
@@ -862,7 +864,7 @@ M11.2 is complete.
 
 ## Last Verification
 
-M11.3 `coroutine.create` verification passed:
+M11.3 `coroutine.running` verification passed:
 
 ```bash
 cargo fmt --all -- --check

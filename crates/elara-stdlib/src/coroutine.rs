@@ -13,6 +13,10 @@ pub const COROUTINE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         coroutine_create,
     ),
     NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Coroutine, "running"),
+        coroutine_running,
+    ),
+    NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Coroutine, "status"),
         coroutine_status,
     ),
@@ -55,6 +59,14 @@ fn coroutine_status(
     ])
 }
 
+fn coroutine_running(
+    runtime: &mut dyn NativeRuntime,
+    _args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let (thread, is_main) = runtime.running_thread()?;
+    Ok(vec![thread, Value::boolean(is_main)])
+}
+
 fn status_name(status: ThreadStatus) -> &'static str {
     match status {
         ThreadStatus::Runnable | ThreadStatus::Suspended => "suspended",
@@ -69,13 +81,16 @@ mod tests {
 
     use elara_core::{ThreadStatus, Value};
 
-    use super::{COROUTINE_NATIVE_FUNCTIONS, coroutine_create, coroutine_status};
+    use super::{
+        COROUTINE_NATIVE_FUNCTIONS, coroutine_create, coroutine_running, coroutine_status,
+    };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
     #[derive(Default)]
     struct TestRuntime {
         strings: Vec<Box<[u8]>>,
         statuses: BTreeMap<u32, ThreadStatus>,
+        running: Option<(Value, bool)>,
     }
 
     impl TestRuntime {
@@ -109,6 +124,15 @@ mod tests {
             Ok(self.push_thread(ThreadStatus::Runnable))
         }
 
+        fn running_thread(&self) -> Result<(Value, bool), NativeError> {
+            self.running.ok_or_else(|| {
+                NativeErrorKind::RuntimeError {
+                    message: "running thread is not registered".into(),
+                }
+                .into()
+            })
+        }
+
         fn thread_status(&self, thread: Value) -> Result<ThreadStatus, NativeError> {
             let index = thread.as_thread_index().ok_or(NativeErrorKind::TypeError {
                 index: 1,
@@ -132,6 +156,7 @@ mod tests {
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "status")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "create")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "running")));
     }
 
     #[test]
@@ -167,6 +192,18 @@ mod tests {
             let status = coroutine_status(&mut runtime, &[thread]).expect("status should pass");
             assert_eq!(runtime.short_string_bytes(status[0]), Some(expected));
         }
+    }
+
+    #[test]
+    fn coroutine_running_returns_current_thread_and_main_flag() {
+        let mut runtime = TestRuntime::default();
+        let thread = runtime.push_thread(ThreadStatus::Running);
+        runtime.running = Some((thread, true));
+
+        assert_eq!(
+            coroutine_running(&mut runtime, &[]).expect("running should pass"),
+            vec![thread, Value::boolean(true)]
+        );
     }
 
     #[test]

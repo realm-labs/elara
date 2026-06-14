@@ -163,9 +163,16 @@ struct NativeHelpers {
     utf8_codes_aux_lax: Option<u32>,
 }
 
-#[derive(Default)]
 struct CoroutineRegistry {
     statuses: Vec<ThreadStatus>,
+}
+
+impl Default for CoroutineRegistry {
+    fn default() -> Self {
+        Self {
+            statuses: vec![ThreadStatus::Running],
+        }
+    }
 }
 
 impl CoroutineRegistry {
@@ -178,6 +185,10 @@ impl CoroutineRegistry {
     fn status(&self, thread: Value) -> Option<ThreadStatus> {
         let index = thread.as_thread_index()? as usize;
         self.statuses.get(index).copied()
+    }
+
+    fn running(&self) -> (Value, bool) {
+        (Value::thread_index(0), true)
     }
 }
 
@@ -410,6 +421,18 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
             message: "coroutine registry lock poisoned".into(),
         })?;
         Ok(registry.create())
+    }
+
+    fn running_thread(&self) -> Result<(Value, bool), NativeError> {
+        let registry = self.helpers.coroutine_registry.as_ref().ok_or_else(|| {
+            NativeErrorKind::RuntimeError {
+                message: "coroutine registry is not registered".into(),
+            }
+        })?;
+        let registry = registry.lock().map_err(|_| NativeErrorKind::RuntimeError {
+            message: "coroutine registry lock poisoned".into(),
+        })?;
+        Ok(registry.running())
     }
 
     fn thread_status(&self, thread: Value) -> Result<ThreadStatus, NativeError> {
