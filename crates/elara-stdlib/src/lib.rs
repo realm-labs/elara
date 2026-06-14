@@ -29,7 +29,7 @@ pub use native::{
     NativeStdFunction,
 };
 pub use os::OS_NATIVE_FUNCTIONS;
-pub use package::{PACKAGE_CONFIG, PACKAGE_NATIVE_FUNCTIONS};
+pub use package::{PACKAGE_CONFIG, PACKAGE_CPATH, PACKAGE_NATIVE_FUNCTIONS, PACKAGE_PATH};
 pub use string::{STRING_GMATCH_AUX_NATIVE, STRING_NATIVE_FUNCTIONS};
 pub use table::TABLE_NATIVE_FUNCTIONS;
 pub use utf8::{

@@ -50,7 +50,7 @@ mod tests {
     use elara_core::{SourceId, Value};
     use elara_interp::RuntimeErrorKind;
 
-    use elara_stdlib::{StdLib, StdLibProfile};
+    use elara_stdlib::{PACKAGE_CPATH, PACKAGE_PATH, StdLib, StdLibProfile};
 
     use crate::{EvalError, eval_simple_source, eval_simple_source_with_stdlib};
 
@@ -646,6 +646,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_package_searchpath_default_path_absent() {
+        let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
+
+        let values = eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "return package.searchpath('zz_no', package.path)",
+            &profile,
+        )
+        .expect("package.searchpath should read package.path");
+
+        assert_eq!(values, vec![Value::nil()]);
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_registers_package_config() {
         let profile =
             StdLibProfile::Custom([StdLib::Package, StdLib::String].into_iter().collect());
@@ -657,6 +671,31 @@ mod tests {
                 &profile,
             ),
             Ok(vec![Value::integer(10), Value::integer(10)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_with_stdlib_registers_package_paths() {
+        let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
+
+        let values = eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "return package.path, package.cpath",
+            &profile,
+        )
+        .expect("package paths should evaluate");
+
+        assert_eq!(values.len(), 2);
+        assert!(values[0].is_string());
+        assert!(values[1].is_string());
+        assert_ne!(values[0], values[1]);
+        assert!(
+            PACKAGE_PATH.len() > 40,
+            "package.path should exercise long-string seeding"
+        );
+        assert!(
+            PACKAGE_CPATH.len() > 40,
+            "package.cpath should exercise long-string seeding"
         );
     }
 

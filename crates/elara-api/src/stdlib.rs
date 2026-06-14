@@ -10,9 +10,9 @@ use elara_core::{ThreadStatus, Value};
 use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
 use elara_stdlib::{
     BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, LuaRandomState, MATH_CONSTANTS, NativeError,
-    NativeErrorKind, NativeRuntime, PACKAGE_CONFIG, STRING_GMATCH_AUX_NATIVE, StdLib,
-    StdLibProfile, StdLibSet, UTF8_CHAR_PATTERN, UTF8_CODES_AUX_LAX_NATIVE,
-    UTF8_CODES_AUX_STRICT_NATIVE, native_functions,
+    NativeErrorKind, NativeRuntime, PACKAGE_CONFIG, PACKAGE_CPATH, PACKAGE_PATH,
+    STRING_GMATCH_AUX_NATIVE, StdLib, StdLibProfile, StdLibSet, UTF8_CHAR_PATTERN,
+    UTF8_CODES_AUX_LAX_NATIVE, UTF8_CODES_AUX_STRICT_NATIVE, native_functions,
 };
 
 /// Builds a primitive runtime environment containing implemented stdlib natives
@@ -96,7 +96,11 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
             environment.set_global_table_with_string_and_empty_table_fields(
                 library.name(),
                 fields,
-                [("config", PACKAGE_CONFIG.as_bytes())],
+                [
+                    ("config", PACKAGE_CONFIG.as_bytes()),
+                    ("path", PACKAGE_PATH.as_bytes()),
+                    ("cpath", PACKAGE_CPATH.as_bytes()),
+                ],
                 ["loaded", "preload", "searchers"],
             );
         }

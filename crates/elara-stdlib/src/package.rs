@@ -23,6 +23,20 @@ pub const PACKAGE_CONFIG: &str = if cfg!(windows) {
     "/\n;\n?\n!\n-\n"
 };
 
+/// Lua `package.path` default for the current platform.
+pub const PACKAGE_PATH: &str = if cfg!(windows) {
+    "!\\lua\\?.lua;!\\lua\\?\\init.lua;!\\?.lua;!\\?\\init.lua;!\\..\\share\\lua\\5.5\\?.lua;!\\..\\share\\lua\\5.5\\?\\init.lua;.\\?.lua;.\\?\\init.lua"
+} else {
+    "/usr/local/share/lua/5.5/?.lua;/usr/local/share/lua/5.5/?/init.lua;/usr/local/lib/lua/5.5/?.lua;/usr/local/lib/lua/5.5/?/init.lua;./?.lua;./?/init.lua"
+};
+
+/// Lua `package.cpath` default for the current platform.
+pub const PACKAGE_CPATH: &str = if cfg!(windows) {
+    "!\\?.dll;!\\..\\lib\\lua\\5.5\\?.dll;!\\loadall.dll;.\\?.dll"
+} else {
+    "/usr/local/lib/lua/5.5/?.so;/usr/local/lib/lua/5.5/loadall.so;./?.so"
+};
+
 /// Executable `package` library functions currently implemented.
 pub const PACKAGE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[NativeFunctionSpec::new(
     FunctionSpec::new(StdLib::Package, "searchpath"),
@@ -48,7 +62,7 @@ fn package_searchpath(
 
     for filename in expanded_path.split(PATH_SEPARATOR) {
         if readable(filename) {
-            return Ok(vec![runtime.intern_short_string(filename.as_bytes())?]);
+            return Ok(vec![runtime.intern_string(filename.as_bytes())?]);
         }
     }
 
@@ -58,7 +72,7 @@ fn package_searchpath(
     );
     Ok(vec![
         Value::nil(),
-        runtime.intern_short_string(message.as_bytes())?,
+        runtime.intern_string(message.as_bytes())?,
     ])
 }
 
@@ -92,7 +106,7 @@ fn optional_utf8_string_arg<'a>(
         return Ok(None);
     }
     let bytes = runtime
-        .short_string_bytes(value)
+        .string_bytes(value)
         .ok_or(NativeErrorKind::TypeError {
             index,
             expected: "string",
@@ -116,7 +130,7 @@ fn string_arg<'a>(
         .copied()
         .ok_or(NativeErrorKind::MissingArgument { index })?;
     runtime
-        .short_string_bytes(value)
+        .string_bytes(value)
         .ok_or(NativeErrorKind::TypeError {
             index,
             expected: "string",
