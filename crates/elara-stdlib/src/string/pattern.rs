@@ -1,5 +1,6 @@
 //! Small Lua pattern helpers shared by string-library functions.
 
+#[cfg(test)]
 pub(super) fn has_unsupported_pattern_special(pattern: &[u8]) -> bool {
     has_unsupported_pattern_special_inner(pattern, false)
 }
@@ -68,6 +69,7 @@ pub(super) fn simple_pattern_find(haystack: &[u8], pattern: &[u8]) -> Option<(us
     simple_pattern_find_from(haystack, pattern, 0)
 }
 
+#[cfg(test)]
 pub(super) fn simple_pattern_find_from(
     haystack: &[u8],
     pattern: &[u8],

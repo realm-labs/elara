@@ -829,6 +829,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_string_gmatch_captures() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "for a, n in string.gmatch('a1 b22', '(%a)(%d+)') do return string.len(a) + string.len(n) end\nreturn 0",
+                &profile,
+            ),
+            Ok(vec![Value::integer(2)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_bracket_patterns() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 

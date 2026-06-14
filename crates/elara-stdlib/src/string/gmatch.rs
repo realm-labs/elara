@@ -6,7 +6,7 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
 use super::{
     optional_integer_arg,
-    pattern::{has_unsupported_pattern_special, simple_pattern_find_from},
+    pattern::{has_unsupported_pattern_special_with_captures, simple_pattern_match_from},
     relative_start, string_arg,
 };
 
@@ -28,7 +28,7 @@ pub(super) fn string_gmatch(
     let pattern = string_arg(runtime, pattern_value, 2)?;
     let init = relative_start(optional_integer_arg(args, 3, 1)?, subject.len());
 
-    if has_unsupported_pattern_special(pattern) {
+    if has_unsupported_pattern_special_with_captures(pattern) {
         return Err(NativeErrorKind::RuntimeError {
             message: "string pattern matching is not supported yet".into(),
         }
@@ -87,18 +87,28 @@ pub(super) fn string_gmatch_aux(
         return Ok(Vec::new());
     }
 
-    let Some((start, end)) = simple_pattern_find_from(&subject, &pattern, cursor) else {
+    let Some(match_) = simple_pattern_match_from(&subject, &pattern, cursor) else {
         return Ok(Vec::new());
     };
-    let next_cursor = if start == end {
-        end.saturating_add(1)
+    let next_cursor = if match_.start == match_.end {
+        match_.end.saturating_add(1)
     } else {
-        end
+        match_.end
     };
     let next_cursor =
         i64::try_from(next_cursor).expect("runtime string cursor position must fit in LuaInteger");
     runtime.table_set(state, CURSOR_KEY, Value::integer(next_cursor))?;
-    Ok(vec![runtime.intern_short_string(&subject[start..end])?])
+    if match_.captures.is_empty() {
+        return Ok(vec![
+            runtime.intern_short_string(&subject[match_.start..match_.end])?,
+        ]);
+    }
+
+    match_
+        .captures
+        .into_iter()
+        .map(|(start, end)| runtime.intern_short_string(&subject[start..end]))
+        .collect()
 }
 
 #[cfg(test)]
@@ -226,6 +236,25 @@ mod tests {
             Some(b"22".as_slice())
         );
         assert_eq!(end, Vec::<Value>::new());
+    }
+
+    #[test]
+    fn string_gmatch_aux_returns_captures_when_present() {
+        let mut runtime = TestRuntime {
+            gmatch_aux: Value::native_function_index(7),
+            ..TestRuntime::default()
+        };
+        let subject = runtime.push_string(b"a1 b22");
+        let pattern = runtime.push_string(b"(%a)(%d+)");
+        let values = string_gmatch(&mut runtime, &[subject, pattern]).expect("gmatch should pass");
+        let state = values[1];
+
+        let first = string_gmatch_aux(&mut runtime, &[state, Value::nil()])
+            .expect("first gmatch aux should pass");
+
+        assert_eq!(first.len(), 2);
+        assert_eq!(runtime.short_string_bytes(first[0]), Some(b"a".as_slice()));
+        assert_eq!(runtime.short_string_bytes(first[1]), Some(b"1".as_slice()));
     }
 
     #[test]
