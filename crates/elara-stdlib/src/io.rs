@@ -10,11 +10,21 @@ const FILE_HANDLES_UNSUPPORTED: &[u8] = b"file handles are not supported by this
 
 /// Executable `io` library functions currently implemented.
 pub const IO_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "close"), io_close),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "flush"), io_flush),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "open"), io_open),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "popen"), io_popen),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "tmpfile"), io_tmpfile),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "type"), io_type),
 ];
+
+fn io_close(runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    unsupported_file_result(runtime)
+}
+
+fn io_flush(runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    unsupported_file_result(runtime)
+}
 
 fn io_open(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     string_arg(runtime, args, 1)?;
@@ -127,10 +137,48 @@ mod tests {
             .map(|function| function.descriptor())
             .collect();
 
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "close")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "flush")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "type")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "open")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "popen")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "tmpfile")));
+    }
+
+    #[test]
+    fn io_close_reports_unsupported_file_handles() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "close")
+            .expect("io.close native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+
+        let result = function(&mut runtime, &[]).expect("io.close should pass");
+
+        assert_eq!(result[0], Value::nil());
+        assert_eq!(
+            runtime.bytes(result[1]),
+            Some(b"file handles are not supported by this runtime".as_slice())
+        );
+    }
+
+    #[test]
+    fn io_flush_reports_unsupported_file_handles() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "flush")
+            .expect("io.flush native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+
+        let result = function(&mut runtime, &[]).expect("io.flush should pass");
+
+        assert_eq!(result[0], Value::nil());
+        assert_eq!(
+            runtime.bytes(result[1]),
+            Some(b"file handles are not supported by this runtime".as_slice())
+        );
     }
 
     #[test]
