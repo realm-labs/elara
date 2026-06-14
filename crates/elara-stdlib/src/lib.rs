@@ -492,7 +492,10 @@ pub const STRING_FUNCTIONS: &[FunctionSpec] = &[
 ];
 
 /// Basic UTF-8 library function descriptors.
-pub const UTF8_FUNCTIONS: &[FunctionSpec] = &[FunctionSpec::new(StdLib::Utf8, "len")];
+pub const UTF8_FUNCTIONS: &[FunctionSpec] = &[
+    FunctionSpec::new(StdLib::Utf8, "char"),
+    FunctionSpec::new(StdLib::Utf8, "len"),
+];
 
 /// Returns executable native functions currently implemented for a library.
 #[must_use]
@@ -812,6 +815,11 @@ mod tests {
             functions
                 .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Utf8, "len"))
+        );
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Utf8, "char"))
         );
     }
 }

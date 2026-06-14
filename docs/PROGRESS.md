@@ -813,13 +813,15 @@ Delivered:
 - `utf8.len` is implemented with strict/lax UTF-8 validation, relative byte
   ranges, invalid-byte reporting, descriptor registration, and runtime module
   registration.
+- `utf8.char` encodes zero or more Lua integer code points through Lua's
+  31-bit UTF-8 range and returns the concatenated string.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M11
 
 - Implement coroutine standard functions backed by primitive coroutine support.
-- Complete remaining utf8 library basics beyond `utf8.len`.
+- Complete remaining utf8 library basics beyond `utf8.char` and `utf8.len`.
 
 ### Product Gaps
 
@@ -845,12 +847,12 @@ M11.2 is complete.
 
 ## Last Verification
 
-M11.3 `utf8.len` verification passed:
+M11.3 `utf8.char` verification passed:
 
 ```bash
 cargo fmt --all -- --check
 cargo test -p elara-stdlib utf8
-cargo test -p elara-api utf8_len
+cargo test -p elara-api utf8
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
