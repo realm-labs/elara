@@ -91,11 +91,11 @@ The API layer can build a primitive `RuntimeEnvironment` from implemented
 stdlib native specs, including shared reseedable math RNG state and math
 constants `pi`, `huge`, `maxinteger`, and `mininteger`, and simple source
 evaluation can run with a selected stdlib profile for supported native paths.
-Base stdlib natives `assert`, `error`, `getmetatable`, `ipairs`, `next`, raw
-`pairs`, `pcall`, `print`, `rawequal`, `rawget`, `rawlen`, `rawset`, numeric
-and count forms of `select`, `setmetatable`, `tonumber`, `tostring`, `type`,
-and `xpcall` are executable, and API stdlib profile registration now installs
-base natives as direct globals while
+Base stdlib natives `assert`, `error`, `getmetatable`, `ipairs`, `next`,
+metamethod-backed `pairs`, `pcall`, `print`, `rawequal`, `rawget`, `rawlen`,
+`rawset`, numeric and count forms of `select`, `setmetatable`, `tonumber`,
+`tostring`, `type`, and `xpcall` are executable, and API stdlib profile
+registration now installs base natives as direct globals while
 keeping module libraries table-shaped. Native calls now receive a
 `NativeContext` that can allocate and inspect runtime-owned short strings,
 allocate runtime-owned tables, read/write raw runtime table entries, get/set
@@ -126,8 +126,8 @@ Table natives `table.concat`, `table.insert`, `table.move`, `table.pack`,
 executable and covered through stdlib-backed API evaluation.
 Generic-for lowering now preserves call-expression multiple returns in iterator
 protocol registers, and the primitive interpreter can call native iterator
-functions from `TFOR_CALL`, enabling stdlib-backed `ipairs` and raw `pairs`
-loops. Ordinary call-expression lowering preserves local callable values across
+functions from `TFOR_CALL`, enabling stdlib-backed `ipairs` and `pairs` loops.
+Ordinary call-expression lowering preserves local callable values across
 assignment calls, and generic-for iterator calls now honor `__call`
 metamethod-backed table iterators.
 
@@ -265,6 +265,7 @@ Completed:
   - M11.2 executable string.rep native spec.
   - M11.2 executable string.sub native spec.
   - M11.2 executable base ipairs and raw pairs native specs.
+  - M11.2 executable base pairs `__pairs` metamethod support.
   - M11.2 native iterator support for generic for loops.
   - M11.2 stdlib-backed string.gmatch generic-for iterator path.
   - M11.2 call lowering preserves local callable values across assignment calls.
@@ -806,8 +807,6 @@ Delivered:
 
 ### Immediate Gaps for M11
 
-- Add `__pairs` metamethod support once stdlib natives can call Lua callbacks
-  through the runtime.
 - Add runtime callback support for custom `table.sort` comparators.
 - Add full string pattern matching beyond `.` wildcard, `^`/`$` anchor, `%`
   character-class, bracket-class, quantifier, and `%b` balanced-delimiter
@@ -837,24 +836,20 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 callable string.gmatch verification passed:
+M11.2 base pairs `__pairs` metamethod verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-compiler simple_expr
-cargo test -p elara-interp metamethods_call_invokes_native_function_fallback
-cargo test -p elara-stdlib string_gmatch
-cargo test -p elara-api string_gmatch
-cargo clippy -p elara-compiler --all-targets -- -D warnings
-cargo clippy -p elara-interp --all-targets -- -D warnings
+cargo test -p elara-stdlib base_pairs
+cargo test -p elara-api base_pairs
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M11.2 with `__pairs` metamethod support for base `pairs` as the next
-known gap.
+Continue M11.2 with runtime callback support for custom `table.sort`
+comparators as the next known gap.
 
 ## Current Risk Notes
 

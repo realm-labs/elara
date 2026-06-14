@@ -1095,6 +1095,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_base_pairs_metamethod() {
+        let profile = StdLibProfile::Custom([StdLib::Base, StdLib::Table].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local function custom(... args)\n  return next, table.pack(41), nil, nil\nend\nlocal mt = { __pairs = custom }\nlocal t = setmetatable({}, mt)\nfor k, v in pairs(t) do\n  return k + v\nend\nreturn 0",
+                &profile,
+            ),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
     fn eval_simple_rejects_global_function_when_defined() {
         let error = eval_simple_source(
             SourceId::new(0),

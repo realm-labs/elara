@@ -499,6 +499,63 @@ fn base_pairs_returns_next_state_nil_control_and_nil_close() {
 }
 
 #[test]
+fn base_pairs_calls_pairs_metamethod_and_returns_first_four_values() {
+    let mut runtime = TestRuntime {
+        protected_results: vec![Ok(vec![
+            Value::native_function_index(8),
+            Value::integer(1),
+            Value::integer(2),
+            Value::integer(3),
+            Value::integer(4),
+        ])],
+        ..TestRuntime::default()
+    };
+    let pairs_key = runtime.push_string(b"__pairs");
+    let metamethod = Value::native_function_index(9);
+    let metatable = runtime.push_table(vec![(pairs_key, metamethod)]);
+    let table = runtime.push_table(Vec::new());
+    runtime
+        .table_set_metatable(table, metatable)
+        .expect("test metatable should be valid");
+
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_pairs, &[table]),
+        vec![
+            Value::native_function_index(8),
+            Value::integer(1),
+            Value::integer(2),
+            Value::integer(3)
+        ]
+    );
+    assert_eq!(runtime.protected_calls, vec![(metamethod, vec![table])]);
+}
+
+#[test]
+fn base_pairs_pads_pairs_metamethod_results_to_four_values() {
+    let mut runtime = TestRuntime {
+        protected_results: vec![Ok(vec![Value::native_function_index(8)])],
+        ..TestRuntime::default()
+    };
+    let pairs_key = runtime.push_string(b"__pairs");
+    let metamethod = Value::native_function_index(9);
+    let metatable = runtime.push_table(vec![(pairs_key, metamethod)]);
+    let table = runtime.push_table(Vec::new());
+    runtime
+        .table_set_metatable(table, metatable)
+        .expect("test metatable should be valid");
+
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_pairs, &[table]),
+        vec![
+            Value::native_function_index(8),
+            Value::nil(),
+            Value::nil(),
+            Value::nil()
+        ]
+    );
+}
+
+#[test]
 fn base_next_reports_non_table_receiver() {
     assert_eq!(
         base_next(&mut TestRuntime::default(), &[Value::nil()])

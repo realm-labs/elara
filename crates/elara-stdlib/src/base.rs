@@ -140,6 +140,9 @@ fn base_pairs(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
     let value = *args
         .first()
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    if let Some(metamethod) = pairs_metamethod(runtime, value)? {
+        return call_pairs_metamethod(runtime, metamethod, value);
+    }
     Ok(vec![
         runtime.native_function(StdLib::Base, "next")?,
         value,
@@ -429,6 +432,41 @@ fn error_message(runtime: &dyn NativeRuntime, value: Value) -> String {
 
 fn metatable_field_key(runtime: &mut dyn NativeRuntime) -> Result<Value, NativeError> {
     runtime.intern_short_string(b"__metatable")
+}
+
+fn pairs_key(runtime: &mut dyn NativeRuntime) -> Result<Value, NativeError> {
+    runtime.intern_short_string(b"__pairs")
+}
+
+fn pairs_metamethod(
+    runtime: &mut dyn NativeRuntime,
+    value: Value,
+) -> Result<Option<Value>, NativeError> {
+    if !value.is_table() {
+        return Ok(None);
+    }
+    let metatable = runtime.table_metatable(value)?;
+    if metatable.is_nil() {
+        return Ok(None);
+    }
+    let key = pairs_key(runtime)?;
+    let metamethod = runtime.table_get(metatable, key)?;
+    Ok((!metamethod.is_nil()).then_some(metamethod))
+}
+
+fn call_pairs_metamethod(
+    runtime: &mut dyn NativeRuntime,
+    metamethod: Value,
+    value: Value,
+) -> Result<Vec<Value>, NativeError> {
+    let mut results = runtime
+        .protected_call(metamethod, &[value])?
+        .map_err(NativeError::lua_error)?;
+    results.truncate(4);
+    while results.len() < 4 {
+        results.push(Value::nil());
+    }
+    Ok(results)
 }
 
 fn table_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {
