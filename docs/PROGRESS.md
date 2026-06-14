@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-15
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M19 Optional Current-Version C API
-Current step: M19.1 Add C API crate and headers
+Current step: M19.2 Implement stack-based C API core
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -1231,6 +1231,9 @@ Delivered:
   and `AnyUserData` handles. Tables store and convert API-owned values, Lua
   registry keys round-trip stored values through a `Lua` handle, and userdata
   handles provide typed borrow checks without exposing runtime internals.
+- The optional C API crate now packages current-version `lua.h`, `lauxlib.h`,
+  and `lualib.h` scaffolding, exposes its include directory from the build
+  script, and verifies that the headers target Lua 5.5 only.
 - `elara-test` exposes configurable official-Lua runner helpers using
   `ELARA_LUA`, captures stdout/stderr and success/error classes, and can compare
   official Lua runs against Elara's public API evaluation path for differential
@@ -1305,16 +1308,16 @@ M18.2 is complete.
 M18.3 is complete.
 M18.4 is complete.
 M18 is complete.
+M19.1 is complete.
 
 ## Last Verification
 
-M18.4 official Lua chunk policy validation passed:
+M19.1 current-version C API header scaffolding validation passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-bytecode official_chunk
-cargo test -p elara-bytecode dump_load
-cargo clippy -p elara-bytecode --all-targets -- -D warnings
+cargo test -p elara-capi
+cargo clippy -p elara-capi --all-targets -- -D warnings
 git diff --check
 cargo test --workspace
 cargo test --workspace --features jit debug
@@ -1322,8 +1325,8 @@ cargo test --workspace --features jit debug
 
 ## Next Recommended Action
 
-Start M19.1 by adding current-version C API header scaffolding for `elara-capi`
-without introducing old Lua compatibility branches.
+Start M19.2 by adding the stack-backed `lua_State` core plus push/get/set and
+type-inspection functions behind the current-version C API surface.
 
 ## Current Risk Notes
 
@@ -1375,5 +1378,5 @@ without introducing old Lua compatibility branches.
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | M17 complete; M18.2 debug interaction complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, debug-hook forced interpretation, API JIT selection for environment-independent chunks with debug/runtime-environment chunks kept on the interpreter, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |
-| C API | Not started | M19 is next; optional/current-version only. |
+| C API | M19.1 complete | Current-version `lua.h`, `lauxlib.h`, and `lualib.h` scaffolding is packaged by `elara-capi`; stack-based runtime behavior starts in M19.2. |
 | Benchmarks | M15 baseline complete | Stable custom `cargo bench` runner covers arithmetic, table access, calls, strings, and representative macro workloads; `docs/PERFORMANCE.md` records the current baseline and comparison gaps. |
