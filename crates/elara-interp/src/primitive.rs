@@ -52,8 +52,11 @@ pub type NativeFunction = dyn for<'a> Fn(&mut NativeContext<'a>, &[Value]) -> Ru
 
 /// Runtime services available to native functions during a call.
 pub struct NativeContext<'a> {
+    closures: &'a mut Vec<RuntimeClosure>,
     tables: &'a mut RuntimeTables,
     strings: &'a mut RuntimeStrings,
+    natives: &'a RuntimeNatives,
+    globals: &'a mut RuntimeGlobals,
 }
 
 impl<'a> NativeContext<'a> {
@@ -184,6 +187,25 @@ impl<'a> NativeContext<'a> {
         };
         self.tables.set_metatable(table_index, metatable)
     }
+
+    /// Calls a Lua or native value and catches runtime errors.
+    pub fn protected_call(
+        &mut self,
+        function: Value,
+        args: &[Value],
+    ) -> Result<Vec<Value>, RuntimeError> {
+        let callable = callable_from_value(function, args.to_vec(), self.tables, self.strings)?;
+        let mut to_be_closed = Vec::new();
+        let mut context = ExecutionContext {
+            closures: self.closures,
+            tables: self.tables,
+            strings: self.strings,
+            natives: self.natives,
+            globals: self.globals,
+            to_be_closed: &mut to_be_closed,
+        };
+        call_function(callable, &mut context)
+    }
 }
 
 /// Runtime-owned native function registry.
@@ -223,8 +245,8 @@ impl RuntimeNatives {
         self.push(move |_context, args| function(args))
     }
 
-    fn get(&self, index: usize) -> Option<&NativeFunction> {
-        self.functions.get(index).map(AsRef::as_ref)
+    fn get(&self, index: usize) -> Option<Arc<NativeFunction>> {
+        self.functions.get(index).cloned()
     }
 }
 
@@ -1363,35 +1385,44 @@ fn callable_function(
     instr: Instr,
 ) -> RuntimeResult<CallableFunction> {
     let callee = register(thread, instr.a().into())?;
+    callable_from_value(callee, collect_call_args(thread, instr)?, tables, strings)
+}
+
+fn callable_from_value(
+    callee: Value,
+    args: Vec<Value>,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<CallableFunction> {
     if let Some(closure_index) = callee.as_closure_index() {
         return Ok(CallableFunction::Lua {
             closure_index: closure_index as usize,
-            args: collect_call_args(thread, instr)?,
+            args,
         });
     }
     if let Some(native_index) = callee.as_native_function_index() {
         return Ok(CallableFunction::Native {
             native_index: native_index as usize,
-            args: collect_call_args(thread, instr)?,
+            args,
         });
     }
 
     let Some(metamethod) = tables.metamethod_for_value(callee, "__call", strings)? else {
         return Err(RuntimeErrorKind::NonCallableValue.into());
     };
-    let mut args = Vec::with_capacity(instr.b() as usize);
-    args.push(callee);
-    args.extend(collect_call_args(thread, instr)?);
+    let mut args_with_self = Vec::with_capacity(args.len() + 1);
+    args_with_self.push(callee);
+    args_with_self.extend(args);
     if let Some(closure_index) = metamethod.as_closure_index() {
         return Ok(CallableFunction::Lua {
             closure_index: closure_index as usize,
-            args,
+            args: args_with_self,
         });
     }
     if let Some(native_index) = metamethod.as_native_function_index() {
         return Ok(CallableFunction::Native {
             native_index: native_index as usize,
-            args,
+            args: args_with_self,
         });
     }
     Err(RuntimeErrorKind::UnsupportedMetamethod { name: "__call" }.into())
@@ -1421,8 +1452,11 @@ fn call_function(
                 },
             )?;
             let mut native_context = NativeContext {
+                closures: context.closures,
                 tables: context.tables,
                 strings: context.strings,
+                natives: context.natives,
+                globals: context.globals,
             };
             function(&mut native_context, &args)
         }

@@ -481,6 +481,34 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_base_pcall_success() {
+        let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return pcall(assert, true, 42)",
+                &profile,
+            ),
+            Ok(vec![Value::boolean(true)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_with_stdlib_executes_base_pcall_error() {
+        let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return pcall(error, 'boom')",
+                &profile,
+            ),
+            Ok(vec![Value::boolean(false)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_rawequal() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 

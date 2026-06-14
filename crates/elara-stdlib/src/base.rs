@@ -18,6 +18,7 @@ pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "ipairs"), base_ipairs),
     BASE_NEXT_NATIVE,
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "pairs"), base_pairs),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "pcall"), base_pcall),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "print"), base_print),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawequal"), base_rawequal),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "rawget"), base_rawget),
@@ -144,6 +145,23 @@ fn base_pairs(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
         Value::nil(),
         Value::nil(),
     ])
+}
+
+fn base_pcall(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let function = args.first().copied().unwrap_or_else(Value::nil);
+    let call_args = args.get(1..).unwrap_or_default();
+    match runtime.protected_call(function, call_args)? {
+        Ok(values) => {
+            let mut results = Vec::with_capacity(values.len() + 1);
+            results.push(Value::boolean(true));
+            results.extend(values);
+            Ok(results)
+        }
+        Err(message) => Ok(vec![
+            Value::boolean(false),
+            runtime.intern_short_string(message.as_bytes())?,
+        ]),
+    }
 }
 
 fn base_print(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {

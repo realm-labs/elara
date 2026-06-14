@@ -299,6 +299,17 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
         })
     }
 
+    fn protected_call(
+        &mut self,
+        function: Value,
+        args: &[Value],
+    ) -> Result<Result<Vec<Value>, Box<str>>, NativeError> {
+        Ok(self
+            .context
+            .protected_call(function, args)
+            .map_err(|error| error.message().into()))
+    }
+
     fn native_function(&self, library: StdLib, name: &str) -> Result<Value, NativeError> {
         match (library, name) {
             (StdLib::Base, "next") => self

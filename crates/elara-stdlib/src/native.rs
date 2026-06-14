@@ -128,6 +128,18 @@ pub trait NativeRuntime {
         .into())
     }
 
+    /// Calls a Lua or native value behind a protected-call boundary.
+    fn protected_call(
+        &mut self,
+        _function: Value,
+        _args: &[Value],
+    ) -> Result<Result<Vec<Value>, Box<str>>, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support protected calls".into(),
+        }
+        .into())
+    }
+
     /// Returns a runtime-owned function value for an already registered native helper.
     fn native_function(&self, _library: StdLib, _name: &str) -> Result<Value, NativeError> {
         Err(NativeErrorKind::RuntimeError {

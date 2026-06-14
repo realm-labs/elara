@@ -92,16 +92,16 @@ stdlib native specs, including shared reseedable math RNG state and math
 constants `pi`, `huge`, `maxinteger`, and `mininteger`, and simple source
 evaluation can run with a selected stdlib profile for supported native paths.
 Base stdlib natives `assert`, `error`, `getmetatable`, `ipairs`, `next`, raw
-`pairs`, `print`, `rawequal`, `rawget`, `rawlen`, `rawset`, numeric and count
-forms of `select`, `setmetatable`, `tonumber`, `tostring`, and `type` are
-executable, and API stdlib profile registration now installs base natives as
-direct globals while
+`pairs`, `pcall`, `print`, `rawequal`, `rawget`, `rawlen`, `rawset`, numeric
+and count forms of `select`, `setmetatable`, `tonumber`, `tostring`, and
+`type` are executable, and API stdlib profile registration now installs base
+natives as direct globals while
 keeping module libraries table-shaped. Native calls now receive a
 `NativeContext` that can allocate and inspect runtime-owned short strings,
 allocate runtime-owned tables, read/write raw runtime table entries, get/set
 runtime table metatable links, traverse raw runtime table entries, write host
 output for `print`, and return registered native helper functions for iterator
-factories, enabling current base and string iterator natives.
+factories, and perform protected calls of runtime callable values.
 `elara-stdlib` native functions now receive a crate-local `NativeRuntime` trait,
 and the API bridge adapts it to the interpreter context without making stdlib
 depend on interpreter internals. Remaining executable base, table, math, and
@@ -205,6 +205,8 @@ Completed:
   - M11.2 executable base getmetatable and setmetatable native specs.
   - M11.2 executable base next native spec.
   - M11.2 executable base print native spec.
+  - M11.2 NativeContext support for protected native calls.
+  - M11.2 executable base pcall native spec.
   - M11.2 NativeContext support for runtime short strings.
   - M11.2 NativeRuntime abstraction for context-aware stdlib natives.
   - M11.2 NativeContext support for runtime table allocation.
@@ -825,12 +827,14 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 stdlib-backed string.gmatch verification passed:
+M11.2 executable base pcall verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib string_
-cargo test -p elara-api eval_simple_with_stdlib_executes_string_gmatch
+cargo test -p elara-stdlib base_
+cargo test -p elara-api pcall
+cargo test -p elara-interp native_functions_execute_call
+cargo clippy -p elara-interp --all-targets -- -D warnings
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
@@ -838,9 +842,9 @@ cargo clippy -p elara-api --all-targets -- -D warnings
 ## Next Recommended Action
 
 Continue M11.2 by filling the remaining executable base and string behavior,
-with `pcall`/`xpcall`, Lua-style callable `string.gmatch` closures, pattern
-captures, replacement captures, and table/function replacements for `gsub` as
-the next known gaps.
+with `xpcall`, Lua-style callable `string.gmatch` closures, pattern captures,
+replacement captures, and table/function replacements for `gsub` as the next
+known gaps.
 
 ## Current Risk Notes
 
