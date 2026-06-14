@@ -147,8 +147,18 @@ fn package_require(
         return Ok(vec![current]);
     }
 
-    if let Some((loader, loader_data)) = searcher_loader(runtime, name)? {
-        return run_loader(runtime, loaded, name, loader, loader_data);
+    match searcher_loader(runtime, name)? {
+        SearcherResult::Found(loader, loader_data) => {
+            return run_loader(runtime, loaded, name, loader, loader_data);
+        }
+        SearcherResult::NotFound(messages) if !messages.is_empty() => {
+            let name = String::from_utf8_lossy(&name_bytes);
+            return Err(NativeError::lua_error(format!(
+                "module '{name}' not found:\n\t{}",
+                messages.join("\n\t")
+            )));
+        }
+        SearcherResult::NotFound(_) => {}
     }
 
     let preload = package_subtable(runtime, PRELOAD_FIELD)?;
@@ -167,13 +177,14 @@ fn package_require(
 fn searcher_loader(
     runtime: &mut dyn NativeRuntime,
     name: Value,
-) -> Result<Option<(Value, Value)>, NativeError> {
+) -> Result<SearcherResult, NativeError> {
     let searchers = package_subtable(runtime, SEARCHERS_FIELD)?;
+    let mut messages = Vec::new();
     let mut index = 1;
     loop {
         let searcher = runtime.table_get(searchers, Value::integer(index))?;
         if searcher.is_nil() {
-            return Ok(None);
+            return Ok(SearcherResult::NotFound(messages));
         }
         if !searcher.is_closure() {
             return Err(NativeError::lua_error(format!(
@@ -184,12 +195,23 @@ fn searcher_loader(
             Ok(results) => results,
             Err(message) => return Err(NativeError::lua_error(message)),
         };
-        if let Some(loader) = results.first().copied().filter(|value| value.is_closure()) {
+        if let Some(message) = results
+            .first()
+            .and_then(|value| runtime.string_bytes(*value))
+            .map(String::from_utf8_lossy)
+        {
+            messages.push(message.into_owned());
+        } else if let Some(loader) = results.first().copied().filter(|value| value.is_closure()) {
             let loader_data = results.get(1).copied().unwrap_or_else(Value::nil);
-            return Ok(Some((loader, loader_data)));
+            return Ok(SearcherResult::Found(loader, loader_data));
         }
         index += 1;
     }
+}
+
+enum SearcherResult {
+    Found(Value, Value),
+    NotFound(Vec<String>),
 }
 
 fn run_loader(
@@ -606,6 +628,38 @@ mod tests {
         assert_eq!(
             error.message(),
             "module 'missing' not found:\n\tno field package.preload['missing']"
+        );
+    }
+
+    #[test]
+    fn package_require_aggregates_searcher_miss_messages() {
+        let function = function("require");
+        let mut runtime = TestRuntime::default();
+        let name = runtime.push_string(b"missing");
+        let first_searcher = Value::native_function_index(3);
+        let second_searcher = Value::native_function_index(4);
+        let first_message = runtime.push_string(b"no field package.preload['missing']");
+        let second_message = runtime.push_string(b"no file './missing.lua'");
+        let loaded = runtime.push_table(&[]);
+        let preload = runtime.push_table(&[]);
+        let searchers = runtime.push_table(&[
+            (Value::integer(1), first_searcher),
+            (Value::integer(2), second_searcher),
+        ]);
+        install_package_tables(&mut runtime, loaded, preload, searchers);
+        runtime.protected_results.push(Ok(vec![first_message]));
+        runtime.protected_results.push(Ok(vec![second_message]));
+
+        let error = function(&mut runtime, &[name]).expect_err("missing module should error");
+
+        assert_eq!(error.kind(), &NativeErrorKind::LuaError);
+        assert_eq!(
+            error.message(),
+            "module 'missing' not found:\n\tno field package.preload['missing']\n\tno file './missing.lua'"
+        );
+        assert_eq!(
+            runtime.protected_calls,
+            vec![(first_searcher, vec![name]), (second_searcher, vec![name])]
         );
     }
 

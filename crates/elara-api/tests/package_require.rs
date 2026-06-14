@@ -82,7 +82,7 @@ fn package_require_reports_missing_preload() {
     let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
     let error = eval_simple_source_with_stdlib(
         SourceId::new(0),
-        "return package.require('missing')",
+        "package.path = './?.lua'\npackage.cpath = './?.so'\nreturn package.require('missing')",
         &profile,
     )
     .expect_err("missing preload should raise");
@@ -90,7 +90,7 @@ fn package_require_reports_missing_preload() {
     match error {
         EvalError::Runtime(error) => assert_eq!(
             error.message(),
-            "module 'missing' not found:\n\tno field package.preload['missing']"
+            "module 'missing' not found:\n\tno field package.preload['missing']\n\tno file './missing.lua'\n\tno file './missing.so'\n\tno file './missing.so'"
         ),
         EvalError::Diagnostics(diagnostics) => {
             panic!("expected runtime error, got diagnostics {diagnostics:?}");
