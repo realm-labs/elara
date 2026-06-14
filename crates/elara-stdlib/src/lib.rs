@@ -455,6 +455,8 @@ pub const MATH_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Math, "exp"),
     FunctionSpec::new(StdLib::Math, "floor"),
     FunctionSpec::new(StdLib::Math, "fmod"),
+    FunctionSpec::new(StdLib::Math, "frexp"),
+    FunctionSpec::new(StdLib::Math, "ldexp"),
     FunctionSpec::new(StdLib::Math, "log"),
     FunctionSpec::new(StdLib::Math, "max"),
     FunctionSpec::new(StdLib::Math, "min"),

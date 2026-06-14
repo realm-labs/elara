@@ -21,6 +21,8 @@ pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "exp"), math_exp),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "floor"), math_floor),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "fmod"), math_fmod),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "frexp"), math_frexp),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "ldexp"), math_ldexp),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "log"), math_log),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "max"), math_max),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "min"), math_min),
@@ -227,6 +229,24 @@ fn math_fmod(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
     Ok(vec![Value::float(
         number_value_to_float(left, 1)? % number_value_to_float(right, 2)?,
     )])
+}
+
+fn math_frexp(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = number_float_arg(args, 1)?;
+    if value == 0.0 || !value.is_finite() {
+        return Ok(vec![Value::float(value), Value::integer(0)]);
+    }
+    let exponent = value.abs().log2().floor() as i64 + 1;
+    let mantissa = value / 2.0_f64.powi(exponent as i32);
+    Ok(vec![Value::float(mantissa), Value::integer(exponent)])
+}
+
+fn math_ldexp(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = number_float_arg(args, 1)?;
+    let exponent = integer_arg(args, 2)?;
+    let exponent =
+        i32::try_from(exponent).map_err(|_| NativeErrorKind::ArgumentOutOfRange { index: 2 })?;
+    Ok(vec![Value::float(value * 2.0_f64.powi(exponent))])
 }
 
 fn math_modf(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -481,7 +501,8 @@ mod tests {
 
     use super::{
         LuaRandomState, MATH_CONSTANTS, MATH_NATIVE_FUNCTIONS, PI, math_abs, math_ceil, math_floor,
-        math_max, math_min, math_random, math_randomseed, math_sqrt, math_tointeger, math_type,
+        math_frexp, math_ldexp, math_max, math_min, math_random, math_randomseed, math_sqrt,
+        math_tointeger, math_type,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -538,6 +559,8 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "exp")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "floor")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "fmod")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "frexp")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "ldexp")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "log")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "max")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "min")));
@@ -620,6 +643,18 @@ mod tests {
                 &[Value::float(3.5), Value::integer(7), Value::float(7.0)]
             ),
             vec![Value::integer(7)]
+        );
+    }
+
+    #[test]
+    fn math_frexp_and_ldexp_split_and_recombine_float() {
+        assert_eq!(
+            call(math_frexp, &[Value::float(12.0)]),
+            vec![Value::float(0.75), Value::integer(4)]
+        );
+        assert_eq!(
+            call(math_ldexp, &[Value::float(0.75), Value::integer(4)]),
+            vec![Value::float(12.0)]
         );
     }
 

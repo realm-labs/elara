@@ -84,9 +84,9 @@ standard-library crate now exposes a profile/set/registry framework plus
 generic global registration adapters, and contains descriptor-based essential
 base, table, math, and string library entries. The stdlib crate also exposes
 executable native specs for the currently implemented math functions `abs`,
-`acos`, `asin`, `atan`, `ceil`, `cos`, `deg`, `exp`, `floor`, `fmod`, `log`,
-`max`, `min`, `modf`, `rad`, `random`, `randomseed`, `sin`, `sqrt`, `tan`,
-`tointeger`, `type`, and `ult`.
+`acos`, `asin`, `atan`, `ceil`, `cos`, `deg`, `exp`, `floor`, `fmod`,
+`frexp`, `ldexp`, `log`, `max`, `min`, `modf`, `rad`, `random`,
+`randomseed`, `sin`, `sqrt`, `tan`, `tointeger`, `type`, and `ult`.
 The API layer can build a primitive `RuntimeEnvironment` from implemented
 stdlib native specs, including shared reseedable math RNG state and math
 constants `pi`, `huge`, `maxinteger`, and `mininteger`, and simple source
@@ -187,6 +187,7 @@ Completed:
   - M11.2 executable math deg and rad native specs.
   - M11.2 executable math exp and log native specs.
   - M11.2 executable math fmod and modf native specs.
+  - M11.2 executable math frexp and ldexp native specs.
   - M11.2 executable math ult native spec.
   - M11.2 executable math.tointeger native spec.
   - M11.2 primitive runtime environment seeding for native globals.
@@ -823,12 +824,12 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable math constants verification passed:
+M11.2 executable math frexp/ldexp verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib math_constants
-cargo test -p elara-api eval_simple_with_stdlib_registers_math_constants
+cargo test -p elara-stdlib math_
+cargo test -p elara-api eval_simple_with_stdlib_executes_math_frexp_ldexp
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```

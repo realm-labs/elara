@@ -418,6 +418,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_math_frexp_ldexp() {
+        let profile = StdLibProfile::Custom([StdLib::Math].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return math.ldexp(0.75, 4)",
+                &profile,
+            ),
+            Ok(vec![Value::float(12.0)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_math_ult() {
         let profile = StdLibProfile::Custom([StdLib::Math].into_iter().collect());
 
