@@ -11,6 +11,7 @@ use std::collections::BTreeSet;
 mod base;
 mod coroutine;
 mod debug;
+mod io;
 mod math;
 mod native;
 mod number;
@@ -23,6 +24,7 @@ mod utf8;
 pub use base::{BASE_IPAIRS_AUX_NATIVE, BASE_NATIVE_FUNCTIONS, BASE_NEXT_NATIVE};
 pub use coroutine::COROUTINE_NATIVE_FUNCTIONS;
 pub use debug::DEBUG_NATIVE_FUNCTIONS;
+pub use io::IO_NATIVE_FUNCTIONS;
 pub use math::{LuaRandomState, MATH_CONSTANTS, MATH_NATIVE_FUNCTIONS};
 pub use native::{
     NativeError, NativeErrorKind, NativeFunctionSpec, NativeResult, NativeRuntime,
@@ -599,10 +601,10 @@ pub const fn native_functions(library: StdLib) -> &'static [NativeFunctionSpec] 
         StdLib::String => STRING_NATIVE_FUNCTIONS,
         StdLib::Table => TABLE_NATIVE_FUNCTIONS,
         StdLib::Utf8 => UTF8_NATIVE_FUNCTIONS,
+        StdLib::Io => IO_NATIVE_FUNCTIONS,
         StdLib::Os => OS_NATIVE_FUNCTIONS,
         StdLib::Package => PACKAGE_NATIVE_FUNCTIONS,
         StdLib::Debug => DEBUG_NATIVE_FUNCTIONS,
-        _ => &[],
     }
 }
 
@@ -840,8 +842,14 @@ mod tests {
     }
 
     #[test]
-    fn host_sensitive_libraries_without_safe_subset_are_not_executable_natives_yet() {
-        assert!(native_functions(StdLib::Io).is_empty());
+    fn io_native_functions_are_discoverable() {
+        let functions = native_functions(StdLib::Io);
+
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Io, "type"))
+        );
     }
 
     #[test]
