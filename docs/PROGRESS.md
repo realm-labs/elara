@@ -810,13 +810,16 @@ Delivered:
   string functions.
 - `essential_registry` registers the descriptor libraries selected by the
   current standard-library profile.
+- `utf8.len` is implemented with strict/lax UTF-8 validation, relative byte
+  ranges, invalid-byte reporting, descriptor registration, and runtime module
+  registration.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M11
 
 - Implement coroutine standard functions backed by primitive coroutine support.
-- Implement utf8 library basics.
+- Complete remaining utf8 library basics beyond `utf8.len`.
 
 ### Product Gaps
 
@@ -842,16 +845,12 @@ M11.2 is complete.
 
 ## Last Verification
 
-M11.2 string.gmatch leading-caret and exit verification passed:
+M11.3 `utf8.len` verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib start_anchor
-cargo test -p elara-api literal_start_anchor
-cargo test -p elara-stdlib base
-cargo test -p elara-stdlib table
-cargo test -p elara-stdlib math
-cargo test -p elara-stdlib string
+cargo test -p elara-stdlib utf8
+cargo test -p elara-api utf8_len
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
@@ -859,7 +858,7 @@ cargo clippy -p elara-api --all-targets -- -D warnings
 ## Next Recommended Action
 
 Continue M11.3 with coroutine standard-library functions backed by primitive
-coroutine support.
+coroutine support and the remaining UTF-8 library basics.
 
 ## Current Risk Notes
 

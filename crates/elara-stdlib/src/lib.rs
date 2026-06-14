@@ -14,6 +14,7 @@ mod native;
 mod number;
 mod string;
 mod table;
+mod utf8;
 
 pub use base::{BASE_IPAIRS_AUX_NATIVE, BASE_NATIVE_FUNCTIONS, BASE_NEXT_NATIVE};
 pub use math::{LuaRandomState, MATH_CONSTANTS, MATH_NATIVE_FUNCTIONS};
@@ -23,6 +24,7 @@ pub use native::{
 };
 pub use string::{STRING_GMATCH_AUX_NATIVE, STRING_NATIVE_FUNCTIONS};
 pub use table::TABLE_NATIVE_FUNCTIONS;
+pub use utf8::UTF8_NATIVE_FUNCTIONS;
 
 /// One standard-library module that can register itself into a target runtime.
 pub trait Library<Target> {
@@ -489,6 +491,9 @@ pub const STRING_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::String, "upper"),
 ];
 
+/// Basic UTF-8 library function descriptors.
+pub const UTF8_FUNCTIONS: &[FunctionSpec] = &[FunctionSpec::new(StdLib::Utf8, "len")];
+
 /// Returns executable native functions currently implemented for a library.
 #[must_use]
 pub const fn native_functions(library: StdLib) -> &'static [NativeFunctionSpec] {
@@ -497,6 +502,7 @@ pub const fn native_functions(library: StdLib) -> &'static [NativeFunctionSpec] 
         StdLib::Math => MATH_NATIVE_FUNCTIONS,
         StdLib::String => STRING_NATIVE_FUNCTIONS,
         StdLib::Table => TABLE_NATIVE_FUNCTIONS,
+        StdLib::Utf8 => UTF8_NATIVE_FUNCTIONS,
         _ => &[],
     }
 }
@@ -523,6 +529,10 @@ where
     registry.add(
         StdLib::String,
         FunctionLibrary::new(StdLib::String, "string", STRING_FUNCTIONS),
+    );
+    registry.add(
+        StdLib::Utf8,
+        FunctionLibrary::new(StdLib::Utf8, "utf8", UTF8_FUNCTIONS),
     );
     registry
 }
@@ -678,6 +688,17 @@ mod tests {
                 .0
                 .contains(&FunctionSpec::new(StdLib::Utf8, "len"))
         );
+
+        functions.0.clear();
+        StdLibProfile::Sandboxed
+            .register(&registry, &mut functions)
+            .expect("registration should pass");
+
+        assert!(
+            functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::Utf8, "len"))
+        );
     }
 
     #[test]
@@ -780,6 +801,17 @@ mod tests {
             functions
                 .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::String, "sub"))
+        );
+    }
+
+    #[test]
+    fn utf8_native_functions_are_discoverable() {
+        let functions = native_functions(StdLib::Utf8);
+
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Utf8, "len"))
         );
     }
 }
