@@ -3,8 +3,8 @@
 use elara_core::Value;
 
 use crate::{
-    DebugInfoTarget, FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime,
-    StdLib,
+    DebugHookState, DebugInfoTarget, FunctionSpec, NativeError, NativeErrorKind,
+    NativeFunctionSpec, NativeRuntime, StdLib,
 };
 
 /// Executable `debug` library functions currently implemented.
@@ -57,10 +57,14 @@ pub const DEBUG_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
 ];
 
 fn debug_gethook(
-    _runtime: &mut dyn NativeRuntime,
+    runtime: &mut dyn NativeRuntime,
     _args: &[Value],
 ) -> Result<Vec<Value>, NativeError> {
-    Ok(vec![Value::nil()])
+    let Some(hook) = runtime.debug_gethook()? else {
+        return Ok(vec![Value::nil()]);
+    };
+    let mask = runtime.intern_string(&hook.mask)?;
+    Ok(vec![hook.function, mask, Value::integer(hook.count)])
 }
 
 fn debug_getinfo(
@@ -258,6 +262,7 @@ fn debug_sethook(
     let hook_index = usize::from(has_thread_arg);
     let hook = args.get(hook_index).copied().unwrap_or_else(Value::nil);
     if hook.is_nil() {
+        runtime.debug_clearhook()?;
         return Ok(Vec::new());
     }
     if !hook.is_closure() {
@@ -273,23 +278,27 @@ fn debug_sethook(
         .ok_or(NativeErrorKind::MissingArgument {
             index: hook_index + 2,
         })?;
-    if runtime.string_bytes(mask).is_none() {
+    let Some(mask) = runtime.string_bytes(mask) else {
         return Err(NativeErrorKind::TypeError {
             index: hook_index + 2,
             expected: "string",
         }
         .into());
-    }
-    if let Some(count) = args.get(hook_index + 2).filter(|value| !value.is_nil()) {
+    };
+    let count = if let Some(count) = args.get(hook_index + 2).filter(|value| !value.is_nil()) {
         count.as_integer().ok_or(NativeErrorKind::TypeError {
             index: hook_index + 3,
             expected: "integer",
-        })?;
-    }
-    Err(NativeErrorKind::RuntimeError {
-        message: "debug hook callbacks are not supported yet".into(),
-    }
-    .into())
+        })?
+    } else {
+        0
+    };
+    runtime.debug_sethook(DebugHookState {
+        function: hook,
+        mask: normalize_hook_mask(mask),
+        count,
+    })?;
+    Ok(Vec::new())
 }
 
 fn debug_setuservalue(
@@ -458,6 +467,20 @@ fn optional_string_arg<'a>(
         .map_err(Into::into)
 }
 
+fn normalize_hook_mask(mask: &[u8]) -> Vec<u8> {
+    let mut output = Vec::with_capacity(3);
+    for byte in [b'c', b'r', b'l'] {
+        if mask.contains(&byte) {
+            output.push(byte);
+        }
+    }
+    output
+}
+
+#[cfg(test)]
+#[path = "debug_hook_tests.rs"]
+mod hook_tests;
+
 #[cfg(test)]
 #[path = "debug_local_tests.rs"]
 mod local_tests;
@@ -547,62 +570,6 @@ mod tests {
             self.debug_info_request = Some((target, options.map(<[u8]>::to_vec)));
             Ok(self.debug_info.unwrap_or_else(Value::nil))
         }
-    }
-
-    #[test]
-    fn debug_gethook_returns_nil_without_installed_hook() {
-        let function = function("gethook");
-        let mut runtime = TestRuntime::default();
-
-        assert_eq!(
-            function(&mut runtime, &[]).expect("debug.gethook should pass"),
-            vec![Value::nil()]
-        );
-        assert_eq!(
-            function(&mut runtime, &[Value::integer(1)]).expect("non-thread arg should pass"),
-            vec![Value::nil()]
-        );
-    }
-
-    #[test]
-    fn debug_sethook_clears_hooks_without_results() {
-        let function = function("sethook");
-        let mut runtime = TestRuntime::default();
-
-        assert_eq!(
-            function(&mut runtime, &[]).expect("debug.sethook should clear hooks"),
-            Vec::<Value>::new()
-        );
-        assert_eq!(
-            function(&mut runtime, &[Value::nil()]).expect("debug.sethook(nil) should clear hooks"),
-            Vec::<Value>::new()
-        );
-    }
-
-    #[test]
-    fn debug_sethook_rejects_hook_installation_until_supported() {
-        let function = function("sethook");
-        let mut runtime = TestRuntime::default();
-        let hook = Value::native_function_index(1);
-        let mask = runtime.push_string(b"c");
-
-        assert_eq!(
-            function(&mut runtime, &[Value::integer(1)])
-                .expect_err("non-function hook should fail")
-                .kind(),
-            &NativeErrorKind::TypeError {
-                index: 1,
-                expected: "function",
-            }
-        );
-        assert_eq!(
-            function(&mut runtime, &[hook, mask])
-                .expect_err("hook callbacks are not supported")
-                .kind(),
-            &NativeErrorKind::RuntimeError {
-                message: "debug hook callbacks are not supported yet".into(),
-            }
-        );
     }
 
     #[test]

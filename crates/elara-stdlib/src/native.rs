@@ -16,6 +16,17 @@ pub enum DebugInfoTarget {
     Function(Value),
 }
 
+/// Stored debug hook metadata for the current runtime thread.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DebugHookState {
+    /// Hook callback function.
+    pub function: Value,
+    /// Normalized hook event mask bytes in Lua `crl` order.
+    pub mask: Vec<u8>,
+    /// Instruction-count hook interval.
+    pub count: i64,
+}
+
 /// Runtime services available to standard-library native functions.
 pub trait NativeRuntime {
     /// Interns a short Lua string in the current runtime.
@@ -113,6 +124,24 @@ pub trait NativeRuntime {
             message: "native runtime does not support debug registry access".into(),
         }
         .into())
+    }
+
+    /// Returns the currently installed debug hook metadata, if any.
+    fn debug_gethook(&mut self) -> Result<Option<DebugHookState>, NativeError> {
+        Ok(None)
+    }
+
+    /// Installs debug hook metadata for the current runtime thread.
+    fn debug_sethook(&mut self, _hook: DebugHookState) -> Result<(), NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support debug hook installation".into(),
+        }
+        .into())
+    }
+
+    /// Clears debug hook metadata for the current runtime thread.
+    fn debug_clearhook(&mut self) -> Result<(), NativeError> {
+        Ok(())
     }
 
     /// Returns a `debug.getinfo` result table, or nil when the target is unavailable.

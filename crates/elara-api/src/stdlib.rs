@@ -9,8 +9,8 @@ use std::{
 use elara_core::{ThreadStatus, Value};
 use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
 use elara_stdlib::{
-    BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, DebugInfoTarget, LuaRandomState, MATH_CONSTANTS,
-    NativeError, NativeErrorKind, NativeRuntime, PACKAGE_C_ROOT_SEARCHER_NATIVE,
+    BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, DebugHookState, DebugInfoTarget, LuaRandomState,
+    MATH_CONSTANTS, NativeError, NativeErrorKind, NativeRuntime, PACKAGE_C_ROOT_SEARCHER_NATIVE,
     PACKAGE_C_SEARCHER_NATIVE, PACKAGE_CONFIG, PACKAGE_CPATH, PACKAGE_LUA_SEARCHER_NATIVE,
     PACKAGE_PATH, PACKAGE_PRELOAD_SEARCHER_NATIVE, STRING_GMATCH_AUX_NATIVE, StdLib, StdLibProfile,
     StdLibSet, UTF8_CHAR_PATTERN, UTF8_CODES_AUX_LAX_NATIVE, UTF8_CODES_AUX_STRICT_NATIVE,
@@ -184,6 +184,7 @@ fn register_coroutine_helpers() -> NativeHelpers {
 fn register_debug_helpers() -> NativeHelpers {
     NativeHelpers {
         debug_registry: Some(Arc::new(Mutex::new(None))),
+        debug_hook: Some(Arc::new(Mutex::new(None))),
         ..NativeHelpers::default()
     }
 }
@@ -220,6 +221,7 @@ struct NativeHelpers {
     base_ipairs_aux: Option<u32>,
     coroutine_registry: Option<Arc<Mutex<CoroutineRegistry>>>,
     debug_registry: Option<Arc<Mutex<Option<u32>>>>,
+    debug_hook: Option<Arc<Mutex<Option<StoredDebugHookState>>>>,
     string_gmatch_aux: Option<u32>,
     utf8_codes_aux_strict: Option<u32>,
     utf8_codes_aux_lax: Option<u32>,
@@ -233,6 +235,52 @@ struct RegisteredCoroutine {
 
 struct CoroutineRegistry {
     coroutines: Vec<RegisteredCoroutine>,
+}
+
+#[derive(Clone)]
+struct StoredDebugHookState {
+    function: StoredDebugHookFunction,
+    mask: Vec<u8>,
+    count: i64,
+}
+
+#[derive(Clone, Copy)]
+enum StoredDebugHookFunction {
+    Lua(u32),
+    Native(u32),
+}
+
+impl StoredDebugHookState {
+    fn from_hook(hook: DebugHookState) -> Result<Self, NativeError> {
+        let function = if let Some(index) = hook.function.as_closure_index() {
+            StoredDebugHookFunction::Lua(index)
+        } else if let Some(index) = hook.function.as_native_function_index() {
+            StoredDebugHookFunction::Native(index)
+        } else {
+            return Err(NativeErrorKind::TypeError {
+                index: 1,
+                expected: "function",
+            }
+            .into());
+        };
+        Ok(Self {
+            function,
+            mask: hook.mask,
+            count: hook.count,
+        })
+    }
+
+    fn into_hook(self) -> DebugHookState {
+        let function = match self.function {
+            StoredDebugHookFunction::Lua(index) => Value::closure_index(index),
+            StoredDebugHookFunction::Native(index) => Value::native_function_index(index),
+        };
+        DebugHookState {
+            function,
+            mask: self.mask,
+            count: self.count,
+        }
+    }
 }
 
 impl Default for CoroutineRegistry {
@@ -472,6 +520,51 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
             })?;
         *registry = Some(index);
         Ok(table)
+    }
+
+    fn debug_gethook(&mut self) -> Result<Option<DebugHookState>, NativeError> {
+        let hook =
+            self.helpers
+                .debug_hook
+                .as_ref()
+                .ok_or_else(|| NativeErrorKind::RuntimeError {
+                    message: "debug hooks are not registered".into(),
+                })?;
+        Ok(hook
+            .lock()
+            .map_err(|_| NativeErrorKind::RuntimeError {
+                message: "debug hook lock poisoned".into(),
+            })?
+            .clone()
+            .map(StoredDebugHookState::into_hook))
+    }
+
+    fn debug_sethook(&mut self, hook_state: DebugHookState) -> Result<(), NativeError> {
+        let hook =
+            self.helpers
+                .debug_hook
+                .as_ref()
+                .ok_or_else(|| NativeErrorKind::RuntimeError {
+                    message: "debug hooks are not registered".into(),
+                })?;
+        *hook.lock().map_err(|_| NativeErrorKind::RuntimeError {
+            message: "debug hook lock poisoned".into(),
+        })? = Some(StoredDebugHookState::from_hook(hook_state)?);
+        Ok(())
+    }
+
+    fn debug_clearhook(&mut self) -> Result<(), NativeError> {
+        let hook =
+            self.helpers
+                .debug_hook
+                .as_ref()
+                .ok_or_else(|| NativeErrorKind::RuntimeError {
+                    message: "debug hooks are not registered".into(),
+                })?;
+        *hook.lock().map_err(|_| NativeErrorKind::RuntimeError {
+            message: "debug hook lock poisoned".into(),
+        })? = None;
+        Ok(())
     }
 
     fn debug_getinfo(

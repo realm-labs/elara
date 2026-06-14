@@ -11,6 +11,9 @@ elara-interp.workspace = true
 elara-jit = { workspace = true, optional = true }
 elara-stdlib.workspace = true
 
+[dev-dependencies]
+elara-bytecode.workspace = true
+
 [features]
 default = []
 jit = ["dep:elara-jit", "elara-jit/jit"]

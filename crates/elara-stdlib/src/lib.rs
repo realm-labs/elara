@@ -27,8 +27,8 @@ pub use debug::DEBUG_NATIVE_FUNCTIONS;
 pub use io::IO_NATIVE_FUNCTIONS;
 pub use math::{LuaRandomState, MATH_CONSTANTS, MATH_NATIVE_FUNCTIONS};
 pub use native::{
-    DebugInfoTarget, NativeError, NativeErrorKind, NativeFunctionSpec, NativeResult, NativeRuntime,
-    NativeStdFunction,
+    DebugHookState, DebugInfoTarget, NativeError, NativeErrorKind, NativeFunctionSpec,
+    NativeResult, NativeRuntime, NativeStdFunction,
 };
 pub use os::OS_NATIVE_FUNCTIONS;
 pub use package::{

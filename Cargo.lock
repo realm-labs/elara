@@ -220,6 +220,7 @@ dependencies = [
 name = "elara-api"
 version = "0.1.0"
 dependencies = [
+ "elara-bytecode",
  "elara-compiler",
  "elara-core",
  "elara-interp",
