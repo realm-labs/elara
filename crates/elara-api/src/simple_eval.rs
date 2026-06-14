@@ -843,6 +843,34 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_string_gsub_table_replacement() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return string.len(string.gsub('abc123', '(%a+)', { abc = 'word' }))",
+                &profile,
+            ),
+            Ok(vec![Value::integer(7)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_with_stdlib_executes_string_gsub_function_replacement() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return string.len(string.gsub('abc123', '(%a+)(%d+)', string.upper))",
+                &profile,
+            ),
+            Ok(vec![Value::integer(3)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_bracket_patterns() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 

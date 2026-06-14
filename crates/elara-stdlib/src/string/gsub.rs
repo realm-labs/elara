@@ -33,14 +33,12 @@ pub(super) fn string_gsub(
         2,
     )?
     .to_vec();
-    let replacement = string_arg(
+    let replacement = replacement_arg(
         runtime,
         *args
             .get(2)
             .ok_or(NativeErrorKind::MissingArgument { index: 3 })?,
-        3,
-    )?
-    .to_vec();
+    )?;
     let max = optional_integer_arg(
         args,
         4,
@@ -71,7 +69,7 @@ pub(super) fn string_gsub(
             break;
         };
         output.extend_from_slice(&subject[cursor..match_.start]);
-        append_replacement(&mut output, &subject, &replacement, &match_)?;
+        append_replacement(runtime, &mut output, &subject, &replacement, &match_)?;
         replacements += 1;
         let matched_empty = match_.start == match_.end;
         cursor = if matched_empty {
@@ -100,7 +98,50 @@ pub(super) fn string_gsub(
     Ok(vec![result, Value::integer(replacements)])
 }
 
+enum Replacement {
+    String(Vec<u8>),
+    Table(Value),
+    Function(Value),
+}
+
+fn replacement_arg(runtime: &dyn NativeRuntime, value: Value) -> Result<Replacement, NativeError> {
+    if let Some(bytes) = runtime.short_string_bytes(value) {
+        return Ok(Replacement::String(bytes.to_vec()));
+    }
+    if value.is_table() {
+        return Ok(Replacement::Table(value));
+    }
+    if value.is_closure() {
+        return Ok(Replacement::Function(value));
+    }
+    Err(NativeErrorKind::TypeError {
+        index: 3,
+        expected: "string, table, or function",
+    }
+    .into())
+}
+
 fn append_replacement(
+    runtime: &mut dyn NativeRuntime,
+    output: &mut Vec<u8>,
+    subject: &[u8],
+    replacement: &Replacement,
+    match_: &PatternMatch,
+) -> Result<(), NativeError> {
+    match replacement {
+        Replacement::String(replacement) => {
+            append_string_replacement(output, subject, replacement, match_)
+        }
+        Replacement::Table(table) => {
+            append_table_replacement(runtime, output, subject, *table, match_)
+        }
+        Replacement::Function(function) => {
+            append_function_replacement(runtime, output, subject, *function, match_)
+        }
+    }
+}
+
+fn append_string_replacement(
     output: &mut Vec<u8>,
     subject: &[u8],
     replacement: &[u8],
@@ -135,6 +176,84 @@ fn append_replacement(
     Ok(())
 }
 
+fn append_table_replacement(
+    runtime: &mut dyn NativeRuntime,
+    output: &mut Vec<u8>,
+    subject: &[u8],
+    table: Value,
+    match_: &PatternMatch,
+) -> Result<(), NativeError> {
+    let key = replacement_args(runtime, subject, match_)?
+        .into_iter()
+        .next()
+        .unwrap_or_else(Value::nil);
+    let value = runtime.table_get(table, key)?;
+    append_replacement_value(runtime, output, subject, match_, value)
+}
+
+fn append_function_replacement(
+    runtime: &mut dyn NativeRuntime,
+    output: &mut Vec<u8>,
+    subject: &[u8],
+    function: Value,
+    match_: &PatternMatch,
+) -> Result<(), NativeError> {
+    let args = replacement_args(runtime, subject, match_)?;
+    let values = runtime
+        .protected_call(function, &args)?
+        .map_err(NativeError::lua_error)?;
+    let value = values.first().copied().unwrap_or_else(Value::nil);
+    append_replacement_value(runtime, output, subject, match_, value)
+}
+
+fn replacement_args(
+    runtime: &mut dyn NativeRuntime,
+    subject: &[u8],
+    match_: &PatternMatch,
+) -> Result<Vec<Value>, NativeError> {
+    if match_.captures.is_empty() {
+        return Ok(vec![
+            runtime.intern_short_string(&subject[match_.start..match_.end])?,
+        ]);
+    }
+    match_
+        .captures
+        .iter()
+        .copied()
+        .map(|(start, end)| runtime.intern_short_string(&subject[start..end]))
+        .collect()
+}
+
+fn append_replacement_value(
+    runtime: &dyn NativeRuntime,
+    output: &mut Vec<u8>,
+    subject: &[u8],
+    match_: &PatternMatch,
+    value: Value,
+) -> Result<(), NativeError> {
+    if value.is_nil() || value.as_bool() == Some(false) {
+        output.extend_from_slice(&subject[match_.start..match_.end]);
+        return Ok(());
+    }
+    if let Some(bytes) = runtime.short_string_bytes(value) {
+        output.extend_from_slice(bytes);
+        return Ok(());
+    }
+    if let Some(integer) = value.as_integer() {
+        output.extend_from_slice(integer.to_string().as_bytes());
+        return Ok(());
+    }
+    if let Some(float) = value.as_float() {
+        output.extend_from_slice(float.to_string().as_bytes());
+        return Ok(());
+    }
+    Err(NativeErrorKind::TypeError {
+        index: 3,
+        expected: "string or number replacement",
+    }
+    .into())
+}
+
 #[cfg(test)]
 mod tests {
     use elara_core::Value;
@@ -145,12 +264,28 @@ mod tests {
     #[derive(Default)]
     struct TestRuntime {
         strings: Vec<Box<[u8]>>,
+        tables: Vec<Vec<(Value, Value)>>,
+        protected_results: Vec<Result<Vec<Value>, Box<str>>>,
     }
 
     impl TestRuntime {
         fn push_string(&mut self, bytes: &[u8]) -> Value {
+            if let Some(index) = self
+                .strings
+                .iter()
+                .position(|string| string.as_ref() == bytes)
+            {
+                let index = u32::try_from(index).expect("test string index fits in u32");
+                return Value::closure_index(index);
+            }
             let index = u32::try_from(self.strings.len()).expect("test string index fits in u32");
             self.strings.push(bytes.into());
+            Value::closure_index(index)
+        }
+
+        fn push_table(&mut self, entries: Vec<(Value, Value)>) -> Value {
+            let index = u32::try_from(self.tables.len()).expect("test table index fits in u32");
+            self.tables.push(entries);
             Value::table_index(index)
         }
     }
@@ -161,9 +296,37 @@ mod tests {
         }
 
         fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
-            let index = value.as_table_index()? as usize;
+            let index = value.as_closure_index()? as usize;
             self.strings.get(index).map(Box::as_ref)
         }
+
+        fn table_get(&self, table: Value, key: Value) -> Result<Value, NativeError> {
+            let table_index = table.as_table_index().ok_or_else(non_table_error)? as usize;
+            let table = self.tables.get(table_index).ok_or_else(non_table_error)?;
+            Ok(table
+                .iter()
+                .rev()
+                .find_map(|(entry_key, value)| (*entry_key == key).then_some(*value))
+                .unwrap_or_else(Value::nil))
+        }
+
+        fn protected_call(
+            &mut self,
+            _function: Value,
+            _args: &[Value],
+        ) -> Result<Result<Vec<Value>, Box<str>>, NativeError> {
+            if self.protected_results.is_empty() {
+                return Ok(Err("missing protected result".into()));
+            }
+            Ok(self.protected_results.remove(0))
+        }
+    }
+
+    fn non_table_error() -> NativeError {
+        NativeErrorKind::RuntimeError {
+            message: "attempt to index a non-table value".into(),
+        }
+        .into()
     }
 
     #[test]
@@ -330,6 +493,45 @@ mod tests {
         assert_eq!(
             runtime.short_string_bytes(values[0]),
             Some(b"123-abc-abc123-%".as_slice())
+        );
+        assert_eq!(values[1], Value::integer(1));
+    }
+
+    #[test]
+    fn string_gsub_uses_table_replacement_by_capture_key() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abc123");
+        let pattern = runtime.push_string(b"(%a+)");
+        let key = runtime.push_string(b"abc");
+        let value = runtime.push_string(b"word");
+        let replacement = runtime.push_table(vec![(key, value)]);
+
+        let values =
+            string_gsub(&mut runtime, &[subject, pattern, replacement]).expect("gsub should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"word123".as_slice())
+        );
+        assert_eq!(values[1], Value::integer(1));
+    }
+
+    #[test]
+    fn string_gsub_uses_function_replacement_with_captures() {
+        let mut runtime = TestRuntime {
+            protected_results: vec![Ok(vec![Value::integer(99)])],
+            ..TestRuntime::default()
+        };
+        let subject = runtime.push_string(b"abc123");
+        let pattern = runtime.push_string(b"(%a+)(%d+)");
+        let replacement = Value::native_function_index(3);
+
+        let values =
+            string_gsub(&mut runtime, &[subject, pattern, replacement]).expect("gsub should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"99".as_slice())
         );
         assert_eq!(values[1], Value::integer(1));
     }
