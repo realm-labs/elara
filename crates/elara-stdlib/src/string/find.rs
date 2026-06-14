@@ -6,7 +6,7 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
 use super::{
     optional_integer_arg,
-    pattern::{has_unsupported_pattern_special, simple_pattern_find_from},
+    pattern::{has_unsupported_pattern_special_with_captures, simple_pattern_match_from},
     relative_start, string_arg,
 };
 
@@ -34,7 +34,7 @@ pub(super) fn string_find(
     }
 
     let plain = args.get(3).is_some_and(|value| is_truthy(*value));
-    if !plain && has_unsupported_pattern_special(pattern) {
+    if !plain && has_unsupported_pattern_special_with_captures(pattern) {
         return Err(NativeErrorKind::RuntimeError {
             message: "string pattern matching is not supported yet".into(),
         }
@@ -42,23 +42,37 @@ pub(super) fn string_find(
     }
 
     let offset = init - 1;
-    let found = if plain {
-        plain_find(&subject[offset..], pattern).map(|start| {
-            let start = offset + start;
-            (start, start + pattern.len())
-        })
-    } else {
-        simple_pattern_find_from(subject, pattern, offset)
+    if plain {
+        return Ok(plain_find(&subject[offset..], pattern).map_or_else(
+            || vec![Value::nil()],
+            |start| {
+                let start = offset + start;
+                vec![
+                    Value::integer(i64::try_from(start + 1).expect("string index fits LuaInteger")),
+                    Value::integer(
+                        i64::try_from(start + pattern.len()).expect("string index fits LuaInteger"),
+                    ),
+                ]
+            },
+        ));
+    }
+
+    let Some(match_) = simple_pattern_match_from(subject, pattern, offset) else {
+        return Ok(vec![Value::nil()]);
     };
-    Ok(found.map_or_else(
-        || vec![Value::nil()],
-        |(start, end)| {
-            vec![
-                Value::integer(i64::try_from(start + 1).expect("string index fits LuaInteger")),
-                Value::integer(i64::try_from(end).expect("string index fits LuaInteger")),
-            ]
-        },
-    ))
+    let mut values = vec![
+        Value::integer(i64::try_from(match_.start + 1).expect("string index fits LuaInteger")),
+        Value::integer(i64::try_from(match_.end).expect("string index fits LuaInteger")),
+    ];
+    if match_.captures.is_empty() {
+        return Ok(values);
+    }
+
+    let subject = subject.to_vec();
+    for (start, end) in match_.captures {
+        values.push(runtime.intern_short_string(&subject[start..end])?);
+    }
+    Ok(values)
 }
 
 fn is_truthy(value: Value) -> bool {
@@ -234,6 +248,26 @@ mod tests {
     }
 
     #[test]
+    fn string_find_returns_captures_after_bounds() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abc123");
+        let pattern = runtime.push_string(b"(%a+)(%d+)");
+
+        let values = string_find(&mut runtime, &[subject, pattern]).expect("find should pass");
+
+        assert_eq!(values[0], Value::integer(1));
+        assert_eq!(values[1], Value::integer(6));
+        assert_eq!(
+            runtime.short_string_bytes(values[2]),
+            Some(b"abc".as_slice())
+        );
+        assert_eq!(
+            runtime.short_string_bytes(values[3]),
+            Some(b"123".as_slice())
+        );
+    }
+
+    #[test]
     fn string_find_matches_balanced_delimiters() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"a(b(c)d)e");
@@ -273,7 +307,7 @@ mod tests {
     fn string_find_reports_pattern_gap_for_magic_patterns() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
-        let pattern = runtime.push_string(b"(a)");
+        let pattern = runtime.push_string(b"%1");
 
         assert_eq!(
             string_find(&mut runtime, &[subject, pattern])
