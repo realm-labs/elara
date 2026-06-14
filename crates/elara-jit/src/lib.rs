@@ -10,6 +10,7 @@ pub mod abi;
 pub mod arithmetic;
 pub mod deopt;
 pub mod runtime;
+pub mod table_array;
 
 use cranelift_codegen::{isa, settings, settings::Configurable};
 use cranelift_frontend::FunctionBuilderContext;
@@ -23,6 +24,9 @@ pub use deopt::{
     DeoptError, DeoptPoint, DeoptPointId, LiveRegister, LiveRegisterValue, deopt_to_interpreter,
 };
 pub use runtime::{JitEntryStatus, JitRuntime, JitRuntimeMode, JitRuntimeStats};
+pub use table_array::{
+    TableArrayFastPath, TableArrayFastResult, TableArrayGuard, TableArraySlowPath,
+};
 
 /// Baseline JIT configuration placeholder.
 #[derive(Clone, Debug, Eq, PartialEq)]
