@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M11 Standard Library MVP
-Current step: M11.3 Implement coroutine and utf8 libraries
+Current milestone: M12 Public Rust Embedding API
+Current step: M12.1 Add `LuaBuilder`, `Lua`, and `Chunk`
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -282,9 +282,11 @@ Completed:
   - M11.2 Lua-style string.gmatch leading-caret semantics.
   - M11.2 Implement base, table, math, and string essentials.
   - M11.2 exit criteria validation.
+  - M11.3 Implement coroutine and utf8 libraries, with documented full-profile coroutine gaps.
+  - M11.4 Add sandboxed profile tests.
+  - M11 exit criteria validation.
 
 In progress:
-  - M11.3 Implement coroutine and utf8 libraries.
   - Rust API.
   - JIT.
   - C API.
@@ -853,10 +855,14 @@ Delivered:
   flag through the shared coroutine registry.
 - `coroutine.isyieldable` reports false for the main thread and true for live
   created coroutine handles.
+- Sandboxed profiles exclude `io`, `os`, `package`, and `debug` while keeping
+  base, coroutine, table, string, UTF-8, and math libraries selectable, and
+  sandbox profile tests verify both disabled-library filtering and allowed
+  function registration.
 
 ## Remaining Gaps
 
-### Immediate Gaps for M11
+### Explicit Full-Profile Standard-Library Gaps
 
 - Implement coroutine suspension from `coroutine.yield`, yielding resume and
   wrap behavior, and full primitive-backed close semantics.
@@ -882,24 +888,24 @@ M10.4 is complete.
 M10 is complete.
 M11.1 is complete.
 M11.2 is complete.
+M11.3 is complete with explicit full-profile coroutine gaps.
+M11.4 is complete.
+M11 is complete.
 
 ## Last Verification
 
-M11.3 `coroutine.wrap` verification passed:
+M11.4 sandbox profile verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib coroutine
-cargo test -p elara-api coroutine
+cargo test -p elara-stdlib sandbox
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
-cargo clippy -p elara-api --all-targets -- -D warnings
-cargo clippy -p elara-interp --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M11.3 with real stdlib coroutine suspension/resume, wrap, and full
-primitive-backed close semantics.
+Start M12.1 by adding the public `LuaBuilder`, `Lua`, and `Chunk` embedding API
+surface on top of the existing stdlib-backed simple evaluation path.
 
 ## Current Risk Notes
 

@@ -640,6 +640,81 @@ mod tests {
     }
 
     #[test]
+    fn sandbox_profile_excludes_disabled_libraries() {
+        let sandboxed = StdLibProfile::Sandboxed.libraries();
+
+        assert!(sandboxed.contains(StdLib::Base));
+        assert!(sandboxed.contains(StdLib::Coroutine));
+        assert!(sandboxed.contains(StdLib::Table));
+        assert!(sandboxed.contains(StdLib::String));
+        assert!(sandboxed.contains(StdLib::Utf8));
+        assert!(sandboxed.contains(StdLib::Math));
+        assert!(!sandboxed.contains(StdLib::Io));
+        assert!(!sandboxed.contains(StdLib::Os));
+        assert!(!sandboxed.contains(StdLib::Package));
+        assert!(!sandboxed.contains(StdLib::Debug));
+    }
+
+    #[test]
+    fn sandbox_profile_does_not_register_disabled_libraries() {
+        let mut registry = StdLibRegistry::new();
+        registry.add(StdLib::Base, NamedLibrary("base"));
+        registry.add(StdLib::Utf8, NamedLibrary("utf8"));
+        registry.add(StdLib::Io, NamedLibrary("io"));
+        registry.add(StdLib::Os, NamedLibrary("os"));
+        registry.add(StdLib::Package, NamedLibrary("package"));
+        registry.add(StdLib::Debug, NamedLibrary("debug"));
+        let mut target = Vec::new();
+
+        StdLibProfile::Sandboxed
+            .register(&registry, &mut target)
+            .expect("sandbox registration should pass");
+
+        assert_eq!(target, vec!["base", "utf8"]);
+    }
+
+    #[test]
+    fn sandbox_profile_registers_allowed_essential_functions() {
+        let registry = essential_registry();
+        let mut functions = Functions::default();
+
+        StdLibProfile::Sandboxed
+            .register(&registry, &mut functions)
+            .expect("sandbox registration should pass");
+
+        assert!(
+            functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::Base, "assert"))
+        );
+        assert!(
+            functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::Coroutine, "wrap"))
+        );
+        assert!(
+            functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::Table, "concat"))
+        );
+        assert!(
+            functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::String, "len"))
+        );
+        assert!(
+            functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::Utf8, "len"))
+        );
+        assert!(
+            functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::Math, "abs"))
+        );
+    }
+
+    #[test]
     fn registry_registers_selected_libraries_in_registry_order() {
         let mut registry = StdLibRegistry::new();
         registry.add(StdLib::Math, NamedLibrary("math"));
