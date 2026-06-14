@@ -124,6 +124,15 @@ pub trait NativeRuntime {
         Ok(Value::nil())
     }
 
+    /// Returns a `debug.getupvalue` name/value pair, or nil when absent.
+    fn debug_getupvalue(
+        &mut self,
+        _function: Value,
+        _index: i64,
+    ) -> Result<Option<(Value, Value)>, NativeError> {
+        Ok(None)
+    }
+
     /// Returns a traceback string for the current debug frame state.
     fn debug_traceback(
         &mut self,

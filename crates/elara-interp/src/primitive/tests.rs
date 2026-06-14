@@ -152,6 +152,46 @@ fn native_context_materializes_debug_info_for_lua_caller() {
 }
 
 #[test]
+fn native_context_reads_lua_closure_upvalues() {
+    let mut environment = RuntimeEnvironment::new();
+    environment.register_native_global("capture", |context, args| {
+        let Some((name, value)) = args
+            .first()
+            .copied()
+            .map(|function| context.debug_getupvalue(function, 1))
+            .transpose()?
+            .flatten()
+        else {
+            return Ok(vec![Value::boolean(false)]);
+        };
+        let is_expected =
+            context.string_bytes(name) == Some(b"x" as &[u8]) && value == Value::integer(41);
+        Ok(vec![Value::boolean(is_expected)])
+    });
+
+    let mut child_builder = ProtoBuilder::new().with_signature(1, 0, false);
+    child_builder.add_upvalue(elara_bytecode::UpvalueDesc::new(Some("x"), true, 0));
+    child_builder.emit_abc(Op::Return, 0, 0, 0);
+    let child = child_builder.finish();
+
+    let mut parent = ProtoBuilder::new().with_signature(4, 0, false);
+    let value = parent.add_constant(Value::integer(41));
+    let capture = parent.add_string_constant("capture");
+    parent.emit_abx(Op::LoadK, 0, u64::from(value));
+    let child_index = parent.add_child(child);
+    parent.emit_abx(Op::Closure, 1, u64::from(child_index));
+    parent.emit_abx(Op::GetEnv, 2, u64::from(capture));
+    parent.emit_abc(Op::Move, 3, 1, 0);
+    parent.emit_abc(Op::Call, 2, 2, 1);
+    parent.emit_abc(Op::Return, 2, 1, 0);
+
+    assert_eq!(
+        execute_proto_with_environment(&parent.finish(), environment).map(|output| output.values),
+        Ok(vec![Value::boolean(true)])
+    );
+}
+
+#[test]
 fn cloned_native_registries_share_later_registrations() {
     let natives = RuntimeNatives::new();
     let shared = natives.clone();

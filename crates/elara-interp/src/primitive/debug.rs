@@ -91,6 +91,36 @@ pub(super) fn info_for_function(
     Ok(Value::nil())
 }
 
+pub(super) fn get_upvalue(
+    function: Value,
+    index: i64,
+    closures: &[RuntimeClosure],
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<Option<(Value, Value)>> {
+    let Some(index) = index
+        .checked_sub(1)
+        .and_then(|index| usize::try_from(index).ok())
+    else {
+        return Ok(None);
+    };
+    let Some(closure_index) = function.as_closure_index() else {
+        return Ok(None);
+    };
+    let Some(closure) = closures.get(closure_index as usize) else {
+        return Ok(None);
+    };
+    let Some(value) = closure.upvalues.get(index).copied() else {
+        return Ok(None);
+    };
+    let name = closure
+        .proto
+        .upvalues
+        .get(index)
+        .and_then(|upvalue| upvalue.name.as_deref())
+        .unwrap_or("?");
+    Ok(Some((strings.intern_value(name), value)))
+}
+
 fn info_for_frame(
     frame: &RuntimeDebugFrame,
     options: &[u8],
