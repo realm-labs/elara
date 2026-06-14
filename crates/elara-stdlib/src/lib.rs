@@ -858,6 +858,11 @@ mod tests {
         assert!(
             functions
                 .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Os, "execute"))
+        );
+        assert!(
+            functions
+                .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Os, "getenv"))
         );
         assert!(

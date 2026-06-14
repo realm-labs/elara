@@ -16,10 +16,12 @@ use crate::{
 };
 
 mod date;
+mod execute;
 mod time;
 
 use self::{
     date::os_date,
+    execute::os_execute,
     time::{utc_date_time, utc_seconds_from_civil_time},
 };
 
@@ -28,6 +30,7 @@ pub const OS_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "clock"), os_clock),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "date"), os_date),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "difftime"), os_difftime),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "execute"), os_execute),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "getenv"), os_getenv),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "remove"), os_remove),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "rename"), os_rename),
