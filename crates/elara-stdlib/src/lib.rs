@@ -496,6 +496,7 @@ pub const UTF8_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Utf8, "char"),
     FunctionSpec::new(StdLib::Utf8, "codepoint"),
     FunctionSpec::new(StdLib::Utf8, "len"),
+    FunctionSpec::new(StdLib::Utf8, "offset"),
 ];
 
 /// Returns executable native functions currently implemented for a library.
@@ -827,6 +828,11 @@ mod tests {
                 .iter()
                 .any(|function| function.descriptor()
                     == FunctionSpec::new(StdLib::Utf8, "codepoint"))
+        );
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Utf8, "offset"))
         );
     }
 }

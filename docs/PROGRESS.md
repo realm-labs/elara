@@ -817,6 +817,8 @@ Delivered:
   31-bit UTF-8 range and returns the concatenated string.
 - `utf8.codepoint` returns code points across relative byte ranges, supports
   lax decoding, and reports invalid UTF-8 sequences as Lua errors.
+- `utf8.offset` returns Lua 5.5 start/end byte ranges for forward, backward,
+  zero-offset, and right-after-end character lookups.
 
 ## Remaining Gaps
 
@@ -824,7 +826,7 @@ Delivered:
 
 - Implement coroutine standard functions backed by primitive coroutine support.
 - Complete remaining utf8 library basics beyond `utf8.char`, `utf8.codepoint`,
-  and `utf8.len`.
+  `utf8.len`, and `utf8.offset`.
 
 ### Product Gaps
 
@@ -850,7 +852,7 @@ M11.2 is complete.
 
 ## Last Verification
 
-M11.3 `utf8.codepoint` verification passed:
+M11.3 `utf8.offset` verification passed:
 
 ```bash
 cargo fmt --all -- --check

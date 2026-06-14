@@ -14,6 +14,7 @@ pub const UTF8_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Utf8, "char"), utf8_char),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Utf8, "codepoint"), utf8_codepoint),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Utf8, "len"), utf8_len),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Utf8, "offset"), utf8_offset),
 ];
 
 fn utf8_char(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -104,6 +105,79 @@ fn utf8_len(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value
     Ok(vec![Value::integer(count)])
 }
 
+fn utf8_offset(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let bytes = string_arg(runtime, value, 1)?;
+    let len = bytes.len();
+    let len_integer = i64::try_from(len).expect("runtime string length must fit in LuaInteger");
+    let mut character_count = integer_arg(args, 2)?;
+    let default_position = if character_count >= 0 {
+        1
+    } else {
+        len_integer + 1
+    };
+    let initial_position = relative_position(optional_integer_arg(args, 3, default_position)?, len);
+
+    if !(1 <= initial_position && initial_position - 1 <= len_integer) {
+        return Err(NativeErrorKind::ArgumentOutOfRange { index: 3 }.into());
+    }
+
+    let mut position =
+        usize::try_from(initial_position - 1).expect("position must be non-negative");
+    if character_count == 0 {
+        while position > 0 && is_continuation_at(bytes, position) {
+            position -= 1;
+        }
+    } else {
+        if is_continuation_at(bytes, position) {
+            return Err(NativeError::lua_error(
+                "initial position is a continuation byte",
+            ));
+        }
+        if character_count < 0 {
+            while character_count < 0 && position > 0 {
+                position -= 1;
+                while position > 0 && is_continuation_at(bytes, position) {
+                    position -= 1;
+                }
+                character_count += 1;
+            }
+        } else {
+            character_count -= 1;
+            while character_count > 0 && position < len {
+                position += 1;
+                while is_continuation_at(bytes, position) {
+                    position += 1;
+                }
+                character_count -= 1;
+            }
+        }
+    }
+
+    if character_count != 0 {
+        return Ok(vec![Value::nil()]);
+    }
+
+    let start = i64::try_from(position + 1).expect("position must fit in LuaInteger");
+    let mut end = position;
+    if let Some(byte) = bytes.get(position)
+        && byte & 0x80 != 0
+    {
+        if is_continuation(*byte) {
+            return Err(NativeError::lua_error(
+                "initial position is a continuation byte",
+            ));
+        }
+        while is_continuation_at(bytes, end + 1) {
+            end += 1;
+        }
+    }
+    let end = i64::try_from(end + 1).expect("position must fit in LuaInteger");
+    Ok(vec![Value::integer(start), Value::integer(end)])
+}
+
 fn decode_utf8(bytes: &[u8], position: usize, strict: bool) -> Option<(usize, u32)> {
     let mut c = u32::from(*bytes.get(position)?);
     let mut result = 0_u32;
@@ -180,6 +254,12 @@ fn is_continuation(byte: u8) -> bool {
     byte & 0xc0 == 0x80
 }
 
+fn is_continuation_at(bytes: &[u8], position: usize) -> bool {
+    bytes
+        .get(position)
+        .is_some_and(|byte| is_continuation(*byte))
+}
+
 fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i64, NativeError> {
     match args.get(index - 1) {
         Some(value) if value.is_nil() => Ok(default),
@@ -239,7 +319,7 @@ fn is_truthy(value: Value) -> bool {
 mod tests {
     use elara_core::Value;
 
-    use super::{MAX_UTF, UTF8_NATIVE_FUNCTIONS, utf8_char, utf8_codepoint, utf8_len};
+    use super::{MAX_UTF, UTF8_NATIVE_FUNCTIONS, utf8_char, utf8_codepoint, utf8_len, utf8_offset};
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
     #[derive(Default)]
@@ -276,6 +356,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "len")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "char")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "codepoint")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "offset")));
     }
 
     #[test]
@@ -407,6 +488,88 @@ mod tests {
         assert_eq!(
             utf8_codepoint(&mut runtime, &[value, Value::integer(1), Value::integer(4)])
                 .expect_err("large end should fail")
+                .kind(),
+            &NativeErrorKind::ArgumentOutOfRange { index: 3 }
+        );
+    }
+
+    #[test]
+    fn utf8_offset_returns_start_and_end_positions() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"a\xc3\xa9\xf0\x9d\x84\x9e");
+
+        assert_eq!(
+            utf8_offset(&mut runtime, &[value, Value::integer(2)])
+                .expect("utf8.offset should pass"),
+            vec![Value::integer(2), Value::integer(3)]
+        );
+        assert_eq!(
+            utf8_offset(&mut runtime, &[value, Value::integer(3)])
+                .expect("utf8.offset should pass"),
+            vec![Value::integer(4), Value::integer(7)]
+        );
+        assert_eq!(
+            utf8_offset(&mut runtime, &[value, Value::integer(4)])
+                .expect("utf8.offset should pass"),
+            vec![Value::integer(8), Value::integer(8)]
+        );
+    }
+
+    #[test]
+    fn utf8_offset_zero_returns_containing_character_range() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"a\xc3\xa9\xf0\x9d\x84\x9e");
+
+        assert_eq!(
+            utf8_offset(&mut runtime, &[value, Value::integer(0), Value::integer(3)])
+                .expect("utf8.offset should pass"),
+            vec![Value::integer(2), Value::integer(3)]
+        );
+    }
+
+    #[test]
+    fn utf8_offset_counts_backward_from_default_end() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"a\xc3\xa9\xf0\x9d\x84\x9e");
+
+        assert_eq!(
+            utf8_offset(&mut runtime, &[value, Value::integer(-1)])
+                .expect("utf8.offset should pass"),
+            vec![Value::integer(4), Value::integer(7)]
+        );
+        assert_eq!(
+            utf8_offset(&mut runtime, &[value, Value::integer(-2)])
+                .expect("utf8.offset should pass"),
+            vec![Value::integer(2), Value::integer(3)]
+        );
+    }
+
+    #[test]
+    fn utf8_offset_returns_nil_when_character_is_not_found() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"abc");
+
+        assert_eq!(
+            utf8_offset(&mut runtime, &[value, Value::integer(5)])
+                .expect("utf8.offset should pass"),
+            vec![Value::nil()]
+        );
+    }
+
+    #[test]
+    fn utf8_offset_rejects_bad_initial_positions() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"a\xc3\xa9");
+
+        assert_eq!(
+            utf8_offset(&mut runtime, &[value, Value::integer(1), Value::integer(3)])
+                .expect_err("continuation start should fail")
+                .kind(),
+            &NativeErrorKind::LuaError
+        );
+        assert_eq!(
+            utf8_offset(&mut runtime, &[value, Value::integer(1), Value::integer(5)])
+                .expect_err("out-of-bounds start should fail")
                 .kind(),
             &NativeErrorKind::ArgumentOutOfRange { index: 3 }
         );
