@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M12 Public Rust Embedding API
-Current step: M12.4 Add tables, registry keys, and userdata
+Current milestone: M13 Conformance and Differential Testing
+Current step: M13.1 Add official Lua runner integration
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -288,12 +288,13 @@ Completed:
   - M12.1 Add `LuaBuilder`, `Lua`, and `Chunk`.
   - M12.2 Add `IntoLua` and `FromLua`.
   - M12.3 Add native Rust functions.
+  - M12.4 Add tables, registry keys, and userdata.
+  - M12 exit criteria validation.
 
 In progress:
-  - Rust API.
+  - Conformance and benchmark harnesses.
   - JIT.
   - C API.
-  - Conformance and benchmark harnesses.
 ```
 
 ## Current Milestone Details
@@ -874,6 +875,10 @@ Delivered:
   as globals for future chunk evaluations, extract typed arguments through
   conversion traits, return multiple Lua values through `IntoLuaMulti`, and
   convert callback/conversion failures into runtime errors.
+- The public API exposes safe high-level `Table`, `Function`, `RegistryKey`,
+  and `AnyUserData` handles. Tables store and convert API-owned values, Lua
+  registry keys round-trip stored values through a `Lua` handle, and userdata
+  handles provide typed borrow checks without exposing runtime internals.
 
 ## Remaining Gaps
 
@@ -909,15 +914,18 @@ M11 is complete.
 M12.1 is complete.
 M12.2 is complete.
 M12.3 is complete.
+M12.4 is complete.
+M12 is complete.
 
 ## Last Verification
 
-M12.3 native function verification passed:
+M12.4 table, registry, and userdata verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-api native_function
-cargo test -p elara-api chunk
+cargo test -p elara-api table
+cargo test -p elara-api registry
+cargo test -p elara-api userdata
 cargo test -p elara
 cargo clippy -p elara-api --all-targets -- -D warnings
 cargo clippy -p elara --all-targets -- -D warnings
@@ -925,8 +933,8 @@ cargo clippy -p elara --all-targets -- -D warnings
 
 ## Next Recommended Action
 
-Continue M12.4 with table/function handles, registry keys, and basic userdata
-traits.
+Start M13.1 by adding configurable official-Lua runner integration for
+differential tests.
 
 ## Current Risk Notes
 

@@ -1,13 +1,19 @@
 //! High-level Lua runtime and chunk evaluation API.
 
-use std::cell::{Cell, RefCell};
+use std::{
+    cell::{Cell, RefCell},
+    collections::BTreeMap,
+};
 
 use elara_compiler::compile_simple_chunk;
 use elara_core::{SourceId, Value};
 use elara_interp::execute_proto_with_environment;
 use elara_stdlib::StdLibProfile;
 
-use crate::{EvalError, Function, stdlib::runtime_environment_for_stdlib};
+use crate::{
+    AnyUserData, EvalError, FromLua, Function, IntoLua, LuaValue, RegistryError, RegistryKey,
+    Table, UserData, stdlib::runtime_environment_for_stdlib,
+};
 
 /// Builder for a Lua runtime handle.
 #[derive(Clone, Debug)]
@@ -36,6 +42,8 @@ impl LuaBuilder {
             stdlib_profile: self.stdlib_profile,
             next_source_id: Cell::new(0),
             native_globals: RefCell::new(Vec::new()),
+            next_registry_key: Cell::new(0),
+            registry: RefCell::new(BTreeMap::new()),
         }
     }
 }
@@ -54,6 +62,8 @@ pub struct Lua {
     stdlib_profile: StdLibProfile,
     next_source_id: Cell<u32>,
     native_globals: RefCell<Vec<NativeGlobal>>,
+    next_registry_key: Cell<u64>,
+    registry: RefCell<BTreeMap<RegistryKey, LuaValue>>,
 }
 
 impl Lua {
@@ -102,6 +112,47 @@ impl Lua {
             name: name.into(),
             function,
         });
+    }
+
+    /// Creates an empty high-level table handle.
+    #[must_use]
+    pub fn create_table(&self) -> Table {
+        Table::new()
+    }
+
+    /// Stores a value in this Lua handle's registry and returns an opaque key.
+    pub fn create_registry_value<V>(&self, value: V) -> Result<RegistryKey, crate::ConversionError>
+    where
+        V: IntoLua,
+    {
+        let key = RegistryKey(self.next_registry_key.get());
+        self.next_registry_key.set(key.0.saturating_add(1));
+        self.registry.borrow_mut().insert(key, value.into_lua()?);
+        Ok(key)
+    }
+
+    /// Gets and converts a registry value.
+    pub fn registry_value<T>(&self, key: &RegistryKey) -> Result<T, RegistryError>
+    where
+        T: FromLua,
+    {
+        let registry = self.registry.borrow();
+        let value = registry.get(key).ok_or(RegistryError::MissingKey)?;
+        T::from_lua(value).map_err(RegistryError::from)
+    }
+
+    /// Removes a value from this Lua handle's registry.
+    pub fn remove_registry_value(&self, key: RegistryKey) -> Option<LuaValue> {
+        self.registry.borrow_mut().remove(&key)
+    }
+
+    /// Creates a typed userdata handle.
+    #[must_use]
+    pub fn create_userdata<T>(&self, value: T) -> AnyUserData
+    where
+        T: UserData,
+    {
+        AnyUserData::new(value)
     }
 }
 

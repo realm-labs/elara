@@ -10,6 +10,7 @@
 
 pub use elara_api as api;
 pub use elara_api::{
-    Chunk, ConversionError, EvalError, FromLua, FromLuaMulti, Function, IntoLua, IntoLuaMulti, Lua,
-    LuaBuilder, LuaValue, NativeFunctionError,
+    AnyUserData, Chunk, ConversionError, EvalError, FromLua, FromLuaMulti, Function, IntoLua,
+    IntoLuaMulti, Lua, LuaBuilder, LuaValue, NativeFunctionError, RegistryError, RegistryKey,
+    Table, UserData,
 };
