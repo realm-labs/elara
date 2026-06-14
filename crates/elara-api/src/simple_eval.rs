@@ -489,6 +489,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_os_getenv_absent() {
+        let profile = StdLibProfile::Custom([StdLib::Os].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return os.getenv('__ELARA_ENV_VAR_THAT_SHOULD_NOT_EXIST__')",
+                &profile,
+            ),
+            Ok(vec![Value::nil()])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_assert() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 

@@ -15,6 +15,7 @@ use crate::{
 pub const OS_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "clock"), os_clock),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "difftime"), os_difftime),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "getenv"), os_getenv),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "time"), os_time),
 ];
 
@@ -50,6 +51,22 @@ fn os_time(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value
     }
 }
 
+fn os_getenv(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let name = string_arg(runtime, args, 1)?;
+    let name = std::str::from_utf8(name).map_err(|_| NativeErrorKind::TypeError {
+        index: 1,
+        expected: "utf-8 string",
+    })?;
+    match std::env::var(name) {
+        Ok(value) => Ok(vec![runtime.intern_short_string(value.as_bytes())?]),
+        Err(std::env::VarError::NotPresent) => Ok(vec![Value::nil()]),
+        Err(std::env::VarError::NotUnicode(_)) => Err(NativeErrorKind::RuntimeError {
+            message: "environment variable is not valid Unicode".into(),
+        }
+        .into()),
+    }
+}
+
 fn current_unix_time() -> Result<Vec<Value>, NativeError> {
     let seconds = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -61,6 +78,23 @@ fn current_unix_time() -> Result<Vec<Value>, NativeError> {
         message: "system time cannot be represented as Lua integer".into(),
     })?;
     Ok(vec![Value::integer(seconds)])
+}
+
+fn string_arg<'a>(
+    runtime: &'a dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<&'a [u8], NativeError> {
+    let value = *args
+        .get(index - 1)
+        .ok_or(NativeErrorKind::MissingArgument { index })?;
+    runtime
+        .short_string_bytes(value)
+        .ok_or(NativeErrorKind::TypeError {
+            index,
+            expected: "string",
+        })
+        .map_err(Into::into)
 }
 
 fn time_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
@@ -83,22 +117,33 @@ mod tests {
     use crate::{NativeErrorKind, StdLib, native_functions};
 
     #[derive(Default)]
-    struct TestRuntime;
+    struct TestRuntime {
+        strings: Vec<Box<[u8]>>,
+    }
+
+    impl TestRuntime {
+        fn push_string(&mut self, bytes: &[u8]) -> Value {
+            let index = u32::try_from(self.strings.len()).expect("test string index fits in u32");
+            self.strings.push(bytes.into());
+            Value::closure_index(index)
+        }
+    }
 
     impl crate::NativeRuntime for TestRuntime {
-        fn intern_short_string(&mut self, _bytes: &[u8]) -> Result<Value, crate::NativeError> {
-            unreachable!("os.difftime does not intern strings")
+        fn intern_short_string(&mut self, bytes: &[u8]) -> Result<Value, crate::NativeError> {
+            Ok(self.push_string(bytes))
         }
 
-        fn short_string_bytes(&self, _value: Value) -> Option<&[u8]> {
-            unreachable!("os.difftime does not read strings")
+        fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
+            let index = value.as_closure_index()? as usize;
+            self.strings.get(index).map(Box::as_ref)
         }
     }
 
     #[test]
     fn os_difftime_returns_numeric_difference() {
         let function = function("difftime");
-        let mut runtime = TestRuntime;
+        let mut runtime = TestRuntime::default();
 
         assert_eq!(
             function(&mut runtime, &[Value::integer(20), Value::integer(8)]),
@@ -109,7 +154,7 @@ mod tests {
     #[test]
     fn os_difftime_validates_time_arguments() {
         let function = function("difftime");
-        let mut runtime = TestRuntime;
+        let mut runtime = TestRuntime::default();
 
         assert_eq!(
             function(&mut runtime, &[Value::integer(20)])
@@ -131,7 +176,7 @@ mod tests {
     #[test]
     fn os_time_without_table_returns_current_unix_time() {
         let function = function("time");
-        let mut runtime = TestRuntime;
+        let mut runtime = TestRuntime::default();
         let before = current_unix_seconds();
 
         let without_args = function(&mut runtime, &[]).expect("os.time should pass");
@@ -145,7 +190,7 @@ mod tests {
     #[test]
     fn os_time_rejects_unsupported_date_table_form() {
         let function = function("time");
-        let mut runtime = TestRuntime;
+        let mut runtime = TestRuntime::default();
 
         assert_eq!(
             function(&mut runtime, &[Value::integer(1)])
@@ -167,9 +212,40 @@ mod tests {
     }
 
     #[test]
+    fn os_getenv_validates_name_argument() {
+        let function = function("getenv");
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            function(&mut runtime, &[])
+                .expect_err("missing name")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 1 }
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1)])
+                .expect_err("non-string name")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "string",
+            }
+        );
+    }
+
+    #[test]
+    fn os_getenv_returns_nil_for_absent_variable() {
+        let function = function("getenv");
+        let mut runtime = TestRuntime::default();
+        let name = runtime.push_string(b"__ELARA_ENV_VAR_THAT_SHOULD_NOT_EXIST__");
+
+        assert_eq!(function(&mut runtime, &[name]), Ok(vec![Value::nil()]));
+    }
+
+    #[test]
     fn os_clock_returns_nonnegative_elapsed_seconds() {
         let function = function("clock");
-        let mut runtime = TestRuntime;
+        let mut runtime = TestRuntime::default();
 
         let first = function(&mut runtime, &[]).expect("os.clock should pass")[0]
             .as_float()
