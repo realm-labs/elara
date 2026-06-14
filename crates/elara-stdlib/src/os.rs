@@ -1,6 +1,9 @@
 //! Executable operating-system library natives.
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    sync::OnceLock,
+    time::{Instant, SystemTime, UNIX_EPOCH},
+};
 
 use elara_core::Value;
 
@@ -10,9 +13,17 @@ use crate::{
 
 /// Executable `os` library functions currently implemented.
 pub const OS_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "clock"), os_clock),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "difftime"), os_difftime),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "time"), os_time),
 ];
+
+static CLOCK_START: OnceLock<Instant> = OnceLock::new();
+
+fn os_clock(_runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let start = CLOCK_START.get_or_init(Instant::now);
+    Ok(vec![Value::float(start.elapsed().as_secs_f64())])
+}
 
 fn os_difftime(
     _runtime: &mut dyn NativeRuntime,
@@ -86,7 +97,7 @@ mod tests {
 
     #[test]
     fn os_difftime_returns_numeric_difference() {
-        let function = native_functions(StdLib::Os)[0].function();
+        let function = function("difftime");
         let mut runtime = TestRuntime;
 
         assert_eq!(
@@ -97,7 +108,7 @@ mod tests {
 
     #[test]
     fn os_difftime_validates_time_arguments() {
-        let function = native_functions(StdLib::Os)[0].function();
+        let function = function("difftime");
         let mut runtime = TestRuntime;
 
         assert_eq!(
@@ -119,7 +130,7 @@ mod tests {
 
     #[test]
     fn os_time_without_table_returns_current_unix_time() {
-        let function = native_functions(StdLib::Os)[1].function();
+        let function = function("time");
         let mut runtime = TestRuntime;
         let before = current_unix_seconds();
 
@@ -133,7 +144,7 @@ mod tests {
 
     #[test]
     fn os_time_rejects_unsupported_date_table_form() {
-        let function = native_functions(StdLib::Os)[1].function();
+        let function = function("time");
         let mut runtime = TestRuntime;
 
         assert_eq!(
@@ -153,6 +164,30 @@ mod tests {
                 message: "os.time date table form is not implemented".into(),
             }
         );
+    }
+
+    #[test]
+    fn os_clock_returns_nonnegative_elapsed_seconds() {
+        let function = function("clock");
+        let mut runtime = TestRuntime;
+
+        let first = function(&mut runtime, &[]).expect("os.clock should pass")[0]
+            .as_float()
+            .expect("os.clock should return float");
+        let second = function(&mut runtime, &[]).expect("os.clock should pass")[0]
+            .as_float()
+            .expect("os.clock should return float");
+
+        assert!(first >= 0.0);
+        assert!(second >= first);
+    }
+
+    fn function(name: &str) -> crate::NativeStdFunction {
+        native_functions(StdLib::Os)
+            .iter()
+            .find(|function| function.descriptor().name() == name)
+            .expect("os native function should exist")
+            .function()
     }
 
     fn current_unix_seconds() -> i64 {

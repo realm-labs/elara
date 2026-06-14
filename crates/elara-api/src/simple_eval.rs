@@ -477,6 +477,18 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_os_clock() {
+        let profile = StdLibProfile::Custom([StdLib::Os].into_iter().collect());
+
+        let values =
+            eval_simple_source_with_stdlib(SourceId::new(0), "return os.clock()", &profile)
+                .expect("os.clock should evaluate");
+
+        assert_eq!(values.len(), 1);
+        assert!(values[0].as_float().is_some_and(|value| value >= 0.0));
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_assert() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 
