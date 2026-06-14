@@ -1,6 +1,6 @@
 //! Executable package library natives.
 
-use std::{fs::File, path::MAIN_SEPARATOR_STR};
+use std::fs::File;
 
 use elara_core::Value;
 
@@ -10,6 +10,18 @@ use crate::{
 
 const PATH_MARK: &str = "?";
 const PATH_SEPARATOR: &str = ";";
+
+#[cfg(windows)]
+const DIRECTORY_SEPARATOR: &str = "\\";
+#[cfg(not(windows))]
+const DIRECTORY_SEPARATOR: &str = "/";
+
+/// Lua `package.config` value for the current platform.
+pub const PACKAGE_CONFIG: &str = if cfg!(windows) {
+    "\\\n;\n?\n!\n-\n"
+} else {
+    "/\n;\n?\n!\n-\n"
+};
 
 /// Executable `package` library functions currently implemented.
 pub const PACKAGE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[NativeFunctionSpec::new(
@@ -25,7 +37,7 @@ fn package_searchpath(
     let path = utf8_string_arg(runtime, args, 2)?;
     let separator = optional_utf8_string_arg(runtime, args, 3)?.unwrap_or(".");
     let directory_separator =
-        optional_utf8_string_arg(runtime, args, 4)?.unwrap_or(MAIN_SEPARATOR_STR);
+        optional_utf8_string_arg(runtime, args, 4)?.unwrap_or(DIRECTORY_SEPARATOR);
 
     let normalized_name = if !separator.is_empty() && name.contains(separator) {
         name.replace(separator, directory_separator)

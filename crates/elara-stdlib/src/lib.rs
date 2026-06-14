@@ -27,7 +27,7 @@ pub use native::{
     NativeStdFunction,
 };
 pub use os::OS_NATIVE_FUNCTIONS;
-pub use package::PACKAGE_NATIVE_FUNCTIONS;
+pub use package::{PACKAGE_CONFIG, PACKAGE_NATIVE_FUNCTIONS};
 pub use string::{STRING_GMATCH_AUX_NATIVE, STRING_NATIVE_FUNCTIONS};
 pub use table::TABLE_NATIVE_FUNCTIONS;
 pub use utf8::{
@@ -553,6 +553,7 @@ pub const OS_FUNCTIONS: &[FunctionSpec] = &[
 
 /// Package/module-loading library function descriptors.
 pub const PACKAGE_FUNCTIONS: &[FunctionSpec] = &[
+    FunctionSpec::new(StdLib::Package, "config"),
     FunctionSpec::new(StdLib::Package, "loadlib"),
     FunctionSpec::new(StdLib::Package, "searchpath"),
     FunctionSpec::new(StdLib::Package, "preload"),
@@ -815,6 +816,11 @@ mod tests {
 
         assert!(functions.0.contains(&FunctionSpec::new(StdLib::Io, "open")));
         assert!(functions.0.contains(&FunctionSpec::new(StdLib::Os, "time")));
+        assert!(
+            functions
+                .0
+                .contains(&FunctionSpec::new(StdLib::Package, "config"))
+        );
         assert!(
             functions
                 .0

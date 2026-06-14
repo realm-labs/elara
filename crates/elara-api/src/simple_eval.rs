@@ -532,6 +532,21 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_registers_package_config() {
+        let profile =
+            StdLibProfile::Custom([StdLib::Package, StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return string.len(package.config), string.byte(package.config, 2)",
+                &profile,
+            ),
+            Ok(vec![Value::integer(10), Value::integer(10)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_assert() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 

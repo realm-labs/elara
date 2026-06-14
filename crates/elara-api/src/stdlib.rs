@@ -10,8 +10,9 @@ use elara_core::{ThreadStatus, Value};
 use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
 use elara_stdlib::{
     BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, LuaRandomState, MATH_CONSTANTS, NativeError,
-    NativeErrorKind, NativeRuntime, STRING_GMATCH_AUX_NATIVE, StdLib, StdLibProfile, StdLibSet,
-    UTF8_CHAR_PATTERN, UTF8_CODES_AUX_LAX_NATIVE, UTF8_CODES_AUX_STRICT_NATIVE, native_functions,
+    NativeErrorKind, NativeRuntime, PACKAGE_CONFIG, STRING_GMATCH_AUX_NATIVE, StdLib,
+    StdLibProfile, StdLibSet, UTF8_CHAR_PATTERN, UTF8_CODES_AUX_LAX_NATIVE,
+    UTF8_CODES_AUX_STRICT_NATIVE, native_functions,
 };
 
 /// Builds a primitive runtime environment containing implemented stdlib natives
@@ -90,14 +91,24 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
     if library == StdLib::Math {
         fields.extend(MATH_CONSTANTS.iter().copied());
     }
-    if library == StdLib::Utf8 {
-        environment.set_global_table_with_string_fields(
-            library.name(),
-            fields,
-            [("charpattern", UTF8_CHAR_PATTERN)],
-        );
-    } else {
-        environment.set_global_table(library.name(), fields);
+    match library {
+        StdLib::Package => {
+            environment.set_global_table_with_string_fields(
+                library.name(),
+                fields,
+                [("config", PACKAGE_CONFIG.as_bytes())],
+            );
+        }
+        StdLib::Utf8 => {
+            environment.set_global_table_with_string_fields(
+                library.name(),
+                fields,
+                [("charpattern", UTF8_CHAR_PATTERN)],
+            );
+        }
+        _ => {
+            environment.set_global_table(library.name(), fields);
+        }
     }
 }
 
