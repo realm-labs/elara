@@ -394,6 +394,8 @@ fn type_name(value: Value) -> &'static str {
         "function"
     } else if value.is_thread() {
         "thread"
+    } else if value.is_light_user_data() {
+        "userdata"
     } else {
         "unknown"
     }
@@ -416,6 +418,8 @@ fn tostring_bytes(value: Value) -> String {
         format!("function: 0x{index:x}")
     } else if let Some(index) = value.as_thread_index() {
         format!("thread: 0x{index:x}")
+    } else if let Some(value) = value.as_light_user_data() {
+        format!("userdata: 0x{value:x}")
     } else {
         format!("{}: 0x0", type_name(value))
     }

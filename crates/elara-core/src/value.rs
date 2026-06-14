@@ -56,6 +56,7 @@ enum ValueRepr {
     Closure(u32),
     NativeFunction(u32),
     Thread(u32),
+    LightUserData(usize),
 }
 
 impl Value {
@@ -142,6 +143,14 @@ impl Value {
         }
     }
 
+    /// Creates an opaque light userdata value.
+    #[must_use]
+    pub const fn light_user_data(value: usize) -> Self {
+        Self {
+            repr: ValueRepr::LightUserData(value),
+        }
+    }
+
     /// Returns the value tag.
     #[must_use]
     pub const fn tag(self) -> ValueTag {
@@ -155,6 +164,7 @@ impl Value {
             ValueRepr::Table(_) => ValueTag::Table,
             ValueRepr::Closure(_) | ValueRepr::NativeFunction(_) => ValueTag::Closure,
             ValueRepr::Thread(_) => ValueTag::Thread,
+            ValueRepr::LightUserData(_) => ValueTag::LightUserData,
         }
     }
 
@@ -204,6 +214,12 @@ impl Value {
     #[must_use]
     pub const fn is_thread(self) -> bool {
         matches!(self.repr, ValueRepr::Thread(_))
+    }
+
+    /// Returns true for Lua light userdata values.
+    #[must_use]
+    pub const fn is_light_user_data(self) -> bool {
+        matches!(self.repr, ValueRepr::LightUserData(_))
     }
 
     /// Returns the boolean payload when this value is a boolean.
@@ -287,6 +303,15 @@ impl Value {
         }
     }
 
+    /// Returns the opaque light userdata payload.
+    #[must_use]
+    pub const fn as_light_user_data(self) -> Option<usize> {
+        match self.repr {
+            ValueRepr::LightUserData(value) => Some(value),
+            _ => None,
+        }
+    }
+
     /// Converts an integer or float value to a float.
     #[must_use]
     pub fn to_float(self) -> Option<LuaFloat> {
@@ -341,6 +366,7 @@ impl PartialEq for Value {
             (ValueRepr::Closure(left), ValueRepr::Closure(right)) => left == right,
             (ValueRepr::NativeFunction(left), ValueRepr::NativeFunction(right)) => left == right,
             (ValueRepr::Thread(left), ValueRepr::Thread(right)) => left == right,
+            (ValueRepr::LightUserData(left), ValueRepr::LightUserData(right)) => left == right,
             _ => false,
         }
     }
@@ -437,6 +463,15 @@ mod tests {
     }
 
     #[test]
+    fn value_light_user_data_round_trips() {
+        let value = Value::light_user_data(0x1234);
+
+        assert_eq!(value.tag(), ValueTag::LightUserData);
+        assert!(value.is_light_user_data());
+        assert_eq!(value.as_light_user_data(), Some(0x1234));
+    }
+
+    #[test]
     fn value_equality_matches_lua_primitive_number_rules() {
         assert_eq!(Value::nil(), Value::nil());
         assert_eq!(Value::boolean(true), Value::boolean(true));
@@ -449,6 +484,8 @@ mod tests {
         assert_ne!(Value::table_index(1), Value::table_index(2));
         assert_eq!(Value::thread_index(1), Value::thread_index(1));
         assert_ne!(Value::thread_index(1), Value::thread_index(2));
+        assert_eq!(Value::light_user_data(1), Value::light_user_data(1));
+        assert_ne!(Value::light_user_data(1), Value::light_user_data(2));
         assert_ne!(Value::integer(42), Value::boolean(true));
     }
 

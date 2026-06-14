@@ -934,6 +934,16 @@ fn base_tostring_formats_table_and_function_identities() {
         runtime.short_string_bytes(values[0]),
         Some(b"function: 0x3".as_slice())
     );
+
+    let values = call_with_runtime(
+        &mut runtime,
+        base_tostring,
+        &[Value::light_user_data(0x1234)],
+    );
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"userdata: 0x1234".as_slice())
+    );
 }
 
 #[test]
@@ -944,5 +954,11 @@ fn base_type_returns_lua_type_name() {
     assert_eq!(
         runtime.short_string_bytes(values[0]),
         Some(b"number".as_slice())
+    );
+
+    let values = call_with_runtime(&mut runtime, base_type, &[Value::light_user_data(0x1234)]);
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"userdata".as_slice())
     );
 }

@@ -18,7 +18,9 @@ test fixture/conformance/differential directory layout exists with a snapshot
 baseline. Primitive runtime values, the basic GC skeleton, Lua strings with
 short-string interning, table array/hash storage with metadata versioning, Lua
 tokenization, expression parsing, statement parsing, and parser snapshot/error
-coverage are implemented. The initial bytecode prototype, instruction encoding,
+coverage are implemented. Primitive values now also include an opaque
+light-userdata representation for runtime identity values such as debug
+upvalue identifiers. The initial bytecode prototype, instruction encoding,
 opcode set, constant pool, metadata placeholders, builder, and disassembler are
 implemented, along with initial bytecode verification and simple expression
 codegen. VM/thread stack primitives and primitive arithmetic bytecode execution
@@ -570,6 +572,7 @@ Completed:
   - M18.2 read-only `debug.getupvalue` for Lua closure upvalues.
   - M18.2 `debug.setupvalue` mutation for Lua closure upvalues.
   - M18.2 split debug upvalue stdlib-native tests into a focused sibling module.
+  - M18.2 light userdata `Value` representation for debug identity results.
   - M18.1 clear-only `debug.sethook`.
   - M18.1 pre-userdata `debug.getuservalue` and `debug.setuservalue`.
   - M18.1 safe unsupported process-termination `os.exit`.
@@ -1248,24 +1251,27 @@ M18.1 is complete.
 
 ## Last Verification
 
-M18.2 debug upvalue stdlib test split validation passed:
+M18.2 light userdata value representation validation passed:
 
 ```bash
 cargo fmt --all
-cargo test -p elara-stdlib debug_getupvalue
-cargo test -p elara-stdlib debug_setupvalue
-cargo test -p elara-stdlib debug
+cargo test -p elara-core light_user_data
+cargo test -p elara-core value_equality_matches_lua_primitive_number_rules
+cargo test -p elara-stdlib base_
+cargo test -p elara-core
+cargo test -p elara-stdlib
 cargo fmt --all -- --check
-cargo clippy -p elara-stdlib --all-targets -- -D warnings
+cargo clippy -p elara-core -p elara-stdlib --all-targets -- -D warnings
 cargo test --workspace
 cargo test --workspace --features jit debug
 ```
 
 ## Next Recommended Action
 
-Continue M18.2 by adding supported `debug.upvalueid` or
-`debug.getlocal`/`debug.setlocal` behavior, keeping coroutine and JIT debug
-frame behavior explicit until hook/deopt integration is designed.
+Continue M18.2 by adding `debug.upvalueid` on top of the new light userdata
+representation, then continue with `debug.getlocal`/`debug.setlocal` behavior
+while keeping coroutine and JIT debug frame behavior explicit until hook/deopt
+integration is designed.
 
 ## Current Risk Notes
 
@@ -1291,7 +1297,7 @@ frame behavior explicit until hook/deopt integration is designed.
 | Diagnostics | Complete | Source spans and structured diagnostics are in `elara-core`. |
 | Test fixtures | Complete | Fixture, conformance, and differential directories are present. |
 | Snapshots | Complete | Snapshot helper and `return 42` diagnostics baseline exist. |
-| Core runtime | Initial foundation complete | Value, GC, string, and table foundations are implemented. |
+| Core runtime | Initial foundation complete | Value, light userdata, GC, string, and table foundations are implemented. |
 | Value primitives | Complete | Nil, bool, integer, and float values are implemented. |
 | GC headers | Complete | Headers, colors, kinds, and typed refs are implemented. |
 | GC allocation | Complete | Arena allocation list, stats, roots, and drop cleanup are implemented. |
