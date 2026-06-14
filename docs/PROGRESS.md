@@ -217,6 +217,9 @@ filesystem success and failure.
 The `os` standard-library module now also exposes executable `os.rename` for
 profile-selected runtimes, returning Lua-style file-result tuples for host
 filesystem success and failure.
+The `os` standard-library module now exposes executable `os.tmpname` for
+profile-selected runtimes, returning short unique relative filename candidates
+without creating host files.
 
 Current state:
 
@@ -406,6 +409,7 @@ Completed:
   - M18.1 executable raw `debug.setmetatable`.
   - M18.1 executable `os.remove`.
   - M18.1 executable `os.rename`.
+  - M18.1 executable `os.tmpname`.
 
 In progress:
   - JIT.
@@ -1066,12 +1070,12 @@ M17 is complete.
 
 ## Last Verification
 
-M18.1 `os.rename` verification passed:
+M18.1 `os.tmpname` verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib os_rename
-cargo test -p elara-api os_rename
+cargo test -p elara-stdlib os_tmpname
+cargo test -p elara-api os_tmpname
 cargo test -p elara-stdlib
 cargo test -p elara-api
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
@@ -1129,7 +1133,7 @@ or non-mutating functions before filesystem/process APIs.
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
-| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, `os.clock`, `os.difftime`, `os.getenv`, `os.remove`, `os.rename`, no-argument `os.time`, `package.config`, `package.searchpath`, raw `debug.getmetatable`, and raw `debug.setmetatable` are implemented; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
+| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, `os.clock`, `os.difftime`, `os.getenv`, `os.remove`, `os.rename`, `os.tmpname`, no-argument `os.time`, `package.config`, `package.searchpath`, raw `debug.getmetatable`, and raw `debug.setmetatable` are implemented; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | Initial M12 surface complete | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented. |
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |

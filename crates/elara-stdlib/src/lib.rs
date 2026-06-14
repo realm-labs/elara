@@ -875,6 +875,11 @@ mod tests {
                 .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Os, "time"))
         );
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Os, "tmpname"))
+        );
     }
 
     #[test]

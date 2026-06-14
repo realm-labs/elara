@@ -547,6 +547,18 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_os_tmpname() {
+        let profile = StdLibProfile::Custom([StdLib::Os].into_iter().collect());
+
+        let values =
+            eval_simple_source_with_stdlib(SourceId::new(0), "return os.tmpname()", &profile)
+                .expect("os.tmpname should evaluate");
+
+        assert_eq!(values.len(), 1);
+        assert!(values[0].is_string());
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_package_searchpath_found() {
         let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
 

@@ -2,7 +2,10 @@
 
 use std::{
     fs,
-    sync::OnceLock,
+    sync::{
+        OnceLock,
+        atomic::{AtomicU64, Ordering},
+    },
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -20,9 +23,11 @@ pub const OS_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "remove"), os_remove),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "rename"), os_rename),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "time"), os_time),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "tmpname"), os_tmpname),
 ];
 
 static CLOCK_START: OnceLock<Instant> = OnceLock::new();
+static TMPNAME_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 fn os_clock(_runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let start = CLOCK_START.get_or_init(Instant::now);
@@ -87,6 +92,22 @@ fn os_rename(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
     let to = utf8_string_arg(runtime, args, 2)?.to_owned();
 
     file_result(runtime, fs::rename(from, to), None)
+}
+
+fn os_tmpname(runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let pid = std::process::id();
+    for _ in 0..128 {
+        let count = TMPNAME_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let candidate = format!("elrtmp_{pid:x}_{count:x}");
+        if !std::path::Path::new(&candidate).exists() {
+            return Ok(vec![runtime.intern_short_string(candidate.as_bytes())?]);
+        }
+    }
+
+    Err(NativeErrorKind::RuntimeError {
+        message: "unable to generate a unique filename".into(),
+    }
+    .into())
 }
 
 fn current_unix_time() -> Result<Vec<Value>, NativeError> {
@@ -446,6 +467,29 @@ mod tests {
                 index: 2,
                 expected: "string",
             }
+        );
+    }
+
+    #[test]
+    fn os_tmpname_returns_short_nonexistent_filename() {
+        let function = function("tmpname");
+        let mut runtime = TestRuntime::default();
+
+        let first = function(&mut runtime, &[]).expect("os.tmpname should pass");
+        let second = function(&mut runtime, &[]).expect("os.tmpname should pass");
+
+        let first_name = runtime
+            .bytes(first[0])
+            .expect("os.tmpname should return a string");
+        let second_name = runtime
+            .bytes(second[0])
+            .expect("os.tmpname should return a string");
+        assert!(first_name.starts_with(b"elrtmp_"));
+        assert!(second_name.starts_with(b"elrtmp_"));
+        assert_ne!(first_name, second_name);
+        assert!(
+            !std::path::Path::new(std::str::from_utf8(first_name).expect("tmpname is utf-8"))
+                .exists()
         );
     }
 
