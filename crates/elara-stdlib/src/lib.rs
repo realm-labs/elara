@@ -16,7 +16,7 @@ mod string;
 mod table;
 
 pub use base::{BASE_IPAIRS_AUX_NATIVE, BASE_NATIVE_FUNCTIONS, BASE_NEXT_NATIVE};
-pub use math::{LuaRandomState, MATH_NATIVE_FUNCTIONS};
+pub use math::{LuaRandomState, MATH_CONSTANTS, MATH_NATIVE_FUNCTIONS};
 pub use native::{
     NativeError, NativeErrorKind, NativeFunctionSpec, NativeResult, NativeRuntime,
     NativeStdFunction,

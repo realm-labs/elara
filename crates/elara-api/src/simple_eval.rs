@@ -311,6 +311,23 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_registers_math_constants() {
+        let profile = StdLibProfile::Custom([StdLib::Math].into_iter().collect());
+
+        let values = eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "return math.maxinteger + math.mininteger, math.type(math.pi), math.type(math.huge)",
+            &profile,
+        )
+        .expect("math constants should evaluate");
+
+        assert_eq!(values.len(), 3);
+        assert_eq!(values[0], Value::integer(-1));
+        assert!(values[1].is_string());
+        assert!(values[2].is_string());
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_math_random() {
         let profile = StdLibProfile::Custom([StdLib::Math].into_iter().collect());
 

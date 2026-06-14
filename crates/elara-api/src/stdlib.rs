@@ -9,8 +9,8 @@ use std::{
 use elara_core::Value;
 use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
 use elara_stdlib::{
-    BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, LuaRandomState, NativeError, NativeErrorKind,
-    NativeRuntime, StdLib, StdLibProfile, StdLibSet, native_functions,
+    BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, LuaRandomState, MATH_CONSTANTS, NativeError,
+    NativeErrorKind, NativeRuntime, StdLib, StdLibProfile, StdLibSet, native_functions,
 };
 
 /// Builds a primitive runtime environment containing implemented stdlib natives
@@ -60,7 +60,7 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
 
     let random_state =
         (library == StdLib::Math).then(|| Arc::new(Mutex::new(LuaRandomState::default())));
-    let fields: Vec<_> = functions
+    let mut fields: Vec<_> = functions
         .iter()
         .map(|spec| {
             let function = spec.function();
@@ -79,6 +79,9 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
             )
         })
         .collect();
+    if library == StdLib::Math {
+        fields.extend(MATH_CONSTANTS.iter().copied());
+    }
     environment.set_global_table(library.name(), fields);
 }
 

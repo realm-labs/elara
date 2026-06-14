@@ -39,6 +39,14 @@ pub const MATH_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Math, "ult"), math_ult),
 ];
 
+/// Math-library constant fields.
+pub const MATH_CONSTANTS: &[(&str, Value)] = &[
+    ("pi", Value::float(PI)),
+    ("huge", Value::float(LuaFloat::INFINITY)),
+    ("maxinteger", Value::integer(i64::MAX)),
+    ("mininteger", Value::integer(i64::MIN)),
+];
+
 /// Lua 5.5-style xoshiro256** random state.
 #[derive(Clone, Debug)]
 pub struct LuaRandomState {
@@ -472,8 +480,8 @@ mod tests {
     use elara_core::{LuaInteger, Value};
 
     use super::{
-        LuaRandomState, MATH_NATIVE_FUNCTIONS, math_abs, math_ceil, math_floor, math_max, math_min,
-        math_random, math_randomseed, math_sqrt, math_tointeger, math_type,
+        LuaRandomState, MATH_CONSTANTS, MATH_NATIVE_FUNCTIONS, PI, math_abs, math_ceil, math_floor,
+        math_max, math_min, math_random, math_randomseed, math_sqrt, math_tointeger, math_type,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -543,6 +551,14 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "tointeger")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "type")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Math, "ult")));
+    }
+
+    #[test]
+    fn math_constants_cover_standard_fields() {
+        assert!(MATH_CONSTANTS.contains(&("pi", Value::float(PI))));
+        assert!(MATH_CONSTANTS.contains(&("huge", Value::float(f64::INFINITY))));
+        assert!(MATH_CONSTANTS.contains(&("maxinteger", Value::integer(i64::MAX))));
+        assert!(MATH_CONSTANTS.contains(&("mininteger", Value::integer(i64::MIN))));
     }
 
     #[test]

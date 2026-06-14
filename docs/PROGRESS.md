@@ -88,9 +88,9 @@ executable native specs for the currently implemented math functions `abs`,
 `max`, `min`, `modf`, `rad`, `random`, `randomseed`, `sin`, `sqrt`, `tan`,
 `tointeger`, `type`, and `ult`.
 The API layer can build a primitive `RuntimeEnvironment` from implemented
-stdlib native specs, including shared reseedable math RNG state, and simple
-source evaluation can run with a selected stdlib profile for supported native
-paths.
+stdlib native specs, including shared reseedable math RNG state and math
+constants `pi`, `huge`, `maxinteger`, and `mininteger`, and simple source
+evaluation can run with a selected stdlib profile for supported native paths.
 Base stdlib natives `assert`, `error`, `getmetatable`, `ipairs`, `next`, raw
 `pairs`, `print`, `rawequal`, `rawget`, `rawlen`, `rawset`, numeric and count
 forms of `select`, `setmetatable`, `tonumber`, `tostring`, and `type` are
@@ -197,6 +197,7 @@ Completed:
   - M11.2 executable math.type native spec.
   - M11.2 executable math.random native spec.
   - M11.2 executable math.randomseed native spec.
+  - M11.2 executable math constants pi, huge, maxinteger, and mininteger.
   - M11.2 executable base assert, rawequal, and numeric select native specs.
   - M11.2 executable base select count form.
   - M11.2 executable base error native spec.
@@ -822,12 +823,12 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable base select count verification passed:
+M11.2 executable math constants verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib base_select
-cargo test -p elara-api eval_simple_with_stdlib_executes_base_select_count
+cargo test -p elara-stdlib math_constants
+cargo test -p elara-api eval_simple_with_stdlib_registers_math_constants
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
