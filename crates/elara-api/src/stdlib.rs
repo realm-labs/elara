@@ -97,7 +97,7 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
                 library.name(),
                 fields,
                 [("config", PACKAGE_CONFIG.as_bytes())],
-                ["loaded", "preload"],
+                ["loaded", "preload", "searchers"],
             );
         }
         StdLib::Utf8 => {

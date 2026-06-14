@@ -231,6 +231,9 @@ normalized fields back to the table, and returns a Unix timestamp.
 The `os.date` standard-library module now exposes executable UTC table output
 for the deterministic `"!*t"` format, including Lua-style calendar fields and
 `isdst = false`.
+The profile-selected `package` table now also registers a distinct empty
+`package.searchers` state table, leaving actual searcher functions for the
+upcoming `require` implementation.
 
 Current state:
 
@@ -424,6 +427,7 @@ Completed:
   - M18.1 `package.loaded` and `package.preload` table field registration.
   - M18.1 executable C-locale subset `os.setlocale`.
   - M18.1 executable `os.date` UTC table format.
+  - M18.1 `package.searchers` table field registration.
 
 In progress:
   - JIT.
@@ -1084,15 +1088,12 @@ M17 is complete.
 
 ## Last Verification
 
-M18.1 `os.date` UTC table verification passed:
+M18.1 `package.searchers` table verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib os_date
-cargo test -p elara-api os_date
-cargo test -p elara-stdlib
+cargo test -p elara-api package_state_tables
 cargo test -p elara-api
-cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 cargo test --workspace
 ```
@@ -1147,7 +1148,7 @@ or non-mutating functions before filesystem/process APIs.
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
-| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, `os.clock`, UTC-table `os.date`, `os.difftime`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, `package.config`, `package.loaded`, `package.preload`, `package.searchpath`, raw `debug.getmetatable`, and raw `debug.setmetatable` are implemented; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
+| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, `os.clock`, UTC-table `os.date`, `os.difftime`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, `package.config`, `package.loaded`, `package.preload`, `package.searchers`, `package.searchpath`, raw `debug.getmetatable`, and raw `debug.setmetatable` are implemented; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | Initial M12 surface complete | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented. |
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |

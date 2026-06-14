@@ -666,15 +666,18 @@ mod tests {
 
         let values = eval_simple_source_with_stdlib(
             SourceId::new(0),
-            "return package.loaded, package.preload",
+            "return package.loaded, package.preload, package.searchers",
             &profile,
         )
         .expect("package state tables should evaluate");
 
-        assert_eq!(values.len(), 2);
+        assert_eq!(values.len(), 3);
         assert!(values[0].is_table());
         assert!(values[1].is_table());
+        assert!(values[2].is_table());
         assert_ne!(values[0], values[1]);
+        assert_ne!(values[0], values[2]);
+        assert_ne!(values[1], values[2]);
     }
 
     #[test]
