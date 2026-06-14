@@ -282,6 +282,23 @@ mod tests {
     }
 
     #[test]
+    fn string_gsub_replaces_balanced_delimiters() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"a(b(c)d)e");
+        let pattern = runtime.push_string(b"%b()");
+        let replacement = runtime.push_string(b"x");
+
+        let values =
+            string_gsub(&mut runtime, &[subject, pattern, replacement]).expect("gsub should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"axe".as_slice())
+        );
+        assert_eq!(values[1], Value::integer(1));
+    }
+
+    #[test]
     fn string_gsub_returns_original_string_and_zero_count_without_match() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");

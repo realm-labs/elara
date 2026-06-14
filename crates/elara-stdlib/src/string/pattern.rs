@@ -8,10 +8,17 @@ pub(super) fn has_unsupported_pattern_special(pattern: &[u8]) -> bool {
                 let Some(class) = pattern.get(index + 1).copied() else {
                     return true;
                 };
-                if matches!(class, b'b' | b'f' | b'0'..=b'9') {
+                if matches!(class, b'f' | b'0'..=b'9') {
                     return true;
                 }
-                index += 2;
+                if class == b'b' {
+                    if pattern.get(index + 2).is_none() || pattern.get(index + 3).is_none() {
+                        return true;
+                    }
+                    index += 4;
+                } else {
+                    index += 2;
+                }
             }
             b'[' => {
                 let Some(end) = bracket_end(pattern, index) else {
@@ -117,15 +124,19 @@ fn match_from(
             atom_end + 1,
             subject_index,
         ),
-        _ if atom_matches(haystack, pattern, pattern_index, atom_end, subject_index) => {
-            match_from(haystack, pattern, atom_end, subject_index + 1)
+        _ => {
+            let consumed =
+                atom_match_len(haystack, pattern, pattern_index, atom_end, subject_index)?;
+            match_from(haystack, pattern, atom_end, subject_index + consumed)
         }
-        _ => None,
     }
 }
 
 fn atom_end(pattern: &[u8], pattern_index: usize) -> Option<usize> {
     match pattern.get(pattern_index).copied()? {
+        b'%' if pattern.get(pattern_index + 1) == Some(&b'b') => {
+            pattern.get(pattern_index + 3).map(|_| pattern_index + 4)
+        }
         b'%' => pattern.get(pattern_index + 1).map(|_| pattern_index + 2),
         b'[' => bracket_end(pattern, pattern_index).map(|end| end + 1),
         _ => Some(pattern_index + 1),
@@ -139,8 +150,9 @@ fn match_optional(
     atom_end: usize,
     subject_index: usize,
 ) -> Option<usize> {
-    if atom_matches(haystack, pattern, pattern_index, atom_end, subject_index)
-        && let Some(end) = match_from(haystack, pattern, atom_end + 1, subject_index + 1)
+    if let Some(consumed) =
+        atom_match_len(haystack, pattern, pattern_index, atom_end, subject_index)
+        && let Some(end) = match_from(haystack, pattern, atom_end + 1, subject_index + consumed)
     {
         return Some(end);
     }
@@ -156,13 +168,16 @@ fn match_greedy_repeat(
     require_one: bool,
 ) -> Option<usize> {
     let mut end = subject_index;
-    while atom_matches(haystack, pattern, pattern_index, rest_index - 1, end) {
-        end += 1;
+    let mut candidates = vec![subject_index];
+    while let Some(consumed) = atom_match_len(haystack, pattern, pattern_index, rest_index - 1, end)
+    {
+        end += consumed;
+        candidates.push(end);
     }
     if require_one && end == subject_index {
         return None;
     }
-    for candidate in (subject_index..=end).rev() {
+    for candidate in candidates.into_iter().rev() {
         if let Some(end) = match_from(haystack, pattern, rest_index, candidate) {
             return Some(end);
         }
@@ -182,30 +197,53 @@ fn match_minimal_repeat(
         if let Some(end) = match_from(haystack, pattern, rest_index, candidate) {
             return Some(end);
         }
-        if !atom_matches(haystack, pattern, pattern_index, rest_index - 1, candidate) {
-            return None;
-        }
-        candidate += 1;
+        let consumed = atom_match_len(haystack, pattern, pattern_index, rest_index - 1, candidate)?;
+        candidate += consumed;
     }
 }
 
-fn atom_matches(
+fn atom_match_len(
     haystack: &[u8],
     pattern: &[u8],
     pattern_index: usize,
     atom_end: usize,
     subject_index: usize,
-) -> bool {
-    let Some(&subject_byte) = haystack.get(subject_index) else {
-        return false;
-    };
-    match pattern[pattern_index] {
+) -> Option<usize> {
+    let &subject_byte = haystack.get(subject_index)?;
+    let matched = match pattern[pattern_index] {
+        b'%' if pattern.get(pattern_index + 1) == Some(&b'b') => {
+            return balanced_match_len(
+                haystack,
+                subject_index,
+                pattern[pattern_index + 2],
+                pattern[pattern_index + 3],
+            );
+        }
         b'%' => pattern
             .get(pattern_index + 1)
             .is_some_and(|class| class_matches(subject_byte, *class)),
         b'[' => bracket_class_matches(subject_byte, &pattern[pattern_index..atom_end]),
         pattern_byte => pattern_byte == b'.' || pattern_byte == subject_byte,
+    };
+    matched.then_some(1)
+}
+
+fn balanced_match_len(haystack: &[u8], subject_index: usize, open: u8, close: u8) -> Option<usize> {
+    if haystack.get(subject_index) != Some(&open) {
+        return None;
     }
+    let mut depth = 1_u32;
+    for (offset, byte) in haystack[subject_index + 1..].iter().copied().enumerate() {
+        if byte == close {
+            depth -= 1;
+            if depth == 0 {
+                return Some(offset + 2);
+            }
+        } else if byte == open {
+            depth += 1;
+        }
+    }
+    None
 }
 
 fn bracket_end(pattern: &[u8], start: usize) -> Option<usize> {
@@ -329,6 +367,13 @@ mod tests {
     }
 
     #[test]
+    fn simple_pattern_find_matches_balanced_delimiters() {
+        assert_eq!(simple_pattern_find(b"a(b(c)d)e", b"%b()"), Some((1, 8)));
+        assert_eq!(simple_pattern_find(b"{a}{b}", b"%b{}"), Some((0, 3)));
+        assert_eq!(simple_pattern_find(b"(abc", b"%b()"), None);
+    }
+
+    #[test]
     fn unsupported_specials_exclude_dot_valid_anchors_and_classes() {
         assert!(!has_unsupported_pattern_special(b"a."));
         assert!(!has_unsupported_pattern_special(b"^a.$"));
@@ -341,7 +386,8 @@ mod tests {
         assert!(has_unsupported_pattern_special(b"a$b"));
         assert!(has_unsupported_pattern_special(b"%"));
         assert!(has_unsupported_pattern_special(b"[abc"));
-        assert!(has_unsupported_pattern_special(b"%bxy"));
+        assert!(!has_unsupported_pattern_special(b"%bxy"));
+        assert!(has_unsupported_pattern_special(b"%bx"));
         assert!(has_unsupported_pattern_special(b"%f[a]"));
         assert!(has_unsupported_pattern_special(b"%1"));
     }

@@ -112,11 +112,12 @@ decimal `+`/space flags, alternate-form octal/hex integer flags, integer
 precision, float width/precision/sign/alternate-form flags for
 `%f`/`%e`/`%E`/`%g`/`%G`, `%a`/`%A` width/precision/sign/alternate-form
 flags, `%c`, `%q`, `%p`, and escaped-percent `string.format`, `.` wildcard,
-`^`/`$` anchor, `%` character-class, bracket-class, and quantifier pattern
-matching for `string.find`, `string.match`, and `string.gsub`, literal
-string-replacement `string.gsub`, `string.match`, `string.len`,
-`string.lower`, `string.upper`, `string.reverse`, `string.rep`, and
-`string.sub` are executable and covered through stdlib-backed API evaluation.
+`^`/`$` anchor, `%` character-class, bracket-class, quantifier, and `%b`
+balanced-delimiter pattern matching for `string.find`, `string.match`, and
+`string.gsub`, literal string-replacement `string.gsub`, `string.match`,
+`string.len`, `string.lower`, `string.upper`, `string.reverse`, `string.rep`,
+and `string.sub` are executable and covered through stdlib-backed API
+evaluation.
 Table natives `table.concat`, `table.insert`, `table.move`, `table.pack`,
 `table.remove`, default-comparator `table.sort`, and `table.unpack` are
 executable and covered through stdlib-backed API evaluation.
@@ -241,6 +242,7 @@ Completed:
   - M11.2 executable `%` character-class matching for string.find, string.match, and string.gsub.
   - M11.2 executable bracket-class pattern matching for string.find, string.match, and string.gsub.
   - M11.2 executable `?`, `*`, `+`, and `-` quantifier matching for string.find, string.match, and string.gsub.
+  - M11.2 executable `%b` balanced-delimiter matching for string.find, string.match, and string.gsub.
   - M11.2 executable string.len native spec.
   - M11.2 executable string lower, upper, and reverse native specs.
   - M11.2 executable string.rep native spec.
@@ -790,8 +792,9 @@ Delivered:
   through the runtime.
 - Add runtime callback support for custom `table.sort` comparators.
 - Add full string pattern matching beyond `.` wildcard, `^`/`$` anchor, `%`
-  character-class, bracket-class, and quantifier support for `string.find`,
-  `string.match`, `string.gmatch`, and `string.gsub`.
+  character-class, bracket-class, quantifier, and `%b` balanced-delimiter
+  support for `string.find`, `string.match`, `string.gmatch`, and
+  `string.gsub`.
 
 ### Product Gaps
 
@@ -816,12 +819,12 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable string quantifier pattern verification passed:
+M11.2 executable string balanced-delimiter pattern verification passed:
 
 ```bash
 cargo fmt --all -- --check
 cargo test -p elara-stdlib string
-cargo test -p elara-api eval_simple_with_stdlib_executes_string_quantifier_patterns
+cargo test -p elara-api eval_simple_with_stdlib_executes_string_balanced_patterns
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
@@ -829,8 +832,8 @@ cargo clippy -p elara-api --all-targets -- -D warnings
 ## Next Recommended Action
 
 Continue M11.2 by filling the remaining executable base and string functions,
-with `pcall`/`xpcall`, `string.gmatch`, pattern captures, balanced matches,
-frontier patterns, and replacement captures as the next known gaps.
+with `pcall`/`xpcall`, `string.gmatch`, pattern captures, frontier patterns,
+and replacement captures as the next known gaps.
 
 ## Current Risk Notes
 
