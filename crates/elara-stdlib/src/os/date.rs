@@ -14,14 +14,17 @@ pub(super) fn os_date(
     let format = optional_utf8_string_arg(runtime, args, 1)?.unwrap_or("%c");
     let seconds = optional_time_arg(args, 2)?;
 
-    if format == "!*t" {
-        return date_table(runtime, utc_date_time(seconds));
+    let Some(format) = format.strip_prefix('!') else {
+        return Err(unsupported_format_error());
+    };
+    let date = utc_date_time(seconds);
+
+    if format == "*t" {
+        return date_table(runtime, date);
     }
 
-    Err(NativeErrorKind::RuntimeError {
-        message: "os.date currently supports only UTC table format '!*t'".into(),
-    }
-    .into())
+    let formatted = format_utc_date(format, date)?;
+    Ok(vec![runtime.intern_string(formatted.as_bytes())?])
 }
 
 fn date_table(
@@ -81,4 +84,101 @@ fn optional_time_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
             })
             .map_err(Into::into),
     }
+}
+
+fn format_utc_date(format: &str, date: UtcDateTime) -> Result<String, NativeError> {
+    let mut output = String::new();
+    let mut chars = format.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '%' {
+            output.push(ch);
+            continue;
+        }
+        let Some(specifier) = chars.next() else {
+            return Err(invalid_conversion_error(""));
+        };
+        push_date_specifier(&mut output, date, specifier)?;
+    }
+    Ok(output)
+}
+
+fn push_date_specifier(
+    output: &mut String,
+    date: UtcDateTime,
+    specifier: char,
+) -> Result<(), NativeError> {
+    match specifier {
+        '%' => output.push('%'),
+        'Y' => output.push_str(&format!("{:04}", date.year)),
+        'y' => output.push_str(&format!("{:02}", date.year.rem_euclid(100))),
+        'm' => output.push_str(&format!("{:02}", date.month)),
+        'd' => output.push_str(&format!("{:02}", date.day)),
+        'H' => output.push_str(&format!("{:02}", date.hour)),
+        'M' => output.push_str(&format!("{:02}", date.min)),
+        'S' => output.push_str(&format!("{:02}", date.sec)),
+        'j' => output.push_str(&format!("{:03}", date.yday)),
+        'w' => output.push_str(&(date.wday - 1).to_string()),
+        'a' => output.push_str(WEEKDAY_ABBR[(date.wday - 1) as usize]),
+        'A' => output.push_str(WEEKDAY_NAME[(date.wday - 1) as usize]),
+        'b' | 'h' => output.push_str(MONTH_ABBR[(date.month - 1) as usize]),
+        'B' => output.push_str(MONTH_NAME[(date.month - 1) as usize]),
+        'F' => {
+            push_date_specifier(output, date, 'Y')?;
+            output.push('-');
+            push_date_specifier(output, date, 'm')?;
+            output.push('-');
+            push_date_specifier(output, date, 'd')?;
+        }
+        'T' => {
+            push_date_specifier(output, date, 'H')?;
+            output.push(':');
+            push_date_specifier(output, date, 'M')?;
+            output.push(':');
+            push_date_specifier(output, date, 'S')?;
+        }
+        _ => return Err(invalid_conversion_error(&specifier.to_string())),
+    }
+    Ok(())
+}
+
+const WEEKDAY_ABBR: [&str; 7] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAY_NAME: [&str; 7] = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+];
+const MONTH_ABBR: [&str; 12] = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+const MONTH_NAME: [&str; 12] = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
+
+fn unsupported_format_error() -> NativeError {
+    NativeErrorKind::RuntimeError {
+        message: "os.date currently supports only UTC formats prefixed with '!'".into(),
+    }
+    .into()
+}
+
+fn invalid_conversion_error(specifier: &str) -> NativeError {
+    NativeErrorKind::RuntimeError {
+        message: format!("invalid conversion specifier '%{specifier}'").into_boxed_str(),
+    }
+    .into()
 }

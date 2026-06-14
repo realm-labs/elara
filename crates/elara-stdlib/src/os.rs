@@ -515,10 +515,41 @@ mod tests {
     }
 
     #[test]
+    fn os_date_formats_utc_strings() {
+        let function = function("date");
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"!%Y-%m-%d %H:%M:%S %j %w %%");
+
+        let result =
+            function(&mut runtime, &[format, Value::integer(0)]).expect("os.date should pass");
+
+        assert_eq!(
+            runtime.bytes(result[0]),
+            Some(b"1970-01-01 00:00:00 001 4 %".as_slice())
+        );
+    }
+
+    #[test]
+    fn os_date_formats_utc_names_and_aliases() {
+        let function = function("date");
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"!%a %A %b %B %F %T");
+
+        let result =
+            function(&mut runtime, &[format, Value::integer(0)]).expect("os.date should pass");
+
+        assert_eq!(
+            runtime.bytes(result[0]),
+            Some(b"Thu Thursday Jan January 1970-01-01 00:00:00".as_slice())
+        );
+    }
+
+    #[test]
     fn os_date_validates_supported_utc_table_subset() {
         let function = function("date");
         let mut runtime = TestRuntime::default();
-        let unsupported_format = runtime.push_string(b"%Y");
+        let local_format = runtime.push_string(b"%Y");
+        let invalid_utc_format = runtime.push_string(b"!%Q");
         let utc_table_format = runtime.push_string(b"!*t");
 
         assert_eq!(
@@ -540,11 +571,19 @@ mod tests {
             }
         );
         assert_eq!(
-            function(&mut runtime, &[unsupported_format, Value::integer(0)])
-                .expect_err("unsupported format")
+            function(&mut runtime, &[local_format, Value::integer(0)])
+                .expect_err("local format")
                 .kind(),
             &NativeErrorKind::RuntimeError {
-                message: "os.date currently supports only UTC table format '!*t'".into(),
+                message: "os.date currently supports only UTC formats prefixed with '!'".into(),
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[invalid_utc_format, Value::integer(0)])
+                .expect_err("invalid UTC format")
+                .kind(),
+            &NativeErrorKind::RuntimeError {
+                message: "invalid conversion specifier '%Q'".into(),
             }
         );
     }
