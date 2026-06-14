@@ -1,11 +1,13 @@
 //! High-level Lua runtime and chunk evaluation API.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 
+use elara_compiler::compile_simple_chunk;
 use elara_core::{SourceId, Value};
+use elara_interp::execute_proto_with_environment;
 use elara_stdlib::StdLibProfile;
 
-use crate::{EvalError, eval_simple_source_with_stdlib};
+use crate::{EvalError, Function, stdlib::runtime_environment_for_stdlib};
 
 /// Builder for a Lua runtime handle.
 #[derive(Clone, Debug)]
@@ -33,6 +35,7 @@ impl LuaBuilder {
         Lua {
             stdlib_profile: self.stdlib_profile,
             next_source_id: Cell::new(0),
+            native_globals: RefCell::new(Vec::new()),
         }
     }
 }
@@ -50,6 +53,7 @@ impl Default for LuaBuilder {
 pub struct Lua {
     stdlib_profile: StdLibProfile,
     next_source_id: Cell<u32>,
+    native_globals: RefCell<Vec<NativeGlobal>>,
 }
 
 impl Lua {
@@ -81,6 +85,24 @@ impl Lua {
     pub fn eval(&self, source: impl Into<Box<str>>) -> Result<Vec<Value>, EvalError> {
         self.load(source).eval()
     }
+
+    /// Creates a typed native Rust function handle.
+    pub fn create_function<Args, Returns, F>(&self, function: F) -> Function
+    where
+        Args: crate::FromLuaMulti,
+        Returns: crate::IntoLuaMulti,
+        F: Fn(Args) -> Result<Returns, crate::NativeFunctionError> + Send + Sync + 'static,
+    {
+        Function::new(function)
+    }
+
+    /// Registers a native Rust function as a global for future chunk evaluations.
+    pub fn set_global_function(&self, name: impl Into<Box<str>>, function: Function) {
+        self.native_globals.borrow_mut().push(NativeGlobal {
+            name: name.into(),
+            function,
+        });
+    }
 }
 
 impl Default for Lua {
@@ -106,8 +128,29 @@ impl Chunk<'_> {
 
     /// Evaluates this chunk through the current simple compiler/interpreter path.
     pub fn eval(&self) -> Result<Vec<Value>, EvalError> {
-        eval_simple_source_with_stdlib(self.source_id, &self.source, &self.lua.stdlib_profile)
+        let compiled = compile_simple_chunk(self.source_id, &self.source);
+        if !compiled.diagnostics.is_empty() {
+            return Err(EvalError::Diagnostics(compiled.diagnostics));
+        }
+
+        let proto = compiled.proto.expect("compiler succeeded without a proto");
+        let mut environment = runtime_environment_for_stdlib(&self.lua.stdlib_profile);
+        for native in self.lua.native_globals.borrow().iter() {
+            let function = native.function.clone();
+            environment.register_native_global(native.name.clone(), move |context, args| {
+                function.call(context, args)
+            });
+        }
+        execute_proto_with_environment(&proto, environment)
+            .map(|output| output.values)
+            .map_err(EvalError::Runtime)
     }
+}
+
+#[derive(Clone, Debug)]
+struct NativeGlobal {
+    name: Box<str>,
+    function: Function,
 }
 
 #[cfg(test)]

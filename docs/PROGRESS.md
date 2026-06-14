@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M12 Public Rust Embedding API
-Current step: M12.3 Add native Rust functions
+Current step: M12.4 Add tables, registry keys, and userdata
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -287,6 +287,7 @@ Completed:
   - M11 exit criteria validation.
   - M12.1 Add `LuaBuilder`, `Lua`, and `Chunk`.
   - M12.2 Add `IntoLua` and `FromLua`.
+  - M12.3 Add native Rust functions.
 
 In progress:
   - Rust API.
@@ -869,6 +870,10 @@ Delivered:
 - The public API exposes owned `LuaValue` conversion helpers plus `IntoLua`,
   `FromLua`, `IntoLuaMulti`, and `FromLuaMulti` traits for nil/unit, booleans,
   integers, floats, UTF-8 strings, options, and one-/two-value tuple basics.
+- The public API can create typed native Rust `Function` handles, register them
+  as globals for future chunk evaluations, extract typed arguments through
+  conversion traits, return multiple Lua values through `IntoLuaMulti`, and
+  convert callback/conversion failures into runtime errors.
 
 ## Remaining Gaps
 
@@ -903,14 +908,16 @@ M11.4 is complete.
 M11 is complete.
 M12.1 is complete.
 M12.2 is complete.
+M12.3 is complete.
 
 ## Last Verification
 
-M12.2 conversion verification passed:
+M12.3 native function verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-api conversion
+cargo test -p elara-api native_function
+cargo test -p elara-api chunk
 cargo test -p elara
 cargo clippy -p elara-api --all-targets -- -D warnings
 cargo clippy -p elara --all-targets -- -D warnings
@@ -918,8 +925,8 @@ cargo clippy -p elara --all-targets -- -D warnings
 
 ## Next Recommended Action
 
-Continue M12.3 with native Rust function creation, typed argument extraction,
-multiple returns, and error conversion.
+Continue M12.4 with table/function handles, registry keys, and basic userdata
+traits.
 
 ## Current Risk Notes
 
