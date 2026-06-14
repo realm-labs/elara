@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M18 Full Standard Library, Debug Support, and Binary Chunk Policy
-Current step: M18.1 Complete remaining standard libraries
+Current step: M18.2 Add debug library frame materialization
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -521,6 +521,7 @@ Completed:
   - M18.1 safe unsupported pre-file-handle `io.input` and `io.output`.
   - M18.1 safe unsupported pre-file-handle `io.read` and `io.write`.
   - M18.1 safe unsupported pre-file-handle `io.lines`.
+  - M18.1 exit criteria validation.
   - M18.1 executable `os.difftime`.
   - M18.1 executable `os.time` without arguments and with UTC-normalized date tables.
   - M18.1 executable `os.clock`.
@@ -1221,10 +1222,11 @@ M17.2 is complete.
 M17.3 is complete.
 M17.4 is complete.
 M17 is complete.
+M18.1 is complete.
 
 ## Last Verification
 
-M18.1 safe unsupported pre-file-handle `io.lines` verification passed:
+M18.1 exit criteria validation passed:
 
 ```bash
 cargo fmt --all
@@ -1240,9 +1242,9 @@ cargo test --workspace
 
 ## Next Recommended Action
 
-Continue M18.1 by wiring more executable, profile-gated standard-library
-behavior where the current runtime can support it, prioritizing deterministic
-or non-mutating functions before filesystem/process APIs.
+Continue M18.2 by adding debug frame materialization for `debug.getinfo`
+first, keeping JIT behavior explicit until debug hooks and deopt integration
+are designed.
 
 ## Current Risk Notes
 
@@ -1288,7 +1290,7 @@ or non-mutating functions before filesystem/process APIs.
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
-| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path `package.searchers[3]` and `[4]`, `package.searchpath`, no-hook `debug.gethook`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, clear-only `debug.sethook`, pre-userdata `debug.setuservalue`, and no-frame `debug.traceback` message handling are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
+| Standard library | M18.1 complete; M18.2 pending | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path `package.searchers[3]` and `[4]`, `package.searchpath`, no-hook `debug.gethook`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, clear-only `debug.sethook`, pre-userdata `debug.setuservalue`, and no-frame `debug.traceback` message handling are implemented; debug frame/upvalue inspection remains M18.2 work; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | Initial M12 surface complete | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings. |
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
