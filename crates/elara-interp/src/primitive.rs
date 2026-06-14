@@ -67,6 +67,8 @@ pub struct NativeContext<'a> {
     natives: &'a RuntimeNatives,
     globals: &'a mut RuntimeGlobals,
     debug_frames: &'a mut Vec<RuntimeDebugFrame>,
+    current_thread: Option<&'a mut LuaThread>,
+    current_debug_frame: Option<usize>,
 }
 
 impl<'a> NativeContext<'a> {
@@ -232,6 +234,24 @@ impl<'a> NativeContext<'a> {
         debug::get_local(level, local, self.strings, self.debug_frames)
     }
 
+    /// Sets a captured local for a Lua stack level and returns its name.
+    pub fn debug_setlocal(
+        &mut self,
+        level: i64,
+        local: i64,
+        value: Value,
+    ) -> RuntimeResult<Option<Value>> {
+        debug::set_local(
+            level,
+            local,
+            value,
+            self.strings,
+            self.debug_frames,
+            self.current_thread.as_deref_mut(),
+            self.current_debug_frame,
+        )
+    }
+
     /// Returns a captured upvalue name/value pair for a Lua function.
     pub fn debug_getupvalue(
         &mut self,
@@ -321,7 +341,12 @@ impl<'a> NativeContext<'a> {
             to_be_closed: &mut to_be_closed,
             debug_frames: self.debug_frames,
         };
-        call_function(callable, &mut context)
+        call_function(
+            callable,
+            &mut context,
+            self.current_thread.as_deref_mut(),
+            self.current_debug_frame,
+        )
     }
 }
 
@@ -1336,7 +1361,9 @@ fn execute_instruction(
                     });
                 }
                 callable => {
-                    let returns = call_function(callable, context)?;
+                    let current_debug_frame = context.debug_frames.len().checked_sub(1);
+                    let returns =
+                        call_function(callable, context, Some(thread), current_debug_frame)?;
                     if let Some(top) = write_call_returns(thread, instr, &returns)? {
                         *dynamic_top = top;
                     }
@@ -1687,6 +1714,8 @@ fn callable_from_value(
 fn call_function(
     callable: CallableFunction,
     context: &mut ExecutionContext<'_>,
+    current_thread: Option<&mut LuaThread>,
+    current_debug_frame: Option<usize>,
 ) -> RuntimeResult<Vec<Value>> {
     match callable {
         CallableFunction::Lua {
@@ -1719,6 +1748,8 @@ fn call_function(
                 natives: context.natives,
                 globals: context.globals,
                 debug_frames: context.debug_frames,
+                current_thread,
+                current_debug_frame,
             };
             let result = function(&mut native_context, &args);
             context.debug_frames.truncate(debug_frame_base);
@@ -1749,7 +1780,7 @@ fn execute_call(
         to_be_closed: &mut to_be_closed,
         debug_frames: &mut debug_frames,
     };
-    let returns = call_function(callable, &mut context)?;
+    let returns = call_function(callable, &mut context, Some(thread), None)?;
     write_call_returns(thread, instr, &returns)
 }
 

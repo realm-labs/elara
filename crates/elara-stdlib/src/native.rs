@@ -133,6 +133,16 @@ pub trait NativeRuntime {
         Ok(None)
     }
 
+    /// Sets a `debug.setlocal` target and returns the local name, or nil when absent.
+    fn debug_setlocal(
+        &mut self,
+        _level: i64,
+        _local: i64,
+        _value: Value,
+    ) -> Result<Option<Value>, NativeError> {
+        Ok(None)
+    }
+
     /// Returns a `debug.getupvalue` name/value pair, or nil when absent.
     fn debug_getupvalue(
         &mut self,

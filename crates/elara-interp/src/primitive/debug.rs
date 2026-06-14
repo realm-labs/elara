@@ -110,44 +110,74 @@ pub(super) fn get_local(
     strings: &mut RuntimeStrings,
     debug_frames: &[RuntimeDebugFrame],
 ) -> RuntimeResult<Option<(Value, Value)>> {
+    let frame_index = frame_index_for_level(level, debug_frames)?;
+    let frame = &debug_frames[frame_index];
+    let Some((register, name)) = active_local(frame, local) else {
+        return Ok(None);
+    };
+    let Some(value) = frame.locals.get(register).copied() else {
+        return Ok(None);
+    };
+    Ok(Some((strings.intern_value(name), value)))
+}
+
+pub(super) fn set_local(
+    level: i64,
+    local: i64,
+    value: Value,
+    strings: &mut RuntimeStrings,
+    debug_frames: &mut [RuntimeDebugFrame],
+    current_thread: Option<&mut LuaThread>,
+    current_frame_index: Option<usize>,
+) -> RuntimeResult<Option<Value>> {
+    let frame_index = frame_index_for_level(level, debug_frames)?;
+    if Some(frame_index) != current_frame_index {
+        return Ok(None);
+    }
+    let Some((register, name)) = active_local(&debug_frames[frame_index], local) else {
+        return Ok(None);
+    };
+    let name = name.to_vec();
+    let Some(thread) = current_thread else {
+        return Ok(None);
+    };
+    if !thread.set_stack_value(register, value) {
+        return Ok(None);
+    }
+    if let Some(slot) = debug_frames[frame_index].locals.get_mut(register) {
+        *slot = value;
+    }
+    Ok(Some(strings.intern_value(name)))
+}
+
+fn frame_index_for_level(level: i64, debug_frames: &[RuntimeDebugFrame]) -> RuntimeResult<usize> {
     let Some(level) = usize::try_from(level).ok() else {
         return Err(RuntimeErrorKind::NativeFunctionError {
             message: "level out of range".into(),
         }
         .into());
     };
-    let Some(frame_index) = debug_frames.len().checked_sub(level + 1) else {
-        return Err(RuntimeErrorKind::NativeFunctionError {
+    debug_frames.len().checked_sub(level + 1).ok_or_else(|| {
+        RuntimeErrorKind::NativeFunctionError {
             message: "level out of range".into(),
         }
-        .into());
-    };
-    let Some(local_index) = local
+        .into()
+    })
+}
+
+fn active_local(frame: &RuntimeDebugFrame, local: i64) -> Option<(usize, &[u8])> {
+    let local_index = local
         .checked_sub(1)
-        .and_then(|index| usize::try_from(index).ok())
-    else {
-        return Ok(None);
-    };
-    let frame = &debug_frames[frame_index];
-    let Some(proto) = &frame.proto else {
-        return Ok(None);
-    };
-    let Some(pc) = frame.current_pc.and_then(|pc| u32::try_from(pc).ok()) else {
-        return Ok(None);
-    };
-    let Some(local) = proto
+        .and_then(|index| usize::try_from(index).ok())?;
+    let proto = frame.proto.as_ref()?;
+    let pc = frame.current_pc.and_then(|pc| u32::try_from(pc).ok())?;
+    let local = proto
         .debug
         .local_vars
         .iter()
         .filter(|local| local.start_pc <= pc && pc < local.end_pc)
-        .nth(local_index)
-    else {
-        return Ok(None);
-    };
-    let Some(value) = frame.locals.get(usize::from(local.register)).copied() else {
-        return Ok(None);
-    };
-    Ok(Some((strings.intern_value(local.name.as_bytes()), value)))
+        .nth(local_index)?;
+    Some((usize::from(local.register), local.name.as_bytes()))
 }
 
 pub(super) fn get_upvalue(

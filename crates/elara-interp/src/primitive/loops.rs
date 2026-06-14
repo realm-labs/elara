@@ -180,7 +180,7 @@ pub(super) fn execute_generic_for_call(
         to_be_closed: &mut to_be_closed,
         debug_frames: &mut debug_frames,
     };
-    let returns = call_function(callable, &mut context)?;
+    let returns = call_function(callable, &mut context, Some(thread), None)?;
 
     for index in 0..instr.c() as usize {
         let value = returns.get(index).copied().unwrap_or_else(Value::nil);
