@@ -33,6 +33,20 @@ fn io_input_reports_unsupported_file_handles() {
 }
 
 #[test]
+fn io_lines_reports_unsupported_file_handles() {
+    let profile = StdLibProfile::Custom([StdLib::Io].into_iter().collect());
+
+    assert_eq!(
+        eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "return io.lines('file.txt', '*l')",
+            &profile,
+        ),
+        Ok(vec![Value::nil()])
+    );
+}
+
+#[test]
 fn io_output_reports_unsupported_file_handles() {
     let profile = StdLibProfile::Custom([StdLib::Io].into_iter().collect());
 
