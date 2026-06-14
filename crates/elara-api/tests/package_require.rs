@@ -125,3 +125,17 @@ fn package_searchers_includes_preload_searcher() {
         Ok(vec![Value::integer(42)])
     );
 }
+
+#[test]
+fn package_searchers_includes_lua_searcher_path_miss() {
+    let profile = StdLibProfile::Custom([StdLib::Package, StdLib::String].into_iter().collect());
+
+    assert_eq!(
+        eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "package.path = './?.lua'\nreturn string.len(package.searchers[2]('missing'))",
+            &profile,
+        ),
+        Ok(vec![Value::integer(23)])
+    );
+}

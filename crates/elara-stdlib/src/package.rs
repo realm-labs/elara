@@ -12,12 +12,13 @@ mod loadlib;
 mod searcher;
 
 use self::loadlib::package_loadlib;
-use self::searcher::package_preload_searcher;
+use self::searcher::{package_lua_searcher, package_preload_searcher};
 
 const PATH_MARK: &str = "?";
 const PATH_SEPARATOR: &str = ";";
-const PACKAGE_GLOBAL: &[u8] = b"package";
+pub(super) const PACKAGE_GLOBAL: &[u8] = b"package";
 const LOADED_FIELD: &[u8] = b"loaded";
+pub(super) const PATH_FIELD: &[u8] = b"path";
 pub(super) const PRELOAD_FIELD: &[u8] = b"preload";
 const SEARCHERS_FIELD: &[u8] = b"searchers";
 pub(super) const PRELOAD_LOADER_DATA: &[u8] = b":preload:";
@@ -70,7 +71,13 @@ pub const PACKAGE_PRELOAD_SEARCHER_NATIVE: NativeFunctionSpec = NativeFunctionSp
     package_preload_searcher,
 );
 
-fn package_searchpath(
+/// Hidden package searcher used to seed `package.searchers[2]`.
+pub const PACKAGE_LUA_SEARCHER_NATIVE: NativeFunctionSpec = NativeFunctionSpec::new(
+    FunctionSpec::new(StdLib::Package, "__lua_searcher"),
+    package_lua_searcher,
+);
+
+pub(super) fn package_searchpath(
     runtime: &mut dyn NativeRuntime,
     args: &[Value],
 ) -> Result<Vec<Value>, NativeError> {
