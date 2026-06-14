@@ -198,6 +198,29 @@ mod tests {
     }
 
     #[test]
+    fn string_match_matches_quantifiers() {
+        let mut runtime = TestRuntime::default();
+        let greedy_subject = runtime.push_string(b"aaab");
+        let greedy_pattern = runtime.push_string(b"a+b");
+        let minimal_subject = runtime.push_string(b"abcb");
+        let minimal_pattern = runtime.push_string(b"a.-b");
+
+        let greedy_values = string_match(&mut runtime, &[greedy_subject, greedy_pattern])
+            .expect("greedy match should pass");
+        let minimal_values = string_match(&mut runtime, &[minimal_subject, minimal_pattern])
+            .expect("minimal match should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(greedy_values[0]),
+            Some(b"aaab".as_slice())
+        );
+        assert_eq!(
+            runtime.short_string_bytes(minimal_values[0]),
+            Some(b"ab".as_slice())
+        );
+    }
+
+    #[test]
     fn string_match_returns_nil_when_literal_match_is_absent() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
@@ -213,7 +236,7 @@ mod tests {
     fn string_match_reports_pattern_gap_for_magic_patterns() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
-        let pattern = runtime.push_string(b"a+");
+        let pattern = runtime.push_string(b"(a)");
 
         assert_eq!(
             string_match(&mut runtime, &[subject, pattern])

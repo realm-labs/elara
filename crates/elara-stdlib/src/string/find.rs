@@ -216,6 +216,23 @@ mod tests {
     }
 
     #[test]
+    fn string_find_matches_quantifiers() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"aaab");
+        let greedy_pattern = runtime.push_string(b"a+b");
+        let optional_pattern = runtime.push_string(b"ac?b");
+
+        assert_eq!(
+            string_find(&mut runtime, &[subject, greedy_pattern]).expect("find should pass"),
+            vec![Value::integer(1), Value::integer(4)]
+        );
+        assert_eq!(
+            string_find(&mut runtime, &[subject, optional_pattern]).expect("find should pass"),
+            vec![Value::integer(3), Value::integer(4)]
+        );
+    }
+
+    #[test]
     fn string_find_returns_nil_when_plain_match_is_absent() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
@@ -231,7 +248,7 @@ mod tests {
     fn string_find_reports_pattern_gap_for_magic_patterns() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
-        let pattern = runtime.push_string(b"a+");
+        let pattern = runtime.push_string(b"(a)");
 
         assert_eq!(
             string_find(&mut runtime, &[subject, pattern])

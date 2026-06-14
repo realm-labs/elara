@@ -686,6 +686,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_string_quantifier_patterns() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local x = string.match('aaab', 'a+b')\nlocal y = string.match('abcb', 'a.-b')\nreturn string.len(x) + string.len(y)",
+                &profile,
+            ),
+            Ok(vec![Value::integer(6)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_rep() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 
