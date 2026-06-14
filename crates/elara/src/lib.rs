@@ -14,3 +14,6 @@ pub use elara_api::{
     IntoLuaMulti, Lua, LuaBuilder, LuaValue, NativeFunctionError, RegistryError, RegistryKey,
     Table, UserData,
 };
+
+#[cfg(feature = "jit")]
+pub use elara_api::JitMode;

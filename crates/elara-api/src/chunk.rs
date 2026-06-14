@@ -10,6 +10,8 @@ use elara_core::{SourceId, Value};
 use elara_interp::execute_proto_with_environment;
 use elara_stdlib::StdLibProfile;
 
+#[cfg(feature = "jit")]
+use crate::JitMode;
 use crate::{
     AnyUserData, EvalError, FromLua, Function, IntoLua, LuaValue, RegistryError, RegistryKey,
     Table, UserData, stdlib::runtime_environment_for_stdlib,
@@ -19,6 +21,8 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct LuaBuilder {
     stdlib_profile: StdLibProfile,
+    #[cfg(feature = "jit")]
+    jit_mode: JitMode,
 }
 
 impl LuaBuilder {
@@ -35,11 +39,21 @@ impl LuaBuilder {
         self
     }
 
+    /// Selects the optional JIT mode used by chunks loaded through this runtime.
+    #[cfg(feature = "jit")]
+    #[must_use]
+    pub fn jit(mut self, mode: JitMode) -> Self {
+        self.jit_mode = mode;
+        self
+    }
+
     /// Builds a Lua runtime handle.
     #[must_use]
     pub fn build(self) -> Lua {
         Lua {
             stdlib_profile: self.stdlib_profile,
+            #[cfg(feature = "jit")]
+            jit_mode: self.jit_mode,
             next_source_id: Cell::new(0),
             native_globals: RefCell::new(Vec::new()),
             next_registry_key: Cell::new(0),
@@ -52,6 +66,8 @@ impl Default for LuaBuilder {
     fn default() -> Self {
         Self {
             stdlib_profile: StdLibProfile::Full,
+            #[cfg(feature = "jit")]
+            jit_mode: JitMode::Off,
         }
     }
 }
@@ -60,6 +76,8 @@ impl Default for LuaBuilder {
 #[derive(Debug)]
 pub struct Lua {
     stdlib_profile: StdLibProfile,
+    #[cfg(feature = "jit")]
+    jit_mode: JitMode,
     next_source_id: Cell<u32>,
     native_globals: RefCell<Vec<NativeGlobal>>,
     next_registry_key: Cell<u64>,
@@ -77,6 +95,13 @@ impl Lua {
     #[must_use]
     pub fn new() -> Self {
         LuaBuilder::new().build()
+    }
+
+    /// Returns the configured optional JIT mode.
+    #[cfg(feature = "jit")]
+    #[must_use]
+    pub const fn jit_mode(&self) -> JitMode {
+        self.jit_mode
     }
 
     /// Loads source text into a chunk associated with this runtime.
@@ -209,6 +234,9 @@ mod tests {
     use elara_core::Value;
     use elara_stdlib::{StdLib, StdLibProfile, StdLibSet};
 
+    #[cfg(feature = "jit")]
+    use crate::JitMode;
+
     use super::{Lua, LuaBuilder};
 
     #[test]
@@ -240,6 +268,16 @@ mod tests {
             .build();
 
         assert!(lua.eval("return math.abs(-7)").is_err());
+    }
+
+    #[cfg(feature = "jit")]
+    #[test]
+    fn chunk_builder_selects_jit_mode() {
+        let lua = LuaBuilder::new()
+            .jit(JitMode::Hot { threshold: 128 })
+            .build();
+
+        assert_eq!(lua.jit_mode(), JitMode::Hot { threshold: 128 });
     }
 
     #[test]

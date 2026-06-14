@@ -8,7 +8,12 @@ license.workspace = true
 elara-compiler.workspace = true
 elara-core.workspace = true
 elara-interp.workspace = true
+elara-jit = { workspace = true, optional = true }
 elara-stdlib.workspace = true
+
+[features]
+default = []
+jit = ["dep:elara-jit"]
 
 [lints]
 workspace = true

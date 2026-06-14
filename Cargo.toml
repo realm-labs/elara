@@ -21,6 +21,11 @@ license = "MIT OR Apache-2.0"
 version = "0.1.0"
 
 [workspace.dependencies]
+cranelift-codegen = "0.132.1"
+cranelift-frontend = "0.132.1"
+cranelift-jit = "0.132.1"
+cranelift-module = "0.132.1"
+cranelift-native = "0.132.1"
 elara = { path = "crates/elara" }
 elara-api = { path = "crates/elara-api" }
 elara-bytecode = { path = "crates/elara-bytecode" }

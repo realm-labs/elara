@@ -5,6 +5,14 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+cranelift-codegen.workspace = true
+cranelift-frontend.workspace = true
+cranelift-jit.workspace = true
+cranelift-module.workspace = true
+cranelift-native.workspace = true
+elara-bytecode.workspace = true
+elara-core.workspace = true
+elara-interp.workspace = true
 
 [lints]
 workspace = true
