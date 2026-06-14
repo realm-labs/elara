@@ -10,10 +10,10 @@ use elara_core::{ThreadStatus, Value};
 use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
 use elara_stdlib::{
     BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, LuaRandomState, MATH_CONSTANTS, NativeError,
-    NativeErrorKind, NativeRuntime, PACKAGE_CONFIG, PACKAGE_CPATH, PACKAGE_LUA_SEARCHER_NATIVE,
-    PACKAGE_PATH, PACKAGE_PRELOAD_SEARCHER_NATIVE, STRING_GMATCH_AUX_NATIVE, StdLib, StdLibProfile,
-    StdLibSet, UTF8_CHAR_PATTERN, UTF8_CODES_AUX_LAX_NATIVE, UTF8_CODES_AUX_STRICT_NATIVE,
-    native_functions,
+    NativeErrorKind, NativeRuntime, PACKAGE_C_ROOT_SEARCHER_NATIVE, PACKAGE_C_SEARCHER_NATIVE,
+    PACKAGE_CONFIG, PACKAGE_CPATH, PACKAGE_LUA_SEARCHER_NATIVE, PACKAGE_PATH,
+    PACKAGE_PRELOAD_SEARCHER_NATIVE, STRING_GMATCH_AUX_NATIVE, StdLib, StdLibProfile, StdLibSet,
+    UTF8_CHAR_PATTERN, UTF8_CODES_AUX_LAX_NATIVE, UTF8_CODES_AUX_STRICT_NATIVE, native_functions,
 };
 
 /// Builds a primitive runtime environment containing implemented stdlib natives
@@ -102,6 +102,10 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
                 register_hidden_native(environment, PACKAGE_PRELOAD_SEARCHER_NATIVE.function());
             let lua_searcher =
                 register_hidden_native(environment, PACKAGE_LUA_SEARCHER_NATIVE.function());
+            let c_searcher =
+                register_hidden_native(environment, PACKAGE_C_SEARCHER_NATIVE.function());
+            let c_root_searcher =
+                register_hidden_native(environment, PACKAGE_C_ROOT_SEARCHER_NATIVE.function());
             environment.set_global_table_with_string_and_table_fields(
                 library.name(),
                 fields,
@@ -123,6 +127,11 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
                             (
                                 Value::integer(2),
                                 Value::native_function_index(lua_searcher),
+                            ),
+                            (Value::integer(3), Value::native_function_index(c_searcher)),
+                            (
+                                Value::integer(4),
+                                Value::native_function_index(c_root_searcher),
                             ),
                         ],
                     ),

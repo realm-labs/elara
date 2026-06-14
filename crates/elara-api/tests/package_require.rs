@@ -139,3 +139,17 @@ fn package_searchers_includes_lua_searcher_path_miss() {
         Ok(vec![Value::integer(23)])
     );
 }
+
+#[test]
+fn package_searchers_includes_c_searcher_path_misses() {
+    let profile = StdLibProfile::Custom([StdLib::Package, StdLib::String].into_iter().collect());
+
+    assert_eq!(
+        eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "package.cpath = './?.so'\nreturn string.len(package.searchers[3]('missing')), string.len(package.searchers[4]('root.child'))",
+            &profile,
+        ),
+        Ok(vec![Value::integer(22), Value::integer(19)])
+    );
+}

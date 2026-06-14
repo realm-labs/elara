@@ -12,10 +12,13 @@ mod loadlib;
 mod searcher;
 
 use self::loadlib::package_loadlib;
-use self::searcher::{package_lua_searcher, package_preload_searcher};
+use self::searcher::{
+    package_c_root_searcher, package_c_searcher, package_lua_searcher, package_preload_searcher,
+};
 
 const PATH_MARK: &str = "?";
 const PATH_SEPARATOR: &str = ";";
+pub(super) const CPATH_FIELD: &[u8] = b"cpath";
 pub(super) const PACKAGE_GLOBAL: &[u8] = b"package";
 const LOADED_FIELD: &[u8] = b"loaded";
 pub(super) const PATH_FIELD: &[u8] = b"path";
@@ -75,6 +78,18 @@ pub const PACKAGE_PRELOAD_SEARCHER_NATIVE: NativeFunctionSpec = NativeFunctionSp
 pub const PACKAGE_LUA_SEARCHER_NATIVE: NativeFunctionSpec = NativeFunctionSpec::new(
     FunctionSpec::new(StdLib::Package, "__lua_searcher"),
     package_lua_searcher,
+);
+
+/// Hidden package searcher used to seed `package.searchers[3]`.
+pub const PACKAGE_C_SEARCHER_NATIVE: NativeFunctionSpec = NativeFunctionSpec::new(
+    FunctionSpec::new(StdLib::Package, "__c_searcher"),
+    package_c_searcher,
+);
+
+/// Hidden package searcher used to seed `package.searchers[4]`.
+pub const PACKAGE_C_ROOT_SEARCHER_NATIVE: NativeFunctionSpec = NativeFunctionSpec::new(
+    FunctionSpec::new(StdLib::Package, "__c_root_searcher"),
+    package_c_root_searcher,
 );
 
 pub(super) fn package_searchpath(

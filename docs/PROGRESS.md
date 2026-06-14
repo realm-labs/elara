@@ -274,6 +274,10 @@ The profile-selected `package.searchers` table now also seeds the default Lua
 path searcher at index 2. It is backed by `package.searchpath`, returns
 Lua-style path-miss strings, and reports explicit unsupported Lua file loading
 when a matching file is found until source file chunk loading is wired.
+The profile-selected `package.searchers` table now also seeds the default C
+and all-in-one C searchers at indexes 3 and 4. They use `package.cpath` through
+`package.searchpath`, preserve Lua-style path-miss strings, and report explicit
+unsupported dynamic-library loading when a matching library path exists.
 The `package` standard-library module now exposes executable
 `package.require` for preloaded modules, using `package.loaded` as the module
 cache, calling loaders from `package.preload`, defaulting nil loader results to
@@ -504,6 +508,7 @@ Completed:
   - M18.1 custom `package.searchers` support for `require`.
   - M18.1 default preload searcher in `package.searchers[1]`.
   - M18.1 default Lua path searcher in `package.searchers[2]`.
+  - M18.1 default C path searchers in `package.searchers[3]` and `[4]`.
   - M18.1 executable `debug.getregistry`.
   - M18.1 executable no-frame `debug.traceback` message handling.
   - M18.1 executable no-hook `debug.gethook`.
@@ -1183,7 +1188,7 @@ M17 is complete.
 
 ## Last Verification
 
-M18.1 default Lua path searcher in `package.searchers[2]` verification passed:
+M18.1 default C path searchers in `package.searchers[3]` and `[4]` verification passed:
 
 ```bash
 cargo fmt --all
@@ -1247,7 +1252,7 @@ or non-mutating functions before filesystem/process APIs.
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
-| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, `package.searchpath`, no-hook `debug.gethook`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, clear-only `debug.sethook`, pre-userdata `debug.setuservalue`, and no-frame `debug.traceback` message handling are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
+| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path `package.searchers[3]` and `[4]`, `package.searchpath`, no-hook `debug.gethook`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, clear-only `debug.sethook`, pre-userdata `debug.setuservalue`, and no-frame `debug.traceback` message handling are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | Initial M12 surface complete | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings. |
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |

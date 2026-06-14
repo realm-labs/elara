@@ -3,9 +3,11 @@ use elara_core::Value;
 use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
 use super::{
-    PACKAGE_GLOBAL, PATH_FIELD, PRELOAD_FIELD, PRELOAD_LOADER_DATA, package_searchpath,
-    package_subtable,
+    CPATH_FIELD, PACKAGE_GLOBAL, PATH_FIELD, PRELOAD_FIELD, PRELOAD_LOADER_DATA,
+    package_searchpath, package_subtable,
 };
+
+const C_LOAD_UNSUPPORTED_MESSAGE: &str = "dynamic library loading is not supported by this runtime";
 
 pub(super) fn package_preload_searcher(
     runtime: &mut dyn NativeRuntime,
@@ -55,6 +57,54 @@ pub(super) fn package_lua_searcher(
     Ok(vec![runtime.intern_string(message.as_bytes())?])
 }
 
+pub(super) fn package_c_searcher(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let name = string_arg(runtime, args, 1)?;
+    c_searchpath_result(runtime, name)
+}
+
+pub(super) fn package_c_root_searcher(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let name = string_arg(runtime, args, 1)?;
+    let name_bytes = runtime
+        .string_bytes(name)
+        .ok_or(NativeErrorKind::RuntimeError {
+            message: "validated package searcher name is not a string".into(),
+        })?;
+    let root = name_bytes
+        .split(|byte| *byte == b'.')
+        .next()
+        .unwrap_or(name_bytes)
+        .to_vec();
+    let root = runtime.intern_string(&root)?;
+    c_searchpath_result(runtime, root)
+}
+
+fn c_searchpath_result(
+    runtime: &mut dyn NativeRuntime,
+    name: Value,
+) -> Result<Vec<Value>, NativeError> {
+    let cpath = package_field(runtime, CPATH_FIELD)?;
+    let result = package_searchpath(runtime, &[name, cpath])?;
+    let Some(filename) = result.first().copied().filter(|value| !value.is_nil()) else {
+        return Ok(vec![result.get(1).copied().unwrap_or_else(Value::nil)]);
+    };
+    let filename = runtime
+        .string_bytes(filename)
+        .ok_or(NativeErrorKind::RuntimeError {
+            message: "package.searchpath returned a non-string filename".into(),
+        })?;
+    let message = format!(
+        "{C_LOAD_UNSUPPORTED_MESSAGE} while loading '{}'",
+        String::from_utf8_lossy(filename)
+    );
+    Ok(vec![runtime.intern_string(message.as_bytes())?])
+}
+
 fn string_arg(
     runtime: &dyn NativeRuntime,
     args: &[Value],
@@ -93,7 +143,9 @@ mod tests {
 
     use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
-    use super::{package_lua_searcher, package_preload_searcher};
+    use super::{
+        package_c_root_searcher, package_c_searcher, package_lua_searcher, package_preload_searcher,
+    };
 
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -278,6 +330,90 @@ mod tests {
                 expected: "string",
             }
         );
+    }
+
+    #[test]
+    fn package_c_searcher_returns_path_miss_message() {
+        let mut runtime = TestRuntime::default();
+        let name = runtime.push_string(b"missing");
+        let cpath = runtime.push_string(b"./?.so");
+        let cpath_key = runtime.push_string(b"cpath");
+        install_package_table(&mut runtime, &[(cpath_key, cpath)]);
+
+        let result = package_c_searcher(&mut runtime, &[name]).expect("C searcher should pass");
+
+        assert_eq!(
+            runtime.bytes(result[0]),
+            Some(b"no file './missing.so'".as_slice())
+        );
+    }
+
+    #[test]
+    fn package_c_searcher_reports_unsupported_dynamic_loading() {
+        let mut runtime = TestRuntime::default();
+        let directory = unique_temp_dir();
+        fs::create_dir_all(&directory).expect("test directory should be created");
+        let filename = directory.join("mod.so");
+        fs::write(&filename, b"not a dynamic library").expect("test file should be written");
+        let template = directory.join("?.so");
+        let name = runtime.push_string(b"mod");
+        let cpath = runtime.push_string(template.to_string_lossy().as_bytes());
+        let cpath_key = runtime.push_string(b"cpath");
+        install_package_table(&mut runtime, &[(cpath_key, cpath)]);
+
+        let result = package_c_searcher(&mut runtime, &[name]).expect("C searcher should pass");
+
+        assert_eq!(
+            runtime.bytes(result[0]),
+            Some(
+                format!(
+                    "dynamic library loading is not supported by this runtime while loading '{}'",
+                    filename.to_string_lossy()
+                )
+                .as_bytes()
+            )
+        );
+        fs::remove_dir_all(directory).expect("test directory should be removed");
+    }
+
+    #[test]
+    fn package_c_root_searcher_uses_module_root_for_path_search() {
+        let mut runtime = TestRuntime::default();
+        let name = runtime.push_string(b"root.child");
+        let cpath = runtime.push_string(b"./?.so");
+        let cpath_key = runtime.push_string(b"cpath");
+        install_package_table(&mut runtime, &[(cpath_key, cpath)]);
+
+        let result =
+            package_c_root_searcher(&mut runtime, &[name]).expect("C root searcher should pass");
+
+        assert_eq!(
+            runtime.bytes(result[0]),
+            Some(b"no file './root.so'".as_slice())
+        );
+    }
+
+    #[test]
+    fn package_c_searchers_validate_name_argument() {
+        let mut runtime = TestRuntime::default();
+
+        for searcher in [package_c_searcher, package_c_root_searcher] {
+            assert_eq!(
+                searcher(&mut runtime, &[])
+                    .expect_err("missing name")
+                    .kind(),
+                &NativeErrorKind::MissingArgument { index: 1 }
+            );
+            assert_eq!(
+                searcher(&mut runtime, &[Value::integer(1)])
+                    .expect_err("non-string name")
+                    .kind(),
+                &NativeErrorKind::TypeError {
+                    index: 1,
+                    expected: "string",
+                }
+            );
+        }
     }
 
     fn install_package_tables(runtime: &mut TestRuntime, preload_entries: &[(Value, Value)]) {
