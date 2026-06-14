@@ -256,6 +256,8 @@ The executable `utf8` primitives now read general runtime strings, and
 arguments as general runtime strings and can return long string results.
 `math.tointeger` now also parses numeric input from general runtime strings.
 `table.sort` default string comparisons now also read general runtime strings.
+The executable string pattern functions now also return captures/results and
+read `gsub` replacement strings through general runtime strings.
 
 Current state:
 
@@ -460,6 +462,7 @@ Completed:
   - M18.1 long-string support for `string.format`.
   - M18.1 long-string support for `math.tointeger`.
   - M18.1 long-string support for `table.sort` string comparisons.
+  - M18.1 long-string support for string pattern function results and replacements.
 
 In progress:
   - JIT.
@@ -1120,12 +1123,15 @@ M17 is complete.
 
 ## Last Verification
 
-M18.1 long-string `table.sort` verification passed:
+M18.1 long-string string pattern function verification passed:
 
 ```bash
 cargo fmt --all
-cargo test -p elara-stdlib table_sort
-cargo test -p elara-api table_sort_accepts_long_strings
+cargo test -p elara-stdlib string_find
+cargo test -p elara-stdlib string_match
+cargo test -p elara-stdlib string_gsub
+cargo test -p elara-stdlib string_gmatch
+cargo test -p elara-api pattern_functions_return_long_strings
 cargo fmt --all -- --check
 cargo test -p elara-stdlib
 cargo test -p elara-api
@@ -1184,7 +1190,7 @@ or non-mutating functions before filesystem/process APIs.
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
-| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, `package.config`, `package.cpath`, `package.loaded`, `package.path`, `package.preload`, `package.searchers`, `package.searchpath`, raw `debug.getmetatable`, and raw `debug.setmetatable` are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, `table.concat`, `table.sort` default string comparisons, and executable `utf8` primitives handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
+| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, `package.config`, `package.cpath`, `package.loaded`, `package.path`, `package.preload`, `package.searchers`, `package.searchpath`, raw `debug.getmetatable`, and raw `debug.setmetatable` are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, and executable `utf8` primitives handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | Initial M12 surface complete | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented. |
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |

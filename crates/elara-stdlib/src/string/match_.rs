@@ -48,7 +48,7 @@ pub(super) fn string_match(
     let subject = subject.to_vec();
     if match_.captures.is_empty() {
         return Ok(vec![
-            runtime.intern_short_string(&subject[match_.start..match_.end])?,
+            runtime.intern_string(&subject[match_.start..match_.end])?,
         ]);
     }
 
@@ -65,7 +65,7 @@ fn capture_value(
     capture: PatternCapture,
 ) -> Result<Value, NativeError> {
     match capture {
-        PatternCapture::String { start, end } => runtime.intern_short_string(&subject[start..end]),
+        PatternCapture::String { start, end } => runtime.intern_string(&subject[start..end]),
         PatternCapture::Position(position) => Ok(Value::integer(
             i64::try_from(position + 1).expect("capture position fits LuaInteger"),
         )),

@@ -55,10 +55,7 @@ pub(super) fn string_gsub(
     }
     let anchored = is_start_anchored(&pattern);
     if max <= 0 {
-        return Ok(vec![
-            runtime.intern_short_string(&subject)?,
-            Value::integer(0),
-        ]);
+        return Ok(vec![runtime.intern_string(&subject)?, Value::integer(0)]);
     }
 
     let mut output = Vec::new();
@@ -91,9 +88,9 @@ pub(super) fn string_gsub(
     output.extend_from_slice(&subject[cursor..]);
 
     let result = if replacements == 0 {
-        runtime.intern_short_string(&subject)?
+        runtime.intern_string(&subject)?
     } else {
-        runtime.intern_short_string(&output)?
+        runtime.intern_string(&output)?
     };
     Ok(vec![result, Value::integer(replacements)])
 }
@@ -105,7 +102,7 @@ enum Replacement {
 }
 
 fn replacement_arg(runtime: &dyn NativeRuntime, value: Value) -> Result<Replacement, NativeError> {
-    if let Some(bytes) = runtime.short_string_bytes(value) {
+    if let Some(bytes) = runtime.string_bytes(value) {
         return Ok(Replacement::String(bytes.to_vec()));
     }
     if value.is_table() {
@@ -213,7 +210,7 @@ fn replacement_args(
 ) -> Result<Vec<Value>, NativeError> {
     if match_.captures.is_empty() {
         return Ok(vec![
-            runtime.intern_short_string(&subject[match_.start..match_.end])?,
+            runtime.intern_string(&subject[match_.start..match_.end])?,
         ]);
     }
     match_
@@ -230,7 +227,7 @@ fn capture_value(
     capture: PatternCapture,
 ) -> Result<Value, NativeError> {
     match capture {
-        PatternCapture::String { start, end } => runtime.intern_short_string(&subject[start..end]),
+        PatternCapture::String { start, end } => runtime.intern_string(&subject[start..end]),
         PatternCapture::Position(position) => Ok(Value::integer(
             i64::try_from(position + 1).expect("capture position fits LuaInteger"),
         )),
@@ -260,7 +257,7 @@ fn append_replacement_value(
         output.extend_from_slice(&subject[match_.start..match_.end]);
         return Ok(());
     }
-    if let Some(bytes) = runtime.short_string_bytes(value) {
+    if let Some(bytes) = runtime.string_bytes(value) {
         output.extend_from_slice(bytes);
         return Ok(());
     }

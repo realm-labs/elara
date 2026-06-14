@@ -1466,6 +1466,25 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_pattern_functions_return_long_strings() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local text = string.rep('a', 50)\nlocal match = string.match(text, 'a+')\nlocal replaced = string.gsub(text, 'a+', string.rep('b', 50))\nlocal iter = string.gmatch(text, 'a+')\nlocal first = iter()\nreturn string.find(text, 'a+'), string.len(match), string.len(replaced), string.len(first)",
+                &profile,
+            ),
+            Ok(vec![
+                Value::integer(1),
+                Value::integer(50),
+                Value::integer(50),
+                Value::integer(50),
+            ])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_match() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 
