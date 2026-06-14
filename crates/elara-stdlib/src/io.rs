@@ -12,7 +12,9 @@ const FILE_HANDLES_UNSUPPORTED: &[u8] = b"file handles are not supported by this
 pub const IO_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "close"), io_close),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "flush"), io_flush),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "input"), io_input),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "open"), io_open),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "output"), io_output),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "popen"), io_popen),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "tmpfile"), io_tmpfile),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "type"), io_type),
@@ -26,9 +28,21 @@ fn io_flush(runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Valu
     unsupported_file_result(runtime)
 }
 
+fn io_input(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    optional_string_or_file_arg(runtime, args, 1)?;
+
+    unsupported_file_result(runtime)
+}
+
 fn io_open(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     string_arg(runtime, args, 1)?;
     optional_string_arg(runtime, args, 2)?;
+
+    unsupported_file_result(runtime)
+}
+
+fn io_output(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    optional_string_or_file_arg(runtime, args, 1)?;
 
     unsupported_file_result(runtime)
 }
@@ -94,6 +108,27 @@ fn optional_string_arg<'a>(
         .map_err(Into::into)
 }
 
+fn optional_string_or_file_arg<'a>(
+    runtime: &'a dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<Option<&'a [u8]>, NativeError> {
+    let Some(value) = args.get(index - 1).copied() else {
+        return Ok(None);
+    };
+    if value.is_nil() {
+        return Ok(None);
+    }
+    runtime
+        .string_bytes(value)
+        .ok_or(NativeErrorKind::TypeError {
+            index,
+            expected: "string or file",
+        })
+        .map(Some)
+        .map_err(Into::into)
+}
+
 #[cfg(test)]
 mod tests {
     use elara_core::Value;
@@ -139,8 +174,10 @@ mod tests {
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "close")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "flush")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "input")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "type")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "open")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "output")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "popen")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "tmpfile")));
     }
@@ -178,6 +215,46 @@ mod tests {
         assert_eq!(
             runtime.bytes(result[1]),
             Some(b"file handles are not supported by this runtime".as_slice())
+        );
+    }
+
+    #[test]
+    fn io_input_reports_unsupported_file_handles() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "input")
+            .expect("io.input native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+        let filename = runtime.push_string(b"file.txt");
+
+        let result = function(&mut runtime, &[filename]).expect("io.input should pass");
+
+        assert_eq!(result[0], Value::nil());
+        assert_eq!(
+            runtime.bytes(result[1]),
+            Some(b"file handles are not supported by this runtime".as_slice())
+        );
+    }
+
+    #[test]
+    fn io_input_validates_arguments() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "input")
+            .expect("io.input native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+
+        assert!(function(&mut runtime, &[]).is_ok());
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1)])
+                .expect_err("non-string input target")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "string or file",
+            }
         );
     }
 
@@ -233,6 +310,46 @@ mod tests {
             &NativeErrorKind::TypeError {
                 index: 2,
                 expected: "string",
+            }
+        );
+    }
+
+    #[test]
+    fn io_output_reports_unsupported_file_handles() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "output")
+            .expect("io.output native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+        let filename = runtime.push_string(b"file.txt");
+
+        let result = function(&mut runtime, &[filename]).expect("io.output should pass");
+
+        assert_eq!(result[0], Value::nil());
+        assert_eq!(
+            runtime.bytes(result[1]),
+            Some(b"file handles are not supported by this runtime".as_slice())
+        );
+    }
+
+    #[test]
+    fn io_output_validates_arguments() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "output")
+            .expect("io.output native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+
+        assert!(function(&mut runtime, &[]).is_ok());
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1)])
+                .expect_err("non-string output target")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "string or file",
             }
         );
     }
