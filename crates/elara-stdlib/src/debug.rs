@@ -16,6 +16,10 @@ pub const DEBUG_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         FunctionSpec::new(StdLib::Debug, "setmetatable"),
         debug_setmetatable,
     ),
+    NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Debug, "getregistry"),
+        debug_getregistry,
+    ),
 ];
 
 fn debug_getmetatable(
@@ -62,6 +66,13 @@ fn debug_setmetatable(
     Ok(vec![value])
 }
 
+fn debug_getregistry(
+    runtime: &mut dyn NativeRuntime,
+    _args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![runtime.debug_registry()?])
+}
+
 #[cfg(test)]
 mod tests {
     use elara_core::Value;
@@ -71,6 +82,7 @@ mod tests {
     #[derive(Default)]
     struct TestRuntime {
         metatables: Vec<Value>,
+        registry: Option<Value>,
     }
 
     impl TestRuntime {
@@ -109,6 +121,15 @@ mod tests {
             })? as usize;
             self.metatables[index] = metatable;
             Ok(())
+        }
+
+        fn debug_registry(&mut self) -> Result<Value, crate::NativeError> {
+            if let Some(registry) = self.registry {
+                return Ok(registry);
+            }
+            let registry = self.push_table(Value::nil());
+            self.registry = Some(registry);
+            Ok(registry)
         }
     }
 
@@ -211,6 +232,19 @@ mod tests {
                 expected: "nil or table",
             }
         );
+    }
+
+    #[test]
+    fn debug_getregistry_returns_stable_registry_table() {
+        let function = function("getregistry");
+        let mut runtime = TestRuntime::default();
+
+        let first = function(&mut runtime, &[]).expect("debug.getregistry should pass");
+        let second = function(&mut runtime, &[]).expect("debug.getregistry should pass");
+
+        assert_eq!(first.len(), 1);
+        assert!(first[0].is_table());
+        assert_eq!(first, second);
     }
 
     fn function(name: &str) -> crate::NativeStdFunction {

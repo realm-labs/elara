@@ -64,6 +64,7 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
         (library == StdLib::Math).then(|| Arc::new(Mutex::new(LuaRandomState::default())));
     let helpers = match library {
         StdLib::Coroutine => register_coroutine_helpers(),
+        StdLib::Debug => register_debug_helpers(),
         StdLib::String => register_string_helpers(environment),
         StdLib::Utf8 => register_utf8_helpers(environment),
         _ => NativeHelpers::default(),
@@ -149,6 +150,13 @@ fn register_coroutine_helpers() -> NativeHelpers {
     }
 }
 
+fn register_debug_helpers() -> NativeHelpers {
+    NativeHelpers {
+        debug_registry: Some(Arc::new(Mutex::new(None))),
+        ..NativeHelpers::default()
+    }
+}
+
 fn register_utf8_helpers(environment: &mut RuntimeEnvironment) -> NativeHelpers {
     let utf8_codes_aux_strict =
         register_hidden_native(environment, UTF8_CODES_AUX_STRICT_NATIVE.function());
@@ -180,6 +188,7 @@ struct NativeHelpers {
     base_next: Option<u32>,
     base_ipairs_aux: Option<u32>,
     coroutine_registry: Option<Arc<Mutex<CoroutineRegistry>>>,
+    debug_registry: Option<Arc<Mutex<Option<u32>>>>,
     string_gmatch_aux: Option<u32>,
     utf8_codes_aux_strict: Option<u32>,
     utf8_codes_aux_lax: Option<u32>,
@@ -408,6 +417,30 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
             }
             .into()
         })
+    }
+
+    fn debug_registry(&mut self) -> Result<Value, NativeError> {
+        let registry =
+            self.helpers
+                .debug_registry
+                .clone()
+                .ok_or_else(|| NativeErrorKind::RuntimeError {
+                    message: "debug registry is not registered".into(),
+                })?;
+        let mut registry = registry.lock().map_err(|_| NativeErrorKind::RuntimeError {
+            message: "debug registry lock poisoned".into(),
+        })?;
+        if let Some(registry) = *registry {
+            return Ok(Value::table_index(registry));
+        }
+        let table = self.create_table(&[])?;
+        let index = table
+            .as_table_index()
+            .ok_or_else(|| NativeErrorKind::RuntimeError {
+                message: "debug registry allocation did not return a table".into(),
+            })?;
+        *registry = Some(index);
+        Ok(table)
     }
 
     fn table_metatable(&self, table: Value) -> Result<Value, NativeError> {
