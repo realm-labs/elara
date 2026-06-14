@@ -1,6 +1,6 @@
 //! VM state, Lua thread stack, and call frames.
 
-use crate::{GcArena, GcHeader, GcKind, GcObject, Value};
+use crate::{GcArena, GcHeader, GcKind, GcObject, GcTracer, Value};
 
 /// Stack index within one Lua thread.
 pub type StackIndex = usize;
@@ -175,6 +175,12 @@ impl Default for LuaThread {
 impl GcObject for LuaThread {
     fn header(&self) -> &GcHeader {
         &self.header
+    }
+
+    fn trace(&self, tracer: &mut GcTracer<'_>) {
+        for value in &self.stack {
+            tracer.mark_value(*value);
+        }
     }
 }
 

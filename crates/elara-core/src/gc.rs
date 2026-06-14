@@ -9,6 +9,8 @@ use core::{
     ptr::NonNull,
 };
 
+use crate::Value;
+
 /// Mark color used by the garbage collector.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum GcColor {
@@ -81,9 +83,64 @@ pub trait GcObject {
     /// Embedded GC header.
     fn header(&self) -> &GcHeader;
 
+    /// Traces child GC references owned by this object.
+    fn trace(&self, _tracer: &mut GcTracer<'_>) {}
+
     /// Runtime object kind from the embedded header.
     fn kind(&self) -> GcKind {
         self.header().kind()
+    }
+}
+
+/// Tracing context used during a stop-the-world mark phase.
+pub struct GcTracer<'arena> {
+    arena: &'arena GcArena,
+    marked: usize,
+}
+
+impl GcTracer<'_> {
+    /// Marks a typed GC reference and recursively traces its children.
+    pub fn mark_ref<T>(&mut self, reference: GcRef<T>)
+    where
+        T: GcObject,
+    {
+        self.mark_ptr(reference.ptr.cast());
+    }
+
+    /// Marks any GC-managed reference contained in a Lua value.
+    pub fn mark_value(&mut self, value: Value) {
+        if let Some(reference) = value.as_short_string() {
+            self.mark_ref(reference);
+        } else if let Some(reference) = value.as_long_string() {
+            self.mark_ref(reference);
+        }
+    }
+
+    fn mark_ptr(&mut self, ptr: NonNull<()>) {
+        let Some(allocation) = self
+            .arena
+            .objects
+            .iter()
+            .find(|allocation| allocation.ptr == ptr)
+        else {
+            return;
+        };
+
+        let header = allocation.header() as *const GcHeader;
+        if unsafe { (*header).color() } != GcColor::White {
+            return;
+        }
+
+        let object = allocation.object.as_ref() as *const dyn GcObject;
+        // SAFETY: The tracer only reads arena allocations during the mark phase.
+        // No sweep or mutation of `arena.objects` can run until tracing returns,
+        // so these raw pointers remain valid for the recursive trace.
+        unsafe {
+            (*header).set_color(GcColor::Gray);
+            self.marked += 1;
+            (*object).trace(self);
+            (*header).set_color(GcColor::Black);
+        }
     }
 }
 
@@ -362,24 +419,14 @@ impl GcArena {
     }
 
     fn mark_roots(&self) -> usize {
-        let mut marked = 0;
-
+        let mut tracer = GcTracer {
+            arena: self,
+            marked: 0,
+        };
         for root in &self.roots {
-            if let Some(allocation) = self
-                .objects
-                .iter()
-                .find(|allocation| allocation.ptr == root.ptr)
-            {
-                let header = allocation.header();
-                if header.color() != GcColor::Black {
-                    header.set_color(GcColor::Gray);
-                    header.set_color(GcColor::Black);
-                    marked += 1;
-                }
-            }
+            tracer.mark_ptr(root.ptr);
         }
-
-        marked
+        tracer.marked
     }
 
     fn sweep_unmarked(&mut self) -> usize {

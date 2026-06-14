@@ -20,6 +20,7 @@ pub use diagnostics::{Diagnostic, DiagnosticLabel, DiagnosticSeverity, SourceId,
 pub use error::{LuaError, TraceFrame};
 pub use gc::{
     GcArena, GcCollectionStats, GcColor, GcHeader, GcKind, GcObject, GcRef, GcRoot, GcStats,
+    GcTracer,
 };
 pub use spec::{LUA_SPEC, LUA_VERSION, LuaSpec, LuaVersion};
 pub use string::{

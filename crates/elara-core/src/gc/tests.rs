@@ -4,7 +4,10 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use super::{GcArena, GcCollectionStats, GcColor, GcHeader, GcKind, GcObject, GcRef, GcStats};
+use super::{
+    GcArena, GcCollectionStats, GcColor, GcHeader, GcKind, GcObject, GcRef, GcStats, GcTracer,
+};
+use crate::{LongString, LuaThread, ShortString, Table, Value};
 
 #[derive(Debug)]
 struct TestObject {
@@ -48,6 +51,30 @@ impl Drop for DropObject {
 impl GcObject for DropObject {
     fn header(&self) -> &GcHeader {
         &self.header
+    }
+}
+
+struct CapturedValueObject {
+    header: GcHeader,
+    captured: Value,
+}
+
+impl CapturedValueObject {
+    fn new(captured: Value) -> Self {
+        Self {
+            header: GcHeader::new(GcKind::Upvalue),
+            captured,
+        }
+    }
+}
+
+impl GcObject for CapturedValueObject {
+    fn header(&self) -> &GcHeader {
+        &self.header
+    }
+
+    fn trace(&self, tracer: &mut GcTracer<'_>) {
+        tracer.mark_value(self.captured);
     }
 }
 
@@ -216,4 +243,93 @@ fn gc_mark_sweep_keeps_rooted_objects() {
         }
     );
     assert_eq!(drops.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn gc_trace_table_marks_values_keys_and_metatable() {
+    let mut arena = GcArena::new();
+
+    let metatable = arena.allocate(Table::new());
+    let key = arena.allocate(ShortString::new("field").expect("short string fits"));
+    let value = arena.allocate(LongString::new("value"));
+    let mut table = Table::new();
+    table.set_metatable(Some(metatable));
+    assert!(table.raw_set_value(Value::short_string(key), Value::integer(1)));
+    assert!(table.raw_set_integer(1, Value::long_string(value)));
+    let table = arena.allocate(table);
+    arena.add_root(table);
+
+    let collection = arena.collect_garbage();
+
+    assert_eq!(
+        collection,
+        GcCollectionStats {
+            marked: 4,
+            swept: 0,
+            live_objects: 4,
+        }
+    );
+    assert_eq!(arena.len(), 4);
+}
+
+#[test]
+fn gc_trace_thread_stack_marks_value_references() {
+    let mut arena = GcArena::new();
+
+    let value = arena.allocate(LongString::new("stack"));
+    let mut thread = LuaThread::new();
+    thread.push_value(Value::long_string(value));
+    let thread = arena.allocate(thread);
+    arena.add_root(thread);
+
+    let collection = arena.collect_garbage();
+
+    assert_eq!(
+        collection,
+        GcCollectionStats {
+            marked: 2,
+            swept: 0,
+            live_objects: 2,
+        }
+    );
+}
+
+#[test]
+fn gc_trace_upvalue_marks_captured_value() {
+    let mut arena = GcArena::new();
+
+    let value = arena.allocate(LongString::new("captured"));
+    let upvalue = arena.allocate(CapturedValueObject::new(Value::long_string(value)));
+    arena.add_root(upvalue);
+
+    let collection = arena.collect_garbage();
+
+    assert_eq!(
+        collection,
+        GcCollectionStats {
+            marked: 2,
+            swept: 0,
+            live_objects: 2,
+        }
+    );
+}
+
+#[test]
+fn gc_trace_registry_roots_mark_objects_once() {
+    let mut arena = GcArena::new();
+
+    let value = arena.allocate(LongString::new("registered"));
+    arena.add_root(value);
+    arena.add_root(value);
+
+    let collection = arena.collect_garbage();
+
+    assert_eq!(
+        collection,
+        GcCollectionStats {
+            marked: 1,
+            swept: 0,
+            live_objects: 1,
+        }
+    );
 }

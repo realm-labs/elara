@@ -2,7 +2,9 @@
 
 use std::collections::HashMap;
 
-use crate::{GcHeader, GcKind, GcObject, GcRef, LuaFloat, LuaInteger, ShortString, Value};
+use crate::{
+    GcHeader, GcKind, GcObject, GcRef, GcTracer, LuaFloat, LuaInteger, ShortString, Value,
+};
 
 /// Placeholder cache flags for table metatable lookups.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -299,6 +301,21 @@ impl GcObject for Table {
     fn header(&self) -> &GcHeader {
         &self.header
     }
+
+    fn trace(&self, tracer: &mut GcTracer<'_>) {
+        if let Some(metatable) = self.metatable {
+            tracer.mark_ref(metatable);
+        }
+
+        for value in &self.array {
+            tracer.mark_value(*value);
+        }
+
+        for (key, value) in &self.hash {
+            key.trace(tracer);
+            tracer.mark_value(*value);
+        }
+    }
 }
 
 fn array_offset(index: LuaInteger) -> Option<usize> {
@@ -318,6 +335,12 @@ enum TableKey {
 }
 
 impl TableKey {
+    fn trace(self, tracer: &mut GcTracer<'_>) {
+        if let Self::ShortString(reference) = self {
+            tracer.mark_ref(reference);
+        }
+    }
+
     fn from_value(value: Value) -> Option<Self> {
         if let Some(value) = value.as_bool() {
             return Some(Self::Bool(value));
