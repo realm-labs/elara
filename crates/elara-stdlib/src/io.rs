@@ -2,34 +2,104 @@
 
 use elara_core::Value;
 
-use crate::{FunctionSpec, NativeError, NativeFunctionSpec, NativeRuntime, StdLib};
+use crate::{
+    FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
+};
+
+const FILE_HANDLES_UNSUPPORTED: &[u8] = b"file handles are not supported by this runtime";
 
 /// Executable `io` library functions currently implemented.
-pub const IO_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[NativeFunctionSpec::new(
-    FunctionSpec::new(StdLib::Io, "type"),
-    io_type,
-)];
+pub const IO_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "open"), io_open),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "type"), io_type),
+];
+
+fn io_open(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    string_arg(runtime, args, 1)?;
+    optional_string_arg(runtime, args, 2)?;
+
+    Ok(vec![
+        Value::nil(),
+        runtime.intern_string(FILE_HANDLES_UNSUPPORTED)?,
+    ])
+}
 
 fn io_type(_runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Value>, NativeError> {
     Ok(vec![Value::nil()])
+}
+
+fn string_arg<'a>(
+    runtime: &'a dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<&'a [u8], NativeError> {
+    let value = args
+        .get(index - 1)
+        .copied()
+        .ok_or(NativeErrorKind::MissingArgument { index })?;
+    runtime
+        .string_bytes(value)
+        .ok_or(NativeErrorKind::TypeError {
+            index,
+            expected: "string",
+        })
+        .map_err(Into::into)
+}
+
+fn optional_string_arg<'a>(
+    runtime: &'a dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<Option<&'a [u8]>, NativeError> {
+    let Some(value) = args.get(index - 1).copied() else {
+        return Ok(None);
+    };
+    if value.is_nil() {
+        return Ok(None);
+    }
+    runtime
+        .string_bytes(value)
+        .ok_or(NativeErrorKind::TypeError {
+            index,
+            expected: "string",
+        })
+        .map(Some)
+        .map_err(Into::into)
 }
 
 #[cfg(test)]
 mod tests {
     use elara_core::Value;
 
-    use crate::{FunctionSpec, NativeError, NativeRuntime, StdLib, native_functions};
+    use crate::{
+        FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib, native_functions,
+    };
 
     #[derive(Default)]
-    struct TestRuntime;
+    struct TestRuntime {
+        strings: Vec<Box<[u8]>>,
+    }
 
-    impl NativeRuntime for TestRuntime {
-        fn intern_short_string(&mut self, _bytes: &[u8]) -> Result<Value, NativeError> {
-            unreachable!("io.type should not allocate strings without file handles")
+    impl TestRuntime {
+        fn push_string(&mut self, bytes: &[u8]) -> Value {
+            let index = u32::try_from(self.strings.len()).expect("test string index fits in u32");
+            self.strings.push(bytes.into());
+            Value::closure_index(index)
         }
 
-        fn short_string_bytes(&self, _value: Value) -> Option<&[u8]> {
-            None
+        fn bytes(&self, value: Value) -> Option<&[u8]> {
+            let index = value.as_closure_index()? as usize;
+            self.strings.get(index).map(Box::as_ref)
+        }
+    }
+
+    impl NativeRuntime for TestRuntime {
+        fn intern_short_string(&mut self, bytes: &[u8]) -> Result<Value, NativeError> {
+            Ok(self.push_string(bytes))
+        }
+
+        fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
+            self.bytes(value)
         }
     }
 
@@ -41,6 +111,63 @@ mod tests {
             .collect();
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "type")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "open")));
+    }
+
+    #[test]
+    fn io_open_reports_unsupported_file_handles() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "open")
+            .expect("io.open native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+        let filename = runtime.push_string(b"file.txt");
+        let mode = runtime.push_string(b"r");
+
+        let result = function(&mut runtime, &[filename, mode]).expect("io.open should pass");
+
+        assert_eq!(result[0], Value::nil());
+        assert_eq!(
+            runtime.bytes(result[1]),
+            Some(b"file handles are not supported by this runtime".as_slice())
+        );
+    }
+
+    #[test]
+    fn io_open_validates_arguments() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "open")
+            .expect("io.open native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+        let filename = runtime.push_string(b"file.txt");
+
+        assert_eq!(
+            function(&mut runtime, &[])
+                .expect_err("missing filename")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 1 }
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1)])
+                .expect_err("non-string filename")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "string",
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[filename, Value::integer(1)])
+                .expect_err("non-string mode")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "string",
+            }
+        );
     }
 
     #[test]
@@ -50,7 +177,7 @@ mod tests {
             .find(|function| function.descriptor().name() == "type")
             .expect("io.type native function should exist")
             .function();
-        let mut runtime = TestRuntime;
+        let mut runtime = TestRuntime::default();
 
         assert_eq!(
             function(&mut runtime, &[]).expect("io.type should pass"),
