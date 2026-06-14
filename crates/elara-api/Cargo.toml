@@ -13,7 +13,7 @@ elara-stdlib.workspace = true
 
 [features]
 default = []
-jit = ["dep:elara-jit"]
+jit = ["dep:elara-jit", "elara-jit/jit"]
 
 [lints]
 workspace = true

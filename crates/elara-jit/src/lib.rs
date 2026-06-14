@@ -6,8 +6,15 @@
 //!
 //! It consumes bytecode and runtime metadata. It must not parse Lua source.
 
+pub mod abi;
+
 use cranelift_codegen::{isa, settings, settings::Configurable};
 use cranelift_frontend::FunctionBuilderContext;
+
+pub use abi::{
+    JitFn, JitRuntimeContext, JitStatus, RuntimeHelper, RuntimeHelperError, RuntimeHelperFn,
+    RuntimeHelperId, RuntimeHelperRegistry,
+};
 
 /// Baseline JIT configuration placeholder.
 #[derive(Clone, Debug, Eq, PartialEq)]

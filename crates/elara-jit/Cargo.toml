@@ -14,5 +14,9 @@ elara-bytecode.workspace = true
 elara-core.workspace = true
 elara-interp.workspace = true
 
+[features]
+default = []
+jit = []
+
 [lints]
 workspace = true

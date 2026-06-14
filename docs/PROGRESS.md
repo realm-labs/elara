@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M16 Cranelift Baseline JIT
-Current step: M16.2 Define JIT ABI and runtime helper layer
+Current step: M16.3 Lower simple arithmetic Protos to Cranelift
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -164,6 +164,9 @@ and metamethod fallback.
 The optional JIT path now has Cranelift crate dependencies, host/frontend
 configuration scaffolding, a top-level `jit` feature, and a feature-gated
 `JitMode::{Off, Hot, Always}` API placeholder on `LuaBuilder`.
+The JIT crate now exposes a stable C-compatible baseline ABI with `JitFn`,
+`JitStatus`, an opaque runtime context pointer, and a runtime helper registry
+that can call registered helpers directly before generated-code integration.
 
 Current state:
 
@@ -333,6 +336,7 @@ Completed:
   - M15.4 Add selected superinstructions.
   - M15 exit criteria validation.
   - M16.1 Add JIT crate and feature flag.
+  - M16.2 Define JIT ABI and runtime helper layer.
 
 In progress:
   - JIT.
@@ -981,24 +985,24 @@ M15.3 is complete.
 M15.4 is complete.
 M15 is complete.
 M16.1 is complete.
+M16.2 is complete.
 
 ## Last Verification
 
-M16.1 JIT feature scaffolding verification passed:
+M16.2 JIT ABI/helper verification passed:
 
 ```bash
 cargo fmt --all -- --check
+cargo test -p elara-jit --features jit abi
+cargo test -p elara-jit --features jit
+cargo clippy -p elara-jit --all-targets --features jit -- -D warnings
 cargo test --workspace --features jit
-cargo test --workspace
-cargo clippy -p elara-jit --all-targets -- -D warnings
-cargo clippy -p elara-api --all-targets --features jit -- -D warnings
-cargo clippy -p elara --all-targets --features jit -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M16.2 by defining the baseline JIT ABI, status values, runtime helper
-registration surface, and helper-call tests without generated Lua code.
+Continue M16.3 by lowering simple arithmetic Protos to Cranelift and comparing
+JIT execution results against the interpreter for the supported subset.
 
 ## Current Risk Notes
 
@@ -1048,6 +1052,6 @@ registration surface, and helper-call tests without generated Lua code.
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
-| JIT | M16.1 complete | Optional Cranelift dependencies, host/frontend configuration scaffolding, top-level `jit` feature, and `JitMode` API placeholder are implemented. |
+| JIT | M16.2 complete | Optional Cranelift dependencies, `jit` feature plumbing, `JitMode` API placeholder, baseline ABI, status values, and runtime helper registry are implemented. |
 | C API | Not started | Starts M19, optional/current-version only. |
 | Benchmarks | M15 baseline complete | Stable custom `cargo bench` runner covers arithmetic, table access, calls, strings, and representative macro workloads; `docs/PERFORMANCE.md` records the current baseline and comparison gaps. |
