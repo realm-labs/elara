@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M13 Conformance and Differential Testing
-Current step: M13.2 Add conformance test subsets
+Current step: M13.3 Add fuzz targets
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -291,6 +291,7 @@ Completed:
   - M12.4 Add tables, registry keys, and userdata.
   - M12 exit criteria validation.
   - M13.1 Add official Lua runner integration.
+  - M13.2 Add conformance test subsets.
 
 In progress:
   - Conformance and benchmark harnesses.
@@ -884,6 +885,9 @@ Delivered:
   `ELARA_LUA`, captures stdout/stderr and success/error classes, and can compare
   official Lua runs against Elara's public API evaluation path for differential
   testing.
+- Conformance fixture subsets now cover language, standard-library, error, and
+  coroutine smoke cases through an `elara-test` integration harness that checks
+  public API success/error classes.
 
 ## Remaining Gaps
 
@@ -922,22 +926,24 @@ M12.3 is complete.
 M12.4 is complete.
 M12 is complete.
 M13.1 is complete.
+M13.2 is complete.
 
 ## Last Verification
 
-M13.1 differential runner verification passed:
+M13.2 conformance subset verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-test differential_runner
+cargo test -p elara-test --test conformance
+cargo test -p elara-test conformance
 cargo test -p elara-test
 cargo clippy -p elara-test --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M13.2 with language, standard-library, error, and coroutine
-conformance fixture subsets.
+Continue M13.3 with parser, bytecode verifier, and table-operation fuzz target
+scaffolding.
 
 ## Current Risk Notes
 
