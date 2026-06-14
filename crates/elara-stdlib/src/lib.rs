@@ -14,6 +14,7 @@ mod math;
 mod native;
 mod number;
 mod os;
+mod package;
 mod string;
 mod table;
 mod utf8;
@@ -26,6 +27,7 @@ pub use native::{
     NativeStdFunction,
 };
 pub use os::OS_NATIVE_FUNCTIONS;
+pub use package::PACKAGE_NATIVE_FUNCTIONS;
 pub use string::{STRING_GMATCH_AUX_NATIVE, STRING_NATIVE_FUNCTIONS};
 pub use table::TABLE_NATIVE_FUNCTIONS;
 pub use utf8::{
@@ -592,6 +594,7 @@ pub const fn native_functions(library: StdLib) -> &'static [NativeFunctionSpec] 
         StdLib::Table => TABLE_NATIVE_FUNCTIONS,
         StdLib::Utf8 => UTF8_NATIVE_FUNCTIONS,
         StdLib::Os => OS_NATIVE_FUNCTIONS,
+        StdLib::Package => PACKAGE_NATIVE_FUNCTIONS,
         _ => &[],
     }
 }
@@ -827,7 +830,6 @@ mod tests {
     #[test]
     fn host_sensitive_libraries_without_safe_subset_are_not_executable_natives_yet() {
         assert!(native_functions(StdLib::Io).is_empty());
-        assert!(native_functions(StdLib::Package).is_empty());
         assert!(native_functions(StdLib::Debug).is_empty());
     }
 
@@ -854,6 +856,16 @@ mod tests {
             functions
                 .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Os, "time"))
+        );
+    }
+
+    #[test]
+    fn package_native_functions_are_discoverable() {
+        let functions = native_functions(StdLib::Package);
+
+        assert!(
+            functions.iter().any(|function| function.descriptor()
+                == FunctionSpec::new(StdLib::Package, "searchpath"))
         );
     }
 
