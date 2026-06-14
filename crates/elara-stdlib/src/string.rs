@@ -84,7 +84,7 @@ fn string_char(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
             u8::try_from(value).map_err(|_| NativeErrorKind::ArgumentOutOfRange { index })?;
         bytes.push(byte);
     }
-    Ok(vec![runtime.intern_short_string(&bytes)?])
+    Ok(vec![runtime.intern_string(&bytes)?])
 }
 
 fn string_lower(
@@ -96,7 +96,7 @@ fn string_lower(
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
     let bytes = string_arg(runtime, value, 1)?;
     let lowered: Vec<_> = bytes.iter().map(u8::to_ascii_lowercase).collect();
-    Ok(vec![runtime.intern_short_string(&lowered)?])
+    Ok(vec![runtime.intern_string(&lowered)?])
 }
 
 fn string_upper(
@@ -108,7 +108,7 @@ fn string_upper(
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
     let bytes = string_arg(runtime, value, 1)?;
     let uppered: Vec<_> = bytes.iter().map(u8::to_ascii_uppercase).collect();
-    Ok(vec![runtime.intern_short_string(&uppered)?])
+    Ok(vec![runtime.intern_string(&uppered)?])
 }
 
 fn string_reverse(
@@ -120,7 +120,7 @@ fn string_reverse(
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
     let bytes = string_arg(runtime, value, 1)?;
     let reversed: Vec<_> = bytes.iter().rev().copied().collect();
-    Ok(vec![runtime.intern_short_string(&reversed)?])
+    Ok(vec![runtime.intern_string(&reversed)?])
 }
 
 fn string_rep(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -142,7 +142,7 @@ fn string_rep(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
     };
 
     if count <= 0 {
-        return Ok(vec![runtime.intern_short_string(b"")?]);
+        return Ok(vec![runtime.intern_string(b"")?]);
     }
 
     let count = usize::try_from(count).map_err(|_| string_result_too_large())?;
@@ -162,7 +162,7 @@ fn string_rep(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
         }
         output.extend_from_slice(&bytes);
     }
-    Ok(vec![runtime.intern_short_string(&output)?])
+    Ok(vec![runtime.intern_string(&output)?])
 }
 
 fn string_sub(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -175,11 +175,11 @@ fn string_sub(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
     let end = relative_end(optional_integer_arg(args, 3, -1)?, len);
 
     if start > end {
-        return Ok(vec![runtime.intern_short_string(b"")?]);
+        return Ok(vec![runtime.intern_string(b"")?]);
     }
 
     let slice = &bytes[(start - 1)..end];
-    Ok(vec![runtime.intern_short_string(slice)?])
+    Ok(vec![runtime.intern_string(slice)?])
 }
 
 fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
@@ -252,7 +252,7 @@ fn string_arg(
     value: Value,
     index: usize,
 ) -> Result<&[u8], NativeError> {
-    runtime.short_string_bytes(value).ok_or(
+    runtime.string_bytes(value).ok_or(
         NativeErrorKind::TypeError {
             index,
             expected: "string",

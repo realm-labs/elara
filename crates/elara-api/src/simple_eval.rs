@@ -721,6 +721,46 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_string_ops_accept_package_long_path() {
+        let profile =
+            StdLibProfile::Custom([StdLib::Package, StdLib::String].into_iter().collect());
+        let path_len = i64::try_from(PACKAGE_PATH.len()).expect("package path length fits");
+        let first_byte = i64::from(PACKAGE_PATH.as_bytes()[0]);
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local path = package.path\nlocal upper = string.upper(path)\nreturn string.len(path), string.len(upper), string.byte(path, 1), string.len(string.sub(path, 1, 10))",
+                &profile,
+            ),
+            Ok(vec![
+                Value::integer(path_len),
+                Value::integer(path_len),
+                Value::integer(first_byte),
+                Value::integer(10),
+            ])
+        );
+    }
+
+    #[test]
+    fn eval_simple_with_stdlib_string_ops_return_long_strings() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local value = string.rep('abcdef', 12)\nlocal reversed = string.reverse(value)\nreturn string.len(value), string.byte(value, 72), string.len(reversed)",
+                &profile,
+            ),
+            Ok(vec![
+                Value::integer(72),
+                Value::integer(i64::from(b'f')),
+                Value::integer(72),
+            ])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_registers_package_state_tables() {
         let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
 

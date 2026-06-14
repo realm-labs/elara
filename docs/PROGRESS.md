@@ -242,6 +242,9 @@ upcoming `require` implementation.
 The profile-selected `package` table now registers platform-default
 `package.path` and `package.cpath` strings, and `package.searchpath` reads and
 returns general runtime strings instead of being limited to short strings.
+The common byte-oriented `string` primitives `len`, `byte`, `char`, `lower`,
+`upper`, `reverse`, `rep`, and `sub` now read and return general runtime
+strings instead of being limited to short-string storage.
 
 Current state:
 
@@ -439,6 +442,7 @@ Completed:
   - M18.1 native/runtime long string allocation support.
   - M18.1 `package.path` and `package.cpath` table field registration.
   - M18.1 executable `os.date` UTC string format subset.
+  - M18.1 long-string support for common byte-oriented `string` primitives.
 
 In progress:
   - JIT.
@@ -1099,12 +1103,13 @@ M17 is complete.
 
 ## Last Verification
 
-M18.1 `os.date` UTC string verification passed:
+M18.1 long-string string primitive verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib os_date
-cargo test -p elara-api os_date
+cargo test -p elara-stdlib string_
+cargo test -p elara-api long_string
+cargo test -p elara-api package_long_path
 cargo test -p elara-stdlib
 cargo test -p elara-api
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
@@ -1162,7 +1167,7 @@ or non-mutating functions before filesystem/process APIs.
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
-| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, `package.config`, `package.cpath`, `package.loaded`, `package.path`, `package.preload`, `package.searchers`, `package.searchpath`, raw `debug.getmetatable`, and raw `debug.setmetatable` are implemented; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
+| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, `package.config`, `package.cpath`, `package.loaded`, `package.path`, `package.preload`, `package.searchers`, `package.searchpath`, raw `debug.getmetatable`, and raw `debug.setmetatable` are implemented; common byte-oriented `string` primitives handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | Initial M12 surface complete | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented. |
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
