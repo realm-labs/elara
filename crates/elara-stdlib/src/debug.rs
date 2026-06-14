@@ -7,10 +7,16 @@ use crate::{
 };
 
 /// Executable `debug` library functions currently implemented.
-pub const DEBUG_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[NativeFunctionSpec::new(
-    FunctionSpec::new(StdLib::Debug, "getmetatable"),
-    debug_getmetatable,
-)];
+pub const DEBUG_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
+    NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Debug, "getmetatable"),
+        debug_getmetatable,
+    ),
+    NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Debug, "setmetatable"),
+        debug_setmetatable,
+    ),
+];
 
 fn debug_getmetatable(
     runtime: &mut dyn NativeRuntime,
@@ -26,11 +32,41 @@ fn debug_getmetatable(
     Ok(vec![runtime.table_metatable(value)?])
 }
 
+fn debug_setmetatable(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let value = args
+        .first()
+        .copied()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    if !value.is_table() {
+        return Err(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "table",
+        }
+        .into());
+    }
+    let metatable = args
+        .get(1)
+        .copied()
+        .ok_or(NativeErrorKind::MissingArgument { index: 2 })?;
+    if !metatable.is_nil() && !metatable.is_table() {
+        return Err(NativeErrorKind::TypeError {
+            index: 2,
+            expected: "nil or table",
+        }
+        .into());
+    }
+    runtime.table_set_metatable(value, metatable)?;
+    Ok(vec![value])
+}
+
 #[cfg(test)]
 mod tests {
     use elara_core::Value;
 
-    use crate::{NativeErrorKind, StdLib, native_functions};
+    use crate::{NativeErrorKind, NativeRuntime, StdLib, native_functions};
 
     #[derive(Default)]
     struct TestRuntime {
@@ -45,7 +81,7 @@ mod tests {
         }
     }
 
-    impl crate::NativeRuntime for TestRuntime {
+    impl NativeRuntime for TestRuntime {
         fn intern_short_string(&mut self, _bytes: &[u8]) -> Result<Value, crate::NativeError> {
             unreachable!("debug.getmetatable does not intern strings")
         }
@@ -60,6 +96,19 @@ mod tests {
                 expected: "table",
             })? as usize;
             Ok(*self.metatables.get(index).unwrap_or(&Value::nil()))
+        }
+
+        fn table_set_metatable(
+            &mut self,
+            table: Value,
+            metatable: Value,
+        ) -> Result<(), crate::NativeError> {
+            let index = table.as_table_index().ok_or(NativeErrorKind::TypeError {
+                index: 1,
+                expected: "table",
+            })? as usize;
+            self.metatables[index] = metatable;
+            Ok(())
         }
     }
 
@@ -102,6 +151,65 @@ mod tests {
                 .expect_err("missing argument")
                 .kind(),
             &NativeErrorKind::MissingArgument { index: 1 }
+        );
+    }
+
+    #[test]
+    fn debug_setmetatable_sets_raw_table_metatable() {
+        let function = function("setmetatable");
+        let mut runtime = TestRuntime::default();
+        let table = runtime.push_table(Value::nil());
+        let metatable = runtime.push_table(Value::nil());
+
+        assert_eq!(
+            function(&mut runtime, &[table, metatable]).expect("debug.setmetatable should pass"),
+            vec![table]
+        );
+        assert_eq!(runtime.table_metatable(table), Ok(metatable));
+
+        assert_eq!(
+            function(&mut runtime, &[table, Value::nil()])
+                .expect("debug.setmetatable nil should pass"),
+            vec![table]
+        );
+        assert_eq!(runtime.table_metatable(table), Ok(Value::nil()));
+    }
+
+    #[test]
+    fn debug_setmetatable_validates_arguments() {
+        let function = function("setmetatable");
+        let mut runtime = TestRuntime::default();
+        let table = runtime.push_table(Value::nil());
+
+        assert_eq!(
+            function(&mut runtime, &[])
+                .expect_err("missing value")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 1 }
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1), table])
+                .expect_err("non-table value")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "table",
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[table])
+                .expect_err("missing metatable")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 2 }
+        );
+        assert_eq!(
+            function(&mut runtime, &[table, Value::integer(1)])
+                .expect_err("bad metatable")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "nil or table",
+            }
         );
     }
 
