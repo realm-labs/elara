@@ -1,7 +1,16 @@
 //! Small Lua pattern helpers shared by string-library functions.
 
 pub(super) fn has_unsupported_pattern_special(pattern: &[u8]) -> bool {
+    has_unsupported_pattern_special_inner(pattern, false)
+}
+
+pub(super) fn has_unsupported_pattern_special_with_captures(pattern: &[u8]) -> bool {
+    has_unsupported_pattern_special_inner(pattern, true)
+}
+
+fn has_unsupported_pattern_special_inner(pattern: &[u8], allow_captures: bool) -> bool {
     let mut index = 0;
+    let mut capture_depth = 0_u32;
     while let Some(byte) = pattern.get(index).copied() {
         match byte {
             b'%' => {
@@ -34,13 +43,24 @@ pub(super) fn has_unsupported_pattern_special(pattern: &[u8]) -> bool {
                 };
                 index = end + 1;
             }
-            b'(' => return true,
+            b'(' if allow_captures => {
+                capture_depth += 1;
+                index += 1;
+            }
+            b')' if allow_captures => {
+                let Some(depth) = capture_depth.checked_sub(1) else {
+                    return true;
+                };
+                capture_depth = depth;
+                index += 1;
+            }
+            b'(' | b')' => return true,
             b'^' if index != 0 => return true,
             b'$' if index + 1 != pattern.len() => return true,
             _ => index += 1,
         }
     }
-    false
+    capture_depth != 0
 }
 
 #[cfg(test)]
@@ -53,9 +73,21 @@ pub(super) fn simple_pattern_find_from(
     pattern: &[u8],
     start: usize,
 ) -> Option<(usize, usize)> {
+    simple_pattern_match_from(haystack, pattern, start).map(|match_| (match_.start, match_.end))
+}
+
+pub(super) fn simple_pattern_match_from(
+    haystack: &[u8],
+    pattern: &[u8],
+    start: usize,
+) -> Option<PatternMatch> {
     let pattern = ParsedPattern::new(pattern);
     if pattern.body.is_empty() && !pattern.anchor_end {
-        return (start <= haystack.len()).then_some((start, start));
+        return (start <= haystack.len()).then_some(PatternMatch {
+            start,
+            end: start,
+            captures: Vec::new(),
+        });
     }
     if start > haystack.len() {
         return None;
@@ -65,6 +97,13 @@ pub(super) fn simple_pattern_find_from(
     }
 
     (start..=haystack.len()).find_map(|start| pattern_matches_at(haystack, &pattern, start))
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct PatternMatch {
+    pub start: usize,
+    pub end: usize,
+    pub captures: Vec<(usize, usize)>,
 }
 
 pub(super) fn is_start_anchored(pattern: &[u8]) -> bool {
@@ -95,16 +134,39 @@ fn pattern_matches_at(
     haystack: &[u8],
     pattern: &ParsedPattern<'_>,
     start: usize,
-) -> Option<(usize, usize)> {
-    let end = pattern_match_end(haystack, pattern.body, start)?;
-    if end > haystack.len() || pattern.anchor_end && end != haystack.len() {
+) -> Option<PatternMatch> {
+    let state = pattern_match_end(haystack, pattern.body, start)?;
+    if state.end > haystack.len() || pattern.anchor_end && state.end != haystack.len() {
         return None;
     }
-    Some((start, end))
+    Some(PatternMatch {
+        start,
+        end: state.end,
+        captures: state
+            .captures
+            .into_iter()
+            .map(|capture| match capture {
+                Capture::Closed(start, end) => Some((start, end)),
+                Capture::Open(_) => None,
+            })
+            .collect::<Option<_>>()?,
+    })
 }
 
-fn pattern_match_end(haystack: &[u8], pattern: &[u8], start: usize) -> Option<usize> {
-    match_from(haystack, pattern, 0, start)
+fn pattern_match_end(haystack: &[u8], pattern: &[u8], start: usize) -> Option<MatchState> {
+    match_from(haystack, pattern, 0, start, Vec::new())
+}
+
+#[derive(Clone)]
+struct MatchState {
+    end: usize,
+    captures: Vec<Capture>,
+}
+
+#[derive(Clone)]
+enum Capture {
+    Open(usize),
+    Closed(usize, usize),
 }
 
 fn match_from(
@@ -112,14 +174,55 @@ fn match_from(
     pattern: &[u8],
     pattern_index: usize,
     subject_index: usize,
-) -> Option<usize> {
+    captures: Vec<Capture>,
+) -> Option<MatchState> {
     if pattern_index >= pattern.len() {
-        return Some(subject_index);
+        return Some(MatchState {
+            end: subject_index,
+            captures,
+        });
+    }
+
+    if pattern[pattern_index] == b'(' {
+        let mut captures = captures;
+        captures.push(Capture::Open(subject_index));
+        return match_from(
+            haystack,
+            pattern,
+            pattern_index + 1,
+            subject_index,
+            captures,
+        );
+    }
+
+    if pattern[pattern_index] == b')' {
+        let mut captures = captures;
+        let position = captures
+            .iter()
+            .rposition(|capture| matches!(capture, Capture::Open(_)))?;
+        let Capture::Open(start) = captures[position] else {
+            return None;
+        };
+        captures[position] = Capture::Closed(start, subject_index);
+        return match_from(
+            haystack,
+            pattern,
+            pattern_index + 1,
+            subject_index,
+            captures,
+        );
     }
 
     let atom_end = atom_end(pattern, pattern_index)?;
     match pattern.get(atom_end).copied() {
-        Some(b'?') => match_optional(haystack, pattern, pattern_index, atom_end, subject_index),
+        Some(b'?') => match_optional(
+            haystack,
+            pattern,
+            pattern_index,
+            atom_end,
+            subject_index,
+            captures,
+        ),
         Some(b'*') => match_greedy_repeat(
             haystack,
             pattern,
@@ -127,6 +230,7 @@ fn match_from(
             atom_end + 1,
             subject_index,
             false,
+            captures,
         ),
         Some(b'+') => match_greedy_repeat(
             haystack,
@@ -135,6 +239,7 @@ fn match_from(
             atom_end + 1,
             subject_index,
             true,
+            captures,
         ),
         Some(b'-') => match_minimal_repeat(
             haystack,
@@ -142,11 +247,18 @@ fn match_from(
             pattern_index,
             atom_end + 1,
             subject_index,
+            captures,
         ),
         _ => {
             let consumed =
                 atom_match_len(haystack, pattern, pattern_index, atom_end, subject_index)?;
-            match_from(haystack, pattern, atom_end, subject_index + consumed)
+            match_from(
+                haystack,
+                pattern,
+                atom_end,
+                subject_index + consumed,
+                captures,
+            )
         }
     }
 }
@@ -175,14 +287,21 @@ fn match_optional(
     pattern_index: usize,
     atom_end: usize,
     subject_index: usize,
-) -> Option<usize> {
+    captures: Vec<Capture>,
+) -> Option<MatchState> {
     if let Some(consumed) =
         atom_match_len(haystack, pattern, pattern_index, atom_end, subject_index)
-        && let Some(end) = match_from(haystack, pattern, atom_end + 1, subject_index + consumed)
+        && let Some(end) = match_from(
+            haystack,
+            pattern,
+            atom_end + 1,
+            subject_index + consumed,
+            captures.clone(),
+        )
     {
         return Some(end);
     }
-    match_from(haystack, pattern, atom_end + 1, subject_index)
+    match_from(haystack, pattern, atom_end + 1, subject_index, captures)
 }
 
 fn match_greedy_repeat(
@@ -192,7 +311,8 @@ fn match_greedy_repeat(
     rest_index: usize,
     subject_index: usize,
     require_one: bool,
-) -> Option<usize> {
+    captures: Vec<Capture>,
+) -> Option<MatchState> {
     let mut end = subject_index;
     let mut candidates = vec![subject_index];
     while let Some(consumed) = atom_match_len(haystack, pattern, pattern_index, rest_index - 1, end)
@@ -207,7 +327,7 @@ fn match_greedy_repeat(
         return None;
     }
     for candidate in candidates.into_iter().rev() {
-        if let Some(end) = match_from(haystack, pattern, rest_index, candidate) {
+        if let Some(end) = match_from(haystack, pattern, rest_index, candidate, captures.clone()) {
             return Some(end);
         }
     }
@@ -220,10 +340,11 @@ fn match_minimal_repeat(
     pattern_index: usize,
     rest_index: usize,
     subject_index: usize,
-) -> Option<usize> {
+    captures: Vec<Capture>,
+) -> Option<MatchState> {
     let mut candidate = subject_index;
     loop {
-        if let Some(end) = match_from(haystack, pattern, rest_index, candidate) {
+        if let Some(end) = match_from(haystack, pattern, rest_index, candidate, captures.clone()) {
             return Some(end);
         }
         let consumed = atom_match_len(haystack, pattern, pattern_index, rest_index - 1, candidate)?;
@@ -372,7 +493,10 @@ fn bracket_class_matches(byte: u8, class: &[u8]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{has_unsupported_pattern_special, simple_pattern_find, simple_pattern_find_from};
+    use super::{
+        has_unsupported_pattern_special, has_unsupported_pattern_special_with_captures,
+        simple_pattern_find, simple_pattern_find_from, simple_pattern_match_from,
+    };
 
     #[test]
     fn simple_pattern_find_matches_dot_wildcard() {
@@ -447,6 +571,16 @@ mod tests {
     }
 
     #[test]
+    fn simple_pattern_match_from_records_captures() {
+        let match_ =
+            simple_pattern_match_from(b"abc123", b"(%a+)(%d+)", 0).expect("captures should match");
+
+        assert_eq!(match_.start, 0);
+        assert_eq!(match_.end, 6);
+        assert_eq!(match_.captures, vec![(0, 3), (3, 6)]);
+    }
+
+    #[test]
     fn unsupported_specials_exclude_dot_valid_anchors_and_classes() {
         assert!(!has_unsupported_pattern_special(b"a."));
         assert!(!has_unsupported_pattern_special(b"^a.$"));
@@ -464,5 +598,10 @@ mod tests {
         assert!(!has_unsupported_pattern_special(b"%f[a]"));
         assert!(has_unsupported_pattern_special(b"%fa"));
         assert!(has_unsupported_pattern_special(b"%1"));
+        assert!(!has_unsupported_pattern_special_with_captures(
+            b"(%a+)(%d+)"
+        ));
+        assert!(has_unsupported_pattern_special_with_captures(b"(%a+"));
+        assert!(has_unsupported_pattern_special_with_captures(b"%1"));
     }
 }

@@ -6,7 +6,7 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
 use super::{
     optional_integer_arg,
-    pattern::{has_unsupported_pattern_special, simple_pattern_find_from},
+    pattern::{has_unsupported_pattern_special_with_captures, simple_pattern_match_from},
     relative_start, string_arg,
 };
 
@@ -32,7 +32,7 @@ pub(super) fn string_match(
     if init > subject.len() {
         return Ok(vec![Value::nil()]);
     }
-    if has_unsupported_pattern_special(pattern) {
+    if has_unsupported_pattern_special_with_captures(pattern) {
         return Err(NativeErrorKind::RuntimeError {
             message: "string pattern matching is not supported yet".into(),
         }
@@ -40,11 +40,21 @@ pub(super) fn string_match(
     }
 
     let offset = init - 1;
-    let Some((start, end)) = simple_pattern_find_from(subject, pattern, offset) else {
+    let Some(match_) = simple_pattern_match_from(subject, pattern, offset) else {
         return Ok(vec![Value::nil()]);
     };
-    let matched = subject[start..end].to_vec();
-    Ok(vec![runtime.intern_short_string(&matched)?])
+    let subject = subject.to_vec();
+    if match_.captures.is_empty() {
+        return Ok(vec![
+            runtime.intern_short_string(&subject[match_.start..match_.end])?,
+        ]);
+    }
+
+    match_
+        .captures
+        .into_iter()
+        .map(|(start, end)| runtime.intern_short_string(&subject[start..end]))
+        .collect()
 }
 
 #[cfg(test)]
@@ -219,6 +229,25 @@ mod tests {
     }
 
     #[test]
+    fn string_match_returns_captures_when_present() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abc123");
+        let pattern = runtime.push_string(b"(%a+)(%d+)");
+
+        let values = string_match(&mut runtime, &[subject, pattern]).expect("match should pass");
+
+        assert_eq!(values.len(), 2);
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"abc".as_slice())
+        );
+        assert_eq!(
+            runtime.short_string_bytes(values[1]),
+            Some(b"123".as_slice())
+        );
+    }
+
+    #[test]
     fn string_match_matches_balanced_delimiters() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"a(b(c)d)e");
@@ -262,7 +291,7 @@ mod tests {
     fn string_match_reports_pattern_gap_for_magic_patterns() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
-        let pattern = runtime.push_string(b"(a)");
+        let pattern = runtime.push_string(b"%1");
 
         assert_eq!(
             string_match(&mut runtime, &[subject, pattern])
