@@ -316,6 +316,16 @@ impl Instr {
         self.0
     }
 
+    /// Decodes a raw instruction word if it contains a known opcode.
+    #[must_use]
+    pub const fn from_word(word: u64) -> Option<Self> {
+        if Op::from_byte((word & OP_MASK) as u8).is_some() {
+            Some(Self(word))
+        } else {
+            None
+        }
+    }
+
     /// Decoded opcode.
     #[must_use]
     pub const fn op(self) -> Op {

@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-15
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M18 Full Standard Library, Debug Support, and Binary Chunk Policy
-Current step: M18.3 Add internal bytecode dump/load
+Current step: M18.4 Decide and implement official chunk support scope
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -23,10 +23,11 @@ light-userdata representation for runtime identity values such as debug
 upvalue identifiers. The initial bytecode prototype, instruction encoding,
 opcode set, constant pool, metadata placeholders, builder, and disassembler are
 implemented, along with local-variable debug descriptors, initial bytecode
-verification, and simple expression codegen. VM/thread stack primitives and
-primitive arithmetic bytecode execution are implemented, and simple source
-chunks can be evaluated through the compile and interpreter path. Local
-variables and assignment basics are implemented.
+verification, internal bytecode dump/load with magic and version checks,
+recursive prototype-tree serialization, and simple expression codegen.
+VM/thread stack primitives and primitive arithmetic bytecode execution are
+implemented, and simple source chunks can be evaluated through the compile and
+interpreter path. Local variables and assignment basics are implemented.
 Simple function Protos and zero-argument Lua calls are implemented. Closures,
 shared runtime upvalue cells, and captured outer local reads are implemented.
 Anonymous vararg functions can receive call arguments and lower `...` for the
@@ -1300,16 +1301,16 @@ M17.4 is complete.
 M17 is complete.
 M18.1 is complete.
 M18.2 is complete.
+M18.3 is complete.
 
 ## Last Verification
 
-M18.2 debug traceback frame materialization validation passed:
+M18.3 internal bytecode dump/load validation passed:
 
 ```bash
-cargo test -p elara-api --test debug_traceback
-cargo test -p elara-stdlib debug_traceback
 cargo fmt --all -- --check
-cargo clippy -p elara-api -p elara-interp -p elara-stdlib --all-targets -- -D warnings
+cargo test -p elara-bytecode dump_load
+cargo clippy -p elara-bytecode --all-targets -- -D warnings
 git diff --check
 cargo test --workspace
 cargo test --workspace --features jit debug
@@ -1317,8 +1318,8 @@ cargo test --workspace --features jit debug
 
 ## Next Recommended Action
 
-Start M18.3 with internal bytecode dump/load support, including
-magic/version/header validation and explicit incompatible-bytecode refusal.
+Start M18.4 by documenting the official Lua binary chunk support policy for the
+current architecture, then add tests for accepted and rejected chunk inputs.
 
 ## Current Risk Notes
 
@@ -1357,7 +1358,7 @@ magic/version/header validation and explicit incompatible-bytecode refusal.
 | Expression parser | Complete | Expression AST, precedence parsing, calls, table constructors, and varargs are implemented. |
 | Statement parser | Complete | Declarations, assignments, control flow, function declarations, labels, and returns are implemented. |
 | Parser snapshots | Complete | Representative AST and malformed syntax diagnostic snapshots are implemented. |
-| Bytecode model | Initial model complete | Proto, instruction encoding, opcode set, constants, upvalues, source/line/local debug metadata, builder, disassembler, and verifier are implemented. |
+| Bytecode model | M18.3 complete | Proto, instruction encoding, opcode set, constants, upvalues, source/line/local debug metadata, builder, disassembler, verifier, and internal dump/load format with magic/version/header validation are implemented. |
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | M15 complete | Primitive bytecode execution includes structured errors, coroutines, close variables, native calls, hot stack helpers, table/global inline caches, and an `ADD_INT` superinstruction. |

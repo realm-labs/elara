@@ -9,12 +9,14 @@
 
 pub mod builder;
 pub mod disasm;
+pub mod dump_load;
 pub mod op;
 pub mod proto;
 pub mod verifier;
 
 pub use builder::ProtoBuilder;
 pub use disasm::disassemble;
+pub use dump_load::{DumpError, LoadError, dump_proto, load_proto};
 pub use op::{A_BITS, B_BITS, C_BITS, Instr, MAX_A, MAX_B, MAX_C, OP_BITS, Op};
 pub use proto::{
     ConstantIndex, DebugInfo, LocalVarDesc, Proto, Register, StringIndex, UpvalueDesc, UpvalueIndex,
