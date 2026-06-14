@@ -7,6 +7,7 @@
 //! It consumes bytecode and runtime metadata. It must not parse Lua source.
 
 pub mod abi;
+pub mod arithmetic;
 
 use cranelift_codegen::{isa, settings, settings::Configurable};
 use cranelift_frontend::FunctionBuilderContext;
@@ -15,6 +16,7 @@ pub use abi::{
     JitFn, JitRuntimeContext, JitStatus, RuntimeHelper, RuntimeHelperError, RuntimeHelperFn,
     RuntimeHelperId, RuntimeHelperRegistry,
 };
+pub use arithmetic::{ArithmeticJitError, ArithmeticJitFunction, execute_arithmetic_proto};
 
 /// Baseline JIT configuration placeholder.
 #[derive(Clone, Debug, Eq, PartialEq)]
