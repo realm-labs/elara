@@ -11,6 +11,8 @@ const FILE_HANDLES_UNSUPPORTED: &[u8] = b"file handles are not supported by this
 /// Executable `io` library functions currently implemented.
 pub const IO_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "open"), io_open),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "popen"), io_popen),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "tmpfile"), io_tmpfile),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "type"), io_type),
 ];
 
@@ -18,14 +20,29 @@ fn io_open(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>
     string_arg(runtime, args, 1)?;
     optional_string_arg(runtime, args, 2)?;
 
-    Ok(vec![
-        Value::nil(),
-        runtime.intern_string(FILE_HANDLES_UNSUPPORTED)?,
-    ])
+    unsupported_file_result(runtime)
+}
+
+fn io_popen(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    string_arg(runtime, args, 1)?;
+    optional_string_arg(runtime, args, 2)?;
+
+    unsupported_file_result(runtime)
+}
+
+fn io_tmpfile(runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    unsupported_file_result(runtime)
 }
 
 fn io_type(_runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Value>, NativeError> {
     Ok(vec![Value::nil()])
+}
+
+fn unsupported_file_result(runtime: &mut dyn NativeRuntime) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![
+        Value::nil(),
+        runtime.intern_string(FILE_HANDLES_UNSUPPORTED)?,
+    ])
 }
 
 fn string_arg<'a>(
@@ -112,6 +129,8 @@ mod tests {
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "type")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "open")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "popen")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "tmpfile")));
     }
 
     #[test]
@@ -161,6 +180,80 @@ mod tests {
         );
         assert_eq!(
             function(&mut runtime, &[filename, Value::integer(1)])
+                .expect_err("non-string mode")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "string",
+            }
+        );
+    }
+
+    #[test]
+    fn io_tmpfile_reports_unsupported_file_handles() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "tmpfile")
+            .expect("io.tmpfile native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+
+        let result = function(&mut runtime, &[]).expect("io.tmpfile should pass");
+
+        assert_eq!(result[0], Value::nil());
+        assert_eq!(
+            runtime.bytes(result[1]),
+            Some(b"file handles are not supported by this runtime".as_slice())
+        );
+    }
+
+    #[test]
+    fn io_popen_reports_unsupported_file_handles() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "popen")
+            .expect("io.popen native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+        let command = runtime.push_string(b"echo hi");
+        let mode = runtime.push_string(b"r");
+
+        let result = function(&mut runtime, &[command, mode]).expect("io.popen should pass");
+
+        assert_eq!(result[0], Value::nil());
+        assert_eq!(
+            runtime.bytes(result[1]),
+            Some(b"file handles are not supported by this runtime".as_slice())
+        );
+    }
+
+    #[test]
+    fn io_popen_validates_arguments() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "popen")
+            .expect("io.popen native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+        let command = runtime.push_string(b"echo hi");
+
+        assert_eq!(
+            function(&mut runtime, &[])
+                .expect_err("missing command")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 1 }
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1)])
+                .expect_err("non-string command")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "string",
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[command, Value::integer(1)])
                 .expect_err("non-string mode")
                 .kind(),
             &NativeErrorKind::TypeError {

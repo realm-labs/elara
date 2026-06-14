@@ -197,6 +197,10 @@ implemented.
 The `io` standard-library module now exposes executable `io.open` as a safe
 pre-file-handle stub, validating filename and mode arguments and returning a
 Lua-style `nil` plus unsupported-file-handle message.
+The `io` standard-library module now also exposes executable `io.tmpfile`
+and `io.popen` as safe pre-file-handle stubs, validating `io.popen`
+command and mode arguments while returning Lua-style `nil` plus the
+unsupported-file-handle message.
 The `os` standard-library module now exposes executable `difftime` for
 profile-selected runtimes, including stdlib-native tests and public API
 evaluation coverage.
@@ -497,6 +501,7 @@ Completed:
   - M18.1 standard-library descriptor surface for host-sensitive libraries.
   - M18.1 executable pre-file-handle `io.type`.
   - M18.1 safe unsupported pre-file-handle `io.open`.
+  - M18.1 safe unsupported pre-file-handle `io.tmpfile` and `io.popen`.
   - M18.1 executable `os.difftime`.
   - M18.1 executable `os.time` without arguments and with UTC-normalized date tables.
   - M18.1 executable `os.clock`.
@@ -1200,12 +1205,12 @@ M17 is complete.
 
 ## Last Verification
 
-M18.1 safe unsupported pre-file-handle `io.open` verification passed:
+M18.1 safe unsupported pre-file-handle `io.tmpfile` and `io.popen` verification passed:
 
 ```bash
 cargo fmt --all
-cargo test -p elara-stdlib io_open
-cargo test -p elara-api --test io_open
+cargo test -p elara-stdlib io_
+cargo test -p elara-api --test io_file_stubs
 cargo test -p elara-stdlib
 cargo test -p elara-api
 cargo fmt --all -- --check
@@ -1264,7 +1269,7 @@ or non-mutating functions before filesystem/process APIs.
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
-| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.open`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path `package.searchers[3]` and `[4]`, `package.searchpath`, no-hook `debug.gethook`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, clear-only `debug.sethook`, pre-userdata `debug.setuservalue`, and no-frame `debug.traceback` message handling are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
+| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.open`, `io.popen`, and `io.tmpfile`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path `package.searchers[3]` and `[4]`, `package.searchpath`, no-hook `debug.gethook`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, clear-only `debug.sethook`, pre-userdata `debug.setuservalue`, and no-frame `debug.traceback` message handling are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | Initial M12 surface complete | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings. |
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
