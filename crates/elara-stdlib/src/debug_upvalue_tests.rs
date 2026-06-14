@@ -11,6 +11,8 @@ struct TestRuntime {
     debug_setupvalue_request: Option<(Value, i64, Value)>,
     debug_upvalueid: Option<Value>,
     debug_upvalueid_request: Option<(Value, i64)>,
+    debug_upvaluejoin: bool,
+    debug_upvaluejoin_request: Option<(Value, i64, Value, i64)>,
 }
 
 impl TestRuntime {
@@ -61,6 +63,18 @@ impl NativeRuntime for TestRuntime {
     ) -> Result<Option<Value>, crate::NativeError> {
         self.debug_upvalueid_request = Some((function, index));
         Ok(self.debug_upvalueid)
+    }
+
+    fn debug_upvaluejoin(
+        &mut self,
+        target_function: Value,
+        target_index: i64,
+        source_function: Value,
+        source_index: i64,
+    ) -> Result<bool, crate::NativeError> {
+        self.debug_upvaluejoin_request =
+            Some((target_function, target_index, source_function, source_index));
+        Ok(self.debug_upvaluejoin)
     }
 }
 
@@ -281,6 +295,124 @@ fn debug_upvalueid_validates_arguments() {
         &NativeErrorKind::TypeError {
             index: 2,
             expected: "integer",
+        }
+    );
+}
+
+#[test]
+fn debug_upvaluejoin_forwards_function_and_index_queries() {
+    let function = function("upvaluejoin");
+    let mut runtime = TestRuntime {
+        debug_upvaluejoin: true,
+        ..TestRuntime::default()
+    };
+    let target = Value::closure_index(3);
+    let source = Value::closure_index(4);
+
+    assert_eq!(
+        function(
+            &mut runtime,
+            &[target, Value::integer(1), source, Value::integer(2)]
+        )
+        .expect("debug.upvaluejoin should pass"),
+        Vec::<Value>::new()
+    );
+    assert_eq!(
+        runtime.debug_upvaluejoin_request,
+        Some((target, 1, source, 2))
+    );
+}
+
+#[test]
+fn debug_upvaluejoin_errors_for_absent_upvalues() {
+    let function = function("upvaluejoin");
+    let mut runtime = TestRuntime::default();
+    let target = Value::closure_index(3);
+    let source = Value::closure_index(4);
+
+    assert_eq!(
+        function(
+            &mut runtime,
+            &[target, Value::integer(9), source, Value::integer(1)]
+        )
+        .expect_err("missing upvalue should error")
+        .kind(),
+        &NativeErrorKind::RuntimeError {
+            message: "invalid upvalue index".into(),
+        }
+    );
+    assert_eq!(
+        runtime.debug_upvaluejoin_request,
+        Some((target, 9, source, 1))
+    );
+}
+
+#[test]
+fn debug_upvaluejoin_validates_arguments() {
+    let function = function("upvaluejoin");
+    let mut runtime = TestRuntime::default();
+    let target = Value::closure_index(3);
+    let source = Value::closure_index(4);
+
+    assert_eq!(
+        function(&mut runtime, &[])
+            .expect_err("missing target function")
+            .kind(),
+        &NativeErrorKind::MissingArgument { index: 1 }
+    );
+    assert_eq!(
+        function(
+            &mut runtime,
+            &[
+                Value::native_function_index(1),
+                Value::integer(1),
+                source,
+                Value::integer(1),
+            ]
+        )
+        .expect_err("native target function")
+        .kind(),
+        &NativeErrorKind::TypeError {
+            index: 1,
+            expected: "Lua function",
+        }
+    );
+    assert_eq!(
+        function(&mut runtime, &[target])
+            .expect_err("missing target index")
+            .kind(),
+        &NativeErrorKind::MissingArgument { index: 2 }
+    );
+    assert_eq!(
+        function(&mut runtime, &[target, Value::boolean(false)])
+            .expect_err("bad target index")
+            .kind(),
+        &NativeErrorKind::TypeError {
+            index: 2,
+            expected: "integer",
+        }
+    );
+    assert_eq!(
+        function(&mut runtime, &[target, Value::integer(1)])
+            .expect_err("missing source function")
+            .kind(),
+        &NativeErrorKind::MissingArgument { index: 3 }
+    );
+    assert_eq!(
+        function(
+            &mut runtime,
+            &[
+                target,
+                Value::integer(1),
+                Value::native_function_index(1),
+                Value::integer(1),
+            ]
+        )
+        .expect_err("native source function")
+        .kind(),
+        &NativeErrorKind::TypeError {
+            index: 3,
+            expected: "Lua function",
         }
     );
 }

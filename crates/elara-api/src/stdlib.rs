@@ -520,6 +520,18 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
             .map_err(runtime_error_to_native_error)
     }
 
+    fn debug_upvaluejoin(
+        &mut self,
+        target_function: Value,
+        target_index: i64,
+        source_function: Value,
+        source_index: i64,
+    ) -> Result<bool, NativeError> {
+        self.context
+            .debug_upvaluejoin(target_function, target_index, source_function, source_index)
+            .map_err(runtime_error_to_native_error)
+    }
+
     fn table_metatable(&self, table: Value) -> Result<Value, NativeError> {
         self.context.table_metatable(table).map_err(|error| {
             NativeErrorKind::RuntimeError {

@@ -247,6 +247,23 @@ impl<'a> NativeContext<'a> {
         debug::upvalue_id(function, index, self.closures)
     }
 
+    /// Joins one Lua function upvalue to another Lua function upvalue.
+    pub fn debug_upvaluejoin(
+        &mut self,
+        target_function: Value,
+        target_index: i64,
+        source_function: Value,
+        source_index: i64,
+    ) -> RuntimeResult<bool> {
+        debug::join_upvalue(
+            target_function,
+            target_index,
+            source_function,
+            source_index,
+            self.closures,
+        )
+    }
+
     /// Returns a runtime-owned table's metatable, or nil when absent.
     pub fn table_metatable(&self, table: Value) -> RuntimeResult<Value> {
         let table_index = table

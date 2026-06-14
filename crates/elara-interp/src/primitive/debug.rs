@@ -177,6 +177,48 @@ pub(super) fn upvalue_id(
     Ok(Some(Value::light_user_data(upvalue.identity())))
 }
 
+pub(super) fn join_upvalue(
+    target_function: Value,
+    target_index: i64,
+    source_function: Value,
+    source_index: i64,
+    closures: &mut [RuntimeClosure],
+) -> RuntimeResult<bool> {
+    let Some(target_index) = target_index
+        .checked_sub(1)
+        .and_then(|index| usize::try_from(index).ok())
+    else {
+        return Ok(false);
+    };
+    let Some(source_index) = source_index
+        .checked_sub(1)
+        .and_then(|index| usize::try_from(index).ok())
+    else {
+        return Ok(false);
+    };
+    let Some(target_closure_index) = target_function.as_closure_index() else {
+        return Ok(false);
+    };
+    let Some(source_closure_index) = source_function.as_closure_index() else {
+        return Ok(false);
+    };
+    let Some(source_upvalue) = closures
+        .get(source_closure_index as usize)
+        .and_then(|closure| closure.upvalues.get(source_index))
+        .cloned()
+    else {
+        return Ok(false);
+    };
+    let Some(target_upvalue) = closures
+        .get_mut(target_closure_index as usize)
+        .and_then(|closure| closure.upvalues.get_mut(target_index))
+    else {
+        return Ok(false);
+    };
+    *target_upvalue = source_upvalue;
+    Ok(true)
+}
+
 fn info_for_frame(
     frame: &RuntimeDebugFrame,
     options: &[u8],

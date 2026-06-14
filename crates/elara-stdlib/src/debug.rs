@@ -24,6 +24,10 @@ pub const DEBUG_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         debug_upvalueid,
     ),
     NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Debug, "upvaluejoin"),
+        debug_upvaluejoin,
+    ),
+    NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Debug, "getmetatable"),
         debug_getmetatable,
     ),
@@ -167,6 +171,23 @@ fn debug_upvalueid(
             .debug_upvalueid(function, index)?
             .unwrap_or_else(Value::nil),
     ])
+}
+
+fn debug_upvaluejoin(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let target_function = lua_function_arg(args, 0)?;
+    let target_index = integer_arg(args, 1)?;
+    let source_function = lua_function_arg(args, 2)?;
+    let source_index = integer_arg(args, 3)?;
+    if !runtime.debug_upvaluejoin(target_function, target_index, source_function, source_index)? {
+        return Err(NativeErrorKind::RuntimeError {
+            message: "invalid upvalue index".into(),
+        }
+        .into());
+    }
+    Ok(Vec::new())
 }
 
 fn debug_sethook(
@@ -324,6 +345,22 @@ fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
             expected: "integer",
         })
         .map_err(Into::into)
+}
+
+fn lua_function_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {
+    let value = args
+        .get(index)
+        .copied()
+        .ok_or(NativeErrorKind::MissingArgument { index: index + 1 })?;
+    if value.as_closure_index().is_some() {
+        Ok(value)
+    } else {
+        Err(NativeErrorKind::TypeError {
+            index: index + 1,
+            expected: "Lua function",
+        }
+        .into())
+    }
 }
 
 fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i64, NativeError> {

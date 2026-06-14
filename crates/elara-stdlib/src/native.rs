@@ -152,6 +152,17 @@ pub trait NativeRuntime {
         Ok(None)
     }
 
+    /// Joins one Lua function upvalue to another Lua function upvalue.
+    fn debug_upvaluejoin(
+        &mut self,
+        _target_function: Value,
+        _target_index: i64,
+        _source_function: Value,
+        _source_index: i64,
+    ) -> Result<bool, NativeError> {
+        Ok(false)
+    }
+
     /// Returns a traceback string for the current debug frame state.
     fn debug_traceback(
         &mut self,
