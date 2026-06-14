@@ -16,8 +16,10 @@ pub const IO_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "open"), io_open),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "output"), io_output),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "popen"), io_popen),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "read"), io_read),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "tmpfile"), io_tmpfile),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "type"), io_type),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Io, "write"), io_write),
 ];
 
 fn io_close(runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -54,12 +56,28 @@ fn io_popen(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value
     unsupported_file_result(runtime)
 }
 
+fn io_read(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    for (offset, value) in args.iter().copied().enumerate() {
+        string_or_integer_arg(runtime, value, offset + 1)?;
+    }
+
+    unsupported_file_result(runtime)
+}
+
 fn io_tmpfile(runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Value>, NativeError> {
     unsupported_file_result(runtime)
 }
 
 fn io_type(_runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Value>, NativeError> {
     Ok(vec![Value::nil()])
+}
+
+fn io_write(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    for (offset, value) in args.iter().copied().enumerate() {
+        string_or_number_arg(runtime, value, offset + 1)?;
+    }
+
+    unsupported_file_result(runtime)
 }
 
 fn unsupported_file_result(runtime: &mut dyn NativeRuntime) -> Result<Vec<Value>, NativeError> {
@@ -106,6 +124,36 @@ fn optional_string_arg<'a>(
         })
         .map(Some)
         .map_err(Into::into)
+}
+
+fn string_or_integer_arg(
+    runtime: &dyn NativeRuntime,
+    value: Value,
+    index: usize,
+) -> Result<(), NativeError> {
+    if value.as_integer().is_some() || runtime.string_bytes(value).is_some() {
+        return Ok(());
+    }
+    Err(NativeErrorKind::TypeError {
+        index,
+        expected: "string or integer",
+    }
+    .into())
+}
+
+fn string_or_number_arg(
+    runtime: &dyn NativeRuntime,
+    value: Value,
+    index: usize,
+) -> Result<(), NativeError> {
+    if value.is_number() || runtime.string_bytes(value).is_some() {
+        return Ok(());
+    }
+    Err(NativeErrorKind::TypeError {
+        index,
+        expected: "string or number",
+    }
+    .into())
 }
 
 fn optional_string_or_file_arg<'a>(
@@ -179,7 +227,9 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "open")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "output")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "popen")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "read")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "tmpfile")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Io, "write")));
     }
 
     #[test]
@@ -429,6 +479,47 @@ mod tests {
     }
 
     #[test]
+    fn io_read_reports_unsupported_file_handles() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "read")
+            .expect("io.read native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"*l");
+
+        let result = function(&mut runtime, &[format, Value::integer(8)])
+            .expect("io.read should validate supported format arguments");
+
+        assert_eq!(result[0], Value::nil());
+        assert_eq!(
+            runtime.bytes(result[1]),
+            Some(b"file handles are not supported by this runtime".as_slice())
+        );
+    }
+
+    #[test]
+    fn io_read_validates_arguments() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "read")
+            .expect("io.read native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+
+        assert!(function(&mut runtime, &[]).is_ok());
+        assert_eq!(
+            function(&mut runtime, &[Value::boolean(false)])
+                .expect_err("non-format read argument")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "string or integer",
+            }
+        );
+    }
+
+    #[test]
     fn io_type_returns_nil_without_file_handles() {
         let function = native_functions(StdLib::Io)
             .iter()
@@ -444,6 +535,47 @@ mod tests {
         assert_eq!(
             function(&mut runtime, &[Value::integer(1)]).expect("io.type should pass"),
             vec![Value::nil()]
+        );
+    }
+
+    #[test]
+    fn io_write_reports_unsupported_file_handles() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "write")
+            .expect("io.write native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+        let text = runtime.push_string(b"hello");
+
+        let result = function(&mut runtime, &[text, Value::integer(7), Value::float(1.5)])
+            .expect("io.write should validate supported values");
+
+        assert_eq!(result[0], Value::nil());
+        assert_eq!(
+            runtime.bytes(result[1]),
+            Some(b"file handles are not supported by this runtime".as_slice())
+        );
+    }
+
+    #[test]
+    fn io_write_validates_arguments() {
+        let function = native_functions(StdLib::Io)
+            .iter()
+            .find(|function| function.descriptor().name() == "write")
+            .expect("io.write native function should exist")
+            .function();
+        let mut runtime = TestRuntime::default();
+
+        assert!(function(&mut runtime, &[]).is_ok());
+        assert_eq!(
+            function(&mut runtime, &[Value::boolean(false)])
+                .expect_err("non-writable value")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "string or number",
+            }
         );
     }
 }
