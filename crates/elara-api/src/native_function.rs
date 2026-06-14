@@ -115,7 +115,7 @@ fn runtime_value_to_lua(
     }
     if value.is_string() {
         let bytes = context
-            .short_string_bytes(value)
+            .string_bytes(value)
             .ok_or_else(|| NativeFunctionError::new("unsupported runtime string value"))?;
         let text = std::str::from_utf8(bytes)
             .map_err(|_| NativeFunctionError::new("non-utf8 Lua string"))?;
@@ -136,9 +136,7 @@ fn lua_value_to_runtime(
         LuaValue::Boolean(value) => Ok(Value::boolean(value)),
         LuaValue::Integer(value) => Ok(Value::integer(value)),
         LuaValue::Number(value) => Ok(Value::float(value)),
-        LuaValue::String(value) => context
-            .intern_short_string(value.as_bytes())
-            .map_err(|error| NativeFunctionError::new(error.message().to_owned())),
+        LuaValue::String(value) => Ok(context.intern_string(value.as_bytes())),
     }
 }
 
@@ -174,6 +172,18 @@ mod tests {
         assert_eq!(
             lua.eval("return string.len(greet('Lua'))"),
             Ok(vec![Value::integer(6)])
+        );
+    }
+
+    #[test]
+    fn native_function_handles_long_string_arguments_and_results() {
+        let lua = Lua::new();
+        let greet = lua.create_function(|(name,): (String,)| Ok((format!("hi {name}"),)));
+        lua.set_global_function("greet", greet);
+
+        assert_eq!(
+            lua.eval("return string.len(greet(string.rep('Lua', 20)))"),
+            Ok(vec![Value::integer(63)])
         );
     }
 
