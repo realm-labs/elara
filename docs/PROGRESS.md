@@ -101,7 +101,8 @@ keeping module libraries table-shaped. Native calls now receive a
 allocate runtime-owned tables, read/write raw runtime table entries, get/set
 runtime table metatable links, traverse raw runtime table entries, write host
 output for `print`, and return registered native helper functions for iterator
-factories, and perform protected calls of runtime callable values.
+factories, perform protected calls of runtime callable values, and register
+callable native functions during execution.
 `elara-stdlib` native functions now receive a crate-local `NativeRuntime` trait,
 and the API bridge adapts it to the interpreter context without making stdlib
 depend on interpreter internals. Remaining executable base, table, math, and
@@ -132,6 +133,9 @@ functions from `TFOR_CALL`, enabling stdlib-backed `ipairs` and `pairs` loops.
 Ordinary call-expression lowering preserves local callable values across
 assignment calls, and generic-for iterator calls now honor `__call`
 metamethod-backed table iterators.
+Runtime native registries are now shared across cloned handles, which allows
+runtime-created native callable values to remain visible to existing execution
+contexts.
 
 Current state:
 
@@ -801,6 +805,9 @@ Delivered:
   original error when close succeeds.
 - Primitive coroutine yield keeps pending to-be-closed values alive, and
   coroutine completion closes them.
+- Runtime native registries are shared across cloned handles, and
+  `NativeContext` can register callable native functions during execution for
+  closure-like stdlib helpers.
 - `elara-stdlib` exposes `Library`, `StdLib`, `StdLibSet`,
   `StdLibProfile`, `StdLibRegistry`, `GlobalRegistry`, and `GlobalLibrary`.
 - Standard-library profiles expand to deterministic library sets and can
@@ -875,14 +882,16 @@ M11.2 is complete.
 
 ## Last Verification
 
-M11.3 `coroutine.yield` registration/outside-coroutine verification passed:
+M11.3 dynamic native registration verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib coroutine
+cargo test -p elara-interp
+cargo test -p elara-interp native
+cargo test -p elara-interp primitive::tests::native_context_can_create_callable_native_function
+cargo test -p elara-interp primitive::tests::cloned_native_registries_share_later_registrations
 cargo test -p elara-api coroutine
-cargo clippy -p elara-stdlib --all-targets -- -D warnings
-cargo clippy -p elara-api --all-targets -- -D warnings
+cargo clippy -p elara-interp --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action

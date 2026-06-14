@@ -1,6 +1,6 @@
 //! Primitive bytecode execution.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
 use elara_core::{
@@ -67,6 +67,17 @@ impl<'a> NativeContext<'a> {
             return Err(RuntimeErrorKind::StringConcatTooLong.into());
         }
         Ok(self.strings.intern_short_value(bytes))
+    }
+
+    /// Registers a native function in the current runtime and returns it as a Lua value.
+    pub fn create_native_function<F>(&mut self, function: F) -> Value
+    where
+        F: for<'b> Fn(&mut NativeContext<'b>, &[Value]) -> RuntimeResult<Vec<Value>>
+            + Send
+            + Sync
+            + 'static,
+    {
+        Value::native_function_index(self.natives.push(function))
     }
 
     /// Returns bytes for a short string owned by this runtime.
@@ -209,36 +220,45 @@ impl<'a> NativeContext<'a> {
 }
 
 /// Runtime-owned native function registry.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct RuntimeNatives {
-    functions: Vec<Arc<NativeFunction>>,
+    functions: Arc<Mutex<Vec<Arc<NativeFunction>>>>,
+}
+
+impl Default for RuntimeNatives {
+    fn default() -> Self {
+        Self {
+            functions: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
 }
 
 impl RuntimeNatives {
     /// Creates an empty native function registry.
     #[must_use]
-    pub const fn new() -> Self {
-        Self {
-            functions: Vec::new(),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Registers one native function and returns its runtime index.
-    pub fn push<F>(&mut self, function: F) -> u32
+    pub fn push<F>(&self, function: F) -> u32
     where
         F: for<'a> Fn(&mut NativeContext<'a>, &[Value]) -> RuntimeResult<Vec<Value>>
             + Send
             + Sync
             + 'static,
     {
-        let index =
-            u32::try_from(self.functions.len()).expect("native function index must fit in u32");
-        self.functions.push(Arc::new(function));
+        let mut functions = self
+            .functions
+            .lock()
+            .expect("native function registry lock must not be poisoned");
+        let index = u32::try_from(functions.len()).expect("native function index must fit in u32");
+        functions.push(Arc::new(function));
         index
     }
 
     /// Registers an arg-only native function and returns its runtime index.
-    pub fn push_simple<F>(&mut self, function: F) -> u32
+    pub fn push_simple<F>(&self, function: F) -> u32
     where
         F: Fn(&[Value]) -> RuntimeResult<Vec<Value>> + Send + Sync + 'static,
     {
@@ -246,7 +266,11 @@ impl RuntimeNatives {
     }
 
     fn get(&self, index: usize) -> Option<Arc<NativeFunction>> {
-        self.functions.get(index).cloned()
+        self.functions
+            .lock()
+            .expect("native function registry lock must not be poisoned")
+            .get(index)
+            .cloned()
     }
 }
 

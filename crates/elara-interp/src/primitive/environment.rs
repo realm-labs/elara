@@ -14,7 +14,7 @@ pub struct RuntimeEnvironment {
 impl RuntimeEnvironment {
     /// Creates an empty runtime environment.
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             natives: RuntimeNatives::new(),
             globals: Vec::new(),

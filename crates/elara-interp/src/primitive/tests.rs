@@ -82,7 +82,7 @@ fn arithmetic_executes_unary_minus() {
 
 #[test]
 fn native_functions_execute_call() {
-    let mut natives = RuntimeNatives::new();
+    let natives = RuntimeNatives::new();
     let native = natives.push_simple(native_add);
 
     let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
@@ -97,6 +97,48 @@ fn native_functions_execute_call() {
 
     let output =
         execute_proto_with_natives(&builder.finish(), natives).expect("native call should pass");
+    assert_eq!(output.values, vec![Value::integer(42)]);
+}
+
+#[test]
+fn cloned_native_registries_share_later_registrations() {
+    let natives = RuntimeNatives::new();
+    let shared = natives.clone();
+    let native = natives.push_simple(native_add);
+
+    let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+    let callee = builder.add_constant(Value::native_function_index(native));
+    let left = builder.add_constant(Value::integer(20));
+    let right = builder.add_constant(Value::integer(22));
+    builder.emit_abx(Op::LoadK, 0, u64::from(callee));
+    builder.emit_abx(Op::LoadK, 1, u64::from(left));
+    builder.emit_abx(Op::LoadK, 2, u64::from(right));
+    builder.emit_abc(Op::Call, 0, 3, 1);
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    let output = execute_proto_with_natives(&builder.finish(), shared)
+        .expect("shared native registration should execute");
+    assert_eq!(output.values, vec![Value::integer(42)]);
+}
+
+#[test]
+fn native_context_can_create_callable_native_function() {
+    let natives = RuntimeNatives::new();
+    let factory = natives.push(|context, _args| {
+        Ok(vec![context.create_native_function(|_context, _args| {
+            Ok(vec![Value::integer(42)])
+        })])
+    });
+
+    let mut builder = ProtoBuilder::new().with_signature(1, 0, false);
+    let callee = builder.add_constant(Value::native_function_index(factory));
+    builder.emit_abx(Op::LoadK, 0, u64::from(callee));
+    builder.emit_abc(Op::Call, 0, 1, 1);
+    builder.emit_abc(Op::Call, 0, 1, 1);
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    let output = execute_proto_with_natives(&builder.finish(), natives)
+        .expect("dynamically registered native should execute");
     assert_eq!(output.values, vec![Value::integer(42)]);
 }
 
@@ -141,7 +183,7 @@ fn native_functions_register_as_initial_globals() {
 
 #[test]
 fn native_functions_can_capture_host_state() {
-    let mut natives = RuntimeNatives::new();
+    let natives = RuntimeNatives::new();
     let offset = 5;
     let native = natives.push_simple(move |args: &[Value]| {
         let mut values = native_add(args)?;

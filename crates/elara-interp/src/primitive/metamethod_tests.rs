@@ -321,7 +321,7 @@ fn metamethods_call_invokes_native_function_fallback() {
     let mut tables = RuntimeTables::new();
     let table = tables.push_table(Table::new());
     let call_key = strings.intern_short_value("__call");
-    let mut natives = RuntimeNatives::new();
+    let natives = RuntimeNatives::new();
     let native = natives.push(|_context, args| {
         assert!(args.first().copied().is_some_and(Value::is_table));
         Ok(vec![Value::integer(321)])
