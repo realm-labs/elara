@@ -5,8 +5,8 @@ use std::sync::{
 };
 
 use super::{
-    GcArena, GcCollectionStats, GcColor, GcFinalizeError, GcHeader, GcKind, GcObject, GcRef,
-    GcStats, GcTracer,
+    GcArena, GcCollectionStats, GcColor, GcFinalizeError, GcHeader, GcKind, GcMode, GcObject,
+    GcPhase, GcRef, GcStats, GcTracer,
 };
 use crate::{LongString, LuaThread, ShortString, Table, Value, WeakMode};
 
@@ -630,4 +630,74 @@ fn weak_table_keys_and_values_drop_collectable_entries() {
     // SAFETY: The rooted table survived collection.
     let table = unsafe { table.as_ref() };
     assert_eq!(table.raw_get_value(Value::short_string(key)), Value::nil());
+}
+
+#[test]
+fn incremental_gc_step_runs_in_incremental_mode_and_returns_to_pause() {
+    let mut arena = GcArena::new();
+    arena.set_mode(GcMode::Incremental);
+    arena.allocate(DropObject::new(Arc::new(AtomicUsize::new(0))));
+
+    let collection = arena.incremental_step();
+
+    assert_eq!(arena.mode(), GcMode::Incremental);
+    assert_eq!(arena.phase(), GcPhase::Pause);
+    assert_eq!(
+        collection,
+        GcCollectionStats {
+            marked: 0,
+            finalized: 0,
+            finalizer_errors: 0,
+            swept: 1,
+            live_objects: 0,
+        }
+    );
+}
+
+#[test]
+fn incremental_gc_table_write_barrier_grays_black_table_for_value() {
+    let mut arena = GcArena::new();
+    let value = arena.allocate(LongString::new("child"));
+    let mut table = Table::new();
+    table.header().set_color(GcColor::Black);
+
+    assert!(table.raw_set_integer(1, Value::long_string(value)));
+
+    assert_eq!(table.header().color(), GcColor::Gray);
+}
+
+#[test]
+fn incremental_gc_table_write_barrier_grays_black_table_for_key() {
+    let mut arena = GcArena::new();
+    let key = arena.allocate(ShortString::new("key").expect("short string fits"));
+    let mut table = Table::new();
+    table.header().set_color(GcColor::Black);
+
+    assert!(table.raw_set_value(Value::short_string(key), Value::integer(1)));
+
+    assert_eq!(table.header().color(), GcColor::Gray);
+}
+
+#[test]
+fn incremental_gc_table_write_barrier_grays_black_table_for_metatable() {
+    let mut arena = GcArena::new();
+    let metatable = arena.allocate(Table::new());
+    let mut table = Table::new();
+    table.header().set_color(GcColor::Black);
+
+    table.set_metatable(Some(metatable));
+
+    assert_eq!(table.header().color(), GcColor::Gray);
+}
+
+#[test]
+fn incremental_gc_thread_stack_write_barrier_grays_black_thread() {
+    let mut arena = GcArena::new();
+    let value = arena.allocate(LongString::new("stack"));
+    let mut thread = LuaThread::new();
+    thread.header().set_color(GcColor::Black);
+
+    thread.push_value(Value::long_string(value));
+
+    assert_eq!(thread.header().color(), GcColor::Gray);
 }

@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M14 Production GC
-Current step: M14.4 Add incremental collection and write barriers
+Current milestone: M15 Interpreter Optimization
+Current step: M15.1 Add benchmark harness
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -145,6 +145,9 @@ dead weak table entries before sweeping unreachable objects.
 Unreachable finalizable GC objects are queued before sweep, finalizer errors are
 contained and counted, and userdata-kind lifecycle tests verify finalization
 before drop plus reachable-object deferral.
+The core GC exposes incremental mode and phase state, and mutation paths for
+tables and thread stacks use write barriers that preserve tri-color invariants
+by graying black containers when white children are stored.
 
 Current state:
 
@@ -306,9 +309,11 @@ Completed:
   - M14.1 Implement complete tracing for all object types.
   - M14.2 Add weak tables and ephemeron behavior.
   - M14.3 Add finalization and userdata lifecycle.
+  - M14.4 Add incremental collection and write barriers.
+  - M14 exit criteria validation.
 
 In progress:
-  - Production GC.
+  - Interpreter optimization.
   - Benchmark harnesses.
   - JIT.
   - C API.
@@ -948,22 +953,24 @@ M13 is complete.
 M14.1 is complete.
 M14.2 is complete.
 M14.3 is complete.
+M14.4 is complete.
+M14 is complete.
 
 ## Last Verification
 
-M14.3 finalizer verification passed:
+M14.4 incremental GC verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-core finalizer
+cargo test -p elara-core incremental_gc
 cargo test -p elara-core
 cargo clippy -p elara-core --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M14.4 with tri-color state, write barrier calls at mutation sites, and
-incremental GC invariant tests.
+Continue M15.1 with a benchmark harness for arithmetic, table access, calls, and
+strings.
 
 ## Current Risk Notes
 
@@ -993,7 +1000,7 @@ incremental GC invariant tests.
 | Value primitives | Complete | Nil, bool, integer, and float values are implemented. |
 | GC headers | Complete | Headers, colors, kinds, and typed refs are implemented. |
 | GC allocation | Complete | Arena allocation list, stats, roots, and drop cleanup are implemented. |
-| Mark-sweep GC | M14.3 finalization complete | Root marking, transitive object tracing, weak table cleanup, ephemeron marking, finalizer queueing, and allocation-list sweeping are implemented for tests. |
+| GC | M14 complete | Root marking, transitive tracing, weak table cleanup, ephemeron marking, finalizer queueing, incremental mode state, write barriers, and allocation-list sweeping are implemented for tests. |
 | Strings | Complete | Short strings, long strings, and interning are implemented. |
 | Table array | Complete | Raw 1-based array get/set and nil clearing are implemented. |
 | Table hash | Complete | Hash storage and numeric key canonicalization are implemented. |

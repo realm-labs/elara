@@ -104,6 +104,7 @@ impl LuaThread {
 
     /// Pushes a value onto the stack.
     pub fn push_value(&mut self, value: Value) {
+        self.header.write_barrier_value(value);
         self.stack.push(value);
     }
 
@@ -127,6 +128,7 @@ impl LuaThread {
     /// Writes an existing stack slot.
     pub fn set_stack_value(&mut self, index: StackIndex, value: Value) -> bool {
         if let Some(slot) = self.stack.get_mut(index) {
+            self.header.write_barrier_value(value);
             *slot = value;
             true
         } else {

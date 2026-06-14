@@ -170,6 +170,9 @@ impl Table {
             return;
         }
 
+        if let Some(metatable) = metatable {
+            self.header.write_barrier_ref(metatable);
+        }
         self.metatable = metatable;
         self.flags.clear_missing_cache();
         self.bump_version();
@@ -227,6 +230,7 @@ impl Table {
             return true;
         }
 
+        self.header.write_barrier_value(value);
         self.array[offset] = value;
         self.bump_version();
         true
@@ -269,6 +273,8 @@ impl Table {
             return true;
         }
 
+        self.header.write_barrier_value(key.to_value());
+        self.header.write_barrier_value(value);
         let previous = self.hash.insert(key, value);
         if previous != Some(value) {
             self.bump_version();

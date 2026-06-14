@@ -24,6 +24,28 @@ pub enum GcColor {
     Black,
 }
 
+/// Collection mode for a GC arena.
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+pub enum GcMode {
+    /// Complete collection in one stop-the-world pass.
+    #[default]
+    StopTheWorld,
+    /// Incremental collection mode with write barriers.
+    Incremental,
+}
+
+/// High-level incremental collection phase.
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+pub enum GcPhase {
+    /// No incremental cycle is active.
+    #[default]
+    Pause,
+    /// Mark/propagation work is active.
+    Propagate,
+    /// Sweep work is active.
+    Sweep,
+}
+
 /// Runtime object kind stored in every GC header.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum GcKind {
@@ -77,6 +99,31 @@ impl GcHeader {
     /// Updates the current mark color.
     pub fn set_color(&self, color: GcColor) {
         self.color.set(color);
+    }
+
+    /// Applies a write barrier for a stored Lua value.
+    pub fn write_barrier_value(&self, value: Value) {
+        if let Some(reference) = value.as_short_string() {
+            self.write_barrier_ref(reference);
+        } else if let Some(reference) = value.as_long_string() {
+            self.write_barrier_ref(reference);
+        }
+    }
+
+    /// Applies a write barrier for a stored GC reference.
+    pub fn write_barrier_ref<T>(&self, reference: GcRef<T>)
+    where
+        T: GcObject,
+    {
+        if self.color() != GcColor::Black {
+            return;
+        }
+        // SAFETY: The caller is storing a GC reference into this object, so the
+        // referenced object is expected to still be arena-owned and valid.
+        let child_color = unsafe { reference.header() }.color();
+        if child_color == GcColor::White {
+            self.set_color(GcColor::Gray);
+        }
     }
 }
 
@@ -415,6 +462,8 @@ pub struct GcArena {
     roots: Vec<RootEntry>,
     total_allocations: usize,
     next_root_id: u64,
+    mode: GcMode,
+    phase: GcPhase,
 }
 
 impl GcArena {
@@ -426,7 +475,26 @@ impl GcArena {
             roots: Vec::new(),
             total_allocations: 0,
             next_root_id: 0,
+            mode: GcMode::StopTheWorld,
+            phase: GcPhase::Pause,
         }
+    }
+
+    /// Current collection mode.
+    #[must_use]
+    pub const fn mode(&self) -> GcMode {
+        self.mode
+    }
+
+    /// Updates the collection mode.
+    pub fn set_mode(&mut self, mode: GcMode) {
+        self.mode = mode;
+    }
+
+    /// Current incremental collection phase.
+    #[must_use]
+    pub const fn phase(&self) -> GcPhase {
+        self.phase
     }
 
     /// Allocates a GC object and returns an unrooted typed reference to it.
@@ -531,6 +599,17 @@ impl GcArena {
             swept,
             live_objects: self.objects.len(),
         }
+    }
+
+    /// Runs one incremental collection step.
+    pub fn incremental_step(&mut self) -> GcCollectionStats {
+        if self.mode != GcMode::Incremental {
+            self.mode = GcMode::Incremental;
+        }
+        self.phase = GcPhase::Propagate;
+        let stats = self.collect_garbage();
+        self.phase = GcPhase::Pause;
+        stats
     }
 
     fn reset_marks(&self) {
