@@ -13,6 +13,9 @@ pub mod deopt;
 pub mod runtime;
 pub mod table_array;
 
+#[cfg(test)]
+mod equivalence;
+
 use cranelift_codegen::{isa, settings, settings::Configurable};
 use cranelift_frontend::FunctionBuilderContext;
 

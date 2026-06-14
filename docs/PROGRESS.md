@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M17 JIT Guards, Deoptimization, and Hot Table Paths
-Current step: M17.4 Add JIT equivalence suite
+Current milestone: M18 Full Standard Library, Debug Support, and Binary Chunk Policy
+Current step: M18.1 Complete remaining standard libraries
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -182,6 +182,9 @@ explicit slow-path fallback reasons covered by focused tests.
 The JIT crate now has a call trampoline helper ABI with injectable native and
 Lua fallback handlers plus explicit returned, yielded, runtime-error, and
 unsupported statuses covered by focused tests.
+The JIT crate now has an interpreter equivalence suite covering compiled
+arithmetic execution plus automatic fallback equivalence for table, Lua-call,
+and yield/error paths.
 
 Current state:
 
@@ -358,6 +361,8 @@ Completed:
   - M17.1 Add guard and deopt metadata.
   - M17.2 Lower table array fast path.
   - M17.3 Lower calls through trampoline.
+  - M17.4 Add JIT equivalence suite.
+  - M17 exit criteria validation.
 
 In progress:
   - JIT.
@@ -1013,14 +1018,16 @@ M16 is complete.
 M17.1 is complete.
 M17.2 is complete.
 M17.3 is complete.
+M17.4 is complete.
+M17 is complete.
 
 ## Last Verification
 
-M17.3 call trampoline verification passed:
+M17.4 JIT equivalence verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-jit --features jit calls
+cargo test --workspace --features jit jit_equivalence
 cargo test -p elara-jit --features jit
 cargo clippy -p elara-jit --all-targets --features jit -- -D warnings
 cargo test --workspace --features jit
@@ -1028,9 +1035,9 @@ cargo test --workspace --features jit
 
 ## Next Recommended Action
 
-Continue M17.4 by adding a JIT equivalence suite for selected hot arithmetic,
-table, and call paths, with automatic interpreter fallback for unsupported
-cases.
+Start M18.1 by completing the remaining standard-library profile surface for
+`io`, `os`, `package`, and debug libraries with host-sensitive functions gated
+by profile.
 
 ## Current Risk Notes
 
@@ -1080,6 +1087,6 @@ cases.
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
-| JIT | M17.3 complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, deopt metadata/stack sync, table array fast-path guards, and call trampoline statuses are implemented. |
+| JIT | M17 complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |
 | C API | Not started | Starts M19, optional/current-version only. |
 | Benchmarks | M15 baseline complete | Stable custom `cargo bench` runner covers arithmetic, table access, calls, strings, and representative macro workloads; `docs/PERFORMANCE.md` records the current baseline and comparison gaps. |
