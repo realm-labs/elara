@@ -163,33 +163,86 @@ struct NativeHelpers {
     utf8_codes_aux_lax: Option<u32>,
 }
 
+#[derive(Clone, Copy)]
+struct RegisteredCoroutine {
+    function: Option<u32>,
+    status: ThreadStatus,
+}
+
 struct CoroutineRegistry {
-    statuses: Vec<ThreadStatus>,
+    coroutines: Vec<RegisteredCoroutine>,
 }
 
 impl Default for CoroutineRegistry {
     fn default() -> Self {
         Self {
-            statuses: vec![ThreadStatus::Running],
+            coroutines: vec![RegisteredCoroutine {
+                function: None,
+                status: ThreadStatus::Running,
+            }],
         }
     }
 }
 
 impl CoroutineRegistry {
-    fn create(&mut self) -> Value {
-        let index = u32::try_from(self.statuses.len()).expect("coroutine count must fit in u32");
-        self.statuses.push(ThreadStatus::Runnable);
+    fn create(&mut self, function: Value) -> Value {
+        let index = u32::try_from(self.coroutines.len()).expect("coroutine count must fit in u32");
+        self.coroutines.push(RegisteredCoroutine {
+            function: function.as_closure_index(),
+            status: ThreadStatus::Runnable,
+        });
         Value::thread_index(index)
+    }
+
+    fn begin_resume(&mut self, thread: Value) -> Result<Result<Value, Box<str>>, NativeError> {
+        let index = thread.as_thread_index().ok_or(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "thread",
+        })? as usize;
+        let coroutine =
+            self.coroutines
+                .get_mut(index)
+                .ok_or_else(|| NativeErrorKind::RuntimeError {
+                    message: "unknown coroutine".into(),
+                })?;
+        match coroutine.status {
+            ThreadStatus::Runnable | ThreadStatus::Suspended => {
+                coroutine.status = ThreadStatus::Running;
+                let function = coroutine
+                    .function
+                    .ok_or_else(|| NativeErrorKind::RuntimeError {
+                        message: "coroutine function is not registered".into(),
+                    })?;
+                Ok(Ok(Value::closure_index(function)))
+            }
+            ThreadStatus::Dead => Ok(Err("cannot resume dead coroutine".into())),
+            ThreadStatus::Running => Ok(Err("cannot resume non-suspended coroutine".into())),
+        }
+    }
+
+    fn finish_resume(&mut self, thread: Value) -> Result<(), NativeError> {
+        let index = thread.as_thread_index().ok_or(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "thread",
+        })? as usize;
+        let coroutine =
+            self.coroutines
+                .get_mut(index)
+                .ok_or_else(|| NativeErrorKind::RuntimeError {
+                    message: "unknown coroutine".into(),
+                })?;
+        coroutine.status = ThreadStatus::Dead;
+        Ok(())
     }
 
     fn status(&self, thread: Value) -> Option<ThreadStatus> {
         let index = thread.as_thread_index()? as usize;
-        self.statuses.get(index).copied()
+        self.coroutines.get(index).map(|coroutine| coroutine.status)
     }
 
     fn is_yieldable(&self, thread: Value) -> Option<bool> {
         let index = thread.as_thread_index()? as usize;
-        Some(index != 0 && self.statuses.get(index).copied()? != ThreadStatus::Dead)
+        Some(index != 0 && self.coroutines.get(index)?.status != ThreadStatus::Dead)
     }
 
     fn running(&self) -> (Value, bool) {
@@ -417,7 +470,7 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
             }
             .into());
         }
-        let registry = self.helpers.coroutine_registry.as_ref().ok_or_else(|| {
+        let registry = self.helpers.coroutine_registry.clone().ok_or_else(|| {
             NativeErrorKind::RuntimeError {
                 message: "coroutine registry is not registered".into(),
             }
@@ -425,7 +478,39 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
         let mut registry = registry.lock().map_err(|_| NativeErrorKind::RuntimeError {
             message: "coroutine registry lock poisoned".into(),
         })?;
-        Ok(registry.create())
+        Ok(registry.create(function))
+    }
+
+    fn resume_coroutine(
+        &mut self,
+        thread: Value,
+        args: &[Value],
+    ) -> Result<Result<Vec<Value>, Box<str>>, NativeError> {
+        let registry = self.helpers.coroutine_registry.clone().ok_or_else(|| {
+            NativeErrorKind::RuntimeError {
+                message: "coroutine registry is not registered".into(),
+            }
+        })?;
+        let function = {
+            let mut registry = registry.lock().map_err(|_| NativeErrorKind::RuntimeError {
+                message: "coroutine registry lock poisoned".into(),
+            })?;
+            match registry.begin_resume(thread)? {
+                Ok(function) => function,
+                Err(message) => return Ok(Err(message)),
+            }
+        };
+        let result = self
+            .context
+            .protected_call(function, args)
+            .map_err(|error| error.message().into());
+        {
+            let mut registry = registry.lock().map_err(|_| NativeErrorKind::RuntimeError {
+                message: "coroutine registry lock poisoned".into(),
+            })?;
+            registry.finish_resume(thread)?;
+        }
+        Ok(result)
     }
 
     fn running_thread(&self) -> Result<(Value, bool), NativeError> {

@@ -443,6 +443,7 @@ pub const BASE_FUNCTIONS: &[FunctionSpec] = &[
 pub const COROUTINE_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Coroutine, "create"),
     FunctionSpec::new(StdLib::Coroutine, "isyieldable"),
+    FunctionSpec::new(StdLib::Coroutine, "resume"),
     FunctionSpec::new(StdLib::Coroutine, "running"),
     FunctionSpec::new(StdLib::Coroutine, "status"),
 ];

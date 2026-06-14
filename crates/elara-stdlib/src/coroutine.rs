@@ -17,6 +17,10 @@ pub const COROUTINE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         coroutine_isyieldable,
     ),
     NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Coroutine, "resume"),
+        coroutine_resume,
+    ),
+    NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Coroutine, "running"),
         coroutine_running,
     ),
@@ -41,6 +45,35 @@ fn coroutine_create(
         .into());
     }
     Ok(vec![runtime.create_coroutine(function)?])
+}
+
+fn coroutine_resume(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let thread = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    if !thread.is_thread() {
+        return Err(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "thread",
+        }
+        .into());
+    }
+    let resume_args = args.get(1..).unwrap_or_default();
+    match runtime.resume_coroutine(thread, resume_args)? {
+        Ok(values) => {
+            let mut results = Vec::with_capacity(values.len() + 1);
+            results.push(Value::boolean(true));
+            results.extend(values);
+            Ok(results)
+        }
+        Err(message) => Ok(vec![
+            Value::boolean(false),
+            runtime.intern_short_string(message.as_bytes())?,
+        ]),
+    }
 }
 
 fn coroutine_status(
@@ -106,8 +139,8 @@ mod tests {
     use elara_core::{ThreadStatus, Value};
 
     use super::{
-        COROUTINE_NATIVE_FUNCTIONS, coroutine_create, coroutine_isyieldable, coroutine_running,
-        coroutine_status,
+        COROUTINE_NATIVE_FUNCTIONS, coroutine_create, coroutine_isyieldable, coroutine_resume,
+        coroutine_running, coroutine_status,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -115,6 +148,8 @@ mod tests {
     struct TestRuntime {
         strings: Vec<Box<[u8]>>,
         statuses: BTreeMap<u32, ThreadStatus>,
+        resume_calls: Vec<(Value, Vec<Value>)>,
+        resume_results: BTreeMap<u32, Result<Vec<Value>, Box<str>>>,
         running: Option<(Value, bool)>,
     }
 
@@ -147,6 +182,35 @@ mod tests {
                 .into());
             }
             Ok(self.push_thread(ThreadStatus::Runnable))
+        }
+
+        fn resume_coroutine(
+            &mut self,
+            thread: Value,
+            args: &[Value],
+        ) -> Result<Result<Vec<Value>, Box<str>>, NativeError> {
+            let index = thread.as_thread_index().ok_or(NativeErrorKind::TypeError {
+                index: 1,
+                expected: "thread",
+            })?;
+            self.resume_calls.push((thread, args.to_vec()));
+            match self.statuses.get_mut(&index) {
+                Some(ThreadStatus::Runnable | ThreadStatus::Suspended) => {
+                    self.statuses.insert(index, ThreadStatus::Dead);
+                    Ok(self
+                        .resume_results
+                        .remove(&index)
+                        .unwrap_or_else(|| Ok(Vec::new())))
+                }
+                Some(ThreadStatus::Dead) => Ok(Err("cannot resume dead coroutine".into())),
+                Some(ThreadStatus::Running) => {
+                    Ok(Err("cannot resume non-suspended coroutine".into()))
+                }
+                None => Err(NativeErrorKind::RuntimeError {
+                    message: "unknown coroutine".into(),
+                }
+                .into()),
+            }
         }
 
         fn running_thread(&self) -> Result<(Value, bool), NativeError> {
@@ -195,6 +259,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "status")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "create")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "isyieldable")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "resume")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "running")));
     }
 
@@ -210,6 +275,51 @@ mod tests {
         assert_eq!(
             runtime.thread_status(values[0]).expect("thread has status"),
             ThreadStatus::Runnable
+        );
+    }
+
+    #[test]
+    fn coroutine_resume_prepends_true_to_return_values() {
+        let mut runtime = TestRuntime::default();
+        let thread = runtime.push_thread(ThreadStatus::Runnable);
+        runtime
+            .resume_results
+            .insert(0, Ok(vec![Value::integer(42), Value::boolean(false)]));
+
+        let values = coroutine_resume(&mut runtime, &[thread, Value::integer(7)])
+            .expect("resume should pass");
+
+        assert_eq!(
+            values,
+            vec![
+                Value::boolean(true),
+                Value::integer(42),
+                Value::boolean(false)
+            ]
+        );
+        assert_eq!(
+            runtime.resume_calls,
+            vec![(thread, vec![Value::integer(7)])]
+        );
+        assert_eq!(
+            runtime.thread_status(thread).expect("thread has status"),
+            ThreadStatus::Dead
+        );
+    }
+
+    #[test]
+    fn coroutine_resume_returns_false_and_error_message_on_failure() {
+        let mut runtime = TestRuntime::default();
+        let thread = runtime.push_thread(ThreadStatus::Runnable);
+        runtime.resume_results.insert(0, Err("boom".into()));
+
+        let values = coroutine_resume(&mut runtime, &[thread]).expect("resume should pass");
+
+        assert_eq!(values.len(), 2);
+        assert_eq!(values[0], Value::boolean(false));
+        assert_eq!(
+            runtime.short_string_bytes(values[1]),
+            Some(b"boom".as_slice())
         );
     }
 
@@ -288,6 +398,21 @@ mod tests {
 
         assert_eq!(
             coroutine_status(&mut runtime, &[Value::nil()])
+                .expect_err("non-thread should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "thread"
+            }
+        );
+    }
+
+    #[test]
+    fn coroutine_resume_requires_thread_argument() {
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            coroutine_resume(&mut runtime, &[Value::nil()])
                 .expect_err("non-thread should fail")
                 .kind(),
             &NativeErrorKind::TypeError {

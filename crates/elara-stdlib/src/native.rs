@@ -156,6 +156,18 @@ pub trait NativeRuntime {
         .into())
     }
 
+    /// Resumes a runtime-owned coroutine with Lua values.
+    fn resume_coroutine(
+        &mut self,
+        _thread: Value,
+        _args: &[Value],
+    ) -> Result<Result<Vec<Value>, Box<str>>, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support coroutine resume".into(),
+        }
+        .into())
+    }
+
     /// Returns the currently running Lua thread and whether it is the main thread.
     fn running_thread(&self) -> Result<(Value, bool), NativeError> {
         Err(NativeErrorKind::RuntimeError {

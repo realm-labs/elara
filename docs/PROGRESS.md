@@ -830,6 +830,9 @@ Delivered:
 - `coroutine.create` registers runtime coroutine handles through shared API-side
   coroutine state and returns Lua thread values that `coroutine.status` can
   inspect.
+- `coroutine.resume` invokes registered non-yielding Lua functions behind a
+  protected-call boundary, prepends the Lua success flag, returns `false` plus
+  an error message for protected failures, and marks completed handles dead.
 - `coroutine.running` returns the current main thread handle and main-thread
   flag through the shared coroutine registry.
 - `coroutine.isyieldable` reports false for the main thread and true for live
@@ -839,8 +842,8 @@ Delivered:
 
 ### Immediate Gaps for M11
 
-- Implement coroutine resume/yield, wrap, and close backed by primitive
-  coroutine support.
+- Implement coroutine yield, yielding resume, wrap, and close backed by
+  primitive coroutine support.
 
 ### Product Gaps
 
@@ -866,7 +869,7 @@ M11.2 is complete.
 
 ## Last Verification
 
-M11.3 `coroutine.isyieldable` verification passed:
+M11.3 `coroutine.resume` verification passed:
 
 ```bash
 cargo fmt --all -- --check
@@ -878,8 +881,8 @@ cargo clippy -p elara-api --all-targets -- -D warnings
 
 ## Next Recommended Action
 
-Continue M11.3 with coroutine standard-library functions backed by primitive
-coroutine support and the remaining UTF-8 library basics.
+Continue M11.3 with coroutine yielding resume/yield, wrap, and close backed by
+primitive coroutine support.
 
 ## Current Risk Notes
 
