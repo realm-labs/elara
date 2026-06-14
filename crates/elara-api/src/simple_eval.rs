@@ -558,6 +558,18 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_exposes_coroutine_status() {
+        let profile = StdLibProfile::Custom([StdLib::Coroutine].into_iter().collect());
+
+        let values =
+            eval_simple_source_with_stdlib(SourceId::new(0), "return coroutine.status", &profile)
+                .expect("coroutine.status should be registered");
+
+        assert_eq!(values.len(), 1);
+        assert!(values[0].is_closure());
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_print() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 

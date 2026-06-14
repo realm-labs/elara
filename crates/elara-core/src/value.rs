@@ -55,6 +55,7 @@ enum ValueRepr {
     Table(u32),
     Closure(u32),
     NativeFunction(u32),
+    Thread(u32),
 }
 
 impl Value {
@@ -133,6 +134,14 @@ impl Value {
         }
     }
 
+    /// Creates a temporary Lua thread value from a runtime coroutine index.
+    #[must_use]
+    pub const fn thread_index(value: u32) -> Self {
+        Self {
+            repr: ValueRepr::Thread(value),
+        }
+    }
+
     /// Returns the value tag.
     #[must_use]
     pub const fn tag(self) -> ValueTag {
@@ -145,6 +154,7 @@ impl Value {
             ValueRepr::LongString(_) => ValueTag::LongString,
             ValueRepr::Table(_) => ValueTag::Table,
             ValueRepr::Closure(_) | ValueRepr::NativeFunction(_) => ValueTag::Closure,
+            ValueRepr::Thread(_) => ValueTag::Thread,
         }
     }
 
@@ -188,6 +198,12 @@ impl Value {
             self.repr,
             ValueRepr::Closure(_) | ValueRepr::NativeFunction(_)
         )
+    }
+
+    /// Returns true for Lua thread placeholders.
+    #[must_use]
+    pub const fn is_thread(self) -> bool {
+        matches!(self.repr, ValueRepr::Thread(_))
     }
 
     /// Returns the boolean payload when this value is a boolean.
@@ -262,6 +278,15 @@ impl Value {
         }
     }
 
+    /// Returns the runtime coroutine index when this value is a thread placeholder.
+    #[must_use]
+    pub const fn as_thread_index(self) -> Option<u32> {
+        match self.repr {
+            ValueRepr::Thread(value) => Some(value),
+            _ => None,
+        }
+    }
+
     /// Converts an integer or float value to a float.
     #[must_use]
     pub fn to_float(self) -> Option<LuaFloat> {
@@ -315,6 +340,7 @@ impl PartialEq for Value {
             (ValueRepr::Table(left), ValueRepr::Table(right)) => left == right,
             (ValueRepr::Closure(left), ValueRepr::Closure(right)) => left == right,
             (ValueRepr::NativeFunction(left), ValueRepr::NativeFunction(right)) => left == right,
+            (ValueRepr::Thread(left), ValueRepr::Thread(right)) => left == right,
             _ => false,
         }
     }
@@ -402,6 +428,15 @@ mod tests {
     }
 
     #[test]
+    fn value_thread_placeholder_round_trips() {
+        let value = Value::thread_index(5);
+
+        assert_eq!(value.tag(), ValueTag::Thread);
+        assert!(value.is_thread());
+        assert_eq!(value.as_thread_index(), Some(5));
+    }
+
+    #[test]
     fn value_equality_matches_lua_primitive_number_rules() {
         assert_eq!(Value::nil(), Value::nil());
         assert_eq!(Value::boolean(true), Value::boolean(true));
@@ -412,6 +447,8 @@ mod tests {
         assert_ne!(Value::integer(42), Value::float(42.5));
         assert_eq!(Value::table_index(1), Value::table_index(1));
         assert_ne!(Value::table_index(1), Value::table_index(2));
+        assert_eq!(Value::thread_index(1), Value::thread_index(1));
+        assert_ne!(Value::thread_index(1), Value::thread_index(2));
         assert_ne!(Value::integer(42), Value::boolean(true));
     }
 

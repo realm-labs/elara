@@ -392,6 +392,8 @@ fn type_name(value: Value) -> &'static str {
         "table"
     } else if value.is_closure() {
         "function"
+    } else if value.is_thread() {
+        "thread"
     } else {
         "unknown"
     }
@@ -412,6 +414,8 @@ fn tostring_bytes(value: Value) -> String {
         format!("function: 0x{index:x}")
     } else if let Some(index) = value.as_native_function_index() {
         format!("function: 0x{index:x}")
+    } else if let Some(index) = value.as_thread_index() {
+        format!("thread: 0x{index:x}")
     } else {
         format!("{}: 0x0", type_name(value))
     }

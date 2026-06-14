@@ -824,12 +824,16 @@ Delivered:
 - `utf8.charpattern` is exposed as a runtime-interned string field, backed by
   generic initial global table string-field support in the primitive runtime
   environment.
+- `Value` can represent runtime thread placeholders and `coroutine.status`
+  reports runnable/suspended/running/dead coroutine status names through a
+  stdlib runtime hook.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M11
 
-- Implement coroutine standard functions backed by primitive coroutine support.
+- Implement coroutine creation, resume/yield, running, wrap, isyieldable, and
+  close backed by primitive coroutine support.
 
 ### Product Gaps
 
@@ -855,16 +859,17 @@ M11.2 is complete.
 
 ## Last Verification
 
-M11.3 `utf8.charpattern` verification passed:
+M11.3 `coroutine.status` verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib utf8
-cargo test -p elara-api utf8
-cargo test -p elara-interp initial_global
+cargo test -p elara-core value
+cargo test -p elara-stdlib coroutine
+cargo test -p elara-stdlib base
+cargo test -p elara-api coroutine_status
+cargo clippy -p elara-core --all-targets -- -D warnings
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
-cargo clippy -p elara-interp --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action

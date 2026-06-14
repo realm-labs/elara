@@ -1,6 +1,6 @@
 //! Executable native standard-library function descriptors.
 
-use elara_core::Value;
+use elara_core::{ThreadStatus, Value};
 
 use crate::{FunctionSpec, StdLib};
 
@@ -144,6 +144,14 @@ pub trait NativeRuntime {
     fn native_function(&self, _library: StdLib, _name: &str) -> Result<Value, NativeError> {
         Err(NativeErrorKind::RuntimeError {
             message: "native runtime does not support native function values".into(),
+        }
+        .into())
+    }
+
+    /// Returns the status of a runtime-owned Lua thread.
+    fn thread_status(&self, _thread: Value) -> Result<ThreadStatus, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support coroutine status".into(),
         }
         .into())
     }

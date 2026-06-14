@@ -9,6 +9,7 @@
 use std::collections::BTreeSet;
 
 mod base;
+mod coroutine;
 mod math;
 mod native;
 mod number;
@@ -17,6 +18,7 @@ mod table;
 mod utf8;
 
 pub use base::{BASE_IPAIRS_AUX_NATIVE, BASE_NATIVE_FUNCTIONS, BASE_NEXT_NATIVE};
+pub use coroutine::COROUTINE_NATIVE_FUNCTIONS;
 pub use math::{LuaRandomState, MATH_CONSTANTS, MATH_NATIVE_FUNCTIONS};
 pub use native::{
     NativeError, NativeErrorKind, NativeFunctionSpec, NativeResult, NativeRuntime,
@@ -437,6 +439,9 @@ pub const BASE_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Base, "xpcall"),
 ];
 
+/// Coroutine library function descriptors.
+pub const COROUTINE_FUNCTIONS: &[FunctionSpec] = &[FunctionSpec::new(StdLib::Coroutine, "status")];
+
 /// Essential table library function descriptors.
 pub const TABLE_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Table, "concat"),
@@ -508,6 +513,7 @@ pub const UTF8_FUNCTIONS: &[FunctionSpec] = &[
 pub const fn native_functions(library: StdLib) -> &'static [NativeFunctionSpec] {
     match library {
         StdLib::Base => BASE_NATIVE_FUNCTIONS,
+        StdLib::Coroutine => COROUTINE_NATIVE_FUNCTIONS,
         StdLib::Math => MATH_NATIVE_FUNCTIONS,
         StdLib::String => STRING_NATIVE_FUNCTIONS,
         StdLib::Table => TABLE_NATIVE_FUNCTIONS,
@@ -526,6 +532,10 @@ where
     registry.add(
         StdLib::Base,
         FunctionLibrary::new(StdLib::Base, "base", BASE_FUNCTIONS),
+    );
+    registry.add(
+        StdLib::Coroutine,
+        FunctionLibrary::new(StdLib::Coroutine, "coroutine", COROUTINE_FUNCTIONS),
     );
     registry.add(
         StdLib::Table,
@@ -680,6 +690,11 @@ mod tests {
         assert!(
             functions
                 .0
+                .contains(&FunctionSpec::new(StdLib::Coroutine, "status"))
+        );
+        assert!(
+            functions
+                .0
                 .contains(&FunctionSpec::new(StdLib::Table, "insert"))
         );
         assert!(
@@ -780,6 +795,15 @@ mod tests {
                 .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Base, "assert"))
         );
+    }
+
+    #[test]
+    fn coroutine_native_functions_are_discoverable() {
+        let functions = native_functions(StdLib::Coroutine);
+
+        assert!(functions.iter().any(
+            |function| function.descriptor() == FunctionSpec::new(StdLib::Coroutine, "status")
+        ));
     }
 
     #[test]
