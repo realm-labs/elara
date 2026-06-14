@@ -248,6 +248,23 @@ mod tests {
     }
 
     #[test]
+    fn string_gsub_replaces_bracket_class_matches() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"a1b2c3");
+        let pattern = runtime.push_string(b"[%a][0-9]");
+        let replacement = runtime.push_string(b"x");
+
+        let values =
+            string_gsub(&mut runtime, &[subject, pattern, replacement]).expect("gsub should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"xxx".as_slice())
+        );
+        assert_eq!(values[1], Value::integer(3));
+    }
+
+    #[test]
     fn string_gsub_returns_original_string_and_zero_count_without_match() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");

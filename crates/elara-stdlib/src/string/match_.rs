@@ -184,6 +184,20 @@ mod tests {
     }
 
     #[test]
+    fn string_match_matches_bracket_classes() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abc123");
+        let pattern = runtime.push_string(b"[%a][0-9]");
+
+        let values = string_match(&mut runtime, &[subject, pattern]).expect("match should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"c1".as_slice())
+        );
+    }
+
+    #[test]
     fn string_match_returns_nil_when_literal_match_is_absent() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");

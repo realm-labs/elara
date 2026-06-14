@@ -199,6 +199,23 @@ mod tests {
     }
 
     #[test]
+    fn string_find_matches_bracket_classes() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abc123");
+        let range_pattern = runtime.push_string(b"[0-9][0-9]");
+        let negated_pattern = runtime.push_string(b"[^a-c][0-9]");
+
+        assert_eq!(
+            string_find(&mut runtime, &[subject, range_pattern]).expect("find should pass"),
+            vec![Value::integer(4), Value::integer(5)]
+        );
+        assert_eq!(
+            string_find(&mut runtime, &[subject, negated_pattern]).expect("find should pass"),
+            vec![Value::integer(4), Value::integer(5)]
+        );
+    }
+
+    #[test]
     fn string_find_returns_nil_when_plain_match_is_absent() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");

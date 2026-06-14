@@ -13,7 +13,13 @@ pub(super) fn has_unsupported_pattern_special(pattern: &[u8]) -> bool {
                 }
                 index += 2;
             }
-            b'*' | b'+' | b'?' | b'(' | b'[' | b'-' => return true,
+            b'[' => {
+                let Some(end) = bracket_end(pattern, index) else {
+                    return true;
+                };
+                index = end + 1;
+            }
+            b'*' | b'+' | b'?' | b'(' | b'-' => return true,
             b'^' if index != 0 => return true,
             b'$' if index + 1 != pattern.len() => return true,
             _ => index += 1,
@@ -76,20 +82,46 @@ fn pattern_match_len(haystack: &[u8], pattern: &[u8]) -> Option<usize> {
     let mut subject_index = 0;
     while let Some(pattern_byte) = pattern.get(pattern_index).copied() {
         let subject_byte = *haystack.get(subject_index)?;
-        let matched = if pattern_byte == b'%' {
-            pattern_index += 1;
-            let class = *pattern.get(pattern_index)?;
-            class_matches(subject_byte, class)
+        let (matched, next_pattern_index) = if pattern_byte == b'%' {
+            let class = *pattern.get(pattern_index + 1)?;
+            (class_matches(subject_byte, class), pattern_index + 2)
+        } else if pattern_byte == b'[' {
+            let end = bracket_end(pattern, pattern_index)?;
+            (
+                bracket_class_matches(subject_byte, &pattern[pattern_index..=end]),
+                end + 1,
+            )
         } else {
-            pattern_byte == b'.' || pattern_byte == subject_byte
+            (
+                pattern_byte == b'.' || pattern_byte == subject_byte,
+                pattern_index + 1,
+            )
         };
         if !matched {
             return None;
         }
-        pattern_index += 1;
+        pattern_index = next_pattern_index;
         subject_index += 1;
     }
     Some(subject_index)
+}
+
+fn bracket_end(pattern: &[u8], start: usize) -> Option<usize> {
+    debug_assert_eq!(pattern.get(start), Some(&b'['));
+    let mut index = start + 1;
+    if pattern.get(index) == Some(&b'^') {
+        index += 1;
+    }
+    while index < pattern.len() {
+        if pattern[index] == b'%' && index + 1 < pattern.len() {
+            index += 2;
+        } else if pattern[index] == b']' {
+            return Some(index);
+        } else {
+            index += 1;
+        }
+    }
+    None
 }
 
 fn class_matches(byte: u8, class: u8) -> bool {
@@ -112,6 +144,34 @@ fn class_matches(byte: u8, class: u8) -> bool {
     } else {
         !matched
     }
+}
+
+fn bracket_class_matches(byte: u8, class: &[u8]) -> bool {
+    let negated = class.get(1) == Some(&b'^');
+    let end = class.len().saturating_sub(1);
+    let mut index = if negated { 2 } else { 1 };
+    let matched = loop {
+        if index >= end {
+            break false;
+        }
+        if class[index] == b'%' && index + 1 < end {
+            index += 1;
+            if class_matches(byte, class[index]) {
+                break true;
+            }
+            index += 1;
+        } else if index + 2 < end && class[index + 1] == b'-' {
+            if class[index] <= byte && byte <= class[index + 2] {
+                break true;
+            }
+            index += 3;
+        } else if class[index] == byte {
+            break true;
+        } else {
+            index += 1;
+        }
+    };
+    if negated { !matched } else { matched }
 }
 
 #[cfg(test)]
@@ -147,14 +207,25 @@ mod tests {
     }
 
     #[test]
+    fn simple_pattern_find_matches_bracket_classes() {
+        assert_eq!(simple_pattern_find(b"abc123", b"[0-9][0-9]"), Some((3, 5)));
+        assert_eq!(simple_pattern_find(b"abc123", b"[^a-c][0-9]"), Some((3, 5)));
+        assert_eq!(simple_pattern_find(b"abc123", b"[%a][%d]"), Some((2, 4)));
+        assert_eq!(simple_pattern_find(b"a]b", b"[%]]"), Some((1, 2)));
+        assert_eq!(simple_pattern_find(b"abc", b"[x-z]"), None);
+    }
+
+    #[test]
     fn unsupported_specials_exclude_dot_valid_anchors_and_classes() {
         assert!(!has_unsupported_pattern_special(b"a."));
         assert!(!has_unsupported_pattern_special(b"^a.$"));
         assert!(!has_unsupported_pattern_special(b"%d%+%."));
+        assert!(!has_unsupported_pattern_special(b"[a-z]%d"));
         assert!(has_unsupported_pattern_special(b"a+"));
         assert!(has_unsupported_pattern_special(b"a^"));
         assert!(has_unsupported_pattern_special(b"a$b"));
         assert!(has_unsupported_pattern_special(b"%"));
+        assert!(has_unsupported_pattern_special(b"[abc"));
         assert!(has_unsupported_pattern_special(b"%bxy"));
         assert!(has_unsupported_pattern_special(b"%f[a]"));
         assert!(has_unsupported_pattern_special(b"%1"));

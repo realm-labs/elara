@@ -672,6 +672,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_string_bracket_patterns() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local x = string.match('abc123', '[%a][0-9]')\nreturn string.len(x) + string.len(string.gsub('a1b2', '[%a][0-9]', 'x'))",
+                &profile,
+            ),
+            Ok(vec![Value::integer(4)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_rep() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 
