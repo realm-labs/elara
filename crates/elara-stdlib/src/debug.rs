@@ -17,6 +17,7 @@ pub const DEBUG_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         FunctionSpec::new(StdLib::Debug, "setmetatable"),
         debug_setmetatable,
     ),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Debug, "sethook"), debug_sethook),
     NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Debug, "getregistry"),
         debug_getregistry,
@@ -32,6 +33,48 @@ fn debug_gethook(
     _args: &[Value],
 ) -> Result<Vec<Value>, NativeError> {
     Ok(vec![Value::nil()])
+}
+
+fn debug_sethook(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let has_thread_arg = args.first().is_some_and(|value| value.is_thread());
+    let hook_index = usize::from(has_thread_arg);
+    let hook = args.get(hook_index).copied().unwrap_or_else(Value::nil);
+    if hook.is_nil() {
+        return Ok(Vec::new());
+    }
+    if !hook.is_closure() {
+        return Err(NativeErrorKind::TypeError {
+            index: hook_index + 1,
+            expected: "function",
+        }
+        .into());
+    }
+    let mask = args
+        .get(hook_index + 1)
+        .copied()
+        .ok_or(NativeErrorKind::MissingArgument {
+            index: hook_index + 2,
+        })?;
+    if runtime.string_bytes(mask).is_none() {
+        return Err(NativeErrorKind::TypeError {
+            index: hook_index + 2,
+            expected: "string",
+        }
+        .into());
+    }
+    if let Some(count) = args.get(hook_index + 2).filter(|value| !value.is_nil()) {
+        count.as_integer().ok_or(NativeErrorKind::TypeError {
+            index: hook_index + 3,
+            expected: "integer",
+        })?;
+    }
+    Err(NativeErrorKind::RuntimeError {
+        message: "debug hook callbacks are not supported yet".into(),
+    }
+    .into())
 }
 
 fn debug_getmetatable(
@@ -221,6 +264,47 @@ mod tests {
         assert_eq!(
             function(&mut runtime, &[Value::integer(1)]).expect("non-thread arg should pass"),
             vec![Value::nil()]
+        );
+    }
+
+    #[test]
+    fn debug_sethook_clears_hooks_without_results() {
+        let function = function("sethook");
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            function(&mut runtime, &[]).expect("debug.sethook should clear hooks"),
+            Vec::<Value>::new()
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::nil()]).expect("debug.sethook(nil) should clear hooks"),
+            Vec::<Value>::new()
+        );
+    }
+
+    #[test]
+    fn debug_sethook_rejects_hook_installation_until_supported() {
+        let function = function("sethook");
+        let mut runtime = TestRuntime::default();
+        let hook = Value::native_function_index(1);
+        let mask = runtime.push_string(b"c");
+
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1)])
+                .expect_err("non-function hook should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "function",
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[hook, mask])
+                .expect_err("hook callbacks are not supported")
+                .kind(),
+            &NativeErrorKind::RuntimeError {
+                message: "debug hook callbacks are not supported yet".into(),
+            }
         );
     }
 

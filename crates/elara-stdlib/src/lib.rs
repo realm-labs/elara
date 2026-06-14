@@ -919,6 +919,11 @@ mod tests {
             functions.iter().any(|function| function.descriptor()
                 == FunctionSpec::new(StdLib::Debug, "setmetatable"))
         );
+        assert!(
+            functions.iter().any(
+                |function| function.descriptor() == FunctionSpec::new(StdLib::Debug, "sethook")
+            )
+        );
         assert!(functions.iter().any(
             |function| function.descriptor() == FunctionSpec::new(StdLib::Debug, "getregistry")
         ));
