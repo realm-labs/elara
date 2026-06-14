@@ -154,6 +154,29 @@ pub(super) fn set_upvalue(
     Ok(Some(strings.intern_value(name)))
 }
 
+pub(super) fn upvalue_id(
+    function: Value,
+    index: i64,
+    closures: &[RuntimeClosure],
+) -> RuntimeResult<Option<Value>> {
+    let Some(index) = index
+        .checked_sub(1)
+        .and_then(|index| usize::try_from(index).ok())
+    else {
+        return Ok(None);
+    };
+    let Some(closure_index) = function.as_closure_index() else {
+        return Ok(None);
+    };
+    let Some(closure) = closures.get(closure_index as usize) else {
+        return Ok(None);
+    };
+    let Some(upvalue) = closure.upvalues.get(index) else {
+        return Ok(None);
+    };
+    Ok(Some(Value::light_user_data(upvalue.identity())))
+}
+
 fn info_for_frame(
     frame: &RuntimeDebugFrame,
     options: &[u8],

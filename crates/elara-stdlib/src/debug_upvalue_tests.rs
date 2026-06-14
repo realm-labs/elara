@@ -9,6 +9,8 @@ struct TestRuntime {
     debug_upvalue_request: Option<(Value, i64)>,
     debug_setupvalue: Option<Value>,
     debug_setupvalue_request: Option<(Value, i64, Value)>,
+    debug_upvalueid: Option<Value>,
+    debug_upvalueid_request: Option<(Value, i64)>,
 }
 
 impl TestRuntime {
@@ -50,6 +52,15 @@ impl NativeRuntime for TestRuntime {
     ) -> Result<Option<Value>, crate::NativeError> {
         self.debug_setupvalue_request = Some((function, index, value));
         Ok(self.debug_setupvalue)
+    }
+
+    fn debug_upvalueid(
+        &mut self,
+        function: Value,
+        index: i64,
+    ) -> Result<Option<Value>, crate::NativeError> {
+        self.debug_upvalueid_request = Some((function, index));
+        Ok(self.debug_upvalueid)
     }
 }
 
@@ -205,6 +216,72 @@ fn debug_setupvalue_validates_arguments() {
             .expect_err("missing value")
             .kind(),
         &NativeErrorKind::MissingArgument { index: 3 }
+    );
+}
+
+#[test]
+fn debug_upvalueid_forwards_function_and_index_queries() {
+    let function = function("upvalueid");
+    let mut runtime = TestRuntime::default();
+    let target = Value::native_function_index(3);
+    let id = Value::light_user_data(0x1234);
+    runtime.debug_upvalueid = Some(id);
+
+    assert_eq!(
+        function(&mut runtime, &[target, Value::integer(1)]).expect("debug.upvalueid should pass"),
+        vec![id]
+    );
+    assert_eq!(runtime.debug_upvalueid_request, Some((target, 1)));
+}
+
+#[test]
+fn debug_upvalueid_returns_nil_for_absent_upvalues() {
+    let function = function("upvalueid");
+    let mut runtime = TestRuntime::default();
+    let target = Value::native_function_index(3);
+
+    assert_eq!(
+        function(&mut runtime, &[target, Value::integer(2)]).expect("debug.upvalueid should pass"),
+        vec![Value::nil()]
+    );
+    assert_eq!(runtime.debug_upvalueid_request, Some((target, 2)));
+}
+
+#[test]
+fn debug_upvalueid_validates_arguments() {
+    let function = function("upvalueid");
+    let mut runtime = TestRuntime::default();
+    let target = Value::native_function_index(3);
+
+    assert_eq!(
+        function(&mut runtime, &[])
+            .expect_err("missing function")
+            .kind(),
+        &NativeErrorKind::MissingArgument { index: 1 }
+    );
+    assert_eq!(
+        function(&mut runtime, &[Value::integer(1), Value::integer(1)])
+            .expect_err("bad function")
+            .kind(),
+        &NativeErrorKind::TypeError {
+            index: 1,
+            expected: "function",
+        }
+    );
+    assert_eq!(
+        function(&mut runtime, &[target])
+            .expect_err("missing index")
+            .kind(),
+        &NativeErrorKind::MissingArgument { index: 2 }
+    );
+    assert_eq!(
+        function(&mut runtime, &[target, Value::boolean(false)])
+            .expect_err("bad index")
+            .kind(),
+        &NativeErrorKind::TypeError {
+            index: 2,
+            expected: "integer",
+        }
     );
 }
 

@@ -143,6 +143,15 @@ pub trait NativeRuntime {
         Ok(None)
     }
 
+    /// Returns a `debug.upvalueid` light userdata identity, or nil when absent.
+    fn debug_upvalueid(
+        &mut self,
+        _function: Value,
+        _index: i64,
+    ) -> Result<Option<Value>, NativeError> {
+        Ok(None)
+    }
+
     /// Returns a traceback string for the current debug frame state.
     fn debug_traceback(
         &mut self,

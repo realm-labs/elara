@@ -242,6 +242,11 @@ impl<'a> NativeContext<'a> {
         debug::set_upvalue(function, index, value, self.closures, self.strings)
     }
 
+    /// Returns a stable identity value for a Lua function upvalue.
+    pub fn debug_upvalueid(&mut self, function: Value, index: i64) -> RuntimeResult<Option<Value>> {
+        debug::upvalue_id(function, index, self.closures)
+    }
+
     /// Returns a runtime-owned table's metatable, or nil when absent.
     pub fn table_metatable(&self, table: Value) -> RuntimeResult<Value> {
         let table_index = table
@@ -1431,6 +1436,10 @@ impl RuntimeUpvalue {
 
     fn set(&self, value: Value) {
         self.value.set(value);
+    }
+
+    fn identity(&self) -> usize {
+        Rc::as_ptr(&self.value) as usize
     }
 }
 

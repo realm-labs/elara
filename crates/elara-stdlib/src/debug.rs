@@ -20,6 +20,10 @@ pub const DEBUG_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         debug_getupvalue,
     ),
     NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Debug, "upvalueid"),
+        debug_upvalueid,
+    ),
+    NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Debug, "getmetatable"),
         debug_getmetatable,
     ),
@@ -140,6 +144,29 @@ fn debug_setupvalue(
             vec![Value::nil()]
         },
     )
+}
+
+fn debug_upvalueid(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let function = args
+        .first()
+        .copied()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    if !function.is_closure() {
+        return Err(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "function",
+        }
+        .into());
+    }
+    let index = integer_arg(args, 1)?;
+    Ok(vec![
+        runtime
+            .debug_upvalueid(function, index)?
+            .unwrap_or_else(Value::nil),
+    ])
 }
 
 fn debug_sethook(
