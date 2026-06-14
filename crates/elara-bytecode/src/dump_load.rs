@@ -6,6 +6,9 @@ use crate::{DebugInfo, Instr, LocalVarDesc, Proto, UpvalueDesc, VerifyError, ver
 
 const MAGIC: &[u8; 8] = b"ELBC\r\n\x1a\n";
 const FORMAT_VERSION: u16 = 1;
+const LUA_SIGNATURE: &[u8; 4] = b"\x1bLua";
+const LUA_55_BINARY_VERSION: u8 = 0x55;
+const LUA_OFFICIAL_FORMAT: u8 = 0;
 
 const CONSTANT_NIL: u8 = 0;
 const CONSTANT_FALSE: u8 = 1;
@@ -24,6 +27,12 @@ pub fn dump_proto(proto: &Proto) -> Result<Vec<u8>, DumpError> {
 
 /// Loads a prototype tree from Elara's internal bytecode format.
 pub fn load_proto(bytes: &[u8]) -> Result<Proto, LoadError> {
+    if bytes.starts_with(LUA_SIGNATURE) {
+        return Err(LoadError::OfficialLuaChunkUnsupported {
+            version: bytes.get(4).copied(),
+            format: bytes.get(5).copied(),
+        });
+    }
     let mut reader = Reader { bytes, offset: 0 };
     reader.expect(MAGIC)?;
     let version = reader.u16()?;
@@ -72,6 +81,13 @@ pub enum LoadError {
     },
     /// Header magic does not match Elara's internal bytecode format.
     BadMagic,
+    /// Official Lua binary chunks are recognized but not accepted as Elara bytecode.
+    OfficialLuaChunkUnsupported {
+        /// Official Lua binary chunk version byte, when present.
+        version: Option<u8>,
+        /// Official Lua binary chunk format byte, when present.
+        format: Option<u8>,
+    },
     /// Header format version is not supported by this crate.
     UnsupportedVersion {
         /// Encoded format version.
@@ -437,13 +453,27 @@ impl Reader<'_> {
     }
 }
 
+/// Returns true if the input starts with Lua's official binary chunk signature.
+#[must_use]
+pub fn is_official_lua_chunk(bytes: &[u8]) -> bool {
+    bytes.starts_with(LUA_SIGNATURE)
+}
+
+/// Returns true if the input starts like a current Lua 5.5 official chunk.
+#[must_use]
+pub fn is_current_official_lua_chunk(bytes: &[u8]) -> bool {
+    bytes.starts_with(LUA_SIGNATURE)
+        && bytes.get(4) == Some(&LUA_55_BINARY_VERSION)
+        && bytes.get(5) == Some(&LUA_OFFICIAL_FORMAT)
+}
+
 #[cfg(test)]
 mod tests {
     use elara_core::Value;
 
     use crate::{
         DebugInfo, DumpError, Instr, LoadError, Op, Proto, ProtoBuilder, UpvalueDesc, dump_proto,
-        load_proto,
+        is_current_official_lua_chunk, is_official_lua_chunk, load_proto,
     };
 
     #[test]
@@ -545,6 +575,48 @@ mod tests {
         assert!(matches!(
             load_proto(&dump_proto(&parent).expect("proto should dump")),
             Err(LoadError::Verification(_))
+        ));
+    }
+
+    #[test]
+    fn official_chunk_current_version_is_explicitly_unsupported() {
+        let chunk = b"\x1bLua\x55\x00\x19\x93\r\n\x1a\n";
+
+        assert!(is_official_lua_chunk(chunk));
+        assert!(is_current_official_lua_chunk(chunk));
+        assert_eq!(
+            load_proto(chunk),
+            Err(LoadError::OfficialLuaChunkUnsupported {
+                version: Some(0x55),
+                format: Some(0),
+            })
+        );
+    }
+
+    #[test]
+    fn official_chunk_other_versions_are_explicitly_unsupported() {
+        let chunk = b"\x1bLua\x54\x00\x19\x93\r\n\x1a\n";
+
+        assert!(is_official_lua_chunk(chunk));
+        assert!(!is_current_official_lua_chunk(chunk));
+        assert_eq!(
+            load_proto(chunk),
+            Err(LoadError::OfficialLuaChunkUnsupported {
+                version: Some(0x54),
+                format: Some(0),
+            })
+        );
+    }
+
+    #[test]
+    fn official_chunk_truncated_signature_is_not_elara_bytecode() {
+        let chunk = b"\x1bLu";
+
+        assert!(!is_official_lua_chunk(chunk));
+        assert!(!is_current_official_lua_chunk(chunk));
+        assert!(matches!(
+            load_proto(chunk),
+            Err(LoadError::UnexpectedEof { .. })
         ));
     }
 

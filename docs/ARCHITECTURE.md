@@ -329,6 +329,14 @@ Required barrier sites:
 
 Elara should use a custom internal register bytecode. It should not copy an official Lua bytecode format as the VM execution contract.
 
+Elara's supported serialized bytecode format is its own versioned internal
+dump/load format. Official Lua binary chunks are recognized by signature so the
+loader can reject them with a clear unsupported-format error, but they are not
+accepted for execution on main. If official chunk loading is added later, it
+must be limited to the current Lua target and must translate into verified
+Elara `Proto` values instead of making official Lua bytecode an execution
+contract.
+
 ```rust
 pub struct Proto {
     pub code: Box<[Instr]>,

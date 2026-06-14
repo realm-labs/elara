@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-15
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M18 Full Standard Library, Debug Support, and Binary Chunk Policy
-Current step: M18.4 Decide and implement official chunk support scope
+Current milestone: M19 Optional Current-Version C API
+Current step: M19.1 Add C API crate and headers
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -24,7 +24,8 @@ upvalue identifiers. The initial bytecode prototype, instruction encoding,
 opcode set, constant pool, metadata placeholders, builder, and disassembler are
 implemented, along with local-variable debug descriptors, initial bytecode
 verification, internal bytecode dump/load with magic and version checks,
-recursive prototype-tree serialization, and simple expression codegen.
+recursive prototype-tree serialization, explicit official Lua binary chunk
+detection with unsupported-format refusal, and simple expression codegen.
 VM/thread stack primitives and primitive arithmetic bytecode execution are
 implemented, and simple source chunks can be evaluated through the compile and
 interpreter path. Local variables and assignment basics are implemented.
@@ -1302,13 +1303,16 @@ M17 is complete.
 M18.1 is complete.
 M18.2 is complete.
 M18.3 is complete.
+M18.4 is complete.
+M18 is complete.
 
 ## Last Verification
 
-M18.3 internal bytecode dump/load validation passed:
+M18.4 official Lua chunk policy validation passed:
 
 ```bash
 cargo fmt --all -- --check
+cargo test -p elara-bytecode official_chunk
 cargo test -p elara-bytecode dump_load
 cargo clippy -p elara-bytecode --all-targets -- -D warnings
 git diff --check
@@ -1318,8 +1322,8 @@ cargo test --workspace --features jit debug
 
 ## Next Recommended Action
 
-Start M18.4 by documenting the official Lua binary chunk support policy for the
-current architecture, then add tests for accepted and rejected chunk inputs.
+Start M19.1 by adding current-version C API header scaffolding for `elara-capi`
+without introducing old Lua compatibility branches.
 
 ## Current Risk Notes
 
@@ -1358,7 +1362,7 @@ current architecture, then add tests for accepted and rejected chunk inputs.
 | Expression parser | Complete | Expression AST, precedence parsing, calls, table constructors, and varargs are implemented. |
 | Statement parser | Complete | Declarations, assignments, control flow, function declarations, labels, and returns are implemented. |
 | Parser snapshots | Complete | Representative AST and malformed syntax diagnostic snapshots are implemented. |
-| Bytecode model | M18.3 complete | Proto, instruction encoding, opcode set, constants, upvalues, source/line/local debug metadata, builder, disassembler, verifier, and internal dump/load format with magic/version/header validation are implemented. |
+| Bytecode model | M18 complete | Proto, instruction encoding, opcode set, constants, upvalues, source/line/local debug metadata, builder, disassembler, verifier, internal dump/load format with magic/version/header validation, and explicit unsupported official Lua chunk policy are implemented. |
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | M15 complete | Primitive bytecode execution includes structured errors, coroutines, close variables, native calls, hot stack helpers, table/global inline caches, and an `ADD_INT` superinstruction. |
@@ -1371,5 +1375,5 @@ current architecture, then add tests for accepted and rejected chunk inputs.
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | M17 complete; M18.2 debug interaction complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, debug-hook forced interpretation, API JIT selection for environment-independent chunks with debug/runtime-environment chunks kept on the interpreter, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |
-| C API | Not started | Starts M19, optional/current-version only. |
+| C API | Not started | M19 is next; optional/current-version only. |
 | Benchmarks | M15 baseline complete | Stable custom `cargo bench` runner covers arithmetic, table access, calls, strings, and representative macro workloads; `docs/PERFORMANCE.md` records the current baseline and comparison gaps. |
