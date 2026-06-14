@@ -6,7 +6,10 @@ license.workspace = true
 
 [dependencies]
 elara-api.workspace = true
+elara-bytecode.workspace = true
+elara-compiler.workspace = true
 elara-core.workspace = true
+elara-syntax.workspace = true
 
 [lints]
 workspace = true

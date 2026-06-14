@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M13 Conformance and Differential Testing
-Current step: M13.3 Add fuzz targets
+Current milestone: M14 Production GC
+Current step: M14.1 Implement complete tracing for all object types
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -292,9 +292,12 @@ Completed:
   - M12 exit criteria validation.
   - M13.1 Add official Lua runner integration.
   - M13.2 Add conformance test subsets.
+  - M13.3 Add fuzz targets.
+  - M13 exit criteria validation.
 
 In progress:
-  - Conformance and benchmark harnesses.
+  - Production GC.
+  - Benchmark harnesses.
   - JIT.
   - C API.
 ```
@@ -888,6 +891,9 @@ Delivered:
 - Conformance fixture subsets now cover language, standard-library, error, and
   coroutine smoke cases through an `elara-test` integration harness that checks
   public API success/error classes.
+- Reusable fuzz target entry points now exercise arbitrary bytes through the
+  lexer/parser/simple compiler path, bytecode verifier, and raw table
+  operations, with deterministic unit tests and workspace verification.
 
 ## Remaining Gaps
 
@@ -901,12 +907,10 @@ Delivered:
 Major implementation work is still pending:
 
 - Bitwise opcode execution and corresponding metamethod dispatch.
-- Standard library.
-- Rust API.
+- Broader full-profile standard library coverage.
+- Broader Rust API compatibility.
 - Cranelift JIT.
 - Optional C API.
-- Conformance tests.
-- Differential tests.
 - Benchmarks.
 
 M9 is complete.
@@ -927,23 +931,24 @@ M12.4 is complete.
 M12 is complete.
 M13.1 is complete.
 M13.2 is complete.
+M13.3 is complete.
+M13 is complete.
 
 ## Last Verification
 
-M13.2 conformance subset verification passed:
+M13.3 fuzz target verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-test --test conformance
-cargo test -p elara-test conformance
-cargo test -p elara-test
+cargo test -p elara-test fuzz
+cargo test --workspace
 cargo clippy -p elara-test --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M13.3 with parser, bytecode verifier, and table-operation fuzz target
-scaffolding.
+Continue M14.1 with complete tracing for runtime objects, stack roots, registry
+roots, and upvalues.
 
 ## Current Risk Notes
 
@@ -985,11 +990,14 @@ scaffolding.
 | Bytecode model | Initial model complete | Proto, instruction encoding, opcode set, constants, upvalues, debug placeholders, builder, disassembler, and verifier are implemented. |
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
-| Interpreter | M10 coroutine support complete | Primitive bytecode coroutines can yield/resume across Lua frames; source-level coroutine library awaits M11. |
+| Interpreter | M11 coroutine stdlib support complete | Primitive bytecode coroutines can yield/resume across Lua frames, and coroutine stdlib smoke paths execute with documented full-profile gaps. |
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
-| Rust API | Not started | Starts M12. |
+| Rust API | Initial M12 surface complete | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented. |
+| Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
+| Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
+| Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |
 | Benchmarks | Not started | Starts M15. |
