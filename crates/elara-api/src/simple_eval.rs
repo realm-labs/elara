@@ -466,6 +466,17 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_os_time_without_date_table() {
+        let profile = StdLibProfile::Custom([StdLib::Os].into_iter().collect());
+
+        let values = eval_simple_source_with_stdlib(SourceId::new(0), "return os.time()", &profile)
+            .expect("os.time should evaluate");
+
+        assert_eq!(values.len(), 1);
+        assert!(values[0].as_integer().is_some_and(|value| value > 0));
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_assert() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 

@@ -1,5 +1,7 @@
 //! Executable operating-system library natives.
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use elara_core::Value;
 
 use crate::{
@@ -7,10 +9,10 @@ use crate::{
 };
 
 /// Executable `os` library functions currently implemented.
-pub const OS_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[NativeFunctionSpec::new(
-    FunctionSpec::new(StdLib::Os, "difftime"),
-    os_difftime,
-)];
+pub const OS_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "difftime"), os_difftime),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "time"), os_time),
+];
 
 fn os_difftime(
     _runtime: &mut dyn NativeRuntime,
@@ -19,6 +21,35 @@ fn os_difftime(
     let first = time_arg(args, 1)?;
     let second = time_arg(args, 2)?;
     Ok(vec![Value::float((first - second) as f64)])
+}
+
+fn os_time(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    match args.first().copied() {
+        None => current_unix_time(),
+        Some(value) if value.is_nil() => current_unix_time(),
+        Some(value) if value.is_table() => Err(NativeErrorKind::RuntimeError {
+            message: "os.time date table form is not implemented".into(),
+        }
+        .into()),
+        Some(_) => Err(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "table",
+        }
+        .into()),
+    }
+}
+
+fn current_unix_time() -> Result<Vec<Value>, NativeError> {
+    let seconds = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| NativeErrorKind::RuntimeError {
+            message: format!("system time before Unix epoch: {error}").into_boxed_str(),
+        })?
+        .as_secs();
+    let seconds = i64::try_from(seconds).map_err(|_| NativeErrorKind::RuntimeError {
+        message: "system time cannot be represented as Lua integer".into(),
+    })?;
+    Ok(vec![Value::integer(seconds)])
 }
 
 fn time_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
@@ -34,6 +65,8 @@ fn time_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use elara_core::Value;
 
     use crate::{NativeErrorKind, StdLib, native_functions};
@@ -81,6 +114,62 @@ mod tests {
                 index: 1,
                 expected: "integer",
             }
+        );
+    }
+
+    #[test]
+    fn os_time_without_table_returns_current_unix_time() {
+        let function = native_functions(StdLib::Os)[1].function();
+        let mut runtime = TestRuntime;
+        let before = current_unix_seconds();
+
+        let without_args = function(&mut runtime, &[]).expect("os.time should pass");
+        let with_nil = function(&mut runtime, &[Value::nil()]).expect("os.time(nil) should pass");
+        let after = current_unix_seconds();
+
+        assert_time_in_range(without_args[0], before, after);
+        assert_time_in_range(with_nil[0], before, after);
+    }
+
+    #[test]
+    fn os_time_rejects_unsupported_date_table_form() {
+        let function = native_functions(StdLib::Os)[1].function();
+        let mut runtime = TestRuntime;
+
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1)])
+                .expect_err("non-table time argument")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "table",
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::table_index(0)])
+                .expect_err("table time form is not implemented")
+                .kind(),
+            &NativeErrorKind::RuntimeError {
+                message: "os.time date table form is not implemented".into(),
+            }
+        );
+    }
+
+    fn current_unix_seconds() -> i64 {
+        i64::try_from(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("test system time should be after Unix epoch")
+                .as_secs(),
+        )
+        .expect("test system time should fit in i64")
+    }
+
+    fn assert_time_in_range(value: Value, before: i64, after: i64) {
+        let value = value.as_integer().expect("os.time should return integer");
+        assert!(
+            (before..=after).contains(&value),
+            "expected {value} to be between {before} and {after}"
         );
     }
 }

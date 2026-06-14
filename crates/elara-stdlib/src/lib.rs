@@ -840,6 +840,11 @@ mod tests {
                 .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Os, "difftime"))
         );
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Os, "time"))
+        );
     }
 
     #[test]
