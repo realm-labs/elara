@@ -477,6 +477,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_os_time_date_table() {
+        let profile = StdLibProfile::Custom([StdLib::Os].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return os.time({year=1970, month=1, day=1, hour=0})",
+                &profile,
+            ),
+            Ok(vec![Value::integer(0)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_os_clock() {
         let profile = StdLibProfile::Custom([StdLib::Os].into_iter().collect());
 

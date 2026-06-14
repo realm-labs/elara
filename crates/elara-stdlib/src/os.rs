@@ -45,20 +45,33 @@ fn os_difftime(
     Ok(vec![Value::float((first - second) as f64)])
 }
 
-fn os_time(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+fn os_time(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     match args.first().copied() {
         None => current_unix_time(),
         Some(value) if value.is_nil() => current_unix_time(),
-        Some(value) if value.is_table() => Err(NativeErrorKind::RuntimeError {
-            message: "os.time date table form is not implemented".into(),
-        }
-        .into()),
+        Some(value) if value.is_table() => time_from_table(runtime, value),
         Some(_) => Err(NativeErrorKind::TypeError {
             index: 1,
             expected: "table",
         }
         .into()),
     }
+}
+
+fn time_from_table(
+    runtime: &mut dyn NativeRuntime,
+    table: Value,
+) -> Result<Vec<Value>, NativeError> {
+    let year = required_integer_field(runtime, table, b"year")?;
+    let month = required_integer_field(runtime, table, b"month")?;
+    let day = required_integer_field(runtime, table, b"day")?;
+    let hour = optional_integer_field(runtime, table, b"hour", 12)?;
+    let min = optional_integer_field(runtime, table, b"min", 0)?;
+    let sec = optional_integer_field(runtime, table, b"sec", 0)?;
+
+    let seconds = utc_seconds_from_civil_time(year, month, day, hour, min, sec)?;
+    write_normalized_time_fields(runtime, table, seconds)?;
+    Ok(vec![Value::integer(seconds)])
 }
 
 fn os_getenv(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -142,6 +155,146 @@ fn current_unix_time() -> Result<Vec<Value>, NativeError> {
         message: "system time cannot be represented as Lua integer".into(),
     })?;
     Ok(vec![Value::integer(seconds)])
+}
+
+fn required_integer_field(
+    runtime: &mut dyn NativeRuntime,
+    table: Value,
+    key: &'static [u8],
+) -> Result<i64, NativeError> {
+    match table_field(runtime, table, key)? {
+        value if value.is_nil() => Err(NativeErrorKind::RuntimeError {
+            message: format!(
+                "field '{}' missing in date table",
+                std::str::from_utf8(key).expect("date field keys are utf-8")
+            )
+            .into_boxed_str(),
+        }
+        .into()),
+        value => integer_date_field(key, value),
+    }
+}
+
+fn optional_integer_field(
+    runtime: &mut dyn NativeRuntime,
+    table: Value,
+    key: &'static [u8],
+    default: i64,
+) -> Result<i64, NativeError> {
+    match table_field(runtime, table, key)? {
+        value if value.is_nil() => Ok(default),
+        value => integer_date_field(key, value),
+    }
+}
+
+fn integer_date_field(key: &'static [u8], value: Value) -> Result<i64, NativeError> {
+    value.as_integer().ok_or_else(|| {
+        NativeErrorKind::RuntimeError {
+            message: format!(
+                "field '{}' is not an integer",
+                std::str::from_utf8(key).expect("date field keys are utf-8")
+            )
+            .into_boxed_str(),
+        }
+        .into()
+    })
+}
+
+fn table_field(
+    runtime: &mut dyn NativeRuntime,
+    table: Value,
+    key: &'static [u8],
+) -> Result<Value, NativeError> {
+    let key = runtime.intern_short_string(key)?;
+    runtime.table_get(table, key)
+}
+
+fn set_integer_field(
+    runtime: &mut dyn NativeRuntime,
+    table: Value,
+    key: &'static [u8],
+    value: i64,
+) -> Result<(), NativeError> {
+    let key = runtime.intern_short_string(key)?;
+    runtime.table_set(table, key, Value::integer(value))
+}
+
+fn write_normalized_time_fields(
+    runtime: &mut dyn NativeRuntime,
+    table: Value,
+    seconds: i64,
+) -> Result<(), NativeError> {
+    let days = seconds.div_euclid(SECONDS_PER_DAY);
+    let seconds_of_day = seconds.rem_euclid(SECONDS_PER_DAY);
+    let (year, month, day) = civil_from_days(days);
+    let hour = seconds_of_day / SECONDS_PER_HOUR;
+    let min = (seconds_of_day % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE;
+    let sec = seconds_of_day % SECONDS_PER_MINUTE;
+
+    set_integer_field(runtime, table, b"year", year)?;
+    set_integer_field(runtime, table, b"month", month)?;
+    set_integer_field(runtime, table, b"day", day)?;
+    set_integer_field(runtime, table, b"hour", hour)?;
+    set_integer_field(runtime, table, b"min", min)?;
+    set_integer_field(runtime, table, b"sec", sec)?;
+    Ok(())
+}
+
+const SECONDS_PER_MINUTE: i64 = 60;
+const SECONDS_PER_HOUR: i64 = 60 * SECONDS_PER_MINUTE;
+const SECONDS_PER_DAY: i64 = 24 * SECONDS_PER_HOUR;
+
+fn utc_seconds_from_civil_time(
+    mut year: i64,
+    month: i64,
+    day: i64,
+    hour: i64,
+    min: i64,
+    sec: i64,
+) -> Result<i64, NativeError> {
+    let month_index = month - 1;
+    year += month_index.div_euclid(12);
+    let month = month_index.rem_euclid(12) + 1;
+    let days = days_from_civil(year, month, 1)
+        .checked_add(day - 1)
+        .ok_or_else(time_representability_error)?;
+    let seconds = i128::from(days) * i128::from(SECONDS_PER_DAY)
+        + i128::from(hour) * i128::from(SECONDS_PER_HOUR)
+        + i128::from(min) * i128::from(SECONDS_PER_MINUTE)
+        + i128::from(sec);
+    i64::try_from(seconds).map_err(|_| time_representability_error())
+}
+
+fn days_from_civil(mut year: i64, month: i64, day: i64) -> i64 {
+    year -= i64::from(month <= 2);
+    let era = year.div_euclid(400);
+    let year_of_era = year - era * 400;
+    let month_prime = month + if month > 2 { -3 } else { 9 };
+    let day_of_year = (153 * month_prime + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    era * 146_097 + day_of_era - 719_468
+}
+
+fn civil_from_days(days: i64) -> (i64, i64, i64) {
+    let days = days + 719_468;
+    let era = days.div_euclid(146_097);
+    let day_of_era = days - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let mut year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
+    year += i64::from(month <= 2);
+    (year, month, day)
+}
+
+fn time_representability_error() -> NativeError {
+    NativeErrorKind::RuntimeError {
+        message: "time result cannot be represented in this installation".into(),
+    }
+    .into()
 }
 
 fn utf8_string_arg<'a>(
@@ -245,13 +398,14 @@ mod tests {
 
     use elara_core::Value;
 
-    use crate::{NativeErrorKind, StdLib, native_functions};
+    use crate::{NativeErrorKind, NativeRuntime, StdLib, native_functions};
 
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     #[derive(Default)]
     struct TestRuntime {
         strings: Vec<Box<[u8]>>,
+        tables: Vec<Vec<(Value, Value)>>,
     }
 
     impl TestRuntime {
@@ -261,19 +415,97 @@ mod tests {
             Value::closure_index(index)
         }
 
+        fn intern_string(&mut self, bytes: &[u8]) -> Value {
+            if let Some(index) = self
+                .strings
+                .iter()
+                .position(|existing| existing.as_ref() == bytes)
+            {
+                return Value::closure_index(
+                    u32::try_from(index).expect("test string index fits in u32"),
+                );
+            }
+            self.push_string(bytes)
+        }
+
         fn bytes(&self, value: Value) -> Option<&[u8]> {
             let index = value.as_closure_index()? as usize;
             self.strings.get(index).map(Box::as_ref)
         }
+
+        fn date_table(&mut self, entries: &[(&'static [u8], i64)]) -> Value {
+            let entries = entries
+                .iter()
+                .map(|(name, value)| (self.intern_string(name), Value::integer(*value)))
+                .collect::<Vec<_>>();
+            self.create_table(&entries)
+                .expect("test runtime should create table")
+        }
+
+        fn integer_field(&mut self, table: Value, field: &'static [u8]) -> Option<i64> {
+            let key = self.intern_string(field);
+            self.table_get(table, key).ok()?.as_integer()
+        }
     }
 
-    impl crate::NativeRuntime for TestRuntime {
+    impl NativeRuntime for TestRuntime {
         fn intern_short_string(&mut self, bytes: &[u8]) -> Result<Value, crate::NativeError> {
-            Ok(self.push_string(bytes))
+            Ok(self.intern_string(bytes))
         }
 
         fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
             self.bytes(value)
+        }
+
+        fn create_table(
+            &mut self,
+            entries: &[(Value, Value)],
+        ) -> Result<Value, crate::NativeError> {
+            let index = u32::try_from(self.tables.len()).expect("test table index fits in u32");
+            self.tables.push(entries.to_vec());
+            Ok(Value::table_index(index))
+        }
+
+        fn table_get(&self, table: Value, key: Value) -> Result<Value, crate::NativeError> {
+            let index = table.as_table_index().ok_or(NativeErrorKind::TypeError {
+                index: 1,
+                expected: "table",
+            })? as usize;
+            Ok(self
+                .tables
+                .get(index)
+                .and_then(|entries| {
+                    entries
+                        .iter()
+                        .find_map(|(candidate, value)| (*candidate == key).then_some(*value))
+                })
+                .unwrap_or_else(Value::nil))
+        }
+
+        fn table_set(
+            &mut self,
+            table: Value,
+            key: Value,
+            value: Value,
+        ) -> Result<(), crate::NativeError> {
+            let index = table.as_table_index().ok_or(NativeErrorKind::TypeError {
+                index: 1,
+                expected: "table",
+            })? as usize;
+            let entries = self
+                .tables
+                .get_mut(index)
+                .ok_or(NativeErrorKind::TypeError {
+                    index: 1,
+                    expected: "table",
+                })?;
+            if let Some((_, existing)) = entries.iter_mut().find(|(candidate, _)| *candidate == key)
+            {
+                *existing = value;
+            } else {
+                entries.push((key, value));
+            }
+            Ok(())
         }
     }
 
@@ -325,9 +557,59 @@ mod tests {
     }
 
     #[test]
-    fn os_time_rejects_unsupported_date_table_form() {
+    fn os_time_converts_date_table_to_utc_unix_time() {
         let function = function("time");
         let mut runtime = TestRuntime::default();
+        let table = runtime.date_table(&[
+            (b"year", 1970),
+            (b"month", 1),
+            (b"day", 1),
+            (b"hour", 0),
+            (b"min", 0),
+            (b"sec", 0),
+        ]);
+
+        assert_eq!(
+            function(&mut runtime, &[table]).expect("os.time table form should pass"),
+            vec![Value::integer(0)]
+        );
+        assert_eq!(runtime.integer_field(table, b"year"), Some(1970));
+        assert_eq!(runtime.integer_field(table, b"month"), Some(1));
+        assert_eq!(runtime.integer_field(table, b"day"), Some(1));
+        assert_eq!(runtime.integer_field(table, b"hour"), Some(0));
+    }
+
+    #[test]
+    fn os_time_uses_table_defaults_and_normalizes_fields() {
+        let function = function("time");
+        let mut runtime = TestRuntime::default();
+        let table = runtime.date_table(&[(b"year", 1970), (b"month", 13), (b"day", 1)]);
+
+        assert_eq!(
+            function(&mut runtime, &[table]).expect("os.time table form should pass"),
+            vec![Value::integer(31_579_200)]
+        );
+        assert_eq!(runtime.integer_field(table, b"year"), Some(1971));
+        assert_eq!(runtime.integer_field(table, b"month"), Some(1));
+        assert_eq!(runtime.integer_field(table, b"day"), Some(1));
+        assert_eq!(
+            runtime.integer_field(table, b"hour"),
+            Some(12),
+            "Lua defaults omitted hour to noon"
+        );
+    }
+
+    #[test]
+    fn os_time_validates_date_table_fields() {
+        let function = function("time");
+        let mut runtime = TestRuntime::default();
+        let missing_day = runtime.date_table(&[(b"year", 1970), (b"month", 1)]);
+        let non_integer_year = {
+            let key = runtime.intern_string(b"year");
+            runtime
+                .create_table(&[(key, Value::boolean(true))])
+                .expect("test runtime should create table")
+        };
 
         assert_eq!(
             function(&mut runtime, &[Value::integer(1)])
@@ -339,11 +621,19 @@ mod tests {
             }
         );
         assert_eq!(
-            function(&mut runtime, &[Value::table_index(0)])
-                .expect_err("table time form is not implemented")
+            function(&mut runtime, &[missing_day])
+                .expect_err("missing day")
                 .kind(),
             &NativeErrorKind::RuntimeError {
-                message: "os.time date table form is not implemented".into(),
+                message: "field 'day' missing in date table".into(),
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[non_integer_year])
+                .expect_err("non-integer year")
+                .kind(),
+            &NativeErrorKind::RuntimeError {
+                message: "field 'year' is not an integer".into(),
             }
         );
     }

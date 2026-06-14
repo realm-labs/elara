@@ -191,9 +191,9 @@ leaving host-sensitive executable native registration gated off.
 The `os` standard-library module now exposes executable `difftime` for
 profile-selected runtimes, including stdlib-native tests and public API
 evaluation coverage.
-The `os` standard-library module now also exposes executable no-argument
-`os.time`, returning the current Unix time for profile-selected runtimes while
-leaving date-table normalization explicitly unsupported for now.
+The `os` standard-library module now also exposes executable `os.time`,
+returning the current Unix time without arguments and converting date tables
+through deterministic UTC normalization for profile-selected runtimes.
 The `os` standard-library module now exposes executable `os.clock` for
 profile-selected runtimes, backed by a monotonic elapsed-time clock.
 The `os` standard-library module now exposes executable `os.getenv` for
@@ -225,6 +225,9 @@ The profile-selected `package` table now registers distinct empty
 The `os` standard-library module now exposes executable `os.setlocale` for a
 deterministic C-locale subset, including Lua locale category validation and
 `nil` results for unsupported locale names.
+The `os.time` date-table form now reads required and optional date fields,
+applies Lua's default noon hour, normalizes overflowed fields in UTC, writes
+normalized fields back to the table, and returns a Unix timestamp.
 
 Current state:
 
@@ -405,7 +408,7 @@ Completed:
   - M17 exit criteria validation.
   - M18.1 standard-library descriptor surface for host-sensitive libraries.
   - M18.1 executable `os.difftime`.
-  - M18.1 executable no-argument `os.time`.
+  - M18.1 executable `os.time` without arguments and with UTC-normalized date tables.
   - M18.1 executable `os.clock`.
   - M18.1 executable `os.getenv`.
   - M18.1 executable `package.searchpath`.
@@ -1077,12 +1080,12 @@ M17 is complete.
 
 ## Last Verification
 
-M18.1 `os.setlocale` verification passed:
+M18.1 `os.time` date-table verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib os_setlocale
-cargo test -p elara-api os_setlocale
+cargo test -p elara-stdlib os_time
+cargo test -p elara-api os_time
 cargo test -p elara-stdlib
 cargo test -p elara-api
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
@@ -1140,7 +1143,7 @@ or non-mutating functions before filesystem/process APIs.
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
-| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, `os.clock`, `os.difftime`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument `os.time`, `package.config`, `package.loaded`, `package.preload`, `package.searchpath`, raw `debug.getmetatable`, and raw `debug.setmetatable` are implemented; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
+| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, `os.clock`, `os.difftime`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, `package.config`, `package.loaded`, `package.preload`, `package.searchpath`, raw `debug.getmetatable`, and raw `debug.setmetatable` are implemented; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | Initial M12 surface complete | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented. |
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
