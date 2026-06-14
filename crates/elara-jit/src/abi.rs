@@ -14,6 +14,8 @@ pub enum JitStatus {
     RuntimeError = 2,
     /// The JIT reached a bytecode path it does not currently support.
     Unsupported = 3,
+    /// Execution yielded and yielded values are available through the context.
+    Yielded = 4,
 }
 
 /// Opaque runtime context pointer passed between generated code and helpers.
@@ -171,6 +173,7 @@ mod tests {
         assert_eq!(JitStatus::Fallback as u32, 1);
         assert_eq!(JitStatus::RuntimeError as u32, 2);
         assert_eq!(JitStatus::Unsupported as u32, 3);
+        assert_eq!(JitStatus::Yielded as u32, 4);
     }
 
     #[test]

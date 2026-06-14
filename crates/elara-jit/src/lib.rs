@@ -8,6 +8,7 @@
 
 pub mod abi;
 pub mod arithmetic;
+pub mod calls;
 pub mod deopt;
 pub mod runtime;
 pub mod table_array;
@@ -20,6 +21,11 @@ pub use abi::{
     RuntimeHelperId, RuntimeHelperRegistry,
 };
 pub use arithmetic::{ArithmeticJitError, ArithmeticJitFunction, execute_arithmetic_proto};
+pub use calls::{
+    JIT_CALL_HELPER_NAME, JitCallOutcome, JitCallRequest, JitCallResult, JitCallRuntimeContext,
+    JitCallTrampoline, LuaCallFallback, NativeCallFallback, jit_call_helper,
+    jit_call_runtime_helper,
+};
 pub use deopt::{
     DeoptError, DeoptPoint, DeoptPointId, LiveRegister, LiveRegisterValue, deopt_to_interpreter,
 };
