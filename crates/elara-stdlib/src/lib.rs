@@ -917,12 +917,20 @@ mod tests {
         );
         assert!(
             functions.iter().any(|function| function.descriptor()
+                == FunctionSpec::new(StdLib::Debug, "getuservalue"))
+        );
+        assert!(
+            functions.iter().any(|function| function.descriptor()
                 == FunctionSpec::new(StdLib::Debug, "setmetatable"))
         );
         assert!(
             functions.iter().any(
                 |function| function.descriptor() == FunctionSpec::new(StdLib::Debug, "sethook")
             )
+        );
+        assert!(
+            functions.iter().any(|function| function.descriptor()
+                == FunctionSpec::new(StdLib::Debug, "setuservalue"))
         );
         assert!(functions.iter().any(
             |function| function.descriptor() == FunctionSpec::new(StdLib::Debug, "getregistry")

@@ -10,6 +10,10 @@ use crate::{
 pub const DEBUG_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Debug, "gethook"), debug_gethook),
     NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Debug, "getuservalue"),
+        debug_getuservalue,
+    ),
+    NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Debug, "getmetatable"),
         debug_getmetatable,
     ),
@@ -18,6 +22,10 @@ pub const DEBUG_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         debug_setmetatable,
     ),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Debug, "sethook"), debug_sethook),
+    NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Debug, "setuservalue"),
+        debug_setuservalue,
+    ),
     NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Debug, "getregistry"),
         debug_getregistry,
@@ -32,6 +40,14 @@ fn debug_gethook(
     _runtime: &mut dyn NativeRuntime,
     _args: &[Value],
 ) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::nil()])
+}
+
+fn debug_getuservalue(
+    _runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    optional_integer_arg(args, 1, 1)?;
     Ok(vec![Value::nil()])
 }
 
@@ -73,6 +89,20 @@ fn debug_sethook(
     }
     Err(NativeErrorKind::RuntimeError {
         message: "debug hook callbacks are not supported yet".into(),
+    }
+    .into())
+}
+
+fn debug_setuservalue(
+    _runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    args.first()
+        .copied()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    Err(NativeErrorKind::TypeError {
+        index: 1,
+        expected: "userdata",
     }
     .into())
 }
@@ -304,6 +334,52 @@ mod tests {
                 .kind(),
             &NativeErrorKind::RuntimeError {
                 message: "debug hook callbacks are not supported yet".into(),
+            }
+        );
+    }
+
+    #[test]
+    fn debug_getuservalue_returns_nil_for_non_userdata() {
+        let function = function("getuservalue");
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            function(&mut runtime, &[]).expect("missing receiver should pass"),
+            vec![Value::nil()]
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1)]).expect("non-userdata should pass"),
+            vec![Value::nil()]
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1), Value::boolean(false)])
+                .expect_err("user value index should be an integer")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "integer",
+            }
+        );
+    }
+
+    #[test]
+    fn debug_setuservalue_rejects_current_non_userdata_values() {
+        let function = function("setuservalue");
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            function(&mut runtime, &[])
+                .expect_err("missing receiver should fail")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 1 }
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1), Value::integer(2)])
+                .expect_err("non-userdata should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "userdata",
             }
         );
     }
