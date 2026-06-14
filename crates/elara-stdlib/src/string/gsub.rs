@@ -6,7 +6,10 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
 use super::{
     optional_integer_arg,
-    pattern::{has_unsupported_pattern_special, is_start_anchored, simple_pattern_find_from},
+    pattern::{
+        PatternMatch, has_unsupported_pattern_special_with_captures, is_start_anchored,
+        simple_pattern_match_from,
+    },
     string_arg,
 };
 
@@ -46,7 +49,7 @@ pub(super) fn string_gsub(
             .saturating_add(1),
     )?;
 
-    if has_unsupported_pattern_special(&pattern) {
+    if has_unsupported_pattern_special_with_captures(&pattern) {
         return Err(NativeErrorKind::RuntimeError {
             message: "string pattern matching is not supported yet".into(),
         }
@@ -64,20 +67,20 @@ pub(super) fn string_gsub(
     let mut cursor = 0;
     let mut replacements = 0_i64;
     while replacements < max {
-        let Some((start, end)) = simple_pattern_find_from(&subject, &pattern, cursor) else {
+        let Some(match_) = simple_pattern_match_from(&subject, &pattern, cursor) else {
             break;
         };
-        output.extend_from_slice(&subject[cursor..start]);
-        output.extend_from_slice(&replacement);
+        output.extend_from_slice(&subject[cursor..match_.start]);
+        append_replacement(&mut output, &subject, &replacement, &match_)?;
         replacements += 1;
-        let matched_empty = start == end;
+        let matched_empty = match_.start == match_.end;
         cursor = if matched_empty {
-            start.saturating_add(1)
+            match_.start.saturating_add(1)
         } else {
-            end
+            match_.end
         };
-        if matched_empty && start < subject.len() {
-            output.push(subject[start]);
+        if matched_empty && match_.start < subject.len() {
+            output.push(subject[match_.start]);
         }
         if cursor > subject.len() {
             cursor = subject.len();
@@ -95,6 +98,41 @@ pub(super) fn string_gsub(
         runtime.intern_short_string(&output)?
     };
     Ok(vec![result, Value::integer(replacements)])
+}
+
+fn append_replacement(
+    output: &mut Vec<u8>,
+    subject: &[u8],
+    replacement: &[u8],
+    match_: &PatternMatch,
+) -> Result<(), NativeError> {
+    let mut index = 0;
+    while let Some(byte) = replacement.get(index).copied() {
+        if byte != b'%' {
+            output.push(byte);
+            index += 1;
+            continue;
+        }
+        let Some(next) = replacement.get(index + 1).copied() else {
+            output.push(byte);
+            index += 1;
+            continue;
+        };
+        match next {
+            b'%' => output.push(b'%'),
+            b'0' => output.extend_from_slice(&subject[match_.start..match_.end]),
+            b'1'..=b'9' => {
+                let capture_index = usize::from(next - b'1');
+                let Some((start, end)) = match_.captures.get(capture_index).copied() else {
+                    return Err(NativeErrorKind::ArgumentOutOfRange { index: 3 }.into());
+                };
+                output.extend_from_slice(&subject[start..end]);
+            }
+            _ => output.push(next),
+        }
+        index += 2;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -280,6 +318,23 @@ mod tests {
     }
 
     #[test]
+    fn string_gsub_expands_replacement_captures() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abc123");
+        let pattern = runtime.push_string(b"(%a+)(%d+)");
+        let replacement = runtime.push_string(b"%2-%1-%0-%%");
+
+        let values =
+            string_gsub(&mut runtime, &[subject, pattern, replacement]).expect("gsub should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"123-abc-abc123-%".as_slice())
+        );
+        assert_eq!(values[1], Value::integer(1));
+    }
+
+    #[test]
     fn string_gsub_replaces_balanced_delimiters() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"a(b(c)d)e");
@@ -334,7 +389,7 @@ mod tests {
     fn string_gsub_reports_pattern_gap_for_magic_patterns() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
-        let pattern = runtime.push_string(b"(a)");
+        let pattern = runtime.push_string(b"%1");
         let replacement = runtime.push_string(b"x");
 
         assert_eq!(

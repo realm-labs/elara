@@ -116,10 +116,10 @@ flags, `%c`, `%q`, `%p`, and escaped-percent `string.format`, `.` wildcard,
 `^`/`$` anchor, `%` character-class, bracket-class, quantifier, `%b`
 balanced-delimiter, and `%f` frontier pattern matching for `string.find`,
 `string.match`, and `string.gsub`, literal string-replacement `string.gsub`,
-capture-returning `string.find` and `string.match`, generic-for
-`string.gmatch`, `string.len`, `string.lower`, `string.upper`,
-`string.reverse`, `string.rep`, and `string.sub` are executable and covered
-through stdlib-backed API evaluation.
+capture-returning `string.find` and `string.match`, replacement captures for
+string-replacement `string.gsub`, generic-for `string.gmatch`, `string.len`,
+`string.lower`, `string.upper`, `string.reverse`, `string.rep`, and
+`string.sub` are executable and covered through stdlib-backed API evaluation.
 Table natives `table.concat`, `table.insert`, `table.move`, `table.pack`,
 `table.remove`, default-comparator `table.sort`, and `table.unpack` are
 executable and covered through stdlib-backed API evaluation.
@@ -254,6 +254,7 @@ Completed:
   - M11.2 executable `%f` frontier matching for string.find, string.match, and string.gsub.
   - M11.2 executable capture-returning string.match native spec.
   - M11.2 executable capture-returning string.find native spec.
+  - M11.2 executable string.gsub string replacement captures.
   - M11.2 executable string.len native spec.
   - M11.2 executable string lower, upper, and reverse native specs.
   - M11.2 executable string.rep native spec.
@@ -831,12 +832,12 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable string.find captures verification passed:
+M11.2 executable string.gsub replacement captures verification passed:
 
 ```bash
 cargo fmt --all -- --check
 cargo test -p elara-stdlib string_
-cargo test -p elara-api eval_simple_with_stdlib_executes_string_find_captures
+cargo test -p elara-api eval_simple_with_stdlib_executes_string_gsub_replacement_captures
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
@@ -845,8 +846,8 @@ cargo clippy -p elara-api --all-targets -- -D warnings
 
 Continue M11.2 by filling the remaining executable base and string behavior,
 with Lua-style callable `string.gmatch` closures, capture propagation for
-`string.gmatch`/`string.gsub`, replacement captures, and table/function
-replacements for `gsub` as the next known gaps.
+`string.gmatch`, and table/function replacements for `gsub` as the next known
+gaps.
 
 ## Current Risk Notes
 
