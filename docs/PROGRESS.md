@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M15 Interpreter Optimization
-Current step: M15.2 Optimize VM dispatch and stack access
+Current step: M15.3 Add inline caches
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -151,6 +151,9 @@ by graying black containers when white children are stored.
 The benchmark crate now provides a stable custom `cargo bench` harness with
 microbenchmarks for arithmetic, table access, calls, and strings plus macro
 workloads for accumulator, table-build/sum, and string-pattern paths.
+The primitive interpreter now initializes register stacks with a single resize
+and routes hot register reads/writes through checked-once unsafe stack helpers
+with local safety comments.
 
 Current state:
 
@@ -315,6 +318,7 @@ Completed:
   - M14.4 Add incremental collection and write barriers.
   - M14 exit criteria validation.
   - M15.1 Add benchmark harness.
+  - M15.2 Optimize VM dispatch and stack access.
 
 In progress:
   - Interpreter optimization.
@@ -959,22 +963,25 @@ M14.3 is complete.
 M14.4 is complete.
 M14 is complete.
 M15.1 is complete.
+M15.2 is complete.
 
 ## Last Verification
 
-M15.1 benchmark harness verification passed:
+M15.2 dispatch and stack optimization verification passed:
 
 ```bash
 cargo fmt --all -- --check
 cargo bench -p elara-bench
-cargo test -p elara-bench
-cargo clippy -p elara-bench --all-targets -- -D warnings
+cargo test -p elara-core thread_stack_resize
+cargo test -p elara-interp
+cargo clippy -p elara-core --all-targets -- -D warnings
+cargo clippy -p elara-interp --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M15.2 with verified unchecked stack access in hot paths, fewer
-temporary allocations, cold slow paths, and safety comments.
+Continue M15.3 with table/global access inline caches, metatable version guards,
+and invalidation on table version changes.
 
 ## Current Risk Notes
 

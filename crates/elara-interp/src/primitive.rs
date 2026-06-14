@@ -337,9 +337,7 @@ impl PrimitiveCoroutine {
             .map_err(RuntimeErrorKind::Verification)
             .map_err(RuntimeError::from)?;
         let mut thread = LuaThread::new();
-        for _ in 0..proto.max_stack {
-            thread.push_value(Value::nil());
-        }
+        thread.resize_stack_with_nil(usize::from(proto.max_stack));
 
         let mut tables = RuntimeTables::new();
         let global_table = tables.push_table(Table::new());
@@ -865,9 +863,7 @@ fn execute_proto_with_upvalues(
     protected: bool,
 ) -> RuntimeResult<Vec<Value>> {
     let mut thread = LuaThread::new();
-    for _ in 0..proto.max_stack {
-        thread.push_value(Value::nil());
-    }
+    thread.resize_stack_with_nil(usize::from(proto.max_stack));
     if protected {
         let _ = thread.push_frame(
             CallFrame::new(0, usize::from(proto.max_stack), ResultCount::Multiple).protected(),
@@ -1619,17 +1615,22 @@ fn collect_returns(
 }
 
 fn register(thread: &LuaThread, index: usize) -> RuntimeResult<Value> {
-    thread
-        .stack_value(index)
-        .ok_or_else(|| RuntimeErrorKind::RegisterOutOfBounds { register: index }.into())
+    if index >= thread.stack_len() {
+        return Err(RuntimeErrorKind::RegisterOutOfBounds { register: index }.into());
+    }
+    // SAFETY: The explicit bounds check above proves `index` is in bounds.
+    Ok(unsafe { thread.stack_value_unchecked(index) })
 }
 
 fn set_register(thread: &mut LuaThread, index: usize, value: Value) -> RuntimeResult<()> {
-    if thread.set_stack_value(index, value) {
-        Ok(())
-    } else {
-        Err(RuntimeErrorKind::RegisterOutOfBounds { register: index }.into())
+    if index >= thread.stack_len() {
+        return Err(RuntimeErrorKind::RegisterOutOfBounds { register: index }.into());
     }
+    // SAFETY: The explicit bounds check above proves `index` is in bounds.
+    unsafe {
+        thread.set_stack_value_unchecked(index, value);
+    }
+    Ok(())
 }
 
 #[cfg(test)]

@@ -108,6 +108,11 @@ impl LuaThread {
         self.stack.push(value);
     }
 
+    /// Resizes the stack, filling new slots with `nil`.
+    pub fn resize_stack_with_nil(&mut self, len: usize) {
+        self.stack.resize(len, Value::nil());
+    }
+
     /// Pops a value from the stack.
     pub fn pop_value(&mut self) -> Option<Value> {
         self.stack.pop()
@@ -125,6 +130,17 @@ impl LuaThread {
         self.stack.get(index).copied()
     }
 
+    /// Gets a stack slot without bounds checks.
+    ///
+    /// # Safety
+    ///
+    /// `index` must be less than `self.stack_len()`.
+    #[must_use]
+    pub unsafe fn stack_value_unchecked(&self, index: StackIndex) -> Value {
+        // SAFETY: The caller guarantees that `index` is in bounds.
+        unsafe { *self.stack.get_unchecked(index) }
+    }
+
     /// Writes an existing stack slot.
     pub fn set_stack_value(&mut self, index: StackIndex, value: Value) -> bool {
         if let Some(slot) = self.stack.get_mut(index) {
@@ -133,6 +149,19 @@ impl LuaThread {
             true
         } else {
             false
+        }
+    }
+
+    /// Writes a stack slot without bounds checks.
+    ///
+    /// # Safety
+    ///
+    /// `index` must be less than `self.stack_len()`.
+    pub unsafe fn set_stack_value_unchecked(&mut self, index: StackIndex, value: Value) {
+        self.header.write_barrier_value(value);
+        // SAFETY: The caller guarantees that `index` is in bounds.
+        unsafe {
+            *self.stack.get_unchecked_mut(index) = value;
         }
     }
 
@@ -318,6 +347,24 @@ mod tests {
         assert_eq!(thread.pop_value(), Some(Value::boolean(true)));
         assert_eq!(thread.pop_value(), Some(Value::integer(2)));
         assert_eq!(thread.pop_value(), None);
+    }
+
+    #[test]
+    fn thread_stack_resize_and_unchecked_helpers_access_valid_slots() {
+        let mut thread = LuaThread::new();
+        thread.resize_stack_with_nil(2);
+
+        assert_eq!(thread.stack_len(), 2);
+        assert_eq!(thread.stack_value(0), Some(Value::nil()));
+
+        // SAFETY: Slot 1 exists after resizing the stack to length 2.
+        unsafe {
+            thread.set_stack_value_unchecked(1, Value::integer(42));
+        }
+        // SAFETY: Slot 1 still exists.
+        let value = unsafe { thread.stack_value_unchecked(1) };
+
+        assert_eq!(value, Value::integer(42));
     }
 
     #[test]
