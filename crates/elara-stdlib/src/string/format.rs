@@ -82,7 +82,7 @@ pub(super) fn string_format(
         }
     }
 
-    Ok(vec![runtime.intern_short_string(&output)?])
+    Ok(vec![runtime.intern_string(&output)?])
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -202,7 +202,7 @@ fn format_string_arg(
     spec: &StringFormatSpec,
 ) -> Result<Vec<u8>, NativeError> {
     let mut bytes = runtime
-        .short_string_bytes(value)
+        .string_bytes(value)
         .map_or_else(|| tostring_bytes(value).into_bytes(), <[u8]>::to_vec);
     if !spec.has_modifiers() {
         return Ok(bytes);
@@ -237,7 +237,7 @@ fn format_quoted_arg(
     value: Value,
     index: usize,
 ) -> Result<Vec<u8>, NativeError> {
-    if let Some(bytes) = runtime.short_string_bytes(value) {
+    if let Some(bytes) = runtime.string_bytes(value) {
         return Ok(quote_string(bytes));
     }
     if value.is_nil() || value.as_bool().is_some() {
@@ -272,7 +272,7 @@ fn format_pointer_arg(runtime: &dyn NativeRuntime, value: Value) -> String {
     if let Some(index) = value.as_native_function_index() {
         return pseudo_pointer(index);
     }
-    if runtime.short_string_bytes(value).is_some()
+    if runtime.string_bytes(value).is_some()
         || value.as_short_string().is_some()
         || value.as_long_string().is_some()
     {
@@ -331,7 +331,7 @@ fn integer_format_arg(
     if let Some(float) = value.as_float() {
         return floor_to_integer(float).ok_or_else(|| integer_type_error(index));
     }
-    if let Some(bytes) = runtime.short_string_bytes(value)
+    if let Some(bytes) = runtime.string_bytes(value)
         && let Some(number) = parse_standard_number(bytes)
     {
         return integer_format_arg(runtime, number, index);
@@ -347,7 +347,7 @@ fn float_format_arg(
     if let Some(float) = value.to_float() {
         return Ok(float);
     }
-    if let Some(bytes) = runtime.short_string_bytes(value)
+    if let Some(bytes) = runtime.string_bytes(value)
         && let Some(number) = parse_standard_number(bytes)
     {
         return float_format_arg(runtime, number, index);

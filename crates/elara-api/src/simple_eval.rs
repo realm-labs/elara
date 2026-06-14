@@ -1410,6 +1410,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_string_format_accepts_long_strings() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local text = string.rep('a', 50)\nlocal literal = string.format(string.rep('x', 50))\nlocal formatted = string.format('%s:%q:%p', text, text, text)\nreturn string.len(literal), string.len(formatted)",
+                &profile,
+            ),
+            Ok(vec![Value::integer(50), Value::integer(107)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_gsub() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 
