@@ -552,6 +552,12 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
         Ok(result)
     }
 
+    fn yield_coroutine(&mut self, _args: &[Value]) -> Result<Vec<Value>, NativeError> {
+        Err(NativeError::lua_error(
+            "attempt to yield from outside a coroutine",
+        ))
+    }
+
     fn running_thread(&self) -> Result<(Value, bool), NativeError> {
         let registry = self.helpers.coroutine_registry.as_ref().ok_or_else(|| {
             NativeErrorKind::RuntimeError {

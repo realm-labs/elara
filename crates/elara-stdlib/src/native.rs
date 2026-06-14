@@ -176,6 +176,14 @@ pub trait NativeRuntime {
         .into())
     }
 
+    /// Yields values from the currently running coroutine.
+    fn yield_coroutine(&mut self, _args: &[Value]) -> Result<Vec<Value>, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support coroutine yield".into(),
+        }
+        .into())
+    }
+
     /// Returns the currently running Lua thread and whether it is the main thread.
     fn running_thread(&self) -> Result<(Value, bool), NativeError> {
         Err(NativeErrorKind::RuntimeError {

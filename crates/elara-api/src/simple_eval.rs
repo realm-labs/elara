@@ -570,6 +570,28 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_exposes_coroutine_yield() {
+        let profile = StdLibProfile::Custom([StdLib::Coroutine].into_iter().collect());
+
+        let values =
+            eval_simple_source_with_stdlib(SourceId::new(0), "return coroutine.yield", &profile)
+                .expect("coroutine.yield should be registered");
+
+        assert_eq!(values.len(), 1);
+        assert!(values[0].is_closure());
+    }
+
+    #[test]
+    fn eval_simple_with_stdlib_rejects_coroutine_yield_outside_resume() {
+        let profile = StdLibProfile::Custom([StdLib::Coroutine].into_iter().collect());
+
+        assert!(
+            eval_simple_source_with_stdlib(SourceId::new(0), "return coroutine.yield(1)", &profile)
+                .is_err()
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_coroutine_create() {
         let profile = StdLibProfile::Custom([StdLib::Coroutine].into_iter().collect());
 

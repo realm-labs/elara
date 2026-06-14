@@ -447,6 +447,7 @@ pub const COROUTINE_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Coroutine, "resume"),
     FunctionSpec::new(StdLib::Coroutine, "running"),
     FunctionSpec::new(StdLib::Coroutine, "status"),
+    FunctionSpec::new(StdLib::Coroutine, "yield"),
 ];
 
 /// Essential table library function descriptors.

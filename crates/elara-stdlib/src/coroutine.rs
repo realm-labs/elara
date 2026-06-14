@@ -32,6 +32,10 @@ pub const COROUTINE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         FunctionSpec::new(StdLib::Coroutine, "status"),
         coroutine_status,
     ),
+    NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Coroutine, "yield"),
+        coroutine_yield,
+    ),
 ];
 
 fn coroutine_close(
@@ -106,6 +110,13 @@ fn coroutine_resume(
     }
 }
 
+fn coroutine_yield(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    runtime.yield_coroutine(args)
+}
+
 fn coroutine_status(
     runtime: &mut dyn NativeRuntime,
     args: &[Value],
@@ -170,17 +181,32 @@ mod tests {
 
     use super::{
         COROUTINE_NATIVE_FUNCTIONS, coroutine_close, coroutine_create, coroutine_isyieldable,
-        coroutine_resume, coroutine_running, coroutine_status,
+        coroutine_resume, coroutine_running, coroutine_status, coroutine_yield,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
-    #[derive(Default)]
     struct TestRuntime {
         strings: Vec<Box<[u8]>>,
         statuses: BTreeMap<u32, ThreadStatus>,
         resume_calls: Vec<(Value, Vec<Value>)>,
         resume_results: BTreeMap<u32, Result<Vec<Value>, Box<str>>>,
         running: Option<(Value, bool)>,
+        yield_result: Result<Vec<Value>, NativeError>,
+        yield_calls: Vec<Vec<Value>>,
+    }
+
+    impl Default for TestRuntime {
+        fn default() -> Self {
+            Self {
+                strings: Vec::new(),
+                statuses: BTreeMap::new(),
+                resume_calls: Vec::new(),
+                resume_results: BTreeMap::new(),
+                running: None,
+                yield_result: Ok(Vec::new()),
+                yield_calls: Vec::new(),
+            }
+        }
     }
 
     impl TestRuntime {
@@ -261,6 +287,11 @@ mod tests {
             }
         }
 
+        fn yield_coroutine(&mut self, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+            self.yield_calls.push(args.to_vec());
+            self.yield_result.clone()
+        }
+
         fn running_thread(&self) -> Result<(Value, bool), NativeError> {
             self.running.ok_or_else(|| {
                 NativeErrorKind::RuntimeError {
@@ -310,6 +341,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "isyieldable")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "resume")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "running")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "yield")));
     }
 
     #[test]
@@ -398,6 +430,23 @@ mod tests {
         assert_eq!(
             runtime.short_string_bytes(values[1]),
             Some(b"boom".as_slice())
+        );
+    }
+
+    #[test]
+    fn coroutine_yield_delegates_values_to_runtime() {
+        let mut runtime = TestRuntime {
+            yield_result: Ok(vec![Value::integer(8)]),
+            ..TestRuntime::default()
+        };
+
+        let values = coroutine_yield(&mut runtime, &[Value::integer(1), Value::boolean(false)])
+            .expect("yield should pass");
+
+        assert_eq!(values, vec![Value::integer(8)]);
+        assert_eq!(
+            runtime.yield_calls,
+            vec![vec![Value::integer(1), Value::boolean(false)]]
         );
     }
 
