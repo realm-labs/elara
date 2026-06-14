@@ -249,6 +249,10 @@ remains M18.2 work.
 The `debug` standard-library module now exposes executable no-hook
 `debug.gethook`, returning `nil` until runtime hook installation lands with
 M18.2 debug frame work.
+The `debug` standard-library module now registers executable `debug.getinfo`
+through a runtime `DebugInfoTarget` hook, validating level/function targets and
+optional option strings while returning `nil` until interpreter frame metadata
+is supplied.
 The `debug` standard-library module now also exposes clear-only
 `debug.sethook`, accepting absent or nil hooks to disable hooks while rejecting
 callback installation until M18.2 hook support exists.
@@ -548,6 +552,7 @@ Completed:
   - M18.1 executable `debug.getregistry`.
   - M18.1 executable no-frame `debug.traceback` message handling.
   - M18.1 executable no-hook `debug.gethook`.
+  - M18.2 executable `debug.getinfo` runtime hook and argument validation.
   - M18.1 clear-only `debug.sethook`.
   - M18.1 pre-userdata `debug.getuservalue` and `debug.setuservalue`.
   - M18.1 safe unsupported process-termination `os.exit`.
@@ -1226,25 +1231,23 @@ M18.1 is complete.
 
 ## Last Verification
 
-M18.1 exit criteria validation passed:
+M18.2 `debug.getinfo` runtime-hook validation passed:
 
 ```bash
 cargo fmt --all
-cargo test -p elara-stdlib io_
-cargo test -p elara-api --test io_file_stubs
+cargo test -p elara-stdlib debug_getinfo
+cargo test -p elara-stdlib debug
 cargo test -p elara-stdlib
-cargo test -p elara-api
 cargo fmt --all -- --check
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
-cargo clippy -p elara-api --all-targets -- -D warnings
 cargo test --workspace
 ```
 
 ## Next Recommended Action
 
-Continue M18.2 by adding debug frame materialization for `debug.getinfo`
-first, keeping JIT behavior explicit until debug hooks and deopt integration
-are designed.
+Continue M18.2 by materializing interpreter frame metadata for
+`debug.getinfo`, keeping JIT behavior explicit until debug hooks and deopt
+integration are designed.
 
 ## Current Risk Notes
 
@@ -1290,7 +1293,7 @@ are designed.
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
-| Standard library | M18.1 complete; M18.2 pending | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path `package.searchers[3]` and `[4]`, `package.searchpath`, no-hook `debug.gethook`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, clear-only `debug.sethook`, pre-userdata `debug.setuservalue`, and no-frame `debug.traceback` message handling are implemented; debug frame/upvalue inspection remains M18.2 work; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
+| Standard library | M18.1 complete; M18.2 in progress | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path `package.searchers[3]` and `[4]`, `package.searchpath`, no-hook `debug.gethook`, `debug.getinfo` runtime-hook validation, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, clear-only `debug.sethook`, pre-userdata `debug.setuservalue`, and no-frame `debug.traceback` message handling are implemented; debug frame/upvalue inspection remains M18.2 work; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | Initial M12 surface complete | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings. |
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |

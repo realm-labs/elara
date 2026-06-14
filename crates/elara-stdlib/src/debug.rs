@@ -3,12 +3,14 @@
 use elara_core::Value;
 
 use crate::{
-    FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
+    DebugInfoTarget, FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime,
+    StdLib,
 };
 
 /// Executable `debug` library functions currently implemented.
 pub const DEBUG_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Debug, "gethook"), debug_gethook),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Debug, "getinfo"), debug_getinfo),
     NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Debug, "getuservalue"),
         debug_getuservalue,
@@ -41,6 +43,33 @@ fn debug_gethook(
     _args: &[Value],
 ) -> Result<Vec<Value>, NativeError> {
     Ok(vec![Value::nil()])
+}
+
+fn debug_getinfo(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let has_thread_arg = args.first().is_some_and(|value| value.is_thread());
+    let target_index = usize::from(has_thread_arg);
+    let target = args
+        .get(target_index)
+        .copied()
+        .ok_or(NativeErrorKind::MissingArgument {
+            index: target_index + 1,
+        })?;
+    let target = if let Some(level) = target.as_integer() {
+        DebugInfoTarget::Level(level)
+    } else if target.is_closure() {
+        DebugInfoTarget::Function(target)
+    } else {
+        return Err(NativeErrorKind::TypeError {
+            index: target_index + 1,
+            expected: "function or integer",
+        }
+        .into());
+    };
+    let options = optional_string_arg(runtime, args, target_index + 1)?.map(<[u8]>::to_vec);
+    Ok(vec![runtime.debug_getinfo(target, options.as_deref())?])
 }
 
 fn debug_getuservalue(
@@ -210,17 +239,40 @@ fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i6
     }
 }
 
+fn optional_string_arg<'a>(
+    runtime: &'a dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<Option<&'a [u8]>, NativeError> {
+    let Some(value) = args.get(index).copied() else {
+        return Ok(None);
+    };
+    if value.is_nil() {
+        return Ok(None);
+    }
+    runtime
+        .string_bytes(value)
+        .ok_or(NativeErrorKind::TypeError {
+            index: index + 1,
+            expected: "string",
+        })
+        .map(Some)
+        .map_err(Into::into)
+}
+
 #[cfg(test)]
 mod tests {
     use elara_core::Value;
 
-    use crate::{NativeErrorKind, NativeRuntime, StdLib, native_functions};
+    use crate::{DebugInfoTarget, NativeErrorKind, NativeRuntime, StdLib, native_functions};
 
     #[derive(Default)]
     struct TestRuntime {
         strings: Vec<Box<[u8]>>,
         metatables: Vec<Value>,
         registry: Option<Value>,
+        debug_info: Option<Value>,
+        debug_info_request: Option<(DebugInfoTarget, Option<Vec<u8>>)>,
     }
 
     impl TestRuntime {
@@ -280,6 +332,15 @@ mod tests {
             self.registry = Some(registry);
             Ok(registry)
         }
+
+        fn debug_getinfo(
+            &mut self,
+            target: DebugInfoTarget,
+            options: Option<&[u8]>,
+        ) -> Result<Value, crate::NativeError> {
+            self.debug_info_request = Some((target, options.map(<[u8]>::to_vec)));
+            Ok(self.debug_info.unwrap_or_else(Value::nil))
+        }
     }
 
     #[test]
@@ -334,6 +395,76 @@ mod tests {
                 .kind(),
             &NativeErrorKind::RuntimeError {
                 message: "debug hook callbacks are not supported yet".into(),
+            }
+        );
+    }
+
+    #[test]
+    fn debug_getinfo_forwards_level_queries() {
+        let function = function("getinfo");
+        let mut runtime = TestRuntime {
+            debug_info: Some(Value::table_index(7)),
+            ..TestRuntime::default()
+        };
+
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(2)]).expect("debug.getinfo should pass"),
+            vec![Value::table_index(7)]
+        );
+        assert_eq!(
+            runtime.debug_info_request,
+            Some((DebugInfoTarget::Level(2), None))
+        );
+    }
+
+    #[test]
+    fn debug_getinfo_forwards_function_queries_and_options() {
+        let function = function("getinfo");
+        let mut runtime = TestRuntime {
+            debug_info: Some(Value::table_index(9)),
+            ..TestRuntime::default()
+        };
+        let target = Value::native_function_index(3);
+        let options = runtime.push_string(b"nSl");
+
+        assert_eq!(
+            function(&mut runtime, &[target, options]).expect("debug.getinfo should pass"),
+            vec![Value::table_index(9)]
+        );
+        assert_eq!(
+            runtime.debug_info_request,
+            Some((DebugInfoTarget::Function(target), Some(b"nSl".to_vec())))
+        );
+    }
+
+    #[test]
+    fn debug_getinfo_validates_arguments() {
+        let function = function("getinfo");
+        let mut runtime = TestRuntime::default();
+        let target = Value::native_function_index(3);
+
+        assert_eq!(
+            function(&mut runtime, &[])
+                .expect_err("missing target")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 1 }
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::boolean(false)])
+                .expect_err("bad target")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "function or integer",
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[target, Value::boolean(false)])
+                .expect_err("bad options")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "string",
             }
         );
     }

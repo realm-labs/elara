@@ -7,6 +7,15 @@ use crate::{FunctionSpec, StdLib};
 /// Result returned by executable standard-library natives.
 pub type NativeResult = Result<Vec<Value>, NativeError>;
 
+/// Target accepted by `debug.getinfo`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum DebugInfoTarget {
+    /// Inspect a stack frame by one-based Lua level.
+    Level(i64),
+    /// Inspect a Lua or native function value.
+    Function(Value),
+}
+
 /// Runtime services available to standard-library native functions.
 pub trait NativeRuntime {
     /// Interns a short Lua string in the current runtime.
@@ -104,6 +113,15 @@ pub trait NativeRuntime {
             message: "native runtime does not support debug registry access".into(),
         }
         .into())
+    }
+
+    /// Returns a `debug.getinfo` result table, or nil when the target is unavailable.
+    fn debug_getinfo(
+        &mut self,
+        _target: DebugInfoTarget,
+        _options: Option<&[u8]>,
+    ) -> Result<Value, NativeError> {
+        Ok(Value::nil())
     }
 
     /// Returns a traceback string for the current debug frame state.
