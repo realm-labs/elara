@@ -104,6 +104,37 @@ pub(super) fn info_for_function(
     Ok(Value::nil())
 }
 
+pub(super) fn traceback(
+    message: Option<&[u8]>,
+    level: i64,
+    strings: &mut RuntimeStrings,
+    debug_frames: &[RuntimeDebugFrame],
+) -> RuntimeResult<Value> {
+    let mut output = Vec::new();
+    if let Some(message) = message {
+        output.extend_from_slice(message);
+        output.push(b'\n');
+    }
+    output.extend_from_slice(b"stack traceback:");
+    let Some(mut level) = usize::try_from(level).ok() else {
+        return Ok(strings.intern_value(output));
+    };
+    while let Some(index) = debug_frames.len().checked_sub(level + 1) {
+        let frame = &debug_frames[index];
+        output.extend_from_slice(b"\n\t");
+        output.extend_from_slice(frame.source());
+        let current_line = frame.current_line();
+        if current_line > 0 {
+            output.push(b':');
+            output.extend_from_slice(current_line.to_string().as_bytes());
+        }
+        output.extend_from_slice(b": in ");
+        output.extend_from_slice(frame.traceback_label());
+        level += 1;
+    }
+    Ok(strings.intern_value(output))
+}
+
 pub(super) fn get_local(
     level: i64,
     local: i64,
@@ -410,6 +441,14 @@ impl RuntimeDebugFrame {
             RuntimeDebugFrameKind::Main => b"main",
             RuntimeDebugFrameKind::Lua => b"Lua",
             RuntimeDebugFrameKind::Native => b"C",
+        }
+    }
+
+    fn traceback_label(&self) -> &'static [u8] {
+        match self.kind {
+            RuntimeDebugFrameKind::Main => b"main chunk",
+            RuntimeDebugFrameKind::Lua => b"function",
+            RuntimeDebugFrameKind::Native => b"function",
         }
     }
 

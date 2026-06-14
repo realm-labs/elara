@@ -226,6 +226,11 @@ impl<'a> NativeContext<'a> {
         )
     }
 
+    /// Returns a traceback string for the current debug frame stack.
+    pub fn debug_traceback(&mut self, message: Option<&[u8]>, level: i64) -> RuntimeResult<Value> {
+        debug::traceback(message, level, self.strings, self.debug_frames)
+    }
+
     /// Returns a captured local name/value pair for a Lua stack level.
     pub fn debug_getlocal(
         &mut self,

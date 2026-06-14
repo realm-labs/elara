@@ -511,6 +511,16 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
         result.map_err(runtime_error_to_native_error)
     }
 
+    fn debug_traceback(
+        &mut self,
+        message: Option<&[u8]>,
+        level: i64,
+    ) -> Result<Value, NativeError> {
+        self.context
+            .debug_traceback(message, level)
+            .map_err(runtime_error_to_native_error)
+    }
+
     fn debug_getlocal(
         &mut self,
         level: i64,
