@@ -19,7 +19,11 @@ fn has_unsupported_pattern_special_inner(pattern: &[u8], allow_captures: bool) -
                     return true;
                 };
                 if class.is_ascii_digit() {
-                    return true;
+                    if !allow_captures || class == b'0' {
+                        return true;
+                    }
+                    index += 2;
+                    continue;
                 }
                 if class == b'b' {
                     if pattern.get(index + 2).is_none() || pattern.get(index + 3).is_none() {
@@ -252,8 +256,14 @@ fn match_from(
             captures,
         ),
         _ => {
-            let consumed =
-                atom_match_len(haystack, pattern, pattern_index, atom_end, subject_index)?;
+            let consumed = atom_match_len(
+                haystack,
+                pattern,
+                pattern_index,
+                atom_end,
+                subject_index,
+                &captures,
+            )?;
             match_from(
                 haystack,
                 pattern,
@@ -291,16 +301,20 @@ fn match_optional(
     subject_index: usize,
     captures: Vec<Capture>,
 ) -> Option<MatchState> {
-    if let Some(consumed) =
-        atom_match_len(haystack, pattern, pattern_index, atom_end, subject_index)
-        && let Some(end) = match_from(
-            haystack,
-            pattern,
-            atom_end + 1,
-            subject_index + consumed,
-            captures.clone(),
-        )
-    {
+    if let Some(consumed) = atom_match_len(
+        haystack,
+        pattern,
+        pattern_index,
+        atom_end,
+        subject_index,
+        &captures,
+    ) && let Some(end) = match_from(
+        haystack,
+        pattern,
+        atom_end + 1,
+        subject_index + consumed,
+        captures.clone(),
+    ) {
         return Some(end);
     }
     match_from(haystack, pattern, atom_end + 1, subject_index, captures)
@@ -317,8 +331,14 @@ fn match_greedy_repeat(
 ) -> Option<MatchState> {
     let mut end = subject_index;
     let mut candidates = vec![subject_index];
-    while let Some(consumed) = atom_match_len(haystack, pattern, pattern_index, rest_index - 1, end)
-    {
+    while let Some(consumed) = atom_match_len(
+        haystack,
+        pattern,
+        pattern_index,
+        rest_index - 1,
+        end,
+        &captures,
+    ) {
         if consumed == 0 {
             break;
         }
@@ -349,7 +369,14 @@ fn match_minimal_repeat(
         if let Some(end) = match_from(haystack, pattern, rest_index, candidate, captures.clone()) {
             return Some(end);
         }
-        let consumed = atom_match_len(haystack, pattern, pattern_index, rest_index - 1, candidate)?;
+        let consumed = atom_match_len(
+            haystack,
+            pattern,
+            pattern_index,
+            rest_index - 1,
+            candidate,
+            &captures,
+        )?;
         if consumed == 0 {
             return None;
         }
@@ -363,6 +390,7 @@ fn atom_match_len(
     pattern_index: usize,
     atom_end: usize,
     subject_index: usize,
+    captures: &[Capture],
 ) -> Option<usize> {
     let matched = match pattern[pattern_index] {
         b'%' if pattern.get(pattern_index + 1) == Some(&b'b') => {
@@ -376,6 +404,17 @@ fn atom_match_len(
         b'%' if pattern.get(pattern_index + 1) == Some(&b'f') => {
             return frontier_match_len(haystack, pattern, pattern_index, atom_end, subject_index);
         }
+        b'%' if pattern
+            .get(pattern_index + 1)
+            .is_some_and(u8::is_ascii_digit) =>
+        {
+            return backreference_match_len(
+                haystack,
+                subject_index,
+                pattern[pattern_index + 1],
+                captures,
+            );
+        }
         _ => {
             let &subject_byte = haystack.get(subject_index)?;
             match pattern[pattern_index] {
@@ -388,6 +427,22 @@ fn atom_match_len(
         }
     };
     matched.then_some(1)
+}
+
+fn backreference_match_len(
+    haystack: &[u8],
+    subject_index: usize,
+    digit: u8,
+    captures: &[Capture],
+) -> Option<usize> {
+    let capture_index = usize::from(digit.checked_sub(b'1')?);
+    let Capture::Closed(start, end) = captures.get(capture_index)? else {
+        return None;
+    };
+    let captured = &haystack[*start..*end];
+    haystack[subject_index..]
+        .starts_with(captured)
+        .then_some(captured.len())
 }
 
 fn balanced_match_len(haystack: &[u8], subject_index: usize, open: u8, close: u8) -> Option<usize> {
@@ -583,6 +638,16 @@ mod tests {
     }
 
     #[test]
+    fn simple_pattern_find_matches_capture_backreferences() {
+        assert_eq!(
+            simple_pattern_find(b"alo alx 123 b\0o b\0o", b"(..*) %1"),
+            Some((12, 19))
+        );
+        assert_eq!(simple_pattern_find(b"==========", b"^([=]*)=%1$"), None);
+        assert_eq!(simple_pattern_find(b"=======", b"^(=*)=%1$"), Some((0, 7)));
+    }
+
+    #[test]
     fn unsupported_specials_exclude_dot_valid_anchors_and_classes() {
         assert!(!has_unsupported_pattern_special(b"a."));
         assert!(!has_unsupported_pattern_special(b"^a.$"));
@@ -600,10 +665,11 @@ mod tests {
         assert!(!has_unsupported_pattern_special(b"%f[a]"));
         assert!(has_unsupported_pattern_special(b"%fa"));
         assert!(has_unsupported_pattern_special(b"%1"));
+        assert!(has_unsupported_pattern_special_with_captures(b"%0"));
         assert!(!has_unsupported_pattern_special_with_captures(
             b"(%a+)(%d+)"
         ));
+        assert!(!has_unsupported_pattern_special_with_captures(b"(%a+) %1"));
         assert!(has_unsupported_pattern_special_with_captures(b"(%a+"));
-        assert!(has_unsupported_pattern_special_with_captures(b"%1"));
     }
 }

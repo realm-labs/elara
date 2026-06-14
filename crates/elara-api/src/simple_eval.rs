@@ -801,6 +801,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_string_pattern_backreferences() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return string.len(string.match('alo alo', '(%a+) %1'))",
+                &profile,
+            ),
+            Ok(vec![Value::integer(3)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_find_captures() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 

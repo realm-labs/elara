@@ -292,6 +292,22 @@ mod tests {
     }
 
     #[test]
+    fn string_find_matches_capture_backreferences() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"alo alo");
+        let pattern = runtime.push_string(b"(%a+) %1");
+
+        let values = string_find(&mut runtime, &[subject, pattern]).expect("find should pass");
+
+        assert_eq!(values[0], Value::integer(1));
+        assert_eq!(values[1], Value::integer(7));
+        assert_eq!(
+            runtime.short_string_bytes(values[2]),
+            Some(b"alo".as_slice())
+        );
+    }
+
+    #[test]
     fn string_find_returns_nil_when_plain_match_is_absent() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
@@ -307,7 +323,7 @@ mod tests {
     fn string_find_reports_pattern_gap_for_magic_patterns() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
-        let pattern = runtime.push_string(b"%1");
+        let pattern = runtime.push_string(b"%0");
 
         assert_eq!(
             string_find(&mut runtime, &[subject, pattern])
