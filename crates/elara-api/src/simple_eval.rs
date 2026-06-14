@@ -1708,6 +1708,29 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_table_concat_accepts_long_strings() {
+        let profile = StdLibProfile::Custom(
+            [StdLib::Package, StdLib::String, StdLib::Table]
+                .into_iter()
+                .collect(),
+        );
+        let path_len = i64::try_from(PACKAGE_PATH.len()).expect("package path length fits");
+        let expected = path_len
+            .checked_mul(2)
+            .and_then(|len| len.checked_add(1))
+            .expect("expected concat length fits");
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local t = table.pack(package.path, package.path)\nreturn string.len(table.concat(t, '|'))",
+                &profile,
+            ),
+            Ok(vec![Value::integer(expected)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_table_sort() {
         let profile = StdLibProfile::Custom([StdLib::Table].into_iter().collect());
 

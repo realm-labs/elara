@@ -34,7 +34,7 @@ pub(super) fn table_concat(
         output.extend_from_slice(bytes);
     }
 
-    Ok(vec![runtime.intern_short_string(&output)?])
+    Ok(vec![runtime.intern_string(&output)?])
 }
 
 fn string_arg(
@@ -42,7 +42,7 @@ fn string_arg(
     value: Value,
     index: usize,
 ) -> Result<&[u8], NativeError> {
-    runtime.short_string_bytes(value).ok_or(
+    runtime.string_bytes(value).ok_or(
         NativeErrorKind::TypeError {
             index,
             expected: "string",
