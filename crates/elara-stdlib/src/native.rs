@@ -106,6 +106,21 @@ pub trait NativeRuntime {
         .into())
     }
 
+    /// Returns a traceback string for the current debug frame state.
+    fn debug_traceback(
+        &mut self,
+        message: Option<&[u8]>,
+        _level: i64,
+    ) -> Result<Value, NativeError> {
+        let mut output = Vec::new();
+        if let Some(message) = message {
+            output.extend_from_slice(message);
+            output.push(b'\n');
+        }
+        output.extend_from_slice(b"stack traceback:");
+        self.intern_string(&output)
+    }
+
     /// Returns a runtime-owned table's metatable, or nil when absent.
     fn table_metatable(&self, _table: Value) -> Result<Value, NativeError> {
         Err(NativeErrorKind::RuntimeError {

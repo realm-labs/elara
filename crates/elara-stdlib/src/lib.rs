@@ -917,6 +917,12 @@ mod tests {
         assert!(functions.iter().any(
             |function| function.descriptor() == FunctionSpec::new(StdLib::Debug, "getregistry")
         ));
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor()
+                    == FunctionSpec::new(StdLib::Debug, "traceback"))
+        );
     }
 
     #[test]
