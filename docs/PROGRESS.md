@@ -832,13 +832,15 @@ Delivered:
   inspect.
 - `coroutine.running` returns the current main thread handle and main-thread
   flag through the shared coroutine registry.
+- `coroutine.isyieldable` reports false for the main thread and true for live
+  created coroutine handles.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M11
 
-- Implement coroutine resume/yield, wrap, isyieldable, and close backed by
-  primitive coroutine support.
+- Implement coroutine resume/yield, wrap, and close backed by primitive
+  coroutine support.
 
 ### Product Gaps
 
@@ -864,7 +866,7 @@ M11.2 is complete.
 
 ## Last Verification
 
-M11.3 `coroutine.running` verification passed:
+M11.3 `coroutine.isyieldable` verification passed:
 
 ```bash
 cargo fmt --all -- --check

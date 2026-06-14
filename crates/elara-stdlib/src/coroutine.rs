@@ -13,6 +13,10 @@ pub const COROUTINE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         coroutine_create,
     ),
     NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Coroutine, "isyieldable"),
+        coroutine_isyieldable,
+    ),
+    NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Coroutine, "running"),
         coroutine_running,
     ),
@@ -67,6 +71,26 @@ fn coroutine_running(
     Ok(vec![thread, Value::boolean(is_main)])
 }
 
+fn coroutine_isyieldable(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let thread = match args.first().copied() {
+        Some(value) if !value.is_nil() => {
+            if !value.is_thread() {
+                return Err(NativeErrorKind::TypeError {
+                    index: 1,
+                    expected: "thread",
+                }
+                .into());
+            }
+            value
+        }
+        _ => runtime.running_thread()?.0,
+    };
+    Ok(vec![Value::boolean(runtime.thread_is_yieldable(thread)?)])
+}
+
 fn status_name(status: ThreadStatus) -> &'static str {
     match status {
         ThreadStatus::Runnable | ThreadStatus::Suspended => "suspended",
@@ -82,7 +106,8 @@ mod tests {
     use elara_core::{ThreadStatus, Value};
 
     use super::{
-        COROUTINE_NATIVE_FUNCTIONS, coroutine_create, coroutine_running, coroutine_status,
+        COROUTINE_NATIVE_FUNCTIONS, coroutine_create, coroutine_isyieldable, coroutine_running,
+        coroutine_status,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -133,6 +158,19 @@ mod tests {
             })
         }
 
+        fn thread_is_yieldable(&self, thread: Value) -> Result<bool, NativeError> {
+            let index = thread.as_thread_index().ok_or(NativeErrorKind::TypeError {
+                index: 1,
+                expected: "thread",
+            })?;
+            Ok(index != 0
+                && self
+                    .statuses
+                    .get(&index)
+                    .copied()
+                    .is_some_and(|status| status != ThreadStatus::Dead))
+        }
+
         fn thread_status(&self, thread: Value) -> Result<ThreadStatus, NativeError> {
             let index = thread.as_thread_index().ok_or(NativeErrorKind::TypeError {
                 index: 1,
@@ -156,6 +194,7 @@ mod tests {
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "status")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "create")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "isyieldable")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "running")));
     }
 
@@ -203,6 +242,43 @@ mod tests {
         assert_eq!(
             coroutine_running(&mut runtime, &[]).expect("running should pass"),
             vec![thread, Value::boolean(true)]
+        );
+    }
+
+    #[test]
+    fn coroutine_isyieldable_reports_thread_yieldability() {
+        let mut runtime = TestRuntime::default();
+        let main = runtime.push_thread(ThreadStatus::Running);
+        let runnable = runtime.push_thread(ThreadStatus::Runnable);
+        let dead = runtime.push_thread(ThreadStatus::Dead);
+        runtime.running = Some((main, true));
+
+        assert_eq!(
+            coroutine_isyieldable(&mut runtime, &[]).expect("isyieldable should pass"),
+            vec![Value::boolean(false)]
+        );
+        assert_eq!(
+            coroutine_isyieldable(&mut runtime, &[runnable]).expect("isyieldable should pass"),
+            vec![Value::boolean(true)]
+        );
+        assert_eq!(
+            coroutine_isyieldable(&mut runtime, &[dead]).expect("isyieldable should pass"),
+            vec![Value::boolean(false)]
+        );
+    }
+
+    #[test]
+    fn coroutine_isyieldable_requires_thread_argument() {
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            coroutine_isyieldable(&mut runtime, &[Value::integer(1)])
+                .expect_err("non-thread should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "thread"
+            }
         );
     }
 

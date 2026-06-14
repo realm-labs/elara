@@ -187,6 +187,11 @@ impl CoroutineRegistry {
         self.statuses.get(index).copied()
     }
 
+    fn is_yieldable(&self, thread: Value) -> Option<bool> {
+        let index = thread.as_thread_index()? as usize;
+        Some(index != 0 && self.statuses.get(index).copied()? != ThreadStatus::Dead)
+    }
+
     fn running(&self) -> (Value, bool) {
         (Value::thread_index(0), true)
     }
@@ -433,6 +438,24 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
             message: "coroutine registry lock poisoned".into(),
         })?;
         Ok(registry.running())
+    }
+
+    fn thread_is_yieldable(&self, thread: Value) -> Result<bool, NativeError> {
+        let registry = self.helpers.coroutine_registry.as_ref().ok_or_else(|| {
+            NativeErrorKind::RuntimeError {
+                message: "coroutine registry is not registered".into(),
+            }
+        })?;
+        let registry = registry.lock().map_err(|_| NativeErrorKind::RuntimeError {
+            message: "coroutine registry lock poisoned".into(),
+        })?;
+        registry.is_yieldable(thread).ok_or_else(|| {
+            NativeErrorKind::TypeError {
+                index: 1,
+                expected: "thread",
+            }
+            .into()
+        })
     }
 
     fn thread_status(&self, thread: Value) -> Result<ThreadStatus, NativeError> {

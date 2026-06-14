@@ -164,6 +164,14 @@ pub trait NativeRuntime {
         .into())
     }
 
+    /// Returns whether a runtime-owned Lua thread can yield.
+    fn thread_is_yieldable(&self, _thread: Value) -> Result<bool, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support coroutine yieldability".into(),
+        }
+        .into())
+    }
+
     /// Returns the status of a runtime-owned Lua thread.
     fn thread_status(&self, _thread: Value) -> Result<ThreadStatus, NativeError> {
         Err(NativeErrorKind::RuntimeError {

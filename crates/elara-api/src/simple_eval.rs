@@ -615,6 +615,28 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_coroutine_isyieldable() {
+        let profile = StdLibProfile::Custom([StdLib::Coroutine].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return coroutine.isyieldable()",
+                &profile,
+            ),
+            Ok(vec![Value::boolean(false)])
+        );
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local function f() return 1 end\nlocal co = coroutine.create(f)\nreturn coroutine.isyieldable(co)",
+                &profile,
+            ),
+            Ok(vec![Value::boolean(true)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_print() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 
