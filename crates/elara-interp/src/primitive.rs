@@ -473,6 +473,7 @@ impl RuntimeDebugHooks {
             mask,
             count,
         });
+        state.remaining_count = count;
         Ok(())
     }
 
@@ -483,6 +484,7 @@ impl RuntimeDebugHooks {
             .lock()
             .expect("debug hook lock must not be poisoned");
         state.hook = None;
+        state.remaining_count = 0;
     }
 
     fn begin_dispatch(&self, event: RuntimeDebugHookEvent) -> Option<RuntimeDebugHookDispatch> {
@@ -502,6 +504,30 @@ impl RuntimeDebugHooks {
         Some(RuntimeDebugHookDispatch { hook, event })
     }
 
+    fn begin_count_dispatch(&self) -> Option<RuntimeDebugHookDispatch> {
+        let mut state = self
+            .state
+            .lock()
+            .expect("debug hook lock must not be poisoned");
+        if state.dispatching {
+            return None;
+        }
+        let hook = state.hook.as_ref()?.clone();
+        if hook.count <= 0 {
+            return None;
+        }
+        state.remaining_count -= 1;
+        if state.remaining_count > 0 {
+            return None;
+        }
+        state.remaining_count = hook.count;
+        state.dispatching = true;
+        Some(RuntimeDebugHookDispatch {
+            hook,
+            event: RuntimeDebugHookEvent::Count,
+        })
+    }
+
     fn finish_dispatch(&self) {
         self.state
             .lock()
@@ -514,6 +540,7 @@ impl RuntimeDebugHooks {
 struct RuntimeDebugHookState {
     hook: Option<RuntimeDebugHook>,
     dispatching: bool,
+    remaining_count: LuaInteger,
 }
 
 #[derive(Clone)]
@@ -529,7 +556,12 @@ impl RuntimeDebugHook {
     }
 
     fn matches(&self, event: RuntimeDebugHookEvent) -> bool {
-        self.mask.contains(&event.mask_byte())
+        match event {
+            RuntimeDebugHookEvent::Call
+            | RuntimeDebugHookEvent::Return
+            | RuntimeDebugHookEvent::Line(_) => self.mask.contains(&event.mask_byte()),
+            RuntimeDebugHookEvent::Count => self.count > 0,
+        }
     }
 }
 
@@ -567,6 +599,8 @@ impl RuntimeDebugHookFunction {
 enum RuntimeDebugHookEvent {
     Call,
     Return,
+    Line(LuaInteger),
+    Count,
 }
 
 impl RuntimeDebugHookEvent {
@@ -574,6 +608,8 @@ impl RuntimeDebugHookEvent {
         match self {
             Self::Call => b'c',
             Self::Return => b'r',
+            Self::Line(_) => b'l',
+            Self::Count => 0,
         }
     }
 
@@ -581,6 +617,15 @@ impl RuntimeDebugHookEvent {
         match self {
             Self::Call => b"call",
             Self::Return => b"return",
+            Self::Line(_) => b"line",
+            Self::Count => b"count",
+        }
+    }
+
+    const fn line_argument(self) -> Value {
+        match self {
+            Self::Line(line) => Value::integer(line),
+            Self::Call | Self::Return | Self::Count => Value::nil(),
         }
     }
 }
@@ -1293,15 +1338,28 @@ fn execute_proto_with_upvalues(
     let mut open_upvalues = HashMap::new();
     let mut dynamic_top = 0;
     let mut pc = 0;
+    let mut last_trace_pc = None;
     let result = loop {
         if pc >= proto.code.len() {
             break Ok(Vec::new());
         }
+        let instr_pc = pc;
         if let Some(frame) = context.debug_frames.last_mut() {
-            frame.current_pc = Some(pc);
+            frame.current_pc = Some(instr_pc);
             frame.capture_locals(&thread);
         }
-        let instr = proto.code[pc];
+        let current_debug_frame = context.debug_frames.len().checked_sub(1);
+        if let Err(error) = trace_debug_hooks(
+            proto,
+            instr_pc,
+            &mut last_trace_pc,
+            context,
+            Some(&mut thread),
+            current_debug_frame,
+        ) {
+            break Err(error);
+        }
+        let instr = proto.code[instr_pc];
         pc += 1;
         let flow = execute_instruction(
             proto,
@@ -1966,11 +2024,67 @@ fn dispatch_debug_hook(
     let Some(dispatch) = context.debug_hooks.begin_dispatch(event) else {
         return Ok(());
     };
+    dispatch_debug_hook_dispatch(dispatch, context, current_thread, current_debug_frame)
+}
+
+fn trace_debug_hooks(
+    proto: &Proto,
+    pc: usize,
+    last_trace_pc: &mut Option<usize>,
+    context: &mut ExecutionContext<'_>,
+    mut current_thread: Option<&mut LuaThread>,
+    current_debug_frame: Option<usize>,
+) -> RuntimeResult<()> {
+    dispatch_count_debug_hook(context, current_thread.as_deref_mut(), current_debug_frame)?;
+    let current_line = proto.debug.line_info.get(pc).copied().unwrap_or_default();
+    if current_line == 0 {
+        *last_trace_pc = Some(pc);
+        return Ok(());
+    }
+    let should_dispatch = last_trace_pc.is_none_or(|last_pc| {
+        let last_line = proto
+            .debug
+            .line_info
+            .get(last_pc)
+            .copied()
+            .unwrap_or_default();
+        pc <= last_pc || last_line != current_line
+    });
+    *last_trace_pc = Some(pc);
+    if should_dispatch {
+        dispatch_debug_hook(
+            RuntimeDebugHookEvent::Line(LuaInteger::from(current_line)),
+            context,
+            current_thread,
+            current_debug_frame,
+        )?;
+    }
+    Ok(())
+}
+
+fn dispatch_count_debug_hook(
+    context: &mut ExecutionContext<'_>,
+    current_thread: Option<&mut LuaThread>,
+    current_debug_frame: Option<usize>,
+) -> RuntimeResult<()> {
+    let Some(dispatch) = context.debug_hooks.begin_count_dispatch() else {
+        return Ok(());
+    };
+    dispatch_debug_hook_dispatch(dispatch, context, current_thread, current_debug_frame)
+}
+
+fn dispatch_debug_hook_dispatch(
+    dispatch: RuntimeDebugHookDispatch,
+    context: &mut ExecutionContext<'_>,
+    current_thread: Option<&mut LuaThread>,
+    current_debug_frame: Option<usize>,
+) -> RuntimeResult<()> {
     let result = (|| {
         let event = context.strings.intern_short_value(dispatch.event.name());
+        let line = dispatch.event.line_argument();
         let callable = callable_from_value(
             dispatch.hook.function.to_value(),
-            vec![event, Value::nil()],
+            vec![event, line],
             context.tables,
             context.strings,
         )?;
