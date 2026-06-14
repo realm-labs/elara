@@ -3,8 +3,8 @@ use elara_core::{Table, ThreadStatus, Value};
 
 use super::{
     CoroutineFrame, CoroutineResume, ExecutionContext, PrimitiveCoroutine, ProtectedRuntimeOutput,
-    RuntimeEnvironment, RuntimeErrorKind, RuntimeGlobals, RuntimeNatives, RuntimeStrings,
-    RuntimeTables, close_to_base, execute_proto, execute_proto_protected,
+    RuntimeDebugHooks, RuntimeEnvironment, RuntimeErrorKind, RuntimeGlobals, RuntimeNatives,
+    RuntimeStrings, RuntimeTables, close_to_base, execute_proto, execute_proto_protected,
     execute_proto_with_environment, execute_proto_with_natives, execute_proto_with_output,
     execute_tbc,
 };
@@ -976,6 +976,7 @@ fn to_be_closed_close_calls_close_metamethod_in_reverse_order() {
 
     {
         let mut debug_frames = Vec::new();
+        let debug_hooks = RuntimeDebugHooks::new();
         let mut context = ExecutionContext {
             closures: &mut closures,
             tables: &mut tables,
@@ -984,6 +985,7 @@ fn to_be_closed_close_calls_close_metamethod_in_reverse_order() {
             globals: &mut globals,
             to_be_closed: &mut to_be_closed,
             debug_frames: &mut debug_frames,
+            debug_hooks: &debug_hooks,
         };
         execute_tbc(&thread, &mut context, Instr::abc(Op::Tbc, 0, 0, 0))
             .expect("first table should be closable");
@@ -1073,6 +1075,7 @@ fn to_be_closed_error_unwind_runs_close_metamethod() {
 
     {
         let mut debug_frames = Vec::new();
+        let debug_hooks = RuntimeDebugHooks::new();
         let mut context = ExecutionContext {
             closures: &mut closures,
             tables: &mut tables,
@@ -1081,6 +1084,7 @@ fn to_be_closed_error_unwind_runs_close_metamethod() {
             globals: &mut globals,
             to_be_closed: &mut to_be_closed,
             debug_frames: &mut debug_frames,
+            debug_hooks: &debug_hooks,
         };
         execute_tbc(&thread, &mut context, Instr::abc(Op::Tbc, 0, 0, 0))
             .expect("table should be closable");

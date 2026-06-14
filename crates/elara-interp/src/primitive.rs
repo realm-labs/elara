@@ -67,6 +67,7 @@ pub struct NativeContext<'a> {
     natives: &'a RuntimeNatives,
     globals: &'a mut RuntimeGlobals,
     debug_frames: &'a mut Vec<RuntimeDebugFrame>,
+    debug_hooks: &'a RuntimeDebugHooks,
     current_thread: Option<&'a mut LuaThread>,
     current_debug_frame: Option<usize>,
 }
@@ -302,6 +303,27 @@ impl<'a> NativeContext<'a> {
         )
     }
 
+    /// Returns installed debug hook metadata for the current runtime thread.
+    #[must_use]
+    pub fn debug_gethook(&self) -> Option<(Value, Vec<u8>, LuaInteger)> {
+        self.debug_hooks.get()
+    }
+
+    /// Installs debug hook metadata for the current runtime thread.
+    pub fn debug_sethook(
+        &mut self,
+        function: Value,
+        mask: Vec<u8>,
+        count: LuaInteger,
+    ) -> RuntimeResult<()> {
+        self.debug_hooks.set(function, mask, count)
+    }
+
+    /// Clears debug hook metadata for the current runtime thread.
+    pub fn debug_clearhook(&mut self) {
+        self.debug_hooks.clear();
+    }
+
     /// Returns a runtime-owned table's metatable, or nil when absent.
     pub fn table_metatable(&self, table: Value) -> RuntimeResult<Value> {
         let table_index = table
@@ -349,6 +371,7 @@ impl<'a> NativeContext<'a> {
             globals: self.globals,
             to_be_closed: &mut to_be_closed,
             debug_frames: self.debug_frames,
+            debug_hooks: self.debug_hooks,
         };
         call_function(
             callable,
@@ -414,6 +437,154 @@ impl RuntimeNatives {
     }
 }
 
+/// Shared debug hook state for one primitive runtime execution.
+#[derive(Clone, Default)]
+pub struct RuntimeDebugHooks {
+    state: Arc<Mutex<RuntimeDebugHookState>>,
+}
+
+impl RuntimeDebugHooks {
+    /// Creates empty debug hook state.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns installed hook metadata, if any.
+    #[must_use]
+    pub fn get(&self) -> Option<(Value, Vec<u8>, LuaInteger)> {
+        self.state
+            .lock()
+            .expect("debug hook lock must not be poisoned")
+            .hook
+            .as_ref()
+            .map(RuntimeDebugHook::to_parts)
+    }
+
+    /// Installs hook metadata.
+    pub fn set(&self, function: Value, mask: Vec<u8>, count: LuaInteger) -> RuntimeResult<()> {
+        let function = RuntimeDebugHookFunction::from_value(function)?;
+        let mut state = self
+            .state
+            .lock()
+            .expect("debug hook lock must not be poisoned");
+        state.hook = Some(RuntimeDebugHook {
+            function,
+            mask,
+            count,
+        });
+        Ok(())
+    }
+
+    /// Clears hook metadata.
+    pub fn clear(&self) {
+        let mut state = self
+            .state
+            .lock()
+            .expect("debug hook lock must not be poisoned");
+        state.hook = None;
+    }
+
+    fn begin_dispatch(&self, event: RuntimeDebugHookEvent) -> Option<RuntimeDebugHookDispatch> {
+        let mut state = self
+            .state
+            .lock()
+            .expect("debug hook lock must not be poisoned");
+        if state.dispatching {
+            return None;
+        }
+        let hook = state
+            .hook
+            .as_ref()
+            .filter(|hook| hook.matches(event))?
+            .clone();
+        state.dispatching = true;
+        Some(RuntimeDebugHookDispatch { hook, event })
+    }
+
+    fn finish_dispatch(&self) {
+        self.state
+            .lock()
+            .expect("debug hook lock must not be poisoned")
+            .dispatching = false;
+    }
+}
+
+#[derive(Default)]
+struct RuntimeDebugHookState {
+    hook: Option<RuntimeDebugHook>,
+    dispatching: bool,
+}
+
+#[derive(Clone)]
+struct RuntimeDebugHook {
+    function: RuntimeDebugHookFunction,
+    mask: Vec<u8>,
+    count: LuaInteger,
+}
+
+impl RuntimeDebugHook {
+    fn to_parts(&self) -> (Value, Vec<u8>, LuaInteger) {
+        (self.function.to_value(), self.mask.clone(), self.count)
+    }
+
+    fn matches(&self, event: RuntimeDebugHookEvent) -> bool {
+        self.mask.contains(&event.mask_byte())
+    }
+}
+
+struct RuntimeDebugHookDispatch {
+    hook: RuntimeDebugHook,
+    event: RuntimeDebugHookEvent,
+}
+
+#[derive(Clone, Copy)]
+enum RuntimeDebugHookFunction {
+    Lua(u32),
+    Native(u32),
+}
+
+impl RuntimeDebugHookFunction {
+    fn from_value(function: Value) -> RuntimeResult<Self> {
+        if let Some(index) = function.as_closure_index() {
+            Ok(Self::Lua(index))
+        } else if let Some(index) = function.as_native_function_index() {
+            Ok(Self::Native(index))
+        } else {
+            Err(RuntimeErrorKind::NonCallableValue.into())
+        }
+    }
+
+    const fn to_value(self) -> Value {
+        match self {
+            Self::Lua(index) => Value::closure_index(index),
+            Self::Native(index) => Value::native_function_index(index),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum RuntimeDebugHookEvent {
+    Call,
+    Return,
+}
+
+impl RuntimeDebugHookEvent {
+    const fn mask_byte(self) -> u8 {
+        match self {
+            Self::Call => b'c',
+            Self::Return => b'r',
+        }
+    }
+
+    const fn name(self) -> &'static [u8] {
+        match self {
+            Self::Call => b"call",
+            Self::Return => b"return",
+        }
+    }
+}
+
 /// Result of executing a prototype behind a protected-call boundary.
 pub enum ProtectedRuntimeOutput {
     /// Execution completed normally.
@@ -440,6 +611,7 @@ pub struct PrimitiveCoroutine {
     tables: RuntimeTables,
     strings: RuntimeStrings,
     natives: RuntimeNatives,
+    debug_hooks: RuntimeDebugHooks,
     globals: RuntimeGlobals,
     frames: Vec<CoroutineFrame>,
     to_be_closed: Vec<usize>,
@@ -502,6 +674,7 @@ impl PrimitiveCoroutine {
             tables,
             strings: RuntimeStrings::new(),
             natives: RuntimeNatives::new(),
+            debug_hooks: RuntimeDebugHooks::new(),
             globals,
             frames: vec![frame],
             to_be_closed: Vec::new(),
@@ -603,6 +776,7 @@ impl PrimitiveCoroutine {
                 globals: &mut self.globals,
                 to_be_closed: &mut self.to_be_closed,
                 debug_frames: &mut debug_frames,
+                debug_hooks: &self.debug_hooks,
             };
             let frame = &mut self.frames[frame_index];
 
@@ -997,7 +1171,7 @@ fn execute_proto_with_output_in_mode(
     verify_proto(proto)
         .map_err(RuntimeErrorKind::Verification)
         .map_err(RuntimeError::from)?;
-    let (natives, initial_globals) = environment.into_parts();
+    let (natives, debug_hooks, initial_globals) = environment.into_parts();
     let mut closures = Vec::new();
     let mut tables = RuntimeTables::new();
     let mut strings = RuntimeStrings::new();
@@ -1018,6 +1192,7 @@ fn execute_proto_with_output_in_mode(
         globals: &mut globals,
         to_be_closed: &mut to_be_closed,
         debug_frames: &mut debug_frames,
+        debug_hooks: &debug_hooks,
     };
     let root_upvalues = [RuntimeUpvalue::new(global_value)];
     let values = execute_proto_with_upvalues(
@@ -1384,6 +1559,7 @@ fn execute_instruction(
                 context.strings,
                 context.natives,
                 context.globals,
+                context.debug_hooks,
             )?;
         }
         Op::TForLoop => {
@@ -1419,8 +1595,20 @@ fn execute_instruction(
                 }
                 callable => {
                     let current_debug_frame = context.debug_frames.len().checked_sub(1);
+                    dispatch_debug_hook(
+                        RuntimeDebugHookEvent::Call,
+                        context,
+                        Some(&mut *thread),
+                        current_debug_frame,
+                    )?;
                     let returns =
-                        call_function(callable, context, Some(thread), current_debug_frame)?;
+                        call_function(callable, context, Some(&mut *thread), current_debug_frame)?;
+                    dispatch_debug_hook(
+                        RuntimeDebugHookEvent::Return,
+                        context,
+                        Some(&mut *thread),
+                        current_debug_frame,
+                    )?;
                     if let Some(top) = write_call_returns(thread, instr, &returns)? {
                         *dynamic_top = top;
                     }
@@ -1562,6 +1750,7 @@ pub(super) struct ExecutionContext<'a> {
     globals: &'a mut RuntimeGlobals,
     to_be_closed: &'a mut Vec<usize>,
     debug_frames: &'a mut Vec<RuntimeDebugFrame>,
+    debug_hooks: &'a RuntimeDebugHooks,
 }
 
 fn capture_upvalues(
@@ -1768,6 +1957,30 @@ fn callable_from_value(
     Err(RuntimeErrorKind::UnsupportedMetamethod { name: "__call" }.into())
 }
 
+fn dispatch_debug_hook(
+    event: RuntimeDebugHookEvent,
+    context: &mut ExecutionContext<'_>,
+    current_thread: Option<&mut LuaThread>,
+    current_debug_frame: Option<usize>,
+) -> RuntimeResult<()> {
+    let Some(dispatch) = context.debug_hooks.begin_dispatch(event) else {
+        return Ok(());
+    };
+    let result = (|| {
+        let event = context.strings.intern_short_value(dispatch.event.name());
+        let callable = callable_from_value(
+            dispatch.hook.function.to_value(),
+            vec![event, Value::nil()],
+            context.tables,
+            context.strings,
+        )?;
+        call_function(callable, context, current_thread, current_debug_frame)?;
+        Ok(())
+    })();
+    context.debug_hooks.finish_dispatch();
+    result
+}
+
 fn call_function(
     callable: CallableFunction,
     context: &mut ExecutionContext<'_>,
@@ -1778,7 +1991,7 @@ fn call_function(
         CallableFunction::Lua {
             closure_index,
             args,
-        } => call_closure(
+        } => call_closure_with_hooks(
             context.closures,
             closure_index,
             &args,
@@ -1787,6 +2000,7 @@ fn call_function(
             context.natives,
             context.globals,
             Some(context.debug_frames),
+            context.debug_hooks,
         ),
         CallableFunction::Native { native_index, args } => {
             let function = context.natives.get(native_index).ok_or(
@@ -1805,6 +2019,7 @@ fn call_function(
                 natives: context.natives,
                 globals: context.globals,
                 debug_frames: context.debug_frames,
+                debug_hooks: context.debug_hooks,
                 current_thread,
                 current_debug_frame,
             };
@@ -1828,6 +2043,7 @@ fn execute_call(
     let callable = callable_function(thread, tables, strings, instr)?;
     let mut to_be_closed = Vec::new();
     let mut debug_frames = Vec::new();
+    let debug_hooks = RuntimeDebugHooks::new();
     let mut context = ExecutionContext {
         closures,
         tables,
@@ -1836,6 +2052,7 @@ fn execute_call(
         globals,
         to_be_closed: &mut to_be_closed,
         debug_frames: &mut debug_frames,
+        debug_hooks: &debug_hooks,
     };
     let returns = call_function(callable, &mut context, Some(thread), None)?;
     write_call_returns(thread, instr, &returns)
@@ -1879,6 +2096,32 @@ fn call_closure(
     globals: &mut RuntimeGlobals,
     debug_frames: Option<&mut Vec<RuntimeDebugFrame>>,
 ) -> RuntimeResult<Vec<Value>> {
+    let debug_hooks = RuntimeDebugHooks::new();
+    call_closure_with_hooks(
+        closures,
+        closure_index,
+        args,
+        tables,
+        strings,
+        natives,
+        globals,
+        debug_frames,
+        &debug_hooks,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn call_closure_with_hooks(
+    closures: &mut Vec<RuntimeClosure>,
+    closure_index: usize,
+    args: &[Value],
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
+    globals: &mut RuntimeGlobals,
+    debug_frames: Option<&mut Vec<RuntimeDebugFrame>>,
+    debug_hooks: &RuntimeDebugHooks,
+) -> RuntimeResult<Vec<Value>> {
     let mut empty_debug_frames = Vec::new();
     let debug_frames = debug_frames.unwrap_or(&mut empty_debug_frames);
     let closure = closures
@@ -1894,6 +2137,7 @@ fn call_closure(
         globals,
         to_be_closed: &mut to_be_closed,
         debug_frames,
+        debug_hooks,
     };
     execute_proto_with_upvalues(
         &closure.proto,

@@ -4,8 +4,9 @@ use elara_bytecode::Instr;
 use elara_core::{LuaFloat, LuaInteger, LuaThread, Value};
 
 use super::{
-    RuntimeClosure, RuntimeErrorKind, RuntimeGlobals, RuntimeNatives, RuntimeResult,
-    RuntimeStrings, RuntimeTables, call_function, callable_from_value, register, set_register,
+    RuntimeClosure, RuntimeDebugHooks, RuntimeErrorKind, RuntimeGlobals, RuntimeNatives,
+    RuntimeResult, RuntimeStrings, RuntimeTables, call_function, callable_from_value, register,
+    set_register,
 };
 
 pub(super) fn prepare_numeric_for(thread: &mut LuaThread, instr: Instr) -> RuntimeResult<bool> {
@@ -154,6 +155,7 @@ fn execute_float_for_loop(thread: &mut LuaThread, base: usize) -> RuntimeResult<
     Ok(continues)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn execute_generic_for_call(
     thread: &mut LuaThread,
     closures: &mut Vec<RuntimeClosure>,
@@ -162,6 +164,7 @@ pub(super) fn execute_generic_for_call(
     strings: &mut RuntimeStrings,
     natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
+    debug_hooks: &RuntimeDebugHooks,
 ) -> RuntimeResult<()> {
     let base = usize::from(instr.a());
     let iterator = register(thread, base)?;
@@ -179,6 +182,7 @@ pub(super) fn execute_generic_for_call(
         globals,
         to_be_closed: &mut to_be_closed,
         debug_frames: &mut debug_frames,
+        debug_hooks,
     };
     let returns = call_function(callable, &mut context, Some(thread), None)?;
 

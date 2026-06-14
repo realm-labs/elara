@@ -2,12 +2,13 @@
 
 use elara_core::Value;
 
-use super::RuntimeNatives;
+use super::{RuntimeDebugHooks, RuntimeNatives};
 
 /// Initial global environment and native registry for primitive execution.
 #[derive(Clone, Default)]
 pub struct RuntimeEnvironment {
     natives: RuntimeNatives,
+    debug_hooks: RuntimeDebugHooks,
     globals: Vec<InitialGlobal>,
 }
 
@@ -17,15 +18,17 @@ impl RuntimeEnvironment {
     pub fn new() -> Self {
         Self {
             natives: RuntimeNatives::new(),
+            debug_hooks: RuntimeDebugHooks::new(),
             globals: Vec::new(),
         }
     }
 
     /// Creates a runtime environment from an existing native registry.
     #[must_use]
-    pub const fn with_natives(natives: RuntimeNatives) -> Self {
+    pub fn with_natives(natives: RuntimeNatives) -> Self {
         Self {
             natives,
+            debug_hooks: RuntimeDebugHooks::new(),
             globals: Vec::new(),
         }
     }
@@ -206,8 +209,8 @@ impl RuntimeEnvironment {
         index
     }
 
-    pub(super) fn into_parts(self) -> (RuntimeNatives, Vec<InitialGlobal>) {
-        (self.natives, self.globals)
+    pub(super) fn into_parts(self) -> (RuntimeNatives, RuntimeDebugHooks, Vec<InitialGlobal>) {
+        (self.natives, self.debug_hooks, self.globals)
     }
 }
 
