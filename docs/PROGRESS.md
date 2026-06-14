@@ -22,10 +22,11 @@ coverage are implemented. Primitive values now also include an opaque
 light-userdata representation for runtime identity values such as debug
 upvalue identifiers. The initial bytecode prototype, instruction encoding,
 opcode set, constant pool, metadata placeholders, builder, and disassembler are
-implemented, along with initial bytecode verification and simple expression
-codegen. VM/thread stack primitives and primitive arithmetic bytecode execution
-are implemented, and simple source chunks can be evaluated through the compile
-and interpreter path. Local variables and assignment basics are implemented.
+implemented, along with local-variable debug descriptors, initial bytecode
+verification, and simple expression codegen. VM/thread stack primitives and
+primitive arithmetic bytecode execution are implemented, and simple source
+chunks can be evaluated through the compile and interpreter path. Local
+variables and assignment basics are implemented.
 Simple function Protos and zero-argument Lua calls are implemented. Closures,
 shared runtime upvalue cells, and captured outer local reads are implemented.
 Anonymous vararg functions can receive call arguments and lower `...` for the
@@ -275,6 +276,9 @@ or native upvalues.
 The `debug` standard-library module now exposes `debug.upvaluejoin`, making one
 Lua closure upvalue share another closure's runtime upvalue cell and rejecting
 native functions or invalid upvalue indexes.
+Bytecode debug metadata now records source-level local variable descriptors,
+and the simple compiler emits descriptors for compiled local declarations as a
+prerequisite for `debug.getlocal` and `debug.setlocal`.
 The `elara-stdlib` debug upvalue native tests now live in a focused sibling
 test module so the main debug module remains under the workflow source-size
 limit before more M18.2 debug work.
@@ -586,6 +590,7 @@ Completed:
   - M18.2 shared primitive runtime upvalue cells for debug identity semantics.
   - M18.2 executable `debug.upvalueid` for Lua closure upvalue identities.
   - M18.2 executable `debug.upvaluejoin` for Lua closure upvalue sharing.
+  - M18.2 bytecode/compiler local-variable debug descriptors for local access.
   - M18.1 clear-only `debug.sethook`.
   - M18.1 pre-userdata `debug.getuservalue` and `debug.setuservalue`.
   - M18.1 safe unsupported process-termination `os.exit`.
@@ -1264,14 +1269,14 @@ M18.1 is complete.
 
 ## Last Verification
 
-M18.2 executable `debug.upvaluejoin` validation passed:
+M18.2 local-variable debug descriptor validation passed:
 
 ```bash
 cargo fmt --all
-cargo test -p elara-api --test debug_upvaluejoin
-cargo test -p elara-stdlib debug_upvaluejoin
+cargo test -p elara-bytecode debug_local_vars
+cargo test -p elara-compiler locals_compile
 cargo fmt --all -- --check
-cargo clippy -p elara-api -p elara-interp -p elara-stdlib --all-targets -- -D warnings
+cargo clippy -p elara-bytecode -p elara-compiler --all-targets -- -D warnings
 cargo test --workspace
 cargo test --workspace --features jit debug
 ```
@@ -1319,7 +1324,7 @@ designed.
 | Expression parser | Complete | Expression AST, precedence parsing, calls, table constructors, and varargs are implemented. |
 | Statement parser | Complete | Declarations, assignments, control flow, function declarations, labels, and returns are implemented. |
 | Parser snapshots | Complete | Representative AST and malformed syntax diagnostic snapshots are implemented. |
-| Bytecode model | Initial model complete | Proto, instruction encoding, opcode set, constants, upvalues, debug placeholders, builder, disassembler, and verifier are implemented. |
+| Bytecode model | Initial model complete | Proto, instruction encoding, opcode set, constants, upvalues, source/line/local debug metadata, builder, disassembler, and verifier are implemented. |
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | M15 complete | Primitive bytecode execution includes structured errors, coroutines, close variables, native calls, hot stack helpers, table/global inline caches, and an `ADD_INT` superinstruction. |

@@ -121,6 +121,8 @@ pub struct DebugInfo {
     pub source_name: Option<Box<str>>,
     /// One source line per instruction when available.
     pub line_info: Box<[u32]>,
+    /// Source-level local variable descriptors.
+    pub local_vars: Box<[LocalVarDesc]>,
 }
 
 impl DebugInfo {
@@ -130,6 +132,33 @@ impl DebugInfo {
         Self {
             source_name: source_name.map(Into::into),
             line_info: line_info.into(),
+            local_vars: Box::new([]),
+        }
+    }
+}
+
+/// Source-level local variable debug descriptor.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LocalVarDesc {
+    /// Local variable name.
+    pub name: Box<str>,
+    /// Register slot that stores the local.
+    pub register: Register,
+    /// First program counter where the local is visible.
+    pub start_pc: u32,
+    /// Exclusive program counter where the local stops being visible.
+    pub end_pc: u32,
+}
+
+impl LocalVarDesc {
+    /// Creates a local variable debug descriptor.
+    #[must_use]
+    pub fn new(name: impl Into<Box<str>>, register: Register, start_pc: u32, end_pc: u32) -> Self {
+        Self {
+            name: name.into(),
+            register,
+            start_pc,
+            end_pc,
         }
     }
 }
@@ -138,7 +167,7 @@ impl DebugInfo {
 mod tests {
     use elara_core::Value;
 
-    use crate::{DebugInfo, Instr, Op, Proto, UpvalueDesc};
+    use crate::{DebugInfo, Instr, LocalVarDesc, Op, Proto, UpvalueDesc};
 
     #[test]
     fn op_proto_stores_code_constants_and_metadata() {
@@ -152,7 +181,11 @@ mod tests {
             2,
             1,
             false,
-            DebugInfo::new(Some("chunk"), [1, 1]),
+            DebugInfo {
+                source_name: Some("chunk".into()),
+                line_info: [1, 1].into(),
+                local_vars: [LocalVarDesc::new("x", 0, 0, 2)].into(),
+            },
         );
 
         assert_eq!(proto.len(), 2);
@@ -166,6 +199,7 @@ mod tests {
         assert!(!proto.is_vararg);
         assert_eq!(proto.debug.source_name.as_deref(), Some("chunk"));
         assert_eq!(&*proto.debug.line_info, &[1, 1]);
+        assert_eq!(proto.debug.local_vars[0], LocalVarDesc::new("x", 0, 0, 2));
     }
 
     #[test]

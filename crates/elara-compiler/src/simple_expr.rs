@@ -238,6 +238,7 @@ impl SimpleCompiler {
                         .with_primary_span(name.span),
                 ),
             }
+            self.record_local_var(name.name, register);
         }
 
         if names.is_empty() {
@@ -401,7 +402,14 @@ impl SimpleCompiler {
 
         let register = self.alloc_register();
         self.locals.insert(name.to_owned(), register);
+        self.record_local_var(name, register);
         register
+    }
+
+    fn record_local_var(&mut self, name: &str, register: u16) {
+        let start_pc = u32::try_from(self.builder.code_len()).expect("pc must fit in u32");
+        self.builder
+            .add_local_var(name, register, start_pc, u32::MAX);
     }
 
     fn compile_call(&mut self, expr: &Expr<'_>, callee: &Expr<'_>, args: &[Expr<'_>]) -> u16 {

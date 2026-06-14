@@ -2,7 +2,10 @@
 
 use elara_core::Value;
 
-use crate::{ConstantIndex, DebugInfo, Instr, Op, Proto, StringIndex, UpvalueDesc, UpvalueIndex};
+use crate::{
+    ConstantIndex, DebugInfo, Instr, LocalVarDesc, Op, Proto, Register, StringIndex, UpvalueDesc,
+    UpvalueIndex,
+};
 
 /// Incremental builder for a function prototype.
 #[derive(Debug, Default)]
@@ -13,6 +16,7 @@ pub struct ProtoBuilder {
     upvalues: Vec<UpvalueDesc>,
     children: Vec<Proto>,
     line_info: Vec<u32>,
+    local_vars: Vec<LocalVarDesc>,
     source_name: Option<Box<str>>,
     max_stack: u16,
     params: u8,
@@ -64,6 +68,18 @@ impl ProtoBuilder {
             UpvalueIndex::try_from(self.upvalues.len()).expect("upvalue index must fit in u16");
         self.upvalues.push(upvalue);
         index
+    }
+
+    /// Adds a source-level local variable debug descriptor.
+    pub fn add_local_var(
+        &mut self,
+        name: impl Into<Box<str>>,
+        register: Register,
+        start_pc: u32,
+        end_pc: u32,
+    ) {
+        self.local_vars
+            .push(LocalVarDesc::new(name, register, start_pc, end_pc));
     }
 
     /// Adds a child prototype and returns its index.
@@ -129,9 +145,29 @@ impl ProtoBuilder {
             DebugInfo {
                 source_name: self.source_name,
                 line_info: self.line_info.into_boxed_slice(),
+                local_vars: self.local_vars.into_boxed_slice(),
             },
         )
         .with_children(self.children)
         .with_string_constants(self.string_constants)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{LocalVarDesc, Op, ProtoBuilder};
+
+    #[test]
+    fn builder_records_debug_local_vars() {
+        let mut builder = ProtoBuilder::new();
+        builder.emit_abc(Op::LoadNil, 0, 0, 0);
+        builder.add_local_var("x", 0, 1, 2);
+
+        let proto = builder.finish();
+
+        assert_eq!(
+            proto.debug.local_vars.as_ref(),
+            [LocalVarDesc::new("x", 0, 1, 2)]
+        );
     }
 }

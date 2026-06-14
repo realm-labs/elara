@@ -1,4 +1,4 @@
-use elara_bytecode::{Op, disassemble};
+use elara_bytecode::{LocalVarDesc, Op, disassemble};
 use elara_core::SourceId;
 use elara_test::assert_snapshot_eq;
 
@@ -382,6 +382,10 @@ fn locals_compile_local_return() {
     assert_eq!(proto.constants.len(), 1);
     assert_eq!(proto.code.last().map(|instr| instr.op()), Some(Op::Return));
     assert!(disassemble(&proto).contains("MOVE"));
+    assert_eq!(
+        proto.debug.local_vars.as_ref(),
+        [LocalVarDesc::new("x", 1, 3, u32::MAX)]
+    );
 }
 
 #[test]
@@ -405,6 +409,10 @@ fn locals_compile_to_be_closed_local() {
     assert_snapshot_eq(
         disassemble(&proto),
         "0000 LOAD_NIL      A=0 B=0 C=0\n0001 MOVE          A=1 B=0 C=0\n0002 TBC           A=1 B=0 C=0\n0003 LOAD_K        A=2 Bx=0 ; 42\n0004 CLOSE         A=1 B=0 C=0\n0005 RETURN        A=2 B=1 C=0\n",
+    );
+    assert_eq!(
+        proto.debug.local_vars.as_ref(),
+        [LocalVarDesc::new("x", 1, 3, u32::MAX)]
     );
 }
 
