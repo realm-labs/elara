@@ -305,8 +305,16 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
         })
     }
 
+    fn intern_string(&mut self, bytes: &[u8]) -> Result<Value, NativeError> {
+        Ok(self.context.intern_string(bytes))
+    }
+
     fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
         self.context.short_string_bytes(value)
+    }
+
+    fn string_bytes(&self, value: Value) -> Option<&[u8]> {
+        self.context.string_bytes(value)
     }
 
     fn create_table(&mut self, entries: &[(Value, Value)]) -> Result<Value, NativeError> {

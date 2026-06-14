@@ -276,6 +276,34 @@ fn initial_global_tables_can_seed_string_fields() {
 }
 
 #[test]
+fn initial_global_tables_can_seed_long_string_fields() {
+    let long_path = "./?.lua;./?/init.lua;./modules/?.lua;./modules/?/init.lua";
+    let mut environment = RuntimeEnvironment::new();
+    environment.set_global_table_with_string_fields(
+        "package",
+        std::iter::empty::<(&str, Value)>(),
+        [("path", long_path.as_bytes())],
+    );
+
+    let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
+    let module = builder.add_string_constant("package");
+    let field = builder.add_string_constant("path");
+    builder.emit_abx(Op::GetEnv, 0, u64::from(module));
+    builder.emit_abx(Op::LoadString, 1, u64::from(field));
+    builder.emit_abc(Op::GetTable, 0, 0, 1);
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    let mut output = execute_proto_with_environment(&builder.finish(), environment)
+        .expect("registered long string table field should execute");
+    let value = output.values.pop().expect("field should return a value");
+    assert_eq!(output.strings.short_string_bytes(value), None);
+    assert_eq!(
+        output.strings.string_bytes(value),
+        Some(long_path.as_bytes())
+    );
+}
+
+#[test]
 fn initial_global_tables_can_seed_empty_table_fields() {
     let mut environment = RuntimeEnvironment::new();
     environment.set_global_table_with_string_and_empty_table_fields(
@@ -323,6 +351,30 @@ fn native_functions_can_allocate_runtime_strings() {
     assert_eq!(
         output.strings.short_string_bytes(value),
         Some(b"ok".as_slice())
+    );
+}
+
+#[test]
+fn native_functions_can_allocate_runtime_long_strings() {
+    const LONG_LABEL: &str = "native string payload longer than short string storage";
+    let mut environment = RuntimeEnvironment::new();
+    environment.register_native_global("label", |context, _args| {
+        Ok(vec![context.intern_string(LONG_LABEL)])
+    });
+
+    let mut builder = ProtoBuilder::new().with_signature(1, 0, false);
+    let name = builder.add_string_constant("label");
+    builder.emit_abx(Op::GetEnv, 0, u64::from(name));
+    builder.emit_abc(Op::Call, 0, 1, 1);
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    let mut output = execute_proto_with_environment(&builder.finish(), environment)
+        .expect("native long string allocation should execute");
+    let value = output.values.pop().expect("native should return a value");
+    assert_eq!(output.strings.short_string_bytes(value), None);
+    assert_eq!(
+        output.strings.string_bytes(value),
+        Some(LONG_LABEL.as_bytes())
     );
 }
 

@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
 use elara_core::{
-    CallFrame, GcArena, LuaError, LuaFloat, LuaInteger, LuaThread, ResultCount,
+    CallFrame, GcArena, LongString, LuaError, LuaFloat, LuaInteger, LuaThread, ResultCount,
     SHORT_STRING_MAX_BYTES, StringInterner, Table, ThreadStatus, TraceFrame, Value,
 };
 
@@ -71,6 +71,11 @@ impl<'a> NativeContext<'a> {
         Ok(self.strings.intern_short_value(bytes))
     }
 
+    /// Allocates a Lua string in the current runtime and returns it as a Lua value.
+    pub fn intern_string(&mut self, bytes: impl AsRef<[u8]>) -> Value {
+        self.strings.intern_value(bytes)
+    }
+
     /// Registers a native function in the current runtime and returns it as a Lua value.
     pub fn create_native_function<F>(&mut self, function: F) -> Value
     where
@@ -86,6 +91,12 @@ impl<'a> NativeContext<'a> {
     #[must_use]
     pub fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
         self.strings.short_string_bytes(value)
+    }
+
+    /// Returns bytes for a string owned by this runtime.
+    #[must_use]
+    pub fn string_bytes(&self, value: Value) -> Option<&[u8]> {
+        self.strings.string_bytes(value)
     }
 
     /// Allocates a runtime-owned Lua table from raw key/value entries.
@@ -594,11 +605,31 @@ impl RuntimeStrings {
         Value::short_string(self.interner.intern_short(&mut self.arena, bytes))
     }
 
+    /// Allocates a string and returns it as a Lua value.
+    pub fn intern_value(&mut self, bytes: impl AsRef<[u8]>) -> Value {
+        let bytes = bytes.as_ref();
+        if bytes.len() <= SHORT_STRING_MAX_BYTES {
+            return self.intern_short_value(bytes);
+        }
+        Value::long_string(self.arena.allocate(LongString::new(bytes)))
+    }
+
     fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
         let string = value.as_short_string()?;
         // SAFETY: Primitive execution only creates short-string values through
         // this `RuntimeStrings` arena/interner, and `self` owns that storage for
         // at least as long as returned runtime values can be inspected.
+        Some(unsafe { string.as_ref() }.as_bytes())
+    }
+
+    fn string_bytes(&self, value: Value) -> Option<&[u8]> {
+        if let Some(bytes) = self.short_string_bytes(value) {
+            return Some(bytes);
+        }
+        let string = value.as_long_string()?;
+        // SAFETY: Primitive execution only creates long-string values through
+        // this `RuntimeStrings` arena, and `self` owns that storage for at least
+        // as long as returned runtime values can be inspected.
         Some(unsafe { string.as_ref() }.as_bytes())
     }
 }
@@ -842,12 +873,7 @@ fn seed_initial_field_value(
 ) -> RuntimeResult<Value> {
     match value {
         InitialFieldValue::Value(value) => Ok(*value),
-        InitialFieldValue::ShortString(bytes) => {
-            if bytes.len() > SHORT_STRING_MAX_BYTES {
-                return Err(RuntimeErrorKind::GlobalNameTooLong.into());
-            }
-            Ok(strings.intern_short_value(bytes))
-        }
+        InitialFieldValue::String(bytes) => Ok(strings.intern_value(bytes)),
         InitialFieldValue::Table(fields) => {
             let mut table = Table::new();
             for field in fields {

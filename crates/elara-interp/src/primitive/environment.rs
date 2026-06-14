@@ -71,7 +71,7 @@ impl RuntimeEnvironment {
                     })
                     .chain(string_fields.into_iter().map(|(name, bytes)| InitialField {
                         name: name.into(),
-                        value: InitialFieldValue::ShortString(bytes.into()),
+                        value: InitialFieldValue::String(bytes.into()),
                     }))
                     .collect(),
             ),
@@ -106,7 +106,7 @@ impl RuntimeEnvironment {
                     })
                     .chain(string_fields.into_iter().map(|(name, bytes)| InitialField {
                         name: name.into(),
-                        value: InitialFieldValue::ShortString(bytes.into()),
+                        value: InitialFieldValue::String(bytes.into()),
                     }))
                     .chain(empty_table_fields.into_iter().map(|name| InitialField {
                         name: name.into(),
@@ -209,6 +209,6 @@ impl InitialField {
 #[derive(Clone)]
 pub(super) enum InitialFieldValue {
     Value(Value),
-    ShortString(Box<[u8]>),
+    String(Box<[u8]>),
     Table(Vec<InitialField>),
 }

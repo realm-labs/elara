@@ -12,8 +12,18 @@ pub trait NativeRuntime {
     /// Interns a short Lua string in the current runtime.
     fn intern_short_string(&mut self, bytes: &[u8]) -> Result<Value, NativeError>;
 
+    /// Allocates a Lua string in the current runtime.
+    fn intern_string(&mut self, bytes: &[u8]) -> Result<Value, NativeError> {
+        self.intern_short_string(bytes)
+    }
+
     /// Returns bytes for a short Lua string owned by this runtime.
     fn short_string_bytes(&self, value: Value) -> Option<&[u8]>;
+
+    /// Returns bytes for a Lua string owned by this runtime.
+    fn string_bytes(&self, value: Value) -> Option<&[u8]> {
+        self.short_string_bytes(value)
+    }
 
     /// Allocates a runtime-owned Lua table from raw key/value entries.
     fn create_table(&mut self, _entries: &[(Value, Value)]) -> Result<Value, NativeError> {

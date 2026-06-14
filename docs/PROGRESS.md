@@ -103,6 +103,9 @@ runtime table metatable links, traverse raw runtime table entries, write host
 output for `print`, and return registered native helper functions for iterator
 factories, perform protected calls of runtime callable values, and register
 callable native functions during execution.
+The primitive runtime and API native bridge can now allocate and inspect
+runtime-owned long strings as well as short strings, and initial global table
+string fields can be seeded with long string values.
 `elara-stdlib` native functions now receive a crate-local `NativeRuntime` trait,
 and the API bridge adapts it to the interpreter context without making stdlib
 depend on interpreter internals. Remaining executable base, table, math, and
@@ -428,6 +431,7 @@ Completed:
   - M18.1 executable C-locale subset `os.setlocale`.
   - M18.1 executable `os.date` UTC table format.
   - M18.1 `package.searchers` table field registration.
+  - M18.1 native/runtime long string allocation support.
 
 In progress:
   - JIT.
@@ -1088,12 +1092,15 @@ M17 is complete.
 
 ## Last Verification
 
-M18.1 `package.searchers` table verification passed:
+M18.1 native/runtime long string verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-api package_state_tables
+cargo test -p elara-interp long_string
+cargo test -p elara-interp
 cargo test -p elara-api
+cargo clippy -p elara-interp --all-targets -- -D warnings
+cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 cargo test --workspace
 ```
