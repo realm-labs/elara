@@ -53,6 +53,7 @@ pub struct JitRuntimeStats {
 #[derive(Default)]
 pub struct JitRuntime {
     mode: JitRuntimeMode,
+    debug_hooks_active: bool,
     entries: HashMap<usize, ProtoJitEntry>,
     stats: JitRuntimeStats,
 }
@@ -63,6 +64,7 @@ impl JitRuntime {
     pub fn new(mode: JitRuntimeMode) -> Self {
         Self {
             mode,
+            debug_hooks_active: false,
             entries: HashMap::new(),
             stats: JitRuntimeStats::default(),
         }
@@ -78,6 +80,17 @@ impl JitRuntime {
     #[must_use]
     pub const fn stats(&self) -> JitRuntimeStats {
         self.stats
+    }
+
+    /// Returns whether active debug hooks force interpreter execution.
+    #[must_use]
+    pub const fn debug_hooks_active(&self) -> bool {
+        self.debug_hooks_active
+    }
+
+    /// Sets whether active debug hooks should force interpreter execution.
+    pub const fn set_debug_hooks_active(&mut self, active: bool) {
+        self.debug_hooks_active = active;
     }
 
     /// Returns the current JIT entry status for a Proto.
@@ -98,6 +111,10 @@ impl JitRuntime {
 
     /// Executes a Proto through the configured baseline JIT transition path.
     pub fn execute(&mut self, proto: &Proto) -> RuntimeResult<Vec<Value>> {
+        if self.debug_hooks_active {
+            return self.execute_interpreter(proto);
+        }
+
         match self.mode {
             JitRuntimeMode::Off => self.execute_interpreter(proto),
             JitRuntimeMode::Always => self.execute_always(proto),
@@ -287,6 +304,40 @@ mod tests {
         assert_eq!(runtime.stats().compile_successes, 0);
         assert_eq!(runtime.stats().fallback_runs, 1);
         assert_eq!(runtime.stats().jit_runs, 0);
+    }
+
+    #[test]
+    fn jit_transition_debug_hooks_force_interpreter_without_compiling() {
+        let proto = arithmetic_proto();
+        let mut runtime = JitRuntime::new(JitRuntimeMode::Always);
+        runtime.set_debug_hooks_active(true);
+
+        assert!(runtime.debug_hooks_active());
+        assert_eq!(runtime.execute(&proto), execute_proto(&proto));
+        assert_eq!(runtime.entry_status(&proto), JitEntryStatus::Cold);
+        assert_eq!(runtime.hot_count(&proto), 0);
+        assert_eq!(runtime.stats().interpreter_runs, 1);
+        assert_eq!(runtime.stats().compile_attempts, 0);
+        assert_eq!(runtime.stats().jit_runs, 0);
+    }
+
+    #[test]
+    fn jit_transition_resumes_after_debug_hooks_clear() {
+        let proto = arithmetic_proto();
+        let mut runtime = JitRuntime::new(JitRuntimeMode::Always);
+        runtime.set_debug_hooks_active(true);
+
+        assert_eq!(runtime.execute(&proto), execute_proto(&proto));
+        runtime.set_debug_hooks_active(false);
+
+        assert!(!runtime.debug_hooks_active());
+        assert_eq!(runtime.execute(&proto), execute_proto(&proto));
+        assert_eq!(runtime.entry_status(&proto), JitEntryStatus::Compiled);
+        assert_eq!(runtime.hot_count(&proto), 1);
+        assert_eq!(runtime.stats().interpreter_runs, 1);
+        assert_eq!(runtime.stats().compile_attempts, 1);
+        assert_eq!(runtime.stats().compile_successes, 1);
+        assert_eq!(runtime.stats().jit_runs, 1);
     }
 
     fn arithmetic_proto() -> Proto {
