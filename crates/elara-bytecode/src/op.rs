@@ -134,6 +134,8 @@ pub enum Op {
     Concat,
     /// Yield from the current coroutine.
     Yield,
+    /// Add a register and an unsigned integer immediate.
+    AddInt,
 }
 
 impl Op {
@@ -194,6 +196,7 @@ impl Op {
             50 => Some(Self::LoadString),
             51 => Some(Self::Concat),
             52 => Some(Self::Yield),
+            53 => Some(Self::AddInt),
             _ => None,
         }
     }
@@ -255,6 +258,7 @@ impl Op {
             Self::LoadString => "LOAD_STRING",
             Self::Concat => "CONCAT",
             Self::Yield => "YIELD",
+            Self::AddInt => "ADD_INT",
         }
     }
 }
@@ -365,7 +369,8 @@ mod tests {
         assert_eq!(Op::from_byte(50), Some(Op::LoadString));
         assert_eq!(Op::from_byte(51), Some(Op::Concat));
         assert_eq!(Op::from_byte(52), Some(Op::Yield));
-        assert_eq!(Op::from_byte(53), None);
+        assert_eq!(Op::from_byte(53), Some(Op::AddInt));
+        assert_eq!(Op::from_byte(54), None);
     }
 
     #[test]
@@ -374,6 +379,7 @@ mod tests {
         assert_eq!(Op::LoadK.mnemonic(), "LOAD_K");
         assert_eq!(Op::Yield.mnemonic(), "YIELD");
         assert_eq!(Op::VarargTable.mnemonic(), "VARARG_TABLE");
+        assert_eq!(Op::AddInt.mnemonic(), "ADD_INT");
     }
 
     #[test]

@@ -2,7 +2,7 @@ use elara_bytecode::{Instr, Op, ProtoBuilder};
 use elara_core::{LuaThread, Table, Value};
 
 use super::{
-    RuntimeClosure, RuntimeGlobals, RuntimeNatives, RuntimeStrings, RuntimeTables,
+    RuntimeClosure, RuntimeGlobals, RuntimeNatives, RuntimeStrings, RuntimeTables, execute_add_int,
     execute_arithmetic, execute_call, execute_comparison, execute_concat, execute_len,
 };
 
@@ -54,6 +54,39 @@ fn metamethods_arithmetic_calls_left_operand_add() {
     .expect("__add should execute");
 
     assert_eq!(thread.stack_value(2), Some(Value::integer(42)));
+}
+
+#[test]
+fn superinstruction_add_int_calls_left_operand_add() {
+    let mut strings = RuntimeStrings::new();
+    let mut tables = RuntimeTables::new();
+    let table = tables.push_table(Table::new());
+    let add_key = strings.intern_short_value("__add");
+    let mut metatable = Table::new();
+    assert!(metatable.raw_set_value(add_key, Value::closure_index(0)));
+    let metatable = tables.push_table(metatable);
+    tables
+        .set_metatable(table as usize, Some(metatable))
+        .expect("metatable link should be valid");
+    let mut closures = vec![constant_closure(Value::integer(77))];
+    let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
+    let mut thread = LuaThread::new();
+    thread.push_value(Value::table_index(table));
+    thread.push_value(Value::nil());
+
+    execute_add_int(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::AddInt, 1, 0, 5),
+        &mut tables,
+        &mut strings,
+        &natives,
+        &mut globals,
+    )
+    .expect("__add should execute");
+
+    assert_eq!(thread.stack_value(1), Some(Value::integer(77)));
 }
 
 #[test]

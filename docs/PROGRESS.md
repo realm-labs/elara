@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M15 Interpreter Optimization
-Current step: M15.4 Add selected superinstructions
+Current milestone: M16 Cranelift Baseline JIT
+Current step: M16.1 Add JIT crate and feature flag
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -157,6 +157,10 @@ with local safety comments.
 Runtime table storage now maintains version-guarded inline caches for raw and
 integer table reads, uses the same cache path for global reads, and invalidates
 guards through table version changes including runtime metatable updates.
+The bytecode and primitive interpreter now support an `ADD_INT`
+superinstruction for register plus unsigned integer immediate addition,
+including compiler emission, verifier/disassembler coverage, numeric execution,
+and metamethod fallback.
 
 Current state:
 
@@ -323,9 +327,10 @@ Completed:
   - M15.1 Add benchmark harness.
   - M15.2 Optimize VM dispatch and stack access.
   - M15.3 Add inline caches.
+  - M15.4 Add selected superinstructions.
+  - M15 exit criteria validation.
 
 In progress:
-  - Interpreter optimization.
   - JIT.
   - C API.
 ```
@@ -969,23 +974,28 @@ M14 is complete.
 M15.1 is complete.
 M15.2 is complete.
 M15.3 is complete.
+M15.4 is complete.
+M15 is complete.
 
 ## Last Verification
 
-M15.3 inline cache verification passed:
+M15.4 selected-superinstruction verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-interp inline_cache
+cargo test -p elara-bytecode
+cargo test -p elara-compiler
 cargo test -p elara-interp
 cargo bench -p elara-bench
+cargo clippy -p elara-bytecode --all-targets -- -D warnings
+cargo clippy -p elara-compiler --all-targets -- -D warnings
 cargo clippy -p elara-interp --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M15.4 with bytecode frequency analysis, a small number of high-value
-superinstructions, and correct fallback behavior.
+Start M16.1 by adding optional Cranelift JIT crate dependencies, a top-level
+`jit` feature, and the `JitMode::{Off, Hot, Always}` API placeholder.
 
 ## Current Risk Notes
 
@@ -1027,7 +1037,7 @@ superinstructions, and correct fallback behavior.
 | Bytecode model | Initial model complete | Proto, instruction encoding, opcode set, constants, upvalues, debug placeholders, builder, disassembler, and verifier are implemented. |
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
-| Interpreter | M11 coroutine stdlib support complete | Primitive bytecode coroutines can yield/resume across Lua frames, and coroutine stdlib smoke paths execute with documented full-profile gaps. |
+| Interpreter | M15 complete | Primitive bytecode execution includes structured errors, coroutines, close variables, native calls, hot stack helpers, table/global inline caches, and an `ADD_INT` superinstruction. |
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
@@ -1037,4 +1047,4 @@ superinstructions, and correct fallback behavior.
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |
-| Benchmarks | Initial M15 harness complete | Stable custom `cargo bench` runner covers arithmetic, table access, calls, strings, and representative macro workloads. |
+| Benchmarks | M15 baseline complete | Stable custom `cargo bench` runner covers arithmetic, table access, calls, strings, and representative macro workloads; `docs/PERFORMANCE.md` records the current baseline and comparison gaps. |

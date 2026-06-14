@@ -51,6 +51,20 @@ fn arithmetic_executes_integer_addition() {
 }
 
 #[test]
+fn superinstruction_add_int_executes_integer_immediate_addition() {
+    let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
+    let left = builder.add_constant(Value::integer(5));
+    builder.emit_abx(Op::LoadK, 0, u64::from(left));
+    builder.emit_abc(Op::AddInt, 1, 0, 7);
+    builder.emit_abc(Op::Return, 1, 1, 0);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Ok(vec![Value::integer(12)])
+    );
+}
+
+#[test]
 fn arithmetic_executes_float_division() {
     let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
     let left = builder.add_constant(Value::integer(7));

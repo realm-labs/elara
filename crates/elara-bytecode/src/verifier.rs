@@ -163,6 +163,10 @@ impl Verifier<'_> {
                 self.check_register(offset, instr.b());
                 self.check_register(offset, instr.c());
             }
+            Op::AddInt => {
+                self.check_register(offset, instr.a());
+                self.check_register(offset, instr.b());
+            }
             Op::Jmp => self.check_jump(offset, instr),
             Op::ForPrep | Op::ForLoop => {
                 self.check_register(offset, instr.a());

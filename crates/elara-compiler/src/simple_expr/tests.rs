@@ -19,6 +19,18 @@ fn simple_expr_compiles_return_arithmetic() {
 }
 
 #[test]
+fn simple_expr_compiles_add_integer_superinstruction() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "local x = 1\nreturn x + 2");
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_K        A=0 Bx=0 ; 1\n0001 MOVE          A=1 B=0 C=0\n0002 ADD_INT       A=1 B=1 C=2\n0003 RETURN        A=1 B=1 C=0\n",
+    );
+}
+
+#[test]
 fn simple_expr_compiles_unary_arithmetic() {
     let compiled = compile_simple_chunk(SourceId::new(0), "return -1");
     assert_eq!(compiled.diagnostics, Vec::new());
@@ -64,7 +76,7 @@ fn loops_compile_while_with_break() {
 
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 LOAD_K        A=0 Bx=0 ; 0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_BOOL     A=2 B=1 C=0\n0003 TEST          A=2 B=0 C=0\n0004 JMP           A=0 sBx=4\n0005 LOAD_K        A=3 Bx=1 ; 1\n0006 ADD           A=1 B=1 C=3\n0007 JMP           A=0 sBx=1\n0008 JMP           A=0 sBx=-7\n0009 RETURN        A=1 B=1 C=0\n",
+        "0000 LOAD_K        A=0 Bx=0 ; 0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_BOOL     A=2 B=1 C=0\n0003 TEST          A=2 B=0 C=0\n0004 JMP           A=0 sBx=3\n0005 ADD_INT       A=1 B=1 C=1\n0006 JMP           A=0 sBx=1\n0007 JMP           A=0 sBx=-6\n0008 RETURN        A=1 B=1 C=0\n",
     );
 }
 
@@ -79,7 +91,7 @@ fn loops_compile_repeat_until_condition() {
 
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 LOAD_K        A=0 Bx=0 ; 0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_K        A=2 Bx=1 ; 1\n0003 ADD           A=1 B=1 C=2\n0004 LOAD_BOOL     A=3 B=1 C=0\n0005 TEST          A=3 B=0 C=0\n0006 JMP           A=0 sBx=-5\n0007 RETURN        A=1 B=1 C=0\n",
+        "0000 LOAD_K        A=0 Bx=0 ; 0\n0001 MOVE          A=1 B=0 C=0\n0002 ADD_INT       A=1 B=1 C=1\n0003 LOAD_BOOL     A=2 B=1 C=0\n0004 TEST          A=2 B=0 C=0\n0005 JMP           A=0 sBx=-4\n0006 RETURN        A=1 B=1 C=0\n",
     );
 }
 
@@ -186,7 +198,7 @@ fn globals_compile_declaration_assignment_and_read() {
 
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 LOAD_K        A=0 Bx=0 ; 41\n0001 GET_UPVALUE   A=1 B=0 C=0\n0002 LOAD_STRING   A=2 Bx=0 ; \"answer\"\n0003 GET_TABLE     A=3 B=1 C=2\n0004 DECL_GLOBAL   A=3 Bx=1 ; \"answer\"\n0005 GET_UPVALUE   A=4 B=0 C=0\n0006 LOAD_STRING   A=5 Bx=2 ; \"answer\"\n0007 SET_TABLE     A=4 B=5 C=0\n0008 GET_UPVALUE   A=6 B=0 C=0\n0009 LOAD_STRING   A=7 Bx=3 ; \"answer\"\n0010 GET_TABLE     A=8 B=6 C=7\n0011 LOAD_K        A=9 Bx=1 ; 1\n0012 ADD           A=8 B=8 C=9\n0013 GET_UPVALUE   A=10 B=0 C=0\n0014 LOAD_STRING   A=11 Bx=4 ; \"answer\"\n0015 SET_TABLE     A=10 B=11 C=8\n0016 GET_UPVALUE   A=12 B=0 C=0\n0017 LOAD_STRING   A=13 Bx=5 ; \"answer\"\n0018 GET_TABLE     A=14 B=12 C=13\n0019 RETURN        A=14 B=1 C=0\n",
+        "0000 LOAD_K        A=0 Bx=0 ; 41\n0001 GET_UPVALUE   A=1 B=0 C=0\n0002 LOAD_STRING   A=2 Bx=0 ; \"answer\"\n0003 GET_TABLE     A=3 B=1 C=2\n0004 DECL_GLOBAL   A=3 Bx=1 ; \"answer\"\n0005 GET_UPVALUE   A=4 B=0 C=0\n0006 LOAD_STRING   A=5 Bx=2 ; \"answer\"\n0007 SET_TABLE     A=4 B=5 C=0\n0008 GET_UPVALUE   A=6 B=0 C=0\n0009 LOAD_STRING   A=7 Bx=3 ; \"answer\"\n0010 GET_TABLE     A=8 B=6 C=7\n0011 ADD_INT       A=8 B=8 C=1\n0012 GET_UPVALUE   A=9 B=0 C=0\n0013 LOAD_STRING   A=10 Bx=4 ; \"answer\"\n0014 SET_TABLE     A=9 B=10 C=8\n0015 GET_UPVALUE   A=11 B=0 C=0\n0016 LOAD_STRING   A=12 Bx=5 ; \"answer\"\n0017 GET_TABLE     A=13 B=11 C=12\n0018 RETURN        A=13 B=1 C=0\n",
     );
 }
 
@@ -367,7 +379,7 @@ fn locals_compile_local_return() {
     assert_eq!(compiled.diagnostics, Vec::new());
     let proto = compiled.proto.expect("expected compiled proto");
 
-    assert_eq!(proto.constants.len(), 2);
+    assert_eq!(proto.constants.len(), 1);
     assert_eq!(proto.code.last().map(|instr| instr.op()), Some(Op::Return));
     assert!(disassemble(&proto).contains("MOVE"));
 }
@@ -380,7 +392,7 @@ fn locals_compile_assignment() {
 
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 LOAD_K        A=0 Bx=0 ; 1\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_K        A=2 Bx=1 ; 2\n0003 ADD           A=1 B=1 C=2\n0004 RETURN        A=1 B=1 C=0\n",
+        "0000 LOAD_K        A=0 Bx=0 ; 1\n0001 MOVE          A=1 B=0 C=0\n0002 ADD_INT       A=1 B=1 C=2\n0003 RETURN        A=1 B=1 C=0\n",
     );
 }
 
@@ -480,7 +492,7 @@ fn closures_compile_outer_local_capture() {
     assert_eq!(proto.children[0].upvalues.len(), 1);
     assert_snapshot_eq(
         disassemble(&proto.children[0]),
-        "0000 GET_UPVALUE   A=0 B=0 C=0\n0001 LOAD_K        A=1 Bx=0 ; 1\n0002 ADD           A=0 B=0 C=1\n0003 RETURN        A=0 B=1 C=0\n",
+        "0000 GET_UPVALUE   A=0 B=0 C=0\n0001 ADD_INT       A=0 B=0 C=1\n0002 RETURN        A=0 B=1 C=0\n",
     );
 }
 

@@ -21,7 +21,9 @@ use loops::{
     execute_generic_for_call, execute_generic_for_loop, execute_numeric_for_loop,
     prepare_numeric_for,
 };
-use metamethod::{execute_arithmetic, execute_comparison, execute_concat, execute_len};
+use metamethod::{
+    execute_add_int, execute_arithmetic, execute_comparison, execute_concat, execute_len,
+};
 pub use table::RuntimeTables;
 use table::{
     execute_get_index, execute_get_table, execute_new_table, execute_set_index, execute_set_table,
@@ -1067,6 +1069,15 @@ fn execute_instruction(
                 context.globals,
             )?
         }
+        Op::AddInt => execute_add_int(
+            thread,
+            context.closures,
+            instr,
+            context.tables,
+            context.strings,
+            context.natives,
+            context.globals,
+        )?,
         Op::Len => execute_len(
             thread,
             context.closures,

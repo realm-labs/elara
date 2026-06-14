@@ -40,6 +40,35 @@ pub(super) fn execute_arithmetic(
     set_register(thread, instr.a().into(), result)
 }
 
+pub(super) fn execute_add_int(
+    thread: &mut LuaThread,
+    closures: &mut Vec<RuntimeClosure>,
+    instr: Instr,
+    tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
+    natives: &RuntimeNatives,
+    globals: &mut RuntimeGlobals,
+) -> RuntimeResult<()> {
+    let left = register(thread, instr.b() as usize)?;
+    let right = Value::integer(LuaInteger::from(instr.c()));
+    let result = if let Some(result) = binary_arithmetic(Op::Add, left, right) {
+        result
+    } else {
+        call_binary_metamethod(
+            Op::Add,
+            left,
+            right,
+            closures,
+            tables,
+            strings,
+            natives,
+            globals,
+        )?
+        .ok_or(RuntimeErrorKind::NonNumericOperand { op: Op::Add })?
+    };
+    set_register(thread, instr.a().into(), result)
+}
+
 pub(super) fn execute_comparison(
     thread: &mut LuaThread,
     closures: &mut Vec<RuntimeClosure>,

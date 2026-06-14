@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use elara_bytecode::{MAX_B, Op, Proto, ProtoBuilder, UpvalueDesc, verify_proto};
+use elara_bytecode::{MAX_B, MAX_C, Op, Proto, ProtoBuilder, UpvalueDesc, verify_proto};
 use elara_core::{Diagnostic, SourceId, Span, Value};
 use elara_syntax::{
     BinaryOp, Expr, ExprKind, FunctionBody, FunctionScope, NameDecl, Param, StmtKind, UnaryOp,
@@ -535,6 +535,19 @@ impl SimpleCompiler {
         left: &Expr<'_>,
         right: &Expr<'_>,
     ) -> u16 {
+        if op == BinaryOp::Add
+            && let Some(immediate) = add_int_immediate(right)
+        {
+            let left_register = self.compile_expr(left);
+            self.builder.emit_abc(
+                Op::AddInt,
+                left_register,
+                u32::from(left_register),
+                immediate,
+            );
+            return left_register;
+        }
+
         let left_register = self.compile_expr(left);
         let right_register = self.compile_expr(right);
         let bytecode_op = match op {
@@ -605,6 +618,14 @@ impl SimpleCompiler {
             diagnostics: Vec::new(),
         }
     }
+}
+
+fn add_int_immediate(expr: &Expr<'_>) -> Option<u32> {
+    let ExprKind::Integer(text) = expr.kind() else {
+        return None;
+    };
+    let value = text.parse::<u32>().ok()?;
+    (value <= MAX_C).then_some(value)
 }
 
 #[cfg(test)]
