@@ -156,6 +156,14 @@ pub trait NativeRuntime {
         .into())
     }
 
+    /// Creates a callable wrapper around a new runtime-owned coroutine.
+    fn create_coroutine_wrapper(&mut self, _function: Value) -> Result<Value, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support coroutine wrappers".into(),
+        }
+        .into())
+    }
+
     /// Closes a runtime-owned coroutine.
     fn close_coroutine(&mut self, _thread: Value) -> Result<Result<(), Box<str>>, NativeError> {
         Err(NativeErrorKind::RuntimeError {

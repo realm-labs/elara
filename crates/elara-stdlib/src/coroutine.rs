@@ -32,6 +32,7 @@ pub const COROUTINE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         FunctionSpec::new(StdLib::Coroutine, "status"),
         coroutine_status,
     ),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Coroutine, "wrap"), coroutine_wrap),
     NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Coroutine, "yield"),
         coroutine_yield,
@@ -79,6 +80,23 @@ fn coroutine_create(
         .into());
     }
     Ok(vec![runtime.create_coroutine(function)?])
+}
+
+fn coroutine_wrap(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let function = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    if !function.is_closure() {
+        return Err(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "function",
+        }
+        .into());
+    }
+    Ok(vec![runtime.create_coroutine_wrapper(function)?])
 }
 
 fn coroutine_resume(
@@ -181,7 +199,7 @@ mod tests {
 
     use super::{
         COROUTINE_NATIVE_FUNCTIONS, coroutine_close, coroutine_create, coroutine_isyieldable,
-        coroutine_resume, coroutine_running, coroutine_status, coroutine_yield,
+        coroutine_resume, coroutine_running, coroutine_status, coroutine_wrap, coroutine_yield,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -193,6 +211,8 @@ mod tests {
         running: Option<(Value, bool)>,
         yield_result: Result<Vec<Value>, NativeError>,
         yield_calls: Vec<Vec<Value>>,
+        wrapper_calls: Vec<Value>,
+        wrapper_result: Value,
     }
 
     impl Default for TestRuntime {
@@ -205,6 +225,8 @@ mod tests {
                 running: None,
                 yield_result: Ok(Vec::new()),
                 yield_calls: Vec::new(),
+                wrapper_calls: Vec::new(),
+                wrapper_result: Value::native_function_index(99),
             }
         }
     }
@@ -238,6 +260,18 @@ mod tests {
                 .into());
             }
             Ok(self.push_thread(ThreadStatus::Runnable))
+        }
+
+        fn create_coroutine_wrapper(&mut self, function: Value) -> Result<Value, NativeError> {
+            if !function.is_closure() {
+                return Err(NativeErrorKind::TypeError {
+                    index: 1,
+                    expected: "function",
+                }
+                .into());
+            }
+            self.wrapper_calls.push(function);
+            Ok(self.wrapper_result)
         }
 
         fn close_coroutine(&mut self, thread: Value) -> Result<Result<(), Box<str>>, NativeError> {
@@ -342,6 +376,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "resume")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "running")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "yield")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Coroutine, "wrap")));
     }
 
     #[test]
@@ -371,6 +406,17 @@ mod tests {
             runtime.thread_status(thread).expect("thread has status"),
             ThreadStatus::Dead
         );
+    }
+
+    #[test]
+    fn coroutine_wrap_returns_runtime_wrapper() {
+        let mut runtime = TestRuntime::default();
+        let function = Value::closure_index(7);
+
+        let values = coroutine_wrap(&mut runtime, &[function]).expect("wrap should pass");
+
+        assert_eq!(values, vec![Value::native_function_index(99)]);
+        assert_eq!(runtime.wrapper_calls, vec![function]);
     }
 
     #[test]
@@ -570,6 +616,21 @@ mod tests {
 
         assert_eq!(
             coroutine_create(&mut runtime, &[Value::nil()])
+                .expect_err("non-function should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "function"
+            }
+        );
+    }
+
+    #[test]
+    fn coroutine_wrap_requires_function_argument() {
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            coroutine_wrap(&mut runtime, &[Value::nil()])
                 .expect_err("non-function should fail")
                 .kind(),
             &NativeErrorKind::TypeError {

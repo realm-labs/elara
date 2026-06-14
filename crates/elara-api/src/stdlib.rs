@@ -508,6 +508,35 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
         Ok(registry.create(function))
     }
 
+    fn create_coroutine_wrapper(&mut self, function: Value) -> Result<Value, NativeError> {
+        if !function.is_closure() {
+            return Err(NativeErrorKind::TypeError {
+                index: 1,
+                expected: "function",
+            }
+            .into());
+        }
+        let thread = self.create_coroutine(function)?;
+        let thread_index = thread
+            .as_thread_index()
+            .expect("created coroutine must return a thread handle");
+        let helpers = self.helpers.clone();
+        Ok(self.context.create_native_function(move |context, args| {
+            let mut runtime = InterpNativeRuntime {
+                context,
+                random_state: None,
+                helpers: helpers.clone(),
+            };
+            match runtime
+                .resume_coroutine(Value::thread_index(thread_index), args)
+                .map_err(native_error_to_runtime_error)?
+            {
+                Ok(values) => Ok(values),
+                Err(message) => Err(RuntimeErrorKind::NativeFunctionError { message }.into()),
+            }
+        }))
+    }
+
     fn close_coroutine(&mut self, thread: Value) -> Result<Result<(), Box<str>>, NativeError> {
         let registry = self.helpers.coroutine_registry.as_ref().ok_or_else(|| {
             NativeErrorKind::RuntimeError {

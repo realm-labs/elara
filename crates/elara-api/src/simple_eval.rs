@@ -582,6 +582,18 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_exposes_coroutine_wrap() {
+        let profile = StdLibProfile::Custom([StdLib::Coroutine].into_iter().collect());
+
+        let values =
+            eval_simple_source_with_stdlib(SourceId::new(0), "return coroutine.wrap", &profile)
+                .expect("coroutine.wrap should be registered");
+
+        assert_eq!(values.len(), 1);
+        assert!(values[0].is_closure());
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_rejects_coroutine_yield_outside_resume() {
         let profile = StdLibProfile::Custom([StdLib::Coroutine].into_iter().collect());
 
@@ -669,6 +681,20 @@ mod tests {
                 &profile,
             ),
             Ok(vec![Value::boolean(true)])
+        );
+    }
+
+    #[test]
+    fn eval_simple_with_stdlib_executes_coroutine_wrap() {
+        let profile = StdLibProfile::Custom([StdLib::Coroutine].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local function f() return 42 end\nlocal wrapped = coroutine.wrap(f)\nreturn wrapped()",
+                &profile,
+            ),
+            Ok(vec![Value::integer(42)])
         );
     }
 

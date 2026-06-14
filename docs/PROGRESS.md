@@ -846,6 +846,9 @@ Delivered:
 - `coroutine.yield` is registered and delegates through a runtime hook; the
   current API hook reports Lua's outside-coroutine yield error until real
   stdlib coroutine suspension is wired to primitive coroutine execution.
+- `coroutine.wrap` returns a dynamically registered callable native wrapper
+  around a new registry-backed coroutine handle, resumes non-yielding wrapped
+  functions, returns successful values directly, and propagates resume errors.
 - `coroutine.running` returns the current main thread handle and main-thread
   flag through the shared coroutine registry.
 - `coroutine.isyieldable` reports false for the main thread and true for live
@@ -855,8 +858,8 @@ Delivered:
 
 ### Immediate Gaps for M11
 
-- Implement coroutine suspension from `coroutine.yield`, yielding resume, wrap,
-  and full primitive-backed close semantics.
+- Implement coroutine suspension from `coroutine.yield`, yielding resume and
+  wrap behavior, and full primitive-backed close semantics.
 
 ### Product Gaps
 
@@ -882,15 +885,14 @@ M11.2 is complete.
 
 ## Last Verification
 
-M11.3 dynamic native registration verification passed:
+M11.3 `coroutine.wrap` verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-interp
-cargo test -p elara-interp native
-cargo test -p elara-interp primitive::tests::native_context_can_create_callable_native_function
-cargo test -p elara-interp primitive::tests::cloned_native_registries_share_later_registrations
+cargo test -p elara-stdlib coroutine
 cargo test -p elara-api coroutine
+cargo clippy -p elara-stdlib --all-targets -- -D warnings
+cargo clippy -p elara-api --all-targets -- -D warnings
 cargo clippy -p elara-interp --all-targets -- -D warnings
 ```
 
