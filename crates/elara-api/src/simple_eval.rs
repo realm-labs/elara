@@ -1825,6 +1825,25 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_table_sort_accepts_long_strings() {
+        let profile = StdLibProfile::Custom([StdLib::String, StdLib::Table].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local first = string.rep('b', 50)\nlocal second = string.rep('a', 50)\nlocal t = table.pack(first, second)\nlocal _ = table.sort(t)\nreturn string.byte(t[1], 1), string.len(t[1]), string.byte(t[2], 1), string.len(t[2])",
+                &profile,
+            ),
+            Ok(vec![
+                Value::integer(97),
+                Value::integer(50),
+                Value::integer(98),
+                Value::integer(50),
+            ])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_table_sort_comparator() {
         let profile = StdLibProfile::Custom([StdLib::Table].into_iter().collect());
 

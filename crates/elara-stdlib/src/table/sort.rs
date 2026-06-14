@@ -88,10 +88,7 @@ fn compare_values(
     if let (Some(left), Some(right)) = (left.to_float(), right.to_float()) {
         return Ok(left.total_cmp(&right));
     }
-    if let (Some(left), Some(right)) = (
-        runtime.short_string_bytes(left),
-        runtime.short_string_bytes(right),
-    ) {
+    if let (Some(left), Some(right)) = (runtime.string_bytes(left), runtime.string_bytes(right)) {
         return Ok(left.cmp(right));
     }
     Err(NativeErrorKind::RuntimeError {
