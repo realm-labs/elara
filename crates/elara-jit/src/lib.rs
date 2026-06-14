@@ -8,6 +8,7 @@
 
 pub mod abi;
 pub mod arithmetic;
+pub mod runtime;
 
 use cranelift_codegen::{isa, settings, settings::Configurable};
 use cranelift_frontend::FunctionBuilderContext;
@@ -17,6 +18,7 @@ pub use abi::{
     RuntimeHelperId, RuntimeHelperRegistry,
 };
 pub use arithmetic::{ArithmeticJitError, ArithmeticJitFunction, execute_arithmetic_proto};
+pub use runtime::{JitEntryStatus, JitRuntime, JitRuntimeMode, JitRuntimeStats};
 
 /// Baseline JIT configuration placeholder.
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M16 Cranelift Baseline JIT
-Current step: M16.4 Add JIT call integration and hot counters
+Current milestone: M17 JIT Guards, Deoptimization, and Hot Table Paths
+Current step: M17.1 Add guard and deopt metadata
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -170,6 +170,9 @@ that can call registered helpers directly before generated-code integration.
 The baseline JIT can lower a narrow single-return integer arithmetic Proto
 subset to Cranelift, execute generated code through the JIT ABI, and compare
 results against the interpreter for supported arithmetic paths.
+The JIT runtime wrapper now tracks per-Proto hot counters, caches compiled
+arithmetic JIT entries, transitions hot or always-JIT Protos into generated
+code, and falls back to interpreter execution for unsupported JIT paths.
 
 Current state:
 
@@ -341,6 +344,8 @@ Completed:
   - M16.1 Add JIT crate and feature flag.
   - M16.2 Define JIT ABI and runtime helper layer.
   - M16.3 Lower simple arithmetic Protos to Cranelift.
+  - M16.4 Add JIT call integration and hot counters.
+  - M16 exit criteria validation.
 
 In progress:
   - JIT.
@@ -991,14 +996,16 @@ M15 is complete.
 M16.1 is complete.
 M16.2 is complete.
 M16.3 is complete.
+M16.4 is complete.
+M16 is complete.
 
 ## Last Verification
 
-M16.3 arithmetic JIT verification passed:
+M16.4 hot-counter JIT transition verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-jit --features jit arithmetic
+cargo test --workspace --features jit jit_transition
 cargo test -p elara-jit --features jit
 cargo clippy -p elara-jit --all-targets --features jit -- -D warnings
 cargo test --workspace --features jit
@@ -1006,8 +1013,8 @@ cargo test --workspace --features jit
 
 ## Next Recommended Action
 
-Continue M16.4 by adding Proto hot counters, interpreter-to-JIT transition
-plumbing, and JIT-to-interpreter fallback for unsupported paths.
+Start M17.1 by adding deoptimization metadata structures, live-register sync
+metadata, and tests for deopt handoff back to the interpreter.
 
 ## Current Risk Notes
 
@@ -1057,6 +1064,6 @@ plumbing, and JIT-to-interpreter fallback for unsupported paths.
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
-| JIT | M16.3 complete | Optional Cranelift dependencies, `jit` feature plumbing, `JitMode` API placeholder, baseline ABI, helper registry, and simple integer arithmetic Cranelift lowering are implemented. |
+| JIT | M16 complete | Optional Cranelift dependencies, `jit` feature plumbing, `JitMode` API placeholder, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, and interpreter fallback are implemented. |
 | C API | Not started | Starts M19, optional/current-version only. |
 | Benchmarks | M15 baseline complete | Stable custom `cargo bench` runner covers arithmetic, table access, calls, strings, and representative macro workloads; `docs/PERFORMANCE.md` records the current baseline and comparison gaps. |
