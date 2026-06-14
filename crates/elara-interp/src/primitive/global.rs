@@ -24,11 +24,8 @@ impl RuntimeGlobals {
         Value::table_index(self.table_index)
     }
 
-    fn get(&self, key: Value, tables: &RuntimeTables) -> RuntimeResult<Value> {
-        let table = tables
-            .get(self.table_index as usize)
-            .ok_or(RuntimeErrorKind::NonTableValue)?;
-        Ok(table.raw_get_value(key))
+    fn get(&self, key: Value, tables: &mut RuntimeTables) -> RuntimeResult<Value> {
+        tables.raw_get_cached(self.table_index as usize, key)
     }
 
     fn set(&mut self, key: Value, value: Value, tables: &mut RuntimeTables) -> RuntimeResult<()> {
@@ -60,7 +57,7 @@ pub(super) fn execute_get_env(
     name: &[u8],
     globals: &RuntimeGlobals,
     strings: &mut RuntimeStrings,
-    tables: &RuntimeTables,
+    tables: &mut RuntimeTables,
 ) -> RuntimeResult<()> {
     let key = global_key(name, strings)?;
     set_register(thread, instr.a().into(), globals.get(key, tables)?)

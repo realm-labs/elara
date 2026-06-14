@@ -161,6 +161,11 @@ impl Table {
         self.bump_version();
     }
 
+    /// Invalidates version-guarded runtime caches for this table.
+    pub fn invalidate_runtime_caches(&mut self) {
+        self.bump_version();
+    }
+
     /// Updates the metatable reference.
     ///
     /// This invalidates metatable cache flags and bumps the table version only

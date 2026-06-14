@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M15 Interpreter Optimization
-Current step: M15.3 Add inline caches
+Current step: M15.4 Add selected superinstructions
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -154,6 +154,9 @@ workloads for accumulator, table-build/sum, and string-pattern paths.
 The primitive interpreter now initializes register stacks with a single resize
 and routes hot register reads/writes through checked-once unsafe stack helpers
 with local safety comments.
+Runtime table storage now maintains version-guarded inline caches for raw and
+integer table reads, uses the same cache path for global reads, and invalidates
+guards through table version changes including runtime metatable updates.
 
 Current state:
 
@@ -319,6 +322,7 @@ Completed:
   - M14 exit criteria validation.
   - M15.1 Add benchmark harness.
   - M15.2 Optimize VM dispatch and stack access.
+  - M15.3 Add inline caches.
 
 In progress:
   - Interpreter optimization.
@@ -964,24 +968,24 @@ M14.4 is complete.
 M14 is complete.
 M15.1 is complete.
 M15.2 is complete.
+M15.3 is complete.
 
 ## Last Verification
 
-M15.2 dispatch and stack optimization verification passed:
+M15.3 inline cache verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo bench -p elara-bench
-cargo test -p elara-core thread_stack_resize
+cargo test -p elara-interp inline_cache
 cargo test -p elara-interp
-cargo clippy -p elara-core --all-targets -- -D warnings
+cargo bench -p elara-bench
 cargo clippy -p elara-interp --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M15.3 with table/global access inline caches, metatable version guards,
-and invalidation on table version changes.
+Continue M15.4 with bytecode frequency analysis, a small number of high-value
+superinstructions, and correct fallback behavior.
 
 ## Current Risk Notes
 

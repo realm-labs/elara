@@ -19,15 +19,50 @@ const NEWINDEX_METAMETHOD: &str = "__newindex";
 pub struct RuntimeTables {
     tables: Vec<Table>,
     metatables: Vec<Option<u32>>,
+    inline_caches: Box<TableInlineCaches>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct InlineCacheStats {
+    pub hits: usize,
+    pub misses: usize,
+}
+
+#[derive(Default)]
+struct TableInlineCaches {
+    raw_get: Option<RawGetCache>,
+    integer_get: Option<IntegerGetCache>,
+    stats: InlineCacheStats,
+}
+
+#[derive(Clone, Copy)]
+struct RawGetCache {
+    table_index: usize,
+    table_version: u32,
+    key: Value,
+    value: Value,
+}
+
+#[derive(Clone, Copy)]
+struct IntegerGetCache {
+    table_index: usize,
+    table_version: u32,
+    key: LuaInteger,
+    value: Value,
 }
 
 impl RuntimeTables {
     /// Creates empty runtime table storage.
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             tables: Vec::new(),
             metatables: Vec::new(),
+            inline_caches: Box::new(TableInlineCaches {
+                raw_get: None,
+                integer_get: None,
+                stats: InlineCacheStats { hits: 0, misses: 0 },
+            }),
         }
     }
 
@@ -61,6 +96,12 @@ impl RuntimeTables {
         self.metatables.get(index).copied().flatten()
     }
 
+    /// Inline cache statistics.
+    #[must_use]
+    pub const fn inline_cache_stats(&self) -> InlineCacheStats {
+        self.inline_caches.stats
+    }
+
     /// Sets a runtime table's metatable placeholder index.
     pub fn set_metatable(&mut self, index: usize, metatable: Option<u32>) -> RuntimeResult<()> {
         if index >= self.tables.len() {
@@ -71,7 +112,11 @@ impl RuntimeTables {
         {
             return Err(RuntimeErrorKind::NonTableValue.into());
         }
+        if self.metatables[index] == metatable {
+            return Ok(());
+        }
         self.metatables[index] = metatable;
+        self.tables[index].invalidate_runtime_caches();
         Ok(())
     }
 
@@ -104,6 +149,36 @@ impl RuntimeTables {
         Ok(table.raw_get_value(key))
     }
 
+    pub(super) fn raw_get_cached(
+        &mut self,
+        table_index: usize,
+        key: Value,
+    ) -> RuntimeResult<Value> {
+        let table = self
+            .tables
+            .get(table_index)
+            .ok_or(RuntimeErrorKind::NonTableValue)?;
+        let table_version = table.version();
+        if let Some(cache) = self.inline_caches.raw_get
+            && cache.table_index == table_index
+            && cache.table_version == table_version
+            && cache.key == key
+        {
+            self.inline_caches.stats.hits += 1;
+            return Ok(cache.value);
+        }
+
+        let value = table.raw_get_value(key);
+        self.inline_caches.raw_get = Some(RawGetCache {
+            table_index,
+            table_version,
+            key,
+            value,
+        });
+        self.inline_caches.stats.misses += 1;
+        Ok(value)
+    }
+
     fn raw_set(&mut self, table_index: usize, key: Value, value: Value) -> RuntimeResult<()> {
         let table = self
             .tables
@@ -122,6 +197,36 @@ impl RuntimeTables {
             .get(table_index)
             .ok_or(RuntimeErrorKind::NonTableValue)?;
         Ok(table.raw_get_integer(key))
+    }
+
+    fn raw_get_integer_cached(
+        &mut self,
+        table_index: usize,
+        key: LuaInteger,
+    ) -> RuntimeResult<Value> {
+        let table = self
+            .tables
+            .get(table_index)
+            .ok_or(RuntimeErrorKind::NonTableValue)?;
+        let table_version = table.version();
+        if let Some(cache) = self.inline_caches.integer_get
+            && cache.table_index == table_index
+            && cache.table_version == table_version
+            && cache.key == key
+        {
+            self.inline_caches.stats.hits += 1;
+            return Ok(cache.value);
+        }
+
+        let value = table.raw_get_integer(key);
+        self.inline_caches.integer_get = Some(IntegerGetCache {
+            table_index,
+            table_version,
+            key,
+            value,
+        });
+        self.inline_caches.stats.misses += 1;
+        Ok(value)
     }
 
     fn raw_set_integer(
@@ -152,7 +257,7 @@ impl RuntimeTables {
     ) -> RuntimeResult<Value> {
         let mut current = table_index;
         for _ in 0..MAX_TAG_METHOD_CHAIN {
-            let value = self.raw_get(current, key)?;
+            let value = self.raw_get_cached(current, key)?;
             if !value.is_nil() {
                 return Ok(value);
             }
@@ -338,7 +443,7 @@ pub(super) fn execute_get_index(
         .as_table_index()
         .ok_or(RuntimeErrorKind::NonTableValue)? as usize;
     let key = LuaInteger::from(instr.c());
-    let value = tables.raw_get_integer(table_index, key)?;
+    let value = tables.raw_get_integer_cached(table_index, key)?;
     let value = if value.is_nil() {
         tables.get_with_index(
             table_index,
@@ -421,6 +526,84 @@ mod tests {
             Err(RuntimeErrorKind::NonTableValue.into())
         );
         assert_eq!(tables.metatable(table as usize), None);
+    }
+
+    #[test]
+    fn inline_cache_records_raw_get_hits_and_misses() {
+        let key = Value::boolean(true);
+        let mut table = Table::new();
+        assert!(table.raw_set_value(key, Value::integer(1)));
+        let mut tables = RuntimeTables::new();
+        let table = tables.push_table(table) as usize;
+
+        assert_eq!(tables.raw_get_cached(table, key), Ok(Value::integer(1)));
+        assert_eq!(tables.raw_get_cached(table, key), Ok(Value::integer(1)));
+
+        let stats = tables.inline_cache_stats();
+        assert_eq!(stats.hits, 1);
+        assert_eq!(stats.misses, 1);
+    }
+
+    #[test]
+    fn inline_cache_invalidates_on_table_version_change() {
+        let key = Value::boolean(true);
+        let mut table = Table::new();
+        assert!(table.raw_set_value(key, Value::integer(1)));
+        let mut tables = RuntimeTables::new();
+        let table = tables.push_table(table) as usize;
+
+        assert_eq!(tables.raw_get_cached(table, key), Ok(Value::integer(1)));
+        assert_eq!(tables.raw_get_cached(table, key), Ok(Value::integer(1)));
+        tables
+            .raw_set(table, key, Value::integer(2))
+            .expect("table write should succeed");
+        assert_eq!(tables.raw_get_cached(table, key), Ok(Value::integer(2)));
+
+        let stats = tables.inline_cache_stats();
+        assert_eq!(stats.hits, 1);
+        assert_eq!(stats.misses, 2);
+    }
+
+    #[test]
+    fn inline_cache_records_integer_get_hits() {
+        let mut table = Table::new();
+        assert!(table.raw_set_integer(1, Value::integer(7)));
+        let mut tables = RuntimeTables::new();
+        let table = tables.push_table(table) as usize;
+
+        assert_eq!(
+            tables.raw_get_integer_cached(table, 1),
+            Ok(Value::integer(7))
+        );
+        assert_eq!(
+            tables.raw_get_integer_cached(table, 1),
+            Ok(Value::integer(7))
+        );
+
+        let stats = tables.inline_cache_stats();
+        assert_eq!(stats.hits, 1);
+        assert_eq!(stats.misses, 1);
+    }
+
+    #[test]
+    fn inline_cache_invalidates_on_runtime_metatable_change() {
+        let key = Value::boolean(true);
+        let mut table = Table::new();
+        assert!(table.raw_set_value(key, Value::integer(1)));
+        let mut tables = RuntimeTables::new();
+        let table = tables.push_table(table) as usize;
+        let metatable = tables.push_table(Table::new());
+
+        assert_eq!(tables.raw_get_cached(table, key), Ok(Value::integer(1)));
+        assert_eq!(tables.raw_get_cached(table, key), Ok(Value::integer(1)));
+        tables
+            .set_metatable(table, Some(metatable))
+            .expect("metatable link should be valid");
+        assert_eq!(tables.raw_get_cached(table, key), Ok(Value::integer(1)));
+
+        let stats = tables.inline_cache_stats();
+        assert_eq!(stats.hits, 1);
+        assert_eq!(stats.misses, 2);
     }
 
     #[test]
