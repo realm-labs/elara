@@ -188,6 +188,9 @@ and yield/error paths.
 The standard-library descriptor registry now covers the current-version
 `io`, `os`, `package`, and `debug` library surfaces for full profiles while
 leaving host-sensitive executable native registration gated off.
+The `os` standard-library module now exposes executable `difftime` for
+profile-selected runtimes, including stdlib-native tests and public API
+evaluation coverage.
 
 Current state:
 
@@ -367,6 +370,7 @@ Completed:
   - M17.4 Add JIT equivalence suite.
   - M17 exit criteria validation.
   - M18.1 standard-library descriptor surface for host-sensitive libraries.
+  - M18.1 executable `os.difftime`.
 
 In progress:
   - JIT.
@@ -1027,18 +1031,24 @@ M17 is complete.
 
 ## Last Verification
 
-M18.1 standard-library descriptor verification passed:
+M18.1 `os.difftime` verification passed:
 
 ```bash
 cargo fmt --all -- --check
+cargo test -p elara-stdlib os
+cargo test -p elara-api os_difftime
 cargo test -p elara-stdlib
+cargo test -p elara-api
+cargo clippy -p elara-stdlib --all-targets -- -D warnings
+cargo clippy -p elara-api --all-targets -- -D warnings
+cargo test --workspace
 ```
 
 ## Next Recommended Action
 
-Continue M18.1 by wiring executable, profile-gated standard-library behavior
-where the current runtime can support it, starting with low-risk `os` functions
-that do not mutate the host.
+Continue M18.1 by wiring more executable, profile-gated standard-library
+behavior where the current runtime can support it, prioritizing deterministic
+or non-mutating functions before filesystem/process APIs.
 
 ## Current Risk Notes
 
@@ -1084,7 +1094,7 @@ that do not mutate the host.
 | Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
-| Standard library | M18.1 in progress | Base, coroutine, table, math, string, and utf8 executable natives are implemented; full-profile descriptors now include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
+| Standard library | M18.1 in progress | Base, coroutine, table, math, string, utf8, and `os.difftime` executable natives are implemented; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | Initial M12 surface complete | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented. |
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |

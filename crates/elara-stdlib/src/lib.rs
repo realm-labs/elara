@@ -13,6 +13,7 @@ mod coroutine;
 mod math;
 mod native;
 mod number;
+mod os;
 mod string;
 mod table;
 mod utf8;
@@ -24,6 +25,7 @@ pub use native::{
     NativeError, NativeErrorKind, NativeFunctionSpec, NativeResult, NativeRuntime,
     NativeStdFunction,
 };
+pub use os::OS_NATIVE_FUNCTIONS;
 pub use string::{STRING_GMATCH_AUX_NATIVE, STRING_NATIVE_FUNCTIONS};
 pub use table::TABLE_NATIVE_FUNCTIONS;
 pub use utf8::{
@@ -589,6 +591,7 @@ pub const fn native_functions(library: StdLib) -> &'static [NativeFunctionSpec] 
         StdLib::String => STRING_NATIVE_FUNCTIONS,
         StdLib::Table => TABLE_NATIVE_FUNCTIONS,
         StdLib::Utf8 => UTF8_NATIVE_FUNCTIONS,
+        StdLib::Os => OS_NATIVE_FUNCTIONS,
         _ => &[],
     }
 }
@@ -822,11 +825,21 @@ mod tests {
     }
 
     #[test]
-    fn host_sensitive_libraries_are_not_executable_natives_yet() {
+    fn host_sensitive_libraries_without_safe_subset_are_not_executable_natives_yet() {
         assert!(native_functions(StdLib::Io).is_empty());
-        assert!(native_functions(StdLib::Os).is_empty());
         assert!(native_functions(StdLib::Package).is_empty());
         assert!(native_functions(StdLib::Debug).is_empty());
+    }
+
+    #[test]
+    fn os_native_functions_are_discoverable() {
+        let functions = native_functions(StdLib::Os);
+
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Os, "difftime"))
+        );
     }
 
     #[test]

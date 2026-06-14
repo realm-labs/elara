@@ -456,6 +456,16 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_os_difftime() {
+        let profile = StdLibProfile::Custom([StdLib::Os].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(SourceId::new(0), "return os.difftime(20, 8)", &profile,),
+            Ok(vec![Value::float(12.0)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_assert() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 
