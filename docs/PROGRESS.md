@@ -263,6 +263,9 @@ name/value pairs for existing upvalues and `nil` for absent or native upvalues.
 The `debug` standard-library module now also exposes `debug.setupvalue` for
 Lua closures through the same runtime-captured upvalue metadata, returning the
 upvalue name on mutation and `nil` for absent or native upvalues.
+The `elara-stdlib` debug upvalue native tests now live in a focused sibling
+test module so the main debug module remains under the workflow source-size
+limit before more M18.2 debug work.
 The `debug` standard-library module now also exposes clear-only
 `debug.sethook`, accepting absent or nil hooks to disable hooks while rejecting
 callback installation until M18.2 hook support exists.
@@ -566,6 +569,7 @@ Completed:
   - M18.2 initial `debug.getinfo` interpreter frame materialization.
   - M18.2 read-only `debug.getupvalue` for Lua closure upvalues.
   - M18.2 `debug.setupvalue` mutation for Lua closure upvalues.
+  - M18.2 split debug upvalue stdlib-native tests into a focused sibling module.
   - M18.1 clear-only `debug.sethook`.
   - M18.1 pre-userdata `debug.getuservalue` and `debug.setuservalue`.
   - M18.1 safe unsupported process-termination `os.exit`.
@@ -1244,28 +1248,24 @@ M18.1 is complete.
 
 ## Last Verification
 
-M18.2 `debug.setupvalue` validation passed:
+M18.2 debug upvalue stdlib test split validation passed:
 
 ```bash
 cargo fmt --all
+cargo test -p elara-stdlib debug_getupvalue
 cargo test -p elara-stdlib debug_setupvalue
-cargo test -p elara-interp native_context_sets_lua_closure_upvalues
-cargo test -p elara-api --test debug_setupvalue
 cargo test -p elara-stdlib debug
-cargo test -p elara-interp
-cargo test -p elara-api
 cargo fmt --all -- --check
-cargo clippy -p elara-stdlib -p elara-interp -p elara-api --all-targets -- -D warnings
+cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo test --workspace
 cargo test --workspace --features jit debug
 ```
 
 ## Next Recommended Action
 
-Continue M18.2 by splitting the near-limit `elara-stdlib` debug module tests
-before adding more debug natives, then add supported `debug.upvalueid` or
-`debug.getlocal`/`debug.setlocal` behavior while keeping coroutine and JIT
-debug frame behavior explicit until hook/deopt integration is designed.
+Continue M18.2 by adding supported `debug.upvalueid` or
+`debug.getlocal`/`debug.setlocal` behavior, keeping coroutine and JIT debug
+frame behavior explicit until hook/deopt integration is designed.
 
 ## Current Risk Notes
 
@@ -1273,9 +1273,6 @@ debug frame behavior explicit until hook/deopt integration is designed.
 - Do not over-design JIT before bytecode and interpreter semantics exist.
 - Keep `elara-core` independent from parser, compiler, stdlib, and JIT.
 - Keep crate files small and focused as implementation begins.
-- Split `crates/elara-stdlib/src/debug.rs` tests before adding much more debug
-  library behavior; the file is still under 1000 lines but near the hard
-  workflow limit.
 - Keep `docs/PROGRESS.md` concise and current; do not append historical diary entries.
 
 ## Status Table
