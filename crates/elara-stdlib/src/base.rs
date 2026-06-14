@@ -32,6 +32,7 @@ pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "tonumber"), base_tonumber),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "tostring"), base_tostring),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "type"), base_type),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "xpcall"), base_xpcall),
 ];
 
 /// Hidden helper used by `ipairs`.
@@ -161,6 +162,35 @@ fn base_pcall(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
             Value::boolean(false),
             runtime.intern_short_string(message.as_bytes())?,
         ]),
+    }
+}
+
+fn base_xpcall(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let function = args.first().copied().unwrap_or_else(Value::nil);
+    let handler = args.get(1).copied().unwrap_or_else(Value::nil);
+    let call_args = args.get(2..).unwrap_or_default();
+    match runtime.protected_call(function, call_args)? {
+        Ok(values) => {
+            let mut results = Vec::with_capacity(values.len() + 1);
+            results.push(Value::boolean(true));
+            results.extend(values);
+            Ok(results)
+        }
+        Err(message) => {
+            let message = runtime.intern_short_string(message.as_bytes())?;
+            match runtime.protected_call(handler, &[message])? {
+                Ok(values) => {
+                    let mut results = Vec::with_capacity(values.len() + 1);
+                    results.push(Value::boolean(false));
+                    results.extend(values);
+                    Ok(results)
+                }
+                Err(handler_message) => Ok(vec![
+                    Value::boolean(false),
+                    runtime.intern_short_string(handler_message.as_bytes())?,
+                ]),
+            }
+        }
     }
 }
 

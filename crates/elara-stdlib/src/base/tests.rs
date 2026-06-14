@@ -4,7 +4,7 @@ use super::{
     BASE_NATIVE_FUNCTIONS, base_assert, base_error, base_getmetatable, base_ipairs,
     base_ipairs_aux, base_next, base_pairs, base_pcall, base_print, base_rawequal, base_rawget,
     base_rawlen, base_rawset, base_select, base_setmetatable, base_tonumber, base_tostring,
-    base_type,
+    base_type, base_xpcall,
 };
 use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -15,7 +15,7 @@ struct TestRuntime {
     output: Vec<u8>,
     base_next: Value,
     base_ipairs_aux: Value,
-    protected_result: Option<Result<Vec<Value>, Box<str>>>,
+    protected_results: Vec<Result<Vec<Value>, Box<str>>>,
     protected_calls: Vec<(Value, Vec<Value>)>,
 }
 
@@ -28,7 +28,7 @@ impl Default for TestRuntime {
             output: Vec::new(),
             base_next: Value::nil(),
             base_ipairs_aux: Value::nil(),
-            protected_result: None,
+            protected_results: Vec::new(),
             protected_calls: Vec::new(),
         }
     }
@@ -166,10 +166,10 @@ impl NativeRuntime for TestRuntime {
         args: &[Value],
     ) -> Result<Result<Vec<Value>, Box<str>>, NativeError> {
         self.protected_calls.push((function, args.to_vec()));
-        Ok(self
-            .protected_result
-            .take()
-            .unwrap_or_else(|| Err("missing protected result".into())))
+        if self.protected_results.is_empty() {
+            return Ok(Err("missing protected result".into()));
+        }
+        Ok(self.protected_results.remove(0))
     }
 
     fn native_function(&self, library: StdLib, name: &str) -> Result<Value, NativeError> {
@@ -227,12 +227,13 @@ fn base_native_specs_cover_executable_subset() {
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "tonumber")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "tostring")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "type")));
+    assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "xpcall")));
 }
 
 #[test]
 fn base_pcall_returns_true_and_values_for_successful_call() {
     let mut runtime = TestRuntime {
-        protected_result: Some(Ok(vec![Value::integer(42)])),
+        protected_results: vec![Ok(vec![Value::integer(42)])],
         ..TestRuntime::default()
     };
 
@@ -253,7 +254,7 @@ fn base_pcall_returns_true_and_values_for_successful_call() {
 #[test]
 fn base_pcall_returns_false_and_error_message_for_caught_error() {
     let mut runtime = TestRuntime {
-        protected_result: Some(Err("boom".into())),
+        protected_results: vec![Err("boom".into())],
         ..TestRuntime::default()
     };
 
@@ -262,6 +263,63 @@ fn base_pcall_returns_false_and_error_message_for_caught_error() {
     assert_eq!(values[0], Value::boolean(false));
     assert_eq!(
         runtime.short_string_bytes(values[1]),
+        Some(b"boom".as_slice())
+    );
+}
+
+#[test]
+fn base_xpcall_returns_true_and_values_for_successful_call() {
+    let mut runtime = TestRuntime {
+        protected_results: vec![Ok(vec![Value::integer(42)])],
+        ..TestRuntime::default()
+    };
+
+    assert_eq!(
+        call_with_runtime(
+            &mut runtime,
+            base_xpcall,
+            &[
+                Value::native_function_index(3),
+                Value::native_function_index(4),
+                Value::integer(41),
+            ]
+        ),
+        vec![Value::boolean(true), Value::integer(42)]
+    );
+    assert_eq!(
+        runtime.protected_calls,
+        vec![(Value::native_function_index(3), vec![Value::integer(41)])]
+    );
+}
+
+#[test]
+fn base_xpcall_calls_handler_for_caught_error() {
+    let mut runtime = TestRuntime {
+        protected_results: vec![Err("boom".into()), Ok(vec![Value::integer(99)])],
+        ..TestRuntime::default()
+    };
+
+    let values = call_with_runtime(
+        &mut runtime,
+        base_xpcall,
+        &[
+            Value::native_function_index(3),
+            Value::native_function_index(4),
+        ],
+    );
+
+    assert_eq!(values, vec![Value::boolean(false), Value::integer(99)]);
+    assert_eq!(runtime.protected_calls.len(), 2);
+    assert_eq!(
+        runtime.protected_calls[0],
+        (Value::native_function_index(3), vec![])
+    );
+    assert_eq!(
+        runtime.protected_calls[1].0,
+        Value::native_function_index(4)
+    );
+    assert_eq!(
+        runtime.short_string_bytes(runtime.protected_calls[1].1[0]),
         Some(b"boom".as_slice())
     );
 }

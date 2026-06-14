@@ -93,9 +93,9 @@ constants `pi`, `huge`, `maxinteger`, and `mininteger`, and simple source
 evaluation can run with a selected stdlib profile for supported native paths.
 Base stdlib natives `assert`, `error`, `getmetatable`, `ipairs`, `next`, raw
 `pairs`, `pcall`, `print`, `rawequal`, `rawget`, `rawlen`, `rawset`, numeric
-and count forms of `select`, `setmetatable`, `tonumber`, `tostring`, and
-`type` are executable, and API stdlib profile registration now installs base
-natives as direct globals while
+and count forms of `select`, `setmetatable`, `tonumber`, `tostring`, `type`,
+and `xpcall` are executable, and API stdlib profile registration now installs
+base natives as direct globals while
 keeping module libraries table-shaped. Native calls now receive a
 `NativeContext` that can allocate and inspect runtime-owned short strings,
 allocate runtime-owned tables, read/write raw runtime table entries, get/set
@@ -207,6 +207,7 @@ Completed:
   - M11.2 executable base print native spec.
   - M11.2 NativeContext support for protected native calls.
   - M11.2 executable base pcall native spec.
+  - M11.2 executable base xpcall native spec.
   - M11.2 NativeContext support for runtime short strings.
   - M11.2 NativeRuntime abstraction for context-aware stdlib natives.
   - M11.2 NativeContext support for runtime table allocation.
@@ -827,14 +828,12 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable base pcall verification passed:
+M11.2 executable base xpcall verification passed:
 
 ```bash
 cargo fmt --all -- --check
 cargo test -p elara-stdlib base_
-cargo test -p elara-api pcall
-cargo test -p elara-interp native_functions_execute_call
-cargo clippy -p elara-interp --all-targets -- -D warnings
+cargo test -p elara-api xpcall
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
@@ -842,9 +841,8 @@ cargo clippy -p elara-api --all-targets -- -D warnings
 ## Next Recommended Action
 
 Continue M11.2 by filling the remaining executable base and string behavior,
-with `xpcall`, Lua-style callable `string.gmatch` closures, pattern captures,
-replacement captures, and table/function replacements for `gsub` as the next
-known gaps.
+with Lua-style callable `string.gmatch` closures, pattern captures, replacement
+captures, and table/function replacements for `gsub` as the next known gaps.
 
 ## Current Risk Notes
 
