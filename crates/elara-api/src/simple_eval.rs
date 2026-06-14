@@ -1278,6 +1278,25 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_utf8_functions_accept_long_strings() {
+        let profile = StdLibProfile::Custom([StdLib::String, StdLib::Utf8].into_iter().collect());
+        let args = std::iter::repeat_n("97", 50).collect::<Vec<_>>().join(", ");
+        let source = format!(
+            "local value = utf8.char({args})\nreturn string.len(value), utf8.len(value), utf8.codepoint(value, 50), utf8.offset(value, 50)"
+        );
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(SourceId::new(0), &source, &profile),
+            Ok(vec![
+                Value::integer(50),
+                Value::integer(50),
+                Value::integer(97),
+                Value::integer(50),
+            ])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_utf8_codepoint() {
         let profile = StdLibProfile::Custom([StdLib::Utf8].into_iter().collect());
 

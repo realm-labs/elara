@@ -44,7 +44,7 @@ fn utf8_char(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
         }
         encode_utf8(codepoint, &mut output);
     }
-    Ok(vec![runtime.intern_short_string(&output)?])
+    Ok(vec![runtime.intern_string(&output)?])
 }
 
 fn utf8_codepoint(
@@ -389,7 +389,7 @@ fn string_arg(
     value: Value,
     index: usize,
 ) -> Result<&[u8], NativeError> {
-    runtime.short_string_bytes(value).ok_or(
+    runtime.string_bytes(value).ok_or(
         NativeErrorKind::TypeError {
             index,
             expected: "string",
