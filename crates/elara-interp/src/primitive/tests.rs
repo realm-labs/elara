@@ -194,6 +194,32 @@ fn native_functions_register_inside_initial_global_tables() {
 }
 
 #[test]
+fn initial_global_tables_can_seed_string_fields() {
+    let mut environment = RuntimeEnvironment::new();
+    environment.set_global_table_with_string_fields(
+        "utf8",
+        std::iter::empty::<(&str, Value)>(),
+        [("charpattern", b"pattern".as_slice())],
+    );
+
+    let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
+    let module = builder.add_string_constant("utf8");
+    let field = builder.add_string_constant("charpattern");
+    builder.emit_abx(Op::GetEnv, 0, u64::from(module));
+    builder.emit_abx(Op::LoadString, 1, u64::from(field));
+    builder.emit_abc(Op::GetTable, 0, 0, 1);
+    builder.emit_abc(Op::Return, 0, 1, 0);
+
+    let mut output = execute_proto_with_environment(&builder.finish(), environment)
+        .expect("registered string table field should execute");
+    let value = output.values.pop().expect("field should return a value");
+    assert_eq!(
+        output.strings.short_string_bytes(value),
+        Some(b"pattern".as_slice())
+    );
+}
+
+#[test]
 fn native_functions_can_allocate_runtime_strings() {
     let mut environment = RuntimeEnvironment::new();
     environment.register_native_global("label", |context, _args| {

@@ -9,6 +9,9 @@ use crate::{
 const MAX_UNICODE: u32 = 0x10_FFFF;
 const MAX_UTF: u32 = 0x7FFF_FFFF;
 
+/// Pattern matching one UTF-8 byte sequence in a valid UTF-8 string.
+pub const UTF8_CHAR_PATTERN: &[u8] = b"[\0-\x7F\xC2-\xFD][\x80-\xBF]*";
+
 /// Executable UTF-8 library functions currently implemented.
 pub const UTF8_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Utf8, "char"), utf8_char),
@@ -404,8 +407,8 @@ mod tests {
     use elara_core::Value;
 
     use super::{
-        MAX_UTF, UTF8_NATIVE_FUNCTIONS, utf8_char, utf8_codepoint, utf8_codes, utf8_codes_aux_lax,
-        utf8_codes_aux_strict, utf8_len, utf8_offset,
+        MAX_UTF, UTF8_CHAR_PATTERN, UTF8_NATIVE_FUNCTIONS, utf8_char, utf8_codepoint, utf8_codes,
+        utf8_codes_aux_lax, utf8_codes_aux_strict, utf8_len, utf8_offset,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -467,6 +470,11 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "codepoint")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "codes")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "offset")));
+    }
+
+    #[test]
+    fn utf8_char_pattern_matches_lua_definition() {
+        assert_eq!(UTF8_CHAR_PATTERN, b"[\0-\x7F\xC2-\xFD][\x80-\xBF]*");
     }
 
     #[test]

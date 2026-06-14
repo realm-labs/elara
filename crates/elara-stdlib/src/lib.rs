@@ -24,7 +24,10 @@ pub use native::{
 };
 pub use string::{STRING_GMATCH_AUX_NATIVE, STRING_NATIVE_FUNCTIONS};
 pub use table::TABLE_NATIVE_FUNCTIONS;
-pub use utf8::{UTF8_CODES_AUX_LAX_NATIVE, UTF8_CODES_AUX_STRICT_NATIVE, UTF8_NATIVE_FUNCTIONS};
+pub use utf8::{
+    UTF8_CHAR_PATTERN, UTF8_CODES_AUX_LAX_NATIVE, UTF8_CODES_AUX_STRICT_NATIVE,
+    UTF8_NATIVE_FUNCTIONS,
+};
 
 /// One standard-library module that can register itself into a target runtime.
 pub trait Library<Target> {

@@ -14,8 +14,8 @@ mod loops;
 mod metamethod;
 mod table;
 
-use environment::InitialValue;
 pub use environment::RuntimeEnvironment;
+use environment::{InitialFieldValue, InitialValue};
 use global::{RuntimeGlobals, execute_decl_global, execute_get_env, execute_set_env};
 use loops::{
     execute_generic_for_call, execute_generic_for_loop, execute_numeric_for_loop,
@@ -801,11 +801,27 @@ fn seed_initial_value(
             let mut table = Table::new();
             for field in fields {
                 let key = environment_key(field.name(), strings)?;
-                if !table.raw_set_value(key, field.value()) {
+                let value = seed_initial_field_value(field.value(), strings)?;
+                if !table.raw_set_value(key, value) {
                     return Err(RuntimeErrorKind::InvalidTableKey.into());
                 }
             }
             Ok(Value::table_index(tables.push_table(table)))
+        }
+    }
+}
+
+fn seed_initial_field_value(
+    value: &InitialFieldValue,
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<Value> {
+    match value {
+        InitialFieldValue::Value(value) => Ok(*value),
+        InitialFieldValue::ShortString(bytes) => {
+            if bytes.len() > SHORT_STRING_MAX_BYTES {
+                return Err(RuntimeErrorKind::GlobalNameTooLong.into());
+            }
+            Ok(strings.intern_short_value(bytes))
         }
     }
 }

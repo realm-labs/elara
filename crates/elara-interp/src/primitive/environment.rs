@@ -44,15 +44,35 @@ impl RuntimeEnvironment {
         I: IntoIterator<Item = (N, Value)>,
         N: Into<Box<str>>,
     {
+        self.set_global_table_with_string_fields(name, fields, std::iter::empty::<(&str, &[u8])>());
+    }
+
+    /// Registers one initial global table with prebuilt values and runtime-interned string fields.
+    pub fn set_global_table_with_string_fields<I, N, S, SN, B>(
+        &mut self,
+        name: impl Into<Box<str>>,
+        value_fields: I,
+        string_fields: S,
+    ) where
+        I: IntoIterator<Item = (N, Value)>,
+        N: Into<Box<str>>,
+        S: IntoIterator<Item = (SN, B)>,
+        SN: Into<Box<str>>,
+        B: Into<Box<[u8]>>,
+    {
         self.globals.push(InitialGlobal {
             name: name.into(),
             value: InitialValue::Table(
-                fields
+                value_fields
                     .into_iter()
                     .map(|(name, value)| InitialField {
                         name: name.into(),
-                        value,
+                        value: InitialFieldValue::Value(value),
                     })
+                    .chain(string_fields.into_iter().map(|(name, bytes)| InitialField {
+                        name: name.into(),
+                        value: InitialFieldValue::ShortString(bytes.into()),
+                    }))
                     .collect(),
             ),
         });
@@ -134,7 +154,7 @@ pub(super) enum InitialValue {
 #[derive(Clone)]
 pub(super) struct InitialField {
     name: Box<str>,
-    value: Value,
+    value: InitialFieldValue,
 }
 
 impl InitialField {
@@ -142,7 +162,13 @@ impl InitialField {
         self.name.as_bytes()
     }
 
-    pub(super) const fn value(&self) -> Value {
-        self.value
+    pub(super) const fn value(&self) -> &InitialFieldValue {
+        &self.value
     }
+}
+
+#[derive(Clone)]
+pub(super) enum InitialFieldValue {
+    Value(Value),
+    ShortString(Box<[u8]>),
 }

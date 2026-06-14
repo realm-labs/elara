@@ -821,14 +821,15 @@ Delivered:
   zero-offset, and right-after-end character lookups.
 - `utf8.codes` returns strict/lax iterator triplets backed by hidden native
   helpers and works through generic-for execution.
+- `utf8.charpattern` is exposed as a runtime-interned string field, backed by
+  generic initial global table string-field support in the primitive runtime
+  environment.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M11
 
 - Implement coroutine standard functions backed by primitive coroutine support.
-- Complete remaining utf8 library basics beyond `utf8.char`, `utf8.codepoint`,
-  `utf8.codes`, `utf8.len`, and `utf8.offset`.
 
 ### Product Gaps
 
@@ -854,14 +855,16 @@ M11.2 is complete.
 
 ## Last Verification
 
-M11.3 `utf8.codes` verification passed:
+M11.3 `utf8.charpattern` verification passed:
 
 ```bash
 cargo fmt --all -- --check
 cargo test -p elara-stdlib utf8
 cargo test -p elara-api utf8
+cargo test -p elara-interp initial_global
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
+cargo clippy -p elara-interp --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
