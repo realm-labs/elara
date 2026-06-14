@@ -11,6 +11,7 @@ use crate::{
 pub const DEBUG_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Debug, "gethook"), debug_gethook),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Debug, "getinfo"), debug_getinfo),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Debug, "getlocal"), debug_getlocal),
     NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Debug, "getuservalue"),
         debug_getuservalue,
@@ -94,6 +95,35 @@ fn debug_getuservalue(
 ) -> Result<Vec<Value>, NativeError> {
     optional_integer_arg(args, 1, 1)?;
     Ok(vec![Value::nil()])
+}
+
+fn debug_getlocal(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let has_thread_arg = args.first().is_some_and(|value| value.is_thread());
+    let target_index = usize::from(has_thread_arg);
+    let target = args
+        .get(target_index)
+        .copied()
+        .ok_or(NativeErrorKind::MissingArgument {
+            index: target_index + 1,
+        })?;
+    let local_index = integer_arg(args, target_index + 1)?;
+    if target.is_closure() {
+        return Ok(vec![Value::nil()]);
+    }
+    let level = target.as_integer().ok_or(NativeErrorKind::TypeError {
+        index: target_index + 1,
+        expected: "function or integer",
+    })?;
+    Ok(
+        if let Some((name, value)) = runtime.debug_getlocal(level, local_index)? {
+            vec![name, value]
+        } else {
+            vec![Value::nil()]
+        },
+    )
 }
 
 fn debug_getupvalue(
@@ -415,6 +445,8 @@ mod tests {
         registry: Option<Value>,
         debug_info: Option<Value>,
         debug_info_request: Option<(DebugInfoTarget, Option<Vec<u8>>)>,
+        debug_local: Option<(Value, Value)>,
+        debug_local_request: Option<(i64, i64)>,
     }
 
     impl TestRuntime {
@@ -482,6 +514,15 @@ mod tests {
         ) -> Result<Value, crate::NativeError> {
             self.debug_info_request = Some((target, options.map(<[u8]>::to_vec)));
             Ok(self.debug_info.unwrap_or_else(Value::nil))
+        }
+
+        fn debug_getlocal(
+            &mut self,
+            level: i64,
+            local: i64,
+        ) -> Result<Option<(Value, Value)>, crate::NativeError> {
+            self.debug_local_request = Some((level, local));
+            Ok(self.debug_local)
         }
     }
 
@@ -607,6 +648,78 @@ mod tests {
             &NativeErrorKind::TypeError {
                 index: 2,
                 expected: "string",
+            }
+        );
+    }
+
+    #[test]
+    fn debug_getlocal_forwards_level_and_index_queries() {
+        let function = function("getlocal");
+        let mut runtime = TestRuntime::default();
+        let name = runtime.push_string(b"x");
+        runtime.debug_local = Some((name, Value::integer(42)));
+
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1), Value::integer(2)])
+                .expect("debug.getlocal should pass"),
+            vec![name, Value::integer(42)]
+        );
+        assert_eq!(runtime.debug_local_request, Some((1, 2)));
+    }
+
+    #[test]
+    fn debug_getlocal_returns_nil_for_absent_locals_and_function_targets() {
+        let function = function("getlocal");
+        let mut runtime = TestRuntime::default();
+        let target = Value::closure_index(3);
+
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1), Value::integer(9)])
+                .expect("debug.getlocal should pass"),
+            vec![Value::nil()]
+        );
+        assert_eq!(runtime.debug_local_request, Some((1, 9)));
+
+        assert_eq!(
+            function(&mut runtime, &[target, Value::integer(1)])
+                .expect("function-target locals are not materialized yet"),
+            vec![Value::nil()]
+        );
+    }
+
+    #[test]
+    fn debug_getlocal_validates_arguments() {
+        let function = function("getlocal");
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            function(&mut runtime, &[])
+                .expect_err("missing level")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 1 }
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::boolean(false), Value::integer(1)])
+                .expect_err("bad level")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "function or integer",
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1)])
+                .expect_err("missing local index")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 2 }
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1), Value::boolean(false)])
+                .expect_err("bad local index")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "integer",
             }
         );
     }

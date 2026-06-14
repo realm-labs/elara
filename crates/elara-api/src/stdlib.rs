@@ -489,6 +489,16 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
         result.map_err(runtime_error_to_native_error)
     }
 
+    fn debug_getlocal(
+        &mut self,
+        level: i64,
+        local: i64,
+    ) -> Result<Option<(Value, Value)>, NativeError> {
+        self.context
+            .debug_getlocal(level, local)
+            .map_err(runtime_error_to_native_error)
+    }
+
     fn debug_getupvalue(
         &mut self,
         function: Value,

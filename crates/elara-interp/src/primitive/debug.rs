@@ -1,7 +1,7 @@
 //! Debug metadata materialization for primitive execution.
 
 use elara_bytecode::Proto;
-use elara_core::{LuaInteger, Table, Value};
+use elara_core::{LuaInteger, LuaThread, Table, Value};
 
 use super::{
     RuntimeClosure, RuntimeErrorKind, RuntimeNatives, RuntimeResult, RuntimeStrings, RuntimeTables,
@@ -19,6 +19,7 @@ pub(super) struct RuntimeDebugFrame {
     proto: Option<Proto>,
     function: Value,
     kind: RuntimeDebugFrameKind,
+    locals: Vec<Value>,
     pub(super) current_pc: Option<usize>,
 }
 
@@ -28,6 +29,7 @@ impl RuntimeDebugFrame {
             proto: Some(proto),
             function: function.unwrap_or_else(Value::nil),
             kind,
+            locals: Vec::new(),
             current_pc: None,
         }
     }
@@ -39,7 +41,18 @@ impl RuntimeDebugFrame {
                 u32::try_from(native_index).expect("native function index must fit in u32"),
             ),
             kind: RuntimeDebugFrameKind::Native,
+            locals: Vec::new(),
             current_pc: None,
+        }
+    }
+
+    pub(super) fn capture_locals(&mut self, thread: &LuaThread) {
+        self.locals.clear();
+        self.locals.reserve(thread.stack_len());
+        for index in 0..thread.stack_len() {
+            if let Some(value) = thread.stack_value(index) {
+                self.locals.push(value);
+            }
         }
     }
 }
@@ -89,6 +102,52 @@ pub(super) fn info_for_function(
         return info_for_frame(&frame, options, closures, tables, strings);
     }
     Ok(Value::nil())
+}
+
+pub(super) fn get_local(
+    level: i64,
+    local: i64,
+    strings: &mut RuntimeStrings,
+    debug_frames: &[RuntimeDebugFrame],
+) -> RuntimeResult<Option<(Value, Value)>> {
+    let Some(level) = usize::try_from(level).ok() else {
+        return Err(RuntimeErrorKind::NativeFunctionError {
+            message: "level out of range".into(),
+        }
+        .into());
+    };
+    let Some(frame_index) = debug_frames.len().checked_sub(level + 1) else {
+        return Err(RuntimeErrorKind::NativeFunctionError {
+            message: "level out of range".into(),
+        }
+        .into());
+    };
+    let Some(local_index) = local
+        .checked_sub(1)
+        .and_then(|index| usize::try_from(index).ok())
+    else {
+        return Ok(None);
+    };
+    let frame = &debug_frames[frame_index];
+    let Some(proto) = &frame.proto else {
+        return Ok(None);
+    };
+    let Some(pc) = frame.current_pc.and_then(|pc| u32::try_from(pc).ok()) else {
+        return Ok(None);
+    };
+    let Some(local) = proto
+        .debug
+        .local_vars
+        .iter()
+        .filter(|local| local.start_pc <= pc && pc < local.end_pc)
+        .nth(local_index)
+    else {
+        return Ok(None);
+    };
+    let Some(value) = frame.locals.get(usize::from(local.register)).copied() else {
+        return Ok(None);
+    };
+    Ok(Some((strings.intern_value(local.name.as_bytes()), value)))
 }
 
 pub(super) fn get_upvalue(

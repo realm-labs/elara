@@ -124,6 +124,15 @@ pub trait NativeRuntime {
         Ok(Value::nil())
     }
 
+    /// Returns a `debug.getlocal` name/value pair, or nil when absent.
+    fn debug_getlocal(
+        &mut self,
+        _level: i64,
+        _local: i64,
+    ) -> Result<Option<(Value, Value)>, NativeError> {
+        Ok(None)
+    }
+
     /// Returns a `debug.getupvalue` name/value pair, or nil when absent.
     fn debug_getupvalue(
         &mut self,

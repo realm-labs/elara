@@ -223,6 +223,15 @@ impl<'a> NativeContext<'a> {
         )
     }
 
+    /// Returns a captured local name/value pair for a Lua stack level.
+    pub fn debug_getlocal(
+        &mut self,
+        level: i64,
+        local: i64,
+    ) -> RuntimeResult<Option<(Value, Value)>> {
+        debug::get_local(level, local, self.strings, self.debug_frames)
+    }
+
     /// Returns a captured upvalue name/value pair for a Lua function.
     pub fn debug_getupvalue(
         &mut self,
@@ -1033,6 +1042,7 @@ fn execute_proto_with_upvalues(
         }
         if let Some(frame) = context.debug_frames.last_mut() {
             frame.current_pc = Some(pc);
+            frame.capture_locals(&thread);
         }
         let instr = proto.code[pc];
         pc += 1;

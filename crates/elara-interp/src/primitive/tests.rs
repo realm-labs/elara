@@ -152,6 +152,33 @@ fn native_context_materializes_debug_info_for_lua_caller() {
 }
 
 #[test]
+fn native_context_reads_lua_caller_locals() {
+    let mut environment = RuntimeEnvironment::new();
+    environment.register_native_global("capture", |context, _args| {
+        let Some((name, value)) = context.debug_getlocal(1, 1)? else {
+            return Ok(vec![Value::boolean(false)]);
+        };
+        Ok(vec![Value::boolean(
+            context.string_bytes(name) == Some(b"x" as &[u8]) && value == Value::integer(42),
+        )])
+    });
+
+    let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+    let value = builder.add_constant(Value::integer(42));
+    let capture = builder.add_string_constant("capture");
+    builder.emit_abx(Op::LoadK, 0, u64::from(value));
+    builder.add_local_var("x", 0, 1, u32::MAX);
+    builder.emit_abx(Op::GetEnv, 1, u64::from(capture));
+    builder.emit_abc(Op::Call, 1, 1, 1);
+    builder.emit_abc(Op::Return, 1, 1, 0);
+
+    assert_eq!(
+        execute_proto_with_environment(&builder.finish(), environment).map(|output| output.values),
+        Ok(vec![Value::boolean(true)])
+    );
+}
+
+#[test]
 fn native_context_reads_lua_closure_upvalues() {
     let mut environment = RuntimeEnvironment::new();
     environment.register_native_global("capture", |context, args| {
