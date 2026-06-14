@@ -499,6 +499,17 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
             .map_err(runtime_error_to_native_error)
     }
 
+    fn debug_setupvalue(
+        &mut self,
+        function: Value,
+        index: i64,
+        value: Value,
+    ) -> Result<Option<Value>, NativeError> {
+        self.context
+            .debug_setupvalue(function, index, value)
+            .map_err(runtime_error_to_native_error)
+    }
+
     fn table_metatable(&self, table: Value) -> Result<Value, NativeError> {
         self.context.table_metatable(table).map_err(|error| {
             NativeErrorKind::RuntimeError {

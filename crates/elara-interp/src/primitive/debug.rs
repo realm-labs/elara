@@ -121,6 +121,38 @@ pub(super) fn get_upvalue(
     Ok(Some((strings.intern_value(name), value)))
 }
 
+pub(super) fn set_upvalue(
+    function: Value,
+    index: i64,
+    value: Value,
+    closures: &mut [RuntimeClosure],
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<Option<Value>> {
+    let Some(index) = index
+        .checked_sub(1)
+        .and_then(|index| usize::try_from(index).ok())
+    else {
+        return Ok(None);
+    };
+    let Some(closure_index) = function.as_closure_index() else {
+        return Ok(None);
+    };
+    let Some(closure) = closures.get_mut(closure_index as usize) else {
+        return Ok(None);
+    };
+    let Some(slot) = closure.upvalues.get_mut(index) else {
+        return Ok(None);
+    };
+    *slot = value;
+    let name = closure
+        .proto
+        .upvalues
+        .get(index)
+        .and_then(|upvalue| upvalue.name.as_deref())
+        .unwrap_or("?");
+    Ok(Some(strings.intern_value(name)))
+}
+
 fn info_for_frame(
     frame: &RuntimeDebugFrame,
     options: &[u8],

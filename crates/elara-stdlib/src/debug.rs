@@ -27,6 +27,10 @@ pub const DEBUG_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         FunctionSpec::new(StdLib::Debug, "setmetatable"),
         debug_setmetatable,
     ),
+    NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Debug, "setupvalue"),
+        debug_setupvalue,
+    ),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Debug, "sethook"), debug_sethook),
     NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Debug, "setuservalue"),
@@ -103,6 +107,35 @@ fn debug_getupvalue(
     Ok(
         if let Some((name, value)) = runtime.debug_getupvalue(function, index)? {
             vec![name, value]
+        } else {
+            vec![Value::nil()]
+        },
+    )
+}
+
+fn debug_setupvalue(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let function = args
+        .first()
+        .copied()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    if !function.is_closure() {
+        return Err(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "function",
+        }
+        .into());
+    }
+    let index = integer_arg(args, 1)?;
+    let value = args
+        .get(2)
+        .copied()
+        .ok_or(NativeErrorKind::MissingArgument { index: 3 })?;
+    Ok(
+        if let Some(name) = runtime.debug_setupvalue(function, index, value)? {
+            vec![name]
         } else {
             vec![Value::nil()]
         },
@@ -316,6 +349,8 @@ mod tests {
         debug_info_request: Option<(DebugInfoTarget, Option<Vec<u8>>)>,
         debug_upvalue: Option<(Value, Value)>,
         debug_upvalue_request: Option<(Value, i64)>,
+        debug_setupvalue: Option<Value>,
+        debug_setupvalue_request: Option<(Value, i64, Value)>,
     }
 
     impl TestRuntime {
@@ -392,6 +427,16 @@ mod tests {
         ) -> Result<Option<(Value, Value)>, crate::NativeError> {
             self.debug_upvalue_request = Some((function, index));
             Ok(self.debug_upvalue)
+        }
+
+        fn debug_setupvalue(
+            &mut self,
+            function: Value,
+            index: i64,
+            value: Value,
+        ) -> Result<Option<Value>, crate::NativeError> {
+            self.debug_setupvalue_request = Some((function, index, value));
+            Ok(self.debug_setupvalue)
         }
     }
 
@@ -610,6 +655,95 @@ mod tests {
                 index: 2,
                 expected: "integer",
             }
+        );
+    }
+
+    #[test]
+    fn debug_setupvalue_forwards_function_index_and_value() {
+        let function = function("setupvalue");
+        let mut runtime = TestRuntime::default();
+        let target = Value::native_function_index(3);
+        let name = runtime.push_string(b"x");
+        runtime.debug_setupvalue = Some(name);
+
+        assert_eq!(
+            function(
+                &mut runtime,
+                &[target, Value::integer(1), Value::integer(42)]
+            )
+            .expect("debug.setupvalue should pass"),
+            vec![name]
+        );
+        assert_eq!(
+            runtime.debug_setupvalue_request,
+            Some((target, 1, Value::integer(42)))
+        );
+    }
+
+    #[test]
+    fn debug_setupvalue_returns_nil_for_absent_upvalues() {
+        let function = function("setupvalue");
+        let mut runtime = TestRuntime::default();
+        let target = Value::native_function_index(3);
+
+        assert_eq!(
+            function(
+                &mut runtime,
+                &[target, Value::integer(2), Value::integer(99)]
+            )
+            .expect("debug.setupvalue should pass"),
+            vec![Value::nil()]
+        );
+        assert_eq!(
+            runtime.debug_setupvalue_request,
+            Some((target, 2, Value::integer(99)))
+        );
+    }
+
+    #[test]
+    fn debug_setupvalue_validates_arguments() {
+        let function = function("setupvalue");
+        let mut runtime = TestRuntime::default();
+        let target = Value::native_function_index(3);
+
+        assert_eq!(
+            function(&mut runtime, &[])
+                .expect_err("missing function")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 1 }
+        );
+        assert_eq!(
+            function(
+                &mut runtime,
+                &[Value::integer(1), Value::integer(1), Value::nil()]
+            )
+            .expect_err("bad function")
+            .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "function",
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[target])
+                .expect_err("missing index")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 2 }
+        );
+        assert_eq!(
+            function(&mut runtime, &[target, Value::boolean(false), Value::nil()])
+                .expect_err("bad index")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "integer",
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[target, Value::integer(1)])
+                .expect_err("missing value")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 3 }
         );
     }
 

@@ -133,6 +133,16 @@ pub trait NativeRuntime {
         Ok(None)
     }
 
+    /// Sets a `debug.setupvalue` target and returns the upvalue name, or nil when absent.
+    fn debug_setupvalue(
+        &mut self,
+        _function: Value,
+        _index: i64,
+        _value: Value,
+    ) -> Result<Option<Value>, NativeError> {
+        Ok(None)
+    }
+
     /// Returns a traceback string for the current debug frame state.
     fn debug_traceback(
         &mut self,

@@ -227,6 +227,16 @@ impl<'a> NativeContext<'a> {
         debug::get_upvalue(function, index, self.closures, self.strings)
     }
 
+    /// Sets a captured upvalue for a Lua function and returns its name.
+    pub fn debug_setupvalue(
+        &mut self,
+        function: Value,
+        index: i64,
+        value: Value,
+    ) -> RuntimeResult<Option<Value>> {
+        debug::set_upvalue(function, index, value, self.closures, self.strings)
+    }
+
     /// Returns a runtime-owned table's metatable, or nil when absent.
     pub fn table_metatable(&self, table: Value) -> RuntimeResult<Value> {
         let table_index = table
