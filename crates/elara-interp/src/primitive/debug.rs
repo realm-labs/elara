@@ -109,9 +109,10 @@ pub(super) fn get_upvalue(
     let Some(closure) = closures.get(closure_index as usize) else {
         return Ok(None);
     };
-    let Some(value) = closure.upvalues.get(index).copied() else {
+    let Some(upvalue) = closure.upvalues.get(index) else {
         return Ok(None);
     };
+    let value = upvalue.get();
     let name = closure
         .proto
         .upvalues
@@ -140,10 +141,10 @@ pub(super) fn set_upvalue(
     let Some(closure) = closures.get_mut(closure_index as usize) else {
         return Ok(None);
     };
-    let Some(slot) = closure.upvalues.get_mut(index) else {
+    let Some(upvalue) = closure.upvalues.get(index) else {
         return Ok(None);
     };
-    *slot = value;
+    upvalue.set(value);
     let name = closure
         .proto
         .upvalues

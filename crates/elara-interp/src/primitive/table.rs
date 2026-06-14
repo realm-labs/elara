@@ -498,6 +498,7 @@ mod tests {
     use super::{INDEX_METAMETHOD, NEWINDEX_METAMETHOD, RuntimeTables};
     use crate::primitive::{
         RuntimeClosure, RuntimeErrorKind, RuntimeGlobals, RuntimeNatives, RuntimeStrings,
+        RuntimeUpvalue,
     };
 
     fn runtime_globals(tables: &mut RuntimeTables) -> RuntimeGlobals {
@@ -772,7 +773,7 @@ mod tests {
 
         let mut closures = vec![RuntimeClosure {
             proto: function.finish(),
-            upvalues: vec![Value::table_index(sink)],
+            upvalues: vec![RuntimeUpvalue::new(Value::table_index(sink))],
         }];
         let mut metatable = Table::new();
         assert!(metatable.raw_set_value(newindex_key, Value::closure_index(0)));

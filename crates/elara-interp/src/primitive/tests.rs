@@ -234,6 +234,55 @@ fn native_context_sets_lua_closure_upvalues() {
 }
 
 #[test]
+fn sibling_closures_share_parent_stack_upvalue_cells() {
+    let mut environment = RuntimeEnvironment::new();
+    environment.register_native_global("mutate", |context, args| {
+        let Some(name) = args
+            .first()
+            .copied()
+            .map(|function| context.debug_setupvalue(function, 1, Value::integer(42)))
+            .transpose()?
+            .flatten()
+        else {
+            return Ok(Vec::new());
+        };
+        assert_eq!(context.string_bytes(name), Some(b"x" as &[u8]));
+        Ok(Vec::new())
+    });
+
+    let mut first_child = ProtoBuilder::new().with_signature(1, 0, false);
+    first_child.add_upvalue(elara_bytecode::UpvalueDesc::new(Some("x"), true, 0));
+    first_child.emit_abc(Op::GetUpvalue, 0, 0, 0);
+    first_child.emit_abc(Op::Return, 0, 1, 0);
+    let first_child = first_child.finish();
+
+    let mut second_child = ProtoBuilder::new().with_signature(1, 0, false);
+    second_child.add_upvalue(elara_bytecode::UpvalueDesc::new(Some("x"), true, 0));
+    second_child.emit_abc(Op::GetUpvalue, 0, 0, 0);
+    second_child.emit_abc(Op::Return, 0, 1, 0);
+    let second_child = second_child.finish();
+
+    let mut parent = ProtoBuilder::new().with_signature(5, 0, false);
+    let initial = parent.add_constant(Value::integer(41));
+    let mutate = parent.add_string_constant("mutate");
+    parent.emit_abx(Op::LoadK, 0, u64::from(initial));
+    let first_index = parent.add_child(first_child);
+    parent.emit_abx(Op::Closure, 1, u64::from(first_index));
+    let second_index = parent.add_child(second_child);
+    parent.emit_abx(Op::Closure, 2, u64::from(second_index));
+    parent.emit_abx(Op::GetEnv, 3, u64::from(mutate));
+    parent.emit_abc(Op::Move, 4, 1, 0);
+    parent.emit_abc(Op::Call, 3, 2, 1);
+    parent.emit_abc(Op::Call, 2, 1, 1);
+    parent.emit_abc(Op::Return, 2, 1, 0);
+
+    assert_eq!(
+        execute_proto_with_environment(&parent.finish(), environment).map(|output| output.values),
+        Ok(vec![Value::integer(42)])
+    );
+}
+
+#[test]
 fn cloned_native_registries_share_later_registrations() {
     let natives = RuntimeNatives::new();
     let shared = natives.clone();

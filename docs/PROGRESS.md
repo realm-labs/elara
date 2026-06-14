@@ -27,12 +27,13 @@ codegen. VM/thread stack primitives and primitive arithmetic bytecode execution
 are implemented, and simple source chunks can be evaluated through the compile
 and interpreter path. Local variables and assignment basics are implemented.
 Simple function Protos and zero-argument Lua calls are implemented. Closures,
-upvalues, and captured outer local reads are implemented. Anonymous vararg
-functions can receive call arguments and lower `...` for the first requested
-value. Fixed-count Lua calls can receive multiple return values. Named vararg
-tables are compiled to `VARARG_TABLE` and executed through runtime-owned table
-storage. Recursive function self-references compile and evaluate through shared
-runtime closure storage. Conditional branches compile and execute through
+shared runtime upvalue cells, and captured outer local reads are implemented.
+Anonymous vararg functions can receive call arguments and lower `...` for the
+first requested value. Fixed-count Lua calls can receive multiple return values.
+Named vararg tables are compiled to `VARARG_TABLE` and executed through
+runtime-owned table storage. Recursive function self-references compile and
+evaluate through shared runtime closure storage. Conditional branches compile
+and execute through
 `TEST`/`JMP` bytecode. `while`, `repeat`, and `break` compile and execute
 through branch bytecode. Numeric for loops compile and execute for integer and
 float control values with positive and negative steps. Generic for loops compile
@@ -265,6 +266,9 @@ name/value pairs for existing upvalues and `nil` for absent or native upvalues.
 The `debug` standard-library module now also exposes `debug.setupvalue` for
 Lua closures through the same runtime-captured upvalue metadata, returning the
 upvalue name on mutation and `nil` for absent or native upvalues.
+Primitive runtime closures now store upvalues as shared cells, so sibling
+closures that capture the same parent stack slot observe `debug.setupvalue`
+mutations through the same runtime upvalue identity.
 The `elara-stdlib` debug upvalue native tests now live in a focused sibling
 test module so the main debug module remains under the workflow source-size
 limit before more M18.2 debug work.
@@ -573,6 +577,7 @@ Completed:
   - M18.2 `debug.setupvalue` mutation for Lua closure upvalues.
   - M18.2 split debug upvalue stdlib-native tests into a focused sibling module.
   - M18.2 light userdata `Value` representation for debug identity results.
+  - M18.2 shared primitive runtime upvalue cells for debug identity semantics.
   - M18.1 clear-only `debug.sethook`.
   - M18.1 pre-userdata `debug.getuservalue` and `debug.setuservalue`.
   - M18.1 safe unsupported process-termination `os.exit`.
@@ -1251,17 +1256,14 @@ M18.1 is complete.
 
 ## Last Verification
 
-M18.2 light userdata value representation validation passed:
+M18.2 shared runtime upvalue cell validation passed:
 
 ```bash
 cargo fmt --all
-cargo test -p elara-core light_user_data
-cargo test -p elara-core value_equality_matches_lua_primitive_number_rules
-cargo test -p elara-stdlib base_
-cargo test -p elara-core
-cargo test -p elara-stdlib
+cargo test -p elara-interp upvalue
+cargo test -p elara-interp
 cargo fmt --all -- --check
-cargo clippy -p elara-core -p elara-stdlib --all-targets -- -D warnings
+cargo clippy -p elara-interp --all-targets -- -D warnings
 cargo test --workspace
 cargo test --workspace --features jit debug
 ```
@@ -1314,10 +1316,10 @@ integration is designed.
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | M15 complete | Primitive bytecode execution includes structured errors, coroutines, close variables, native calls, hot stack helpers, table/global inline caches, and an `ADD_INT` superinstruction. |
-| Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
+| Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads through shared runtime upvalue cells, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
-| Standard library | M18.1 complete; M18.2 in progress | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path `package.searchers[3]` and `[4]`, `package.searchpath`, no-hook `debug.gethook`, `debug.getinfo` runtime-hook validation and initial current-thread frame materialization, read-only `debug.getupvalue`, `debug.setupvalue`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, clear-only `debug.sethook`, pre-userdata `debug.setuservalue`, and no-frame `debug.traceback` message handling are implemented; debug local inspection/mutation, upvalue identity/joining, coroutine debug frames, hooks, and JIT debug/deopt behavior remain M18.2 work; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
+| Standard library | M18.1 complete; M18.2 in progress | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path `package.searchers[3]` and `[4]`, `package.searchpath`, no-hook `debug.gethook`, `debug.getinfo` runtime-hook validation and initial current-thread frame materialization, read-only `debug.getupvalue`, `debug.setupvalue` over shared runtime upvalue cells, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, clear-only `debug.sethook`, pre-userdata `debug.setuservalue`, and no-frame `debug.traceback` message handling are implemented; debug local inspection/mutation, upvalue identity/joining, coroutine debug frames, hooks, and JIT debug/deopt behavior remain M18.2 work; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | Initial M12 surface complete | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings. |
 | Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |

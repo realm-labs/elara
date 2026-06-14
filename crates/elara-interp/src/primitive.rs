@@ -1,6 +1,11 @@
 //! Primitive bytecode execution.
 
-use std::sync::{Arc, Mutex};
+use std::{
+    cell::Cell,
+    collections::HashMap,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
 use elara_core::{
@@ -378,10 +383,11 @@ pub struct PrimitiveCoroutine {
 #[derive(Debug)]
 pub(super) struct CoroutineFrame {
     proto: Proto,
-    upvalues: Vec<Value>,
+    upvalues: Vec<RuntimeUpvalue>,
     varargs: Vec<Value>,
     pc: usize,
     dynamic_top: usize,
+    open_upvalues: HashMap<usize, RuntimeUpvalue>,
     call_slot: Option<CoroutineCallSlot>,
     yielded_base: Option<usize>,
     tbc_start: usize,
@@ -412,7 +418,7 @@ impl PrimitiveCoroutine {
         let mut tables = RuntimeTables::new();
         let global_table = tables.push_table(Table::new());
         let globals = RuntimeGlobals::new(global_table);
-        let upvalues = vec![globals.value()];
+        let upvalues = vec![RuntimeUpvalue::new(globals.value())];
         let frame = CoroutineFrame::new(proto, upvalues, Vec::new(), None, 0);
 
         Ok(Self {
@@ -527,6 +533,7 @@ impl PrimitiveCoroutine {
                 &frame.proto,
                 &mut self.thread,
                 &frame.upvalues,
+                &mut frame.open_upvalues,
                 &frame.varargs,
                 &mut context,
                 &mut frame.dynamic_top,
@@ -629,7 +636,7 @@ impl PrimitiveCoroutine {
 impl CoroutineFrame {
     fn new(
         proto: Proto,
-        upvalues: Vec<Value>,
+        upvalues: Vec<RuntimeUpvalue>,
         varargs: Vec<Value>,
         call_slot: Option<CoroutineCallSlot>,
         tbc_start: usize,
@@ -640,6 +647,7 @@ impl CoroutineFrame {
             varargs,
             pc: 0,
             dynamic_top: 0,
+            open_upvalues: HashMap::new(),
             call_slot,
             yielded_base: None,
             tbc_start,
@@ -898,9 +906,10 @@ fn execute_proto_with_output_in_mode(
         to_be_closed: &mut to_be_closed,
         debug_frames: &mut debug_frames,
     };
+    let root_upvalues = [RuntimeUpvalue::new(global_value)];
     let values = execute_proto_with_upvalues(
         proto,
-        &[global_value],
+        &root_upvalues,
         &[],
         None,
         RuntimeDebugFrameKind::Main,
@@ -975,7 +984,7 @@ fn environment_key(name: &[u8], strings: &mut RuntimeStrings) -> RuntimeResult<V
 
 fn execute_proto_with_upvalues(
     proto: &Proto,
-    upvalues: &[Value],
+    upvalues: &[RuntimeUpvalue],
     varargs: &[Value],
     function: Option<Value>,
     frame_kind: RuntimeDebugFrameKind,
@@ -993,6 +1002,7 @@ fn execute_proto_with_upvalues(
             CallFrame::new(0, usize::from(proto.max_stack), ResultCount::Multiple).protected(),
         );
     }
+    let mut open_upvalues = HashMap::new();
     let mut dynamic_top = 0;
     let mut pc = 0;
     let result = loop {
@@ -1008,6 +1018,7 @@ fn execute_proto_with_upvalues(
             proto,
             &mut thread,
             upvalues,
+            &mut open_upvalues,
             varargs,
             context,
             &mut dynamic_top,
@@ -1054,7 +1065,8 @@ fn execute_proto_with_upvalues(
 fn execute_instruction(
     proto: &Proto,
     thread: &mut LuaThread,
-    upvalues: &[Value],
+    upvalues: &[RuntimeUpvalue],
+    open_upvalues: &mut HashMap<usize, RuntimeUpvalue>,
     varargs: &[Value],
     context: &mut ExecutionContext<'_>,
     dynamic_top: &mut usize,
@@ -1160,11 +1172,12 @@ fn execute_instruction(
             context.globals,
         )?,
         Op::GetUpvalue => {
-            let value = upvalues.get(instr.b() as usize).copied().ok_or(
-                RuntimeErrorKind::UpvalueOutOfBounds {
+            let value = upvalues
+                .get(instr.b() as usize)
+                .map(RuntimeUpvalue::get)
+                .ok_or(RuntimeErrorKind::UpvalueOutOfBounds {
                     index: instr.b() as usize,
-                },
-            )?;
+                })?;
             set_register(thread, instr.a().into(), value)?;
         }
         Op::Closure => {
@@ -1184,7 +1197,7 @@ fn execute_instruction(
                 instr.a().into(),
                 Value::closure_index(closure_index as u32),
             )?;
-            let captured = capture_upvalues(&child, thread, upvalues)?;
+            let captured = capture_upvalues(&child, thread, upvalues, open_upvalues)?;
             context.closures[closure_index].upvalues = captured;
         }
         Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
@@ -1397,7 +1410,28 @@ fn is_truthy(value: Value) -> bool {
 #[derive(Clone, Debug)]
 pub(crate) struct RuntimeClosure {
     proto: Proto,
-    upvalues: Vec<Value>,
+    upvalues: Vec<RuntimeUpvalue>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct RuntimeUpvalue {
+    value: Rc<Cell<Value>>,
+}
+
+impl RuntimeUpvalue {
+    fn new(value: Value) -> Self {
+        Self {
+            value: Rc::new(Cell::new(value)),
+        }
+    }
+
+    fn get(&self) -> Value {
+        self.value.get()
+    }
+
+    fn set(&self, value: Value) {
+        self.value.set(value);
+    }
 }
 
 pub(super) struct ExecutionContext<'a> {
@@ -1413,16 +1447,24 @@ pub(super) struct ExecutionContext<'a> {
 fn capture_upvalues(
     child: &Proto,
     thread: &LuaThread,
-    parent_upvalues: &[Value],
-) -> RuntimeResult<Vec<Value>> {
+    parent_upvalues: &[RuntimeUpvalue],
+    open_upvalues: &mut HashMap<usize, RuntimeUpvalue>,
+) -> RuntimeResult<Vec<RuntimeUpvalue>> {
     let mut captured = Vec::with_capacity(child.upvalues.len());
     for upvalue in &child.upvalues {
         let value = if upvalue.in_stack {
-            register(thread, usize::from(upvalue.index))?
+            let slot = usize::from(upvalue.index);
+            if let Some(upvalue) = open_upvalues.get(&slot) {
+                upvalue.clone()
+            } else {
+                let upvalue = RuntimeUpvalue::new(register(thread, slot)?);
+                open_upvalues.insert(slot, upvalue.clone());
+                upvalue
+            }
         } else {
             parent_upvalues
                 .get(usize::from(upvalue.index))
-                .copied()
+                .cloned()
                 .ok_or(RuntimeErrorKind::UpvalueOutOfBounds {
                     index: usize::from(upvalue.index),
                 })?
