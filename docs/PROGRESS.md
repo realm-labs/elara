@@ -92,9 +92,10 @@ stdlib native specs, including shared reseedable math RNG state, and simple
 source evaluation can run with a selected stdlib profile for supported native
 paths.
 Base stdlib natives `assert`, `error`, `getmetatable`, `ipairs`, `next`, raw
-`pairs`, `print`, `rawequal`, `rawget`, `rawlen`, `rawset`, numeric `select`,
-`setmetatable`, `tonumber`, `tostring`, and `type` are executable, and API
-stdlib profile registration now installs base natives as direct globals while
+`pairs`, `print`, `rawequal`, `rawget`, `rawlen`, `rawset`, numeric and count
+forms of `select`, `setmetatable`, `tonumber`, `tostring`, and `type` are
+executable, and API stdlib profile registration now installs base natives as
+direct globals while
 keeping module libraries table-shaped. Native calls now receive a
 `NativeContext` that can allocate and inspect runtime-owned short strings,
 allocate runtime-owned tables, read/write raw runtime table entries, get/set
@@ -197,6 +198,7 @@ Completed:
   - M11.2 executable math.random native spec.
   - M11.2 executable math.randomseed native spec.
   - M11.2 executable base assert, rawequal, and numeric select native specs.
+  - M11.2 executable base select count form.
   - M11.2 executable base error native spec.
   - M11.2 executable base getmetatable and setmetatable native specs.
   - M11.2 executable base next native spec.
@@ -820,12 +822,12 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable string frontier pattern verification passed:
+M11.2 executable base select count verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib string
-cargo test -p elara-api eval_simple_with_stdlib_executes_string_frontier_patterns
+cargo test -p elara-stdlib base_select
+cargo test -p elara-api eval_simple_with_stdlib_executes_base_select_count
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```

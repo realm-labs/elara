@@ -591,6 +591,21 @@ fn base_select_returns_positioned_arguments() {
 }
 
 #[test]
+fn base_select_hash_returns_argument_count() {
+    let mut runtime = TestRuntime::default();
+    let hash = runtime.push_string(b"#");
+
+    assert_eq!(
+        call_with_runtime(
+            &mut runtime,
+            base_select,
+            &[hash, Value::integer(1), Value::nil(), Value::integer(3)]
+        ),
+        vec![Value::integer(3)]
+    );
+}
+
+#[test]
 fn base_select_reports_bad_position() {
     assert_eq!(
         base_select(&mut TestRuntime::default(), &[Value::integer(0)])

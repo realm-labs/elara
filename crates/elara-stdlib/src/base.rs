@@ -209,10 +209,20 @@ fn base_rawset(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
     Ok(vec![table])
 }
 
-fn base_select(
-    _runtime: &mut dyn NativeRuntime,
-    args: &[Value],
-) -> Result<Vec<Value>, NativeError> {
+fn base_select(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    if args
+        .first()
+        .and_then(|value| runtime.short_string_bytes(*value))
+        == Some(b"#")
+    {
+        let count = i64::try_from(args.len().saturating_sub(1)).map_err(|_| {
+            NativeErrorKind::RuntimeError {
+                message: "too many arguments to select".into(),
+            }
+        })?;
+        return Ok(vec![Value::integer(count)]);
+    }
+
     let index =
         args.first()
             .and_then(|value| value.as_integer())
