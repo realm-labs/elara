@@ -13,9 +13,22 @@ const MAX_UTF: u32 = 0x7FFF_FFFF;
 pub const UTF8_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Utf8, "char"), utf8_char),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Utf8, "codepoint"), utf8_codepoint),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Utf8, "codes"), utf8_codes),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Utf8, "len"), utf8_len),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Utf8, "offset"), utf8_offset),
 ];
+
+/// Hidden strict helper used by `utf8.codes`.
+pub const UTF8_CODES_AUX_STRICT_NATIVE: NativeFunctionSpec = NativeFunctionSpec::new(
+    FunctionSpec::new(StdLib::Utf8, "__codes_aux_strict"),
+    utf8_codes_aux_strict,
+);
+
+/// Hidden lax helper used by `utf8.codes`.
+pub const UTF8_CODES_AUX_LAX_NATIVE: NativeFunctionSpec = NativeFunctionSpec::new(
+    FunctionSpec::new(StdLib::Utf8, "__codes_aux_lax"),
+    utf8_codes_aux_lax,
+);
 
 fn utf8_char(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let mut output = Vec::new();
@@ -69,6 +82,77 @@ fn utf8_codepoint(
         output.push(Value::integer(i64::from(codepoint)));
     }
     Ok(output)
+}
+
+fn utf8_codes(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let subject_value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let subject = string_arg(runtime, subject_value, 1)?;
+    if subject.first().is_some_and(|byte| is_continuation(*byte)) {
+        return Err(NativeError::lua_error("invalid UTF-8 code"));
+    }
+    let lax = args.get(1).is_some_and(|value| is_truthy(*value));
+    let helper = runtime.native_function(
+        StdLib::Utf8,
+        if lax {
+            "__codes_aux_lax"
+        } else {
+            "__codes_aux_strict"
+        },
+    )?;
+    Ok(vec![helper, subject_value, Value::integer(0)])
+}
+
+fn utf8_codes_aux_strict(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    utf8_codes_aux(runtime, args, true)
+}
+
+fn utf8_codes_aux_lax(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    utf8_codes_aux(runtime, args, false)
+}
+
+fn utf8_codes_aux(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+    strict: bool,
+) -> Result<Vec<Value>, NativeError> {
+    let subject_value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let subject = string_arg(runtime, subject_value, 1)?;
+    let Some(control) = args.get(1).and_then(|value| value.as_integer()) else {
+        return Ok(Vec::new());
+    };
+    if control < 0 {
+        return Ok(Vec::new());
+    }
+    let mut position =
+        usize::try_from(control).map_err(|_| NativeErrorKind::ArgumentOutOfRange { index: 2 })?;
+    if position < subject.len() {
+        while is_continuation_at(subject, position) {
+            position += 1;
+        }
+    }
+    if position >= subject.len() {
+        return Ok(Vec::new());
+    }
+    let Some((next_position, codepoint)) = decode_utf8(subject, position, strict) else {
+        return Err(NativeError::lua_error("invalid UTF-8 code"));
+    };
+    if is_continuation_at(subject, next_position) {
+        return Err(NativeError::lua_error("invalid UTF-8 code"));
+    }
+    Ok(vec![
+        Value::integer(i64::try_from(position + 1).expect("position must fit in LuaInteger")),
+        Value::integer(i64::from(codepoint)),
+    ])
 }
 
 fn utf8_len(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -319,12 +403,26 @@ fn is_truthy(value: Value) -> bool {
 mod tests {
     use elara_core::Value;
 
-    use super::{MAX_UTF, UTF8_NATIVE_FUNCTIONS, utf8_char, utf8_codepoint, utf8_len, utf8_offset};
+    use super::{
+        MAX_UTF, UTF8_NATIVE_FUNCTIONS, utf8_char, utf8_codepoint, utf8_codes, utf8_codes_aux_lax,
+        utf8_codes_aux_strict, utf8_len, utf8_offset,
+    };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
-    #[derive(Default)]
     struct TestRuntime {
         strings: Vec<Box<[u8]>>,
+        codes_aux_strict: Value,
+        codes_aux_lax: Value,
+    }
+
+    impl Default for TestRuntime {
+        fn default() -> Self {
+            Self {
+                strings: Vec::new(),
+                codes_aux_strict: Value::nil(),
+                codes_aux_lax: Value::nil(),
+            }
+        }
     }
 
     impl TestRuntime {
@@ -344,6 +442,17 @@ mod tests {
             let index = value.as_table_index()? as usize;
             self.strings.get(index).map(Box::as_ref)
         }
+
+        fn native_function(&self, library: StdLib, name: &str) -> Result<Value, NativeError> {
+            match (library, name) {
+                (StdLib::Utf8, "__codes_aux_strict") => Ok(self.codes_aux_strict),
+                (StdLib::Utf8, "__codes_aux_lax") => Ok(self.codes_aux_lax),
+                _ => Err(NativeErrorKind::RuntimeError {
+                    message: "unknown native helper".into(),
+                }
+                .into()),
+            }
+        }
     }
 
     #[test]
@@ -356,6 +465,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "len")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "char")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "codepoint")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "codes")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "offset")));
     }
 
@@ -490,6 +600,91 @@ mod tests {
                 .expect_err("large end should fail")
                 .kind(),
             &NativeErrorKind::ArgumentOutOfRange { index: 3 }
+        );
+    }
+
+    #[test]
+    fn utf8_codes_returns_iterator_triplet() {
+        let mut runtime = TestRuntime {
+            codes_aux_strict: Value::native_function_index(11),
+            codes_aux_lax: Value::native_function_index(12),
+            ..TestRuntime::default()
+        };
+        let value = runtime.push_string(b"a\xc3\xa9");
+
+        assert_eq!(
+            utf8_codes(&mut runtime, &[value]).expect("utf8.codes should pass"),
+            vec![Value::native_function_index(11), value, Value::integer(0)]
+        );
+        assert_eq!(
+            utf8_codes(&mut runtime, &[value, Value::boolean(true)])
+                .expect("utf8.codes should pass"),
+            vec![Value::native_function_index(12), value, Value::integer(0)]
+        );
+    }
+
+    #[test]
+    fn utf8_codes_rejects_initial_continuation_byte() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"\x80");
+
+        assert_eq!(
+            utf8_codes(&mut runtime, &[value])
+                .expect_err("initial continuation should fail")
+                .kind(),
+            &NativeErrorKind::LuaError
+        );
+    }
+
+    #[test]
+    fn utf8_codes_aux_iterates_codepoints() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"a\xc3\xa9\xf0\x9d\x84\x9e");
+
+        assert_eq!(
+            utf8_codes_aux_strict(&mut runtime, &[value, Value::integer(0)])
+                .expect("codes aux should pass"),
+            vec![Value::integer(1), Value::integer(0x61)]
+        );
+        assert_eq!(
+            utf8_codes_aux_strict(&mut runtime, &[value, Value::integer(1)])
+                .expect("codes aux should pass"),
+            vec![Value::integer(2), Value::integer(0xe9)]
+        );
+        assert_eq!(
+            utf8_codes_aux_strict(&mut runtime, &[value, Value::integer(2)])
+                .expect("codes aux should pass"),
+            vec![Value::integer(4), Value::integer(0x1d11e)]
+        );
+        assert_eq!(
+            utf8_codes_aux_strict(&mut runtime, &[value, Value::integer(4)])
+                .expect("codes aux should pass"),
+            Vec::<Value>::new()
+        );
+    }
+
+    #[test]
+    fn utf8_codes_aux_errors_on_invalid_strict_sequence() {
+        let mut runtime = TestRuntime::default();
+        let extra_continuation = runtime.push_string(b"a\x80");
+        let surrogate = runtime.push_string(b"\xed\xa0\x80");
+
+        assert_eq!(
+            utf8_codes_aux_strict(&mut runtime, &[extra_continuation, Value::integer(0)])
+                .expect_err("extra continuation should fail")
+                .kind(),
+            &NativeErrorKind::LuaError
+        );
+        assert_eq!(
+            utf8_codes_aux_strict(&mut runtime, &[surrogate, Value::integer(0)])
+                .expect_err("strict surrogate should fail")
+                .kind(),
+            &NativeErrorKind::LuaError
+        );
+        assert_eq!(
+            utf8_codes_aux_lax(&mut runtime, &[surrogate, Value::integer(0)])
+                .expect("lax surrogate should pass"),
+            vec![Value::integer(1), Value::integer(0xd800)]
         );
     }
 

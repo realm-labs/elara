@@ -740,6 +740,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_utf8_codes() {
+        let profile = StdLibProfile::Custom([StdLib::Utf8].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local sum = 0\nfor p, c in utf8.codes('aé') do sum = sum + p + c end\nreturn sum",
+                &profile,
+            ),
+            Ok(vec![Value::integer(333)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_char() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 

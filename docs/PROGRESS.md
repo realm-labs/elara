@@ -819,6 +819,8 @@ Delivered:
   lax decoding, and reports invalid UTF-8 sequences as Lua errors.
 - `utf8.offset` returns Lua 5.5 start/end byte ranges for forward, backward,
   zero-offset, and right-after-end character lookups.
+- `utf8.codes` returns strict/lax iterator triplets backed by hidden native
+  helpers and works through generic-for execution.
 
 ## Remaining Gaps
 
@@ -826,7 +828,7 @@ Delivered:
 
 - Implement coroutine standard functions backed by primitive coroutine support.
 - Complete remaining utf8 library basics beyond `utf8.char`, `utf8.codepoint`,
-  `utf8.len`, and `utf8.offset`.
+  `utf8.codes`, `utf8.len`, and `utf8.offset`.
 
 ### Product Gaps
 
@@ -852,7 +854,7 @@ M11.2 is complete.
 
 ## Last Verification
 
-M11.3 `utf8.offset` verification passed:
+M11.3 `utf8.codes` verification passed:
 
 ```bash
 cargo fmt --all -- --check

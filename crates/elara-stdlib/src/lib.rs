@@ -24,7 +24,7 @@ pub use native::{
 };
 pub use string::{STRING_GMATCH_AUX_NATIVE, STRING_NATIVE_FUNCTIONS};
 pub use table::TABLE_NATIVE_FUNCTIONS;
-pub use utf8::UTF8_NATIVE_FUNCTIONS;
+pub use utf8::{UTF8_CODES_AUX_LAX_NATIVE, UTF8_CODES_AUX_STRICT_NATIVE, UTF8_NATIVE_FUNCTIONS};
 
 /// One standard-library module that can register itself into a target runtime.
 pub trait Library<Target> {
@@ -495,6 +495,7 @@ pub const STRING_FUNCTIONS: &[FunctionSpec] = &[
 pub const UTF8_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Utf8, "char"),
     FunctionSpec::new(StdLib::Utf8, "codepoint"),
+    FunctionSpec::new(StdLib::Utf8, "codes"),
     FunctionSpec::new(StdLib::Utf8, "len"),
     FunctionSpec::new(StdLib::Utf8, "offset"),
 ];
@@ -828,6 +829,11 @@ mod tests {
                 .iter()
                 .any(|function| function.descriptor()
                     == FunctionSpec::new(StdLib::Utf8, "codepoint"))
+        );
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Utf8, "codes"))
         );
         assert!(
             functions

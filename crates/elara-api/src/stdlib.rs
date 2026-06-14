@@ -11,7 +11,7 @@ use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
 use elara_stdlib::{
     BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, LuaRandomState, MATH_CONSTANTS, NativeError,
     NativeErrorKind, NativeRuntime, STRING_GMATCH_AUX_NATIVE, StdLib, StdLibProfile, StdLibSet,
-    native_functions,
+    UTF8_CODES_AUX_LAX_NATIVE, UTF8_CODES_AUX_STRICT_NATIVE, native_functions,
 };
 
 /// Builds a primitive runtime environment containing implemented stdlib natives
@@ -61,10 +61,10 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
 
     let random_state =
         (library == StdLib::Math).then(|| Arc::new(Mutex::new(LuaRandomState::default())));
-    let helpers = if library == StdLib::String {
-        register_string_helpers(environment)
-    } else {
-        NativeHelpers::default()
+    let helpers = match library {
+        StdLib::String => register_string_helpers(environment),
+        StdLib::Utf8 => register_utf8_helpers(environment),
+        _ => NativeHelpers::default(),
     };
     let mut fields: Vec<_> = functions
         .iter()
@@ -111,6 +111,18 @@ fn register_string_helpers(environment: &mut RuntimeEnvironment) -> NativeHelper
     }
 }
 
+fn register_utf8_helpers(environment: &mut RuntimeEnvironment) -> NativeHelpers {
+    let utf8_codes_aux_strict =
+        register_hidden_native(environment, UTF8_CODES_AUX_STRICT_NATIVE.function());
+    let utf8_codes_aux_lax =
+        register_hidden_native(environment, UTF8_CODES_AUX_LAX_NATIVE.function());
+    NativeHelpers {
+        utf8_codes_aux_strict: Some(utf8_codes_aux_strict),
+        utf8_codes_aux_lax: Some(utf8_codes_aux_lax),
+        ..NativeHelpers::default()
+    }
+}
+
 fn register_hidden_native(
     environment: &mut RuntimeEnvironment,
     function: elara_stdlib::NativeStdFunction,
@@ -130,6 +142,8 @@ struct NativeHelpers {
     base_next: Option<u32>,
     base_ipairs_aux: Option<u32>,
     string_gmatch_aux: Option<u32>,
+    utf8_codes_aux_strict: Option<u32>,
+    utf8_codes_aux_lax: Option<u32>,
 }
 
 struct InterpNativeRuntime<'a, 'runtime> {
@@ -325,6 +339,16 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
             (StdLib::String, "__gmatch_aux") => self
                 .helpers
                 .string_gmatch_aux
+                .map(Value::native_function_index)
+                .ok_or_else(missing_native_helper),
+            (StdLib::Utf8, "__codes_aux_strict") => self
+                .helpers
+                .utf8_codes_aux_strict
+                .map(Value::native_function_index)
+                .ok_or_else(missing_native_helper),
+            (StdLib::Utf8, "__codes_aux_lax") => self
+                .helpers
+                .utf8_codes_aux_lax
                 .map(Value::native_function_index)
                 .ok_or_else(missing_native_helper),
             _ => Err(NativeErrorKind::RuntimeError {
