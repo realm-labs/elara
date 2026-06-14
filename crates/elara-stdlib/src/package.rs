@@ -10,6 +10,10 @@ use crate::{
 
 const PATH_MARK: &str = "?";
 const PATH_SEPARATOR: &str = ";";
+const PACKAGE_GLOBAL: &[u8] = b"package";
+const LOADED_FIELD: &[u8] = b"loaded";
+const PRELOAD_FIELD: &[u8] = b"preload";
+const PRELOAD_LOADER_DATA: &[u8] = b":preload:";
 
 #[cfg(windows)]
 const DIRECTORY_SEPARATOR: &str = "\\";
@@ -38,10 +42,16 @@ pub const PACKAGE_CPATH: &str = if cfg!(windows) {
 };
 
 /// Executable `package` library functions currently implemented.
-pub const PACKAGE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[NativeFunctionSpec::new(
-    FunctionSpec::new(StdLib::Package, "searchpath"),
-    package_searchpath,
-)];
+pub const PACKAGE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
+    NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Package, "searchpath"),
+        package_searchpath,
+    ),
+    NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Package, "require"),
+        package_require,
+    ),
+];
 
 fn package_searchpath(
     runtime: &mut dyn NativeRuntime,
@@ -74,6 +84,77 @@ fn package_searchpath(
         Value::nil(),
         runtime.intern_string(message.as_bytes())?,
     ])
+}
+
+fn package_require(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let name = args
+        .first()
+        .copied()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let name_bytes = runtime
+        .string_bytes(name)
+        .ok_or(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "string",
+        })?
+        .to_vec();
+
+    let loaded = package_subtable(runtime, LOADED_FIELD)?;
+    let current = runtime.table_get(loaded, name)?;
+    if is_truthy(current) {
+        return Ok(vec![current]);
+    }
+
+    let preload = package_subtable(runtime, PRELOAD_FIELD)?;
+    let loader = runtime.table_get(preload, name)?;
+    if !loader.is_closure() {
+        let name = String::from_utf8_lossy(&name_bytes);
+        return Err(NativeError::lua_error(format!(
+            "module '{name}' not found:\n\tno field package.preload['{name}']"
+        )));
+    }
+
+    let loader_data = runtime.intern_string(PRELOAD_LOADER_DATA)?;
+    let loaded_value = match runtime.protected_call(loader, &[name, loader_data])? {
+        Ok(results) => results.first().copied().unwrap_or_else(Value::nil),
+        Err(message) => return Err(NativeError::lua_error(message)),
+    };
+    if !loaded_value.is_nil() {
+        runtime.table_set(loaded, name, loaded_value)?;
+    }
+
+    let module = runtime.table_get(loaded, name)?;
+    let module = if module.is_nil() {
+        let value = Value::boolean(true);
+        runtime.table_set(loaded, name, value)?;
+        value
+    } else {
+        module
+    };
+
+    Ok(vec![module, loader_data])
+}
+
+fn package_subtable(runtime: &mut dyn NativeRuntime, field: &[u8]) -> Result<Value, NativeError> {
+    let package = runtime.global_get(PACKAGE_GLOBAL)?;
+    let key = runtime.intern_short_string(field)?;
+    let value = runtime.table_get(package, key)?;
+    if value.is_table() {
+        Ok(value)
+    } else {
+        Err(NativeErrorKind::RuntimeError {
+            message: format!("package.{} must be a table", String::from_utf8_lossy(field))
+                .into_boxed_str(),
+        }
+        .into())
+    }
+}
+
+fn is_truthy(value: Value) -> bool {
+    !value.is_nil() && value.as_bool() != Some(false)
 }
 
 fn readable(filename: &str) -> bool {
@@ -155,13 +236,54 @@ mod tests {
     #[derive(Default)]
     struct TestRuntime {
         strings: Vec<Box<[u8]>>,
+        tables: Vec<Vec<(Value, Value)>>,
+        globals: Vec<(Box<[u8]>, Value)>,
+        protected_calls: Vec<(Value, Vec<Value>)>,
+        protected_results: Vec<Result<Vec<Value>, Box<str>>>,
     }
 
     impl TestRuntime {
         fn push_string(&mut self, bytes: &[u8]) -> Value {
+            if let Some(index) = self
+                .strings
+                .iter()
+                .position(|existing| existing.as_ref() == bytes)
+            {
+                return Value::closure_index(
+                    u32::try_from(index).expect("test string index fits in u32"),
+                );
+            }
             let index = u32::try_from(self.strings.len()).expect("test string index fits in u32");
             self.strings.push(bytes.into());
             Value::closure_index(index)
+        }
+
+        fn push_table(&mut self, entries: &[(Value, Value)]) -> Value {
+            let index = u32::try_from(self.tables.len()).expect("test table index fits in u32");
+            self.tables.push(entries.to_vec());
+            Value::table_index(index)
+        }
+
+        fn set_global(&mut self, name: &[u8], value: Value) {
+            self.globals.push((name.into(), value));
+        }
+
+        fn set_table(&mut self, table: Value, key: Value, value: Value) {
+            let table = &mut self.tables[table.as_table_index().expect("test table") as usize];
+            if let Some((_, entry)) = table.iter_mut().find(|(entry_key, _)| *entry_key == key) {
+                *entry = value;
+            } else {
+                table.push((key, value));
+            }
+        }
+
+        fn get_table(&self, table: Value, key: Value) -> Value {
+            self.tables[table.as_table_index().expect("test table") as usize]
+                .iter()
+                .find_map(|(entry_key, entry_value)| {
+                    (*entry_key == key && !entry_value.is_nil()).then_some(*entry_value)
+                })
+                .unwrap_or_else(Value::nil)
         }
 
         fn bytes(&self, value: Value) -> Option<&[u8]> {
@@ -177,6 +299,37 @@ mod tests {
 
         fn short_string_bytes(&self, value: Value) -> Option<&[u8]> {
             self.bytes(value)
+        }
+
+        fn table_get(&self, table: Value, key: Value) -> Result<Value, crate::NativeError> {
+            Ok(self.get_table(table, key))
+        }
+
+        fn table_set(
+            &mut self,
+            table: Value,
+            key: Value,
+            value: Value,
+        ) -> Result<(), crate::NativeError> {
+            self.set_table(table, key, value);
+            Ok(())
+        }
+
+        fn global_get(&mut self, name: &[u8]) -> Result<Value, crate::NativeError> {
+            Ok(self
+                .globals
+                .iter()
+                .find_map(|(entry_name, value)| (entry_name.as_ref() == name).then_some(*value))
+                .unwrap_or_else(Value::nil))
+        }
+
+        fn protected_call(
+            &mut self,
+            function: Value,
+            args: &[Value],
+        ) -> Result<Result<Vec<Value>, Box<str>>, crate::NativeError> {
+            self.protected_calls.push((function, args.to_vec()));
+            Ok(self.protected_results.remove(0))
         }
     }
 
@@ -259,6 +412,113 @@ mod tests {
         );
         assert_eq!(
             function(&mut runtime, &[Value::integer(1), name])
+                .expect_err("non-string name")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "string",
+            }
+        );
+    }
+
+    #[test]
+    fn package_require_loads_preloaded_module_and_caches_result() {
+        let function = function("require");
+        let mut runtime = TestRuntime::default();
+        let name = runtime.push_string(b"mod");
+        let loader = Value::native_function_index(7);
+        let loaded_key = runtime.push_string(b"loaded");
+        let preload_key = runtime.push_string(b"preload");
+        let loaded = runtime.push_table(&[]);
+        let preload = runtime.push_table(&[(name, loader)]);
+        let package = runtime.push_table(&[(loaded_key, loaded), (preload_key, preload)]);
+        runtime.set_global(b"package", package);
+        runtime.protected_results.push(Ok(vec![Value::integer(42)]));
+
+        let result = function(&mut runtime, &[name]).expect("require should load");
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], Value::integer(42));
+        assert_eq!(runtime.bytes(result[1]), Some(b":preload:".as_slice()));
+        assert_eq!(
+            runtime.protected_calls,
+            vec![(loader, vec![name, result[1]])]
+        );
+        assert_eq!(runtime.get_table(loaded, name), Value::integer(42));
+    }
+
+    #[test]
+    fn package_require_uses_true_when_loader_returns_nil() {
+        let function = function("require");
+        let mut runtime = TestRuntime::default();
+        let name = runtime.push_string(b"mod");
+        let loader = Value::native_function_index(7);
+        let loaded_key = runtime.push_string(b"loaded");
+        let preload_key = runtime.push_string(b"preload");
+        let loaded = runtime.push_table(&[]);
+        let preload = runtime.push_table(&[(name, loader)]);
+        let package = runtime.push_table(&[(loaded_key, loaded), (preload_key, preload)]);
+        runtime.set_global(b"package", package);
+        runtime.protected_results.push(Ok(vec![Value::nil()]));
+
+        let result = function(&mut runtime, &[name]).expect("require should load");
+
+        assert_eq!(result[0], Value::boolean(true));
+        assert_eq!(runtime.get_table(loaded, name), Value::boolean(true));
+    }
+
+    #[test]
+    fn package_require_returns_cached_truthy_value_without_loader() {
+        let function = function("require");
+        let mut runtime = TestRuntime::default();
+        let name = runtime.push_string(b"mod");
+        let loaded_key = runtime.push_string(b"loaded");
+        let preload_key = runtime.push_string(b"preload");
+        let loaded = runtime.push_table(&[(name, Value::integer(99))]);
+        let preload = runtime.push_table(&[]);
+        let package = runtime.push_table(&[(loaded_key, loaded), (preload_key, preload)]);
+        runtime.set_global(b"package", package);
+
+        let result = function(&mut runtime, &[name]).expect("require should use cache");
+
+        assert_eq!(result, vec![Value::integer(99)]);
+        assert!(runtime.protected_calls.is_empty());
+    }
+
+    #[test]
+    fn package_require_reports_missing_preload() {
+        let function = function("require");
+        let mut runtime = TestRuntime::default();
+        let name = runtime.push_string(b"missing");
+        let loaded_key = runtime.push_string(b"loaded");
+        let preload_key = runtime.push_string(b"preload");
+        let loaded = runtime.push_table(&[]);
+        let preload = runtime.push_table(&[]);
+        let package = runtime.push_table(&[(loaded_key, loaded), (preload_key, preload)]);
+        runtime.set_global(b"package", package);
+
+        let error = function(&mut runtime, &[name]).expect_err("missing module should error");
+
+        assert_eq!(error.kind(), &NativeErrorKind::LuaError);
+        assert_eq!(
+            error.message(),
+            "module 'missing' not found:\n\tno field package.preload['missing']"
+        );
+    }
+
+    #[test]
+    fn package_require_validates_name_argument() {
+        let function = function("require");
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            function(&mut runtime, &[])
+                .expect_err("missing name")
+                .kind(),
+            &NativeErrorKind::MissingArgument { index: 1 }
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1)])
                 .expect_err("non-string name")
                 .kind(),
             &NativeErrorKind::TypeError {

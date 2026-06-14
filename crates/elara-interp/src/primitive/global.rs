@@ -39,6 +39,16 @@ impl RuntimeGlobals {
         }
     }
 
+    pub(super) fn get_named(
+        &self,
+        name: &[u8],
+        strings: &mut RuntimeStrings,
+        tables: &mut RuntimeTables,
+    ) -> RuntimeResult<Value> {
+        let key = global_key(name, strings)?;
+        self.get(key, tables)
+    }
+
     pub(super) fn set_named(
         &mut self,
         name: &[u8],

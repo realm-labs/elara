@@ -894,6 +894,12 @@ mod tests {
             functions.iter().any(|function| function.descriptor()
                 == FunctionSpec::new(StdLib::Package, "searchpath"))
         );
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor()
+                    == FunctionSpec::new(StdLib::Package, "require"))
+        );
     }
 
     #[test]

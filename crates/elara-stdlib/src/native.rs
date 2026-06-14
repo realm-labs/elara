@@ -90,6 +90,14 @@ pub trait NativeRuntime {
         .into())
     }
 
+    /// Reads one raw value from the global environment by name.
+    fn global_get(&mut self, _name: &[u8]) -> Result<Value, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support global reads".into(),
+        }
+        .into())
+    }
+
     /// Returns a runtime-owned table's metatable, or nil when absent.
     fn table_metatable(&self, _table: Value) -> Result<Value, NativeError> {
         Err(NativeErrorKind::RuntimeError {

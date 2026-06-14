@@ -395,6 +395,15 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
         })
     }
 
+    fn global_get(&mut self, name: &[u8]) -> Result<Value, NativeError> {
+        self.context.global_get(name).map_err(|error| {
+            NativeErrorKind::RuntimeError {
+                message: error.to_string().into(),
+            }
+            .into()
+        })
+    }
+
     fn table_metatable(&self, table: Value) -> Result<Value, NativeError> {
         self.context.table_metatable(table).map_err(|error| {
             NativeErrorKind::RuntimeError {

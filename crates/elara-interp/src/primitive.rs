@@ -181,6 +181,12 @@ impl<'a> NativeContext<'a> {
         }
     }
 
+    /// Reads one raw value from the global environment by name.
+    pub fn global_get(&mut self, name: impl AsRef<[u8]>) -> RuntimeResult<Value> {
+        self.globals
+            .get_named(name.as_ref(), self.strings, self.tables)
+    }
+
     /// Returns a runtime-owned table's metatable, or nil when absent.
     pub fn table_metatable(&self, table: Value) -> RuntimeResult<Value> {
         let table_index = table
