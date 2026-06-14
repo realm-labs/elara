@@ -456,6 +456,8 @@ pub(super) struct CoroutineFrame {
     call_slot: Option<CoroutineCallSlot>,
     yielded_base: Option<usize>,
     tbc_start: usize,
+    function: Option<Value>,
+    frame_kind: RuntimeDebugFrameKind,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -484,7 +486,15 @@ impl PrimitiveCoroutine {
         let global_table = tables.push_table(Table::new());
         let globals = RuntimeGlobals::new(global_table);
         let upvalues = vec![RuntimeUpvalue::new(globals.value())];
-        let frame = CoroutineFrame::new(proto, upvalues, Vec::new(), None, 0);
+        let frame = CoroutineFrame::new(
+            proto,
+            upvalues,
+            Vec::new(),
+            None,
+            RuntimeDebugFrameKind::Main,
+            None,
+            0,
+        );
 
         Ok(Self {
             thread,
@@ -570,10 +580,10 @@ impl PrimitiveCoroutine {
 
     fn run_until_pause(&mut self) -> RuntimeResult<CoroutinePause> {
         loop {
-            let Some(frame) = self.frames.last_mut() else {
+            let Some(frame_index) = self.frames.len().checked_sub(1) else {
                 return Ok(CoroutinePause::Return(Vec::new()));
             };
-            if frame.pc >= frame.proto.code.len() {
+            if self.frames[frame_index].pc >= self.frames[frame_index].proto.code.len() {
                 let returns = Vec::new();
                 if let Some(values) = self.finish_frame(returns)? {
                     return Ok(CoroutinePause::Return(values));
@@ -581,9 +591,10 @@ impl PrimitiveCoroutine {
                 continue;
             }
 
-            let instr = frame.proto.code[frame.pc];
-            frame.pc += 1;
-            let mut debug_frames = Vec::new();
+            let current_pc = self.frames[frame_index].pc;
+            let instr = self.frames[frame_index].proto.code[current_pc];
+            self.frames[frame_index].pc += 1;
+            let mut debug_frames = self.materialize_debug_frames(frame_index, current_pc);
             let mut context = ExecutionContext {
                 closures: &mut self.closures,
                 tables: &mut self.tables,
@@ -593,6 +604,7 @@ impl PrimitiveCoroutine {
                 to_be_closed: &mut self.to_be_closed,
                 debug_frames: &mut debug_frames,
             };
+            let frame = &mut self.frames[frame_index];
 
             match execute_instruction(
                 &frame.proto,
@@ -649,9 +661,33 @@ impl PrimitiveCoroutine {
             closure.proto,
             closure.upvalues,
             args,
+            Some(Value::closure_index(closure_index as u32)),
+            RuntimeDebugFrameKind::Lua,
             Some(CoroutineCallSlot { base, result_count }),
             self.to_be_closed.len(),
         ))
+    }
+
+    fn materialize_debug_frames(
+        &self,
+        current_frame_index: usize,
+        current_pc: usize,
+    ) -> Vec<RuntimeDebugFrame> {
+        self.frames
+            .iter()
+            .enumerate()
+            .map(|(index, frame)| {
+                let mut debug_frame =
+                    RuntimeDebugFrame::new(frame.proto.clone(), frame.function, frame.frame_kind);
+                debug_frame.current_pc = Some(if index == current_frame_index {
+                    current_pc
+                } else {
+                    frame.pc.saturating_sub(1)
+                });
+                debug_frame.capture_locals(&self.thread);
+                debug_frame
+            })
+            .collect()
     }
 
     fn finish_frame(&mut self, values: Vec<Value>) -> RuntimeResult<Option<Vec<Value>>> {
@@ -703,6 +739,8 @@ impl CoroutineFrame {
         proto: Proto,
         upvalues: Vec<RuntimeUpvalue>,
         varargs: Vec<Value>,
+        function: Option<Value>,
+        frame_kind: RuntimeDebugFrameKind,
         call_slot: Option<CoroutineCallSlot>,
         tbc_start: usize,
     ) -> Self {
@@ -716,12 +754,22 @@ impl CoroutineFrame {
             call_slot,
             yielded_base: None,
             tbc_start,
+            function,
+            frame_kind,
         }
     }
 
     #[cfg(test)]
     pub(super) fn test_root(proto: Proto, tbc_start: usize) -> Self {
-        Self::new(proto, Vec::new(), Vec::new(), None, tbc_start)
+        Self::new(
+            proto,
+            Vec::new(),
+            Vec::new(),
+            None,
+            RuntimeDebugFrameKind::Main,
+            None,
+            tbc_start,
+        )
     }
 }
 

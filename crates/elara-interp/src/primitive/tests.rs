@@ -813,6 +813,61 @@ fn coroutine_resume_values_flow_into_called_lua_frame() {
 }
 
 #[test]
+fn coroutine_materializes_debug_frames_for_native_calls() {
+    let mut child = ProtoBuilder::new().with_signature(3, 0, false);
+    let value = child.add_constant(Value::integer(42));
+    let capture = child.add_string_constant("capture");
+    child.emit_abx(Op::LoadK, 0, u64::from(value));
+    child.add_local_var("x", 0, 1, u32::MAX);
+    child.emit_abx(Op::GetEnv, 1, u64::from(capture));
+    child.emit_abc(Op::Call, 1, 1, 1);
+    child.emit_abc(Op::Return, 1, 1, 0);
+
+    let mut parent = ProtoBuilder::new().with_signature(2, 0, false);
+    let child_index = parent.add_child(child.finish());
+    parent.emit_abx(Op::Closure, 0, u64::from(child_index));
+    parent.emit_abc(Op::Call, 0, 1, 1);
+    parent.emit_abc(Op::Return, 0, 1, 0);
+
+    let mut coroutine =
+        PrimitiveCoroutine::new(parent.finish()).expect("coroutine should be created");
+    let native = coroutine.natives.push(|context, _args| {
+        let Some((name, value)) = context.debug_getlocal(1, 1)? else {
+            return Ok(vec![Value::boolean(false)]);
+        };
+        let what_key = context.intern_string("what");
+        let child_info = context.debug_info_for_level(1, b"S")?;
+        let parent_info = context.debug_info_for_level(2, b"S")?;
+        let child_what = context.table_get(child_info, what_key)?;
+        let parent_what = context.table_get(parent_info, what_key)?;
+        Ok(vec![Value::boolean(
+            context.string_bytes(name) == Some(b"x" as &[u8])
+                && value == Value::integer(42)
+                && context.string_bytes(child_what) == Some(b"Lua" as &[u8])
+                && context.string_bytes(parent_what) == Some(b"main" as &[u8]),
+        )])
+    });
+    let capture = coroutine.strings.intern_short_value("capture");
+    let global_table = coroutine
+        .globals
+        .value()
+        .as_table_index()
+        .expect("global table");
+    assert!(
+        coroutine
+            .tables
+            .get_mut(global_table as usize)
+            .expect("global table should exist")
+            .raw_set_value(capture, Value::native_function_index(native))
+    );
+
+    assert_eq!(
+        coroutine.resume(&[]),
+        CoroutineResume::Return(vec![Value::boolean(true)])
+    );
+}
+
+#[test]
 fn coroutine_reports_dead_resume_error() {
     let mut builder = ProtoBuilder::new().with_signature(1, 0, false);
     let returned = builder.add_constant(Value::integer(1));
