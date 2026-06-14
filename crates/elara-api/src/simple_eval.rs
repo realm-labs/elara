@@ -879,6 +879,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_debug_getmetatable_raw() {
+        let profile = StdLibProfile::Custom([StdLib::Base, StdLib::Debug].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local t = {}\nlocal mt = { __metatable = 'locked' }\nlocal _ = setmetatable(t, mt)\nreturn rawequal(debug.getmetatable(t), mt), rawequal(getmetatable(t), 'locked')",
+                &profile,
+            ),
+            Ok(vec![Value::boolean(true), Value::boolean(true)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_next() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 
