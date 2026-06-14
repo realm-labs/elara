@@ -815,13 +815,16 @@ Delivered:
   registration.
 - `utf8.char` encodes zero or more Lua integer code points through Lua's
   31-bit UTF-8 range and returns the concatenated string.
+- `utf8.codepoint` returns code points across relative byte ranges, supports
+  lax decoding, and reports invalid UTF-8 sequences as Lua errors.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M11
 
 - Implement coroutine standard functions backed by primitive coroutine support.
-- Complete remaining utf8 library basics beyond `utf8.char` and `utf8.len`.
+- Complete remaining utf8 library basics beyond `utf8.char`, `utf8.codepoint`,
+  and `utf8.len`.
 
 ### Product Gaps
 
@@ -847,7 +850,7 @@ M11.2 is complete.
 
 ## Last Verification
 
-M11.3 `utf8.char` verification passed:
+M11.3 `utf8.codepoint` verification passed:
 
 ```bash
 cargo fmt --all -- --check

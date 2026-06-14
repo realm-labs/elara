@@ -12,6 +12,7 @@ const MAX_UTF: u32 = 0x7FFF_FFFF;
 /// Executable UTF-8 library functions currently implemented.
 pub const UTF8_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Utf8, "char"), utf8_char),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Utf8, "codepoint"), utf8_codepoint),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Utf8, "len"), utf8_len),
 ];
 
@@ -27,6 +28,46 @@ fn utf8_char(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
         encode_utf8(codepoint, &mut output);
     }
     Ok(vec![runtime.intern_short_string(&output)?])
+}
+
+fn utf8_codepoint(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let value = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    let bytes = string_arg(runtime, value, 1)?;
+    let len = bytes.len();
+    let len_integer = i64::try_from(len).expect("runtime string length must fit in LuaInteger");
+    let start = relative_position(optional_integer_arg(args, 2, 1)?, len);
+    let end = relative_position(optional_integer_arg(args, 3, start)?, len);
+    let lax = args.get(3).is_some_and(|value| is_truthy(*value));
+
+    if start < 1 {
+        return Err(NativeErrorKind::ArgumentOutOfRange { index: 2 }.into());
+    }
+    if end > len_integer {
+        return Err(NativeErrorKind::ArgumentOutOfRange { index: 3 }.into());
+    }
+    if start > end {
+        return Ok(Vec::new());
+    }
+    if end - start >= i64::from(i32::MAX) {
+        return Err(NativeError::lua_error("string slice too long"));
+    }
+
+    let mut position = usize::try_from(start - 1).expect("start position must be non-negative");
+    let end = usize::try_from(end).expect("end position must be non-negative");
+    let mut output = Vec::new();
+    while position < end {
+        let Some((next_position, codepoint)) = decode_utf8(bytes, position, !lax) else {
+            return Err(NativeError::lua_error("invalid UTF-8 code"));
+        };
+        position = next_position;
+        output.push(Value::integer(i64::from(codepoint)));
+    }
+    Ok(output)
 }
 
 fn utf8_len(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -51,7 +92,7 @@ fn utf8_len(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value
     let end = end - 1;
     let mut count = 0_i64;
     while i64::try_from(position).expect("position must fit in LuaInteger") <= end {
-        let Some(next_position) = decode_utf8(bytes, position, !lax) else {
+        let Some((next_position, _)) = decode_utf8(bytes, position, !lax) else {
             let invalid_position =
                 i64::try_from(position + 1).expect("position must fit in LuaInteger");
             return Ok(vec![Value::nil(), Value::integer(invalid_position)]);
@@ -63,7 +104,7 @@ fn utf8_len(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value
     Ok(vec![Value::integer(count)])
 }
 
-fn decode_utf8(bytes: &[u8], position: usize, strict: bool) -> Option<usize> {
+fn decode_utf8(bytes: &[u8], position: usize, strict: bool) -> Option<(usize, u32)> {
     let mut c = u32::from(*bytes.get(position)?);
     let mut result = 0_u32;
     if c < 0x80 {
@@ -99,7 +140,7 @@ fn decode_utf8(bytes: &[u8], position: usize, strict: bool) -> Option<usize> {
             return None;
         }
     }
-    Some(position + utf8_sequence_len(result))
+    Some((position + utf8_sequence_len(result), result))
 }
 
 fn encode_utf8(mut codepoint: u32, output: &mut Vec<u8>) {
@@ -198,7 +239,7 @@ fn is_truthy(value: Value) -> bool {
 mod tests {
     use elara_core::Value;
 
-    use super::{MAX_UTF, UTF8_NATIVE_FUNCTIONS, utf8_char, utf8_len};
+    use super::{MAX_UTF, UTF8_NATIVE_FUNCTIONS, utf8_char, utf8_codepoint, utf8_len};
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
     #[derive(Default)]
@@ -234,6 +275,7 @@ mod tests {
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "len")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "char")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::Utf8, "codepoint")));
     }
 
     #[test]
@@ -286,6 +328,87 @@ mod tests {
                 .expect_err("large codepoint should fail")
                 .kind(),
             &NativeErrorKind::ArgumentOutOfRange { index: 1 }
+        );
+    }
+
+    #[test]
+    fn utf8_codepoint_returns_codepoints_for_range() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"a\xc3\xa9\xf0\x9d\x84\x9e");
+
+        assert_eq!(
+            utf8_codepoint(
+                &mut runtime,
+                &[value, Value::integer(1), Value::integer(-1)]
+            )
+            .expect("utf8.codepoint should pass"),
+            vec![
+                Value::integer(0x61),
+                Value::integer(0xe9),
+                Value::integer(0x1d11e)
+            ]
+        );
+        assert_eq!(
+            utf8_codepoint(&mut runtime, &[value, Value::integer(2)])
+                .expect("utf8.codepoint should pass"),
+            vec![Value::integer(0xe9)]
+        );
+    }
+
+    #[test]
+    fn utf8_codepoint_returns_no_values_for_empty_interval() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"abc");
+
+        assert_eq!(
+            utf8_codepoint(&mut runtime, &[value, Value::integer(3), Value::integer(2)])
+                .expect("utf8.codepoint should pass"),
+            Vec::<Value>::new()
+        );
+    }
+
+    #[test]
+    fn utf8_codepoint_errors_on_invalid_strict_sequence() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"\xed\xa0\x80");
+
+        assert_eq!(
+            utf8_codepoint(&mut runtime, &[value])
+                .expect_err("strict surrogate should fail")
+                .kind(),
+            &NativeErrorKind::LuaError
+        );
+        assert_eq!(
+            utf8_codepoint(
+                &mut runtime,
+                &[
+                    value,
+                    Value::integer(1),
+                    Value::integer(-1),
+                    Value::boolean(true)
+                ],
+            )
+            .expect("lax surrogate should pass"),
+            vec![Value::integer(0xd800)]
+        );
+    }
+
+    #[test]
+    fn utf8_codepoint_rejects_out_of_bounds_positions() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"abc");
+
+        assert_eq!(
+            utf8_codepoint(&mut runtime, &[value, Value::integer(0)])
+                .expect_err("zero start should fail")
+                .kind(),
+            &NativeErrorKind::ArgumentOutOfRange { index: 2 }
+        );
+        assert_eq!(
+            utf8_codepoint(&mut runtime, &[value, Value::integer(1), Value::integer(4)])
+                .expect_err("large end should fail")
+                .kind(),
+            &NativeErrorKind::ArgumentOutOfRange { index: 3 }
         );
     }
 

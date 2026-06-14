@@ -494,6 +494,7 @@ pub const STRING_FUNCTIONS: &[FunctionSpec] = &[
 /// Basic UTF-8 library function descriptors.
 pub const UTF8_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Utf8, "char"),
+    FunctionSpec::new(StdLib::Utf8, "codepoint"),
     FunctionSpec::new(StdLib::Utf8, "len"),
 ];
 
@@ -820,6 +821,12 @@ mod tests {
             functions
                 .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Utf8, "char"))
+        );
+        assert!(
+            functions
+                .iter()
+                .any(|function| function.descriptor()
+                    == FunctionSpec::new(StdLib::Utf8, "codepoint"))
         );
     }
 }
