@@ -6,7 +6,9 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
 use super::{
     optional_integer_arg,
-    pattern::{has_unsupported_pattern_special_with_captures, simple_pattern_match_from},
+    pattern::{
+        PatternCapture, has_unsupported_pattern_special_with_captures, simple_pattern_match_from,
+    },
     relative_start, string_arg,
 };
 
@@ -53,8 +55,21 @@ pub(super) fn string_match(
     match_
         .captures
         .into_iter()
-        .map(|(start, end)| runtime.intern_short_string(&subject[start..end]))
+        .map(|capture| capture_value(runtime, &subject, capture))
         .collect()
+}
+
+fn capture_value(
+    runtime: &mut dyn NativeRuntime,
+    subject: &[u8],
+    capture: PatternCapture,
+) -> Result<Value, NativeError> {
+    match capture {
+        PatternCapture::String { start, end } => runtime.intern_short_string(&subject[start..end]),
+        PatternCapture::Position(position) => Ok(Value::integer(
+            i64::try_from(position + 1).expect("capture position fits LuaInteger"),
+        )),
+    }
 }
 
 #[cfg(test)]
@@ -287,6 +302,18 @@ mod tests {
         assert_eq!(
             runtime.short_string_bytes(values[0]),
             Some(b"alo".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_match_returns_position_captures() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"flaaap");
+        let pattern = runtime.push_string(b"()aa()");
+
+        assert_eq!(
+            string_match(&mut runtime, &[subject, pattern]).expect("match should pass"),
+            vec![Value::integer(3), Value::integer(5)]
         );
     }
 

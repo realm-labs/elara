@@ -109,7 +109,13 @@ pub(super) fn simple_pattern_match_from(
 pub(super) struct PatternMatch {
     pub start: usize,
     pub end: usize,
-    pub captures: Vec<(usize, usize)>,
+    pub captures: Vec<PatternCapture>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum PatternCapture {
+    String { start: usize, end: usize },
+    Position(usize),
 }
 
 pub(super) fn is_start_anchored(pattern: &[u8]) -> bool {
@@ -152,7 +158,8 @@ fn pattern_matches_at(
             .captures
             .into_iter()
             .map(|capture| match capture {
-                Capture::Closed(start, end) => Some((start, end)),
+                Capture::Closed(start, end) => Some(PatternCapture::String { start, end }),
+                Capture::Position(position) => Some(PatternCapture::Position(position)),
                 Capture::Open(_) => None,
             })
             .collect::<Option<_>>()?,
@@ -173,6 +180,7 @@ struct MatchState {
 enum Capture {
     Open(usize),
     Closed(usize, usize),
+    Position(usize),
 }
 
 fn match_from(
@@ -187,6 +195,18 @@ fn match_from(
             end: subject_index,
             captures,
         });
+    }
+
+    if pattern[pattern_index] == b'(' && pattern.get(pattern_index + 1) == Some(&b')') {
+        let mut captures = captures;
+        captures.push(Capture::Position(subject_index));
+        return match_from(
+            haystack,
+            pattern,
+            pattern_index + 2,
+            subject_index,
+            captures,
+        );
     }
 
     if pattern[pattern_index] == b'(' {
@@ -551,8 +571,9 @@ fn bracket_class_matches(byte: u8, class: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        has_unsupported_pattern_special, has_unsupported_pattern_special_with_captures,
-        simple_pattern_find, simple_pattern_find_from, simple_pattern_match_from,
+        PatternCapture, has_unsupported_pattern_special,
+        has_unsupported_pattern_special_with_captures, simple_pattern_find,
+        simple_pattern_find_from, simple_pattern_match_from,
     };
 
     #[test]
@@ -634,7 +655,26 @@ mod tests {
 
         assert_eq!(match_.start, 0);
         assert_eq!(match_.end, 6);
-        assert_eq!(match_.captures, vec![(0, 3), (3, 6)]);
+        assert_eq!(
+            match_.captures,
+            vec![
+                PatternCapture::String { start: 0, end: 3 },
+                PatternCapture::String { start: 3, end: 6 }
+            ]
+        );
+    }
+
+    #[test]
+    fn simple_pattern_match_from_records_position_captures() {
+        let match_ =
+            simple_pattern_match_from(b"flaaap", b"()aa()", 0).expect("captures should match");
+
+        assert_eq!(match_.start, 2);
+        assert_eq!(match_.end, 4);
+        assert_eq!(
+            match_.captures,
+            vec![PatternCapture::Position(2), PatternCapture::Position(4)]
+        );
     }
 
     #[test]

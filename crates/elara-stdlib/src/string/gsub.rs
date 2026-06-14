@@ -7,8 +7,8 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime};
 use super::{
     optional_integer_arg,
     pattern::{
-        PatternMatch, has_unsupported_pattern_special_with_captures, is_start_anchored,
-        simple_pattern_match_from,
+        PatternCapture, PatternMatch, has_unsupported_pattern_special_with_captures,
+        is_start_anchored, simple_pattern_match_from,
     },
     string_arg,
 };
@@ -164,10 +164,10 @@ fn append_string_replacement(
             b'0' => output.extend_from_slice(&subject[match_.start..match_.end]),
             b'1'..=b'9' => {
                 let capture_index = usize::from(next - b'1');
-                let Some((start, end)) = match_.captures.get(capture_index).copied() else {
+                let Some(capture) = match_.captures.get(capture_index).copied() else {
                     return Err(NativeErrorKind::ArgumentOutOfRange { index: 3 }.into());
                 };
-                output.extend_from_slice(&subject[start..end]);
+                append_capture_replacement(output, subject, capture);
             }
             _ => output.push(next),
         }
@@ -220,8 +220,33 @@ fn replacement_args(
         .captures
         .iter()
         .copied()
-        .map(|(start, end)| runtime.intern_short_string(&subject[start..end]))
+        .map(|capture| capture_value(runtime, subject, capture))
         .collect()
+}
+
+fn capture_value(
+    runtime: &mut dyn NativeRuntime,
+    subject: &[u8],
+    capture: PatternCapture,
+) -> Result<Value, NativeError> {
+    match capture {
+        PatternCapture::String { start, end } => runtime.intern_short_string(&subject[start..end]),
+        PatternCapture::Position(position) => Ok(Value::integer(
+            i64::try_from(position + 1).expect("capture position fits LuaInteger"),
+        )),
+    }
+}
+
+fn append_capture_replacement(output: &mut Vec<u8>, subject: &[u8], capture: PatternCapture) {
+    match capture {
+        PatternCapture::String { start, end } => output.extend_from_slice(&subject[start..end]),
+        PatternCapture::Position(position) => output.extend_from_slice(
+            i64::try_from(position + 1)
+                .expect("capture position fits LuaInteger")
+                .to_string()
+                .as_bytes(),
+        ),
+    }
 }
 
 fn append_replacement_value(
@@ -585,6 +610,23 @@ mod tests {
             Some(b"dup xyz".as_slice())
         );
         assert_eq!(values[1], Value::integer(1));
+    }
+
+    #[test]
+    fn string_gsub_expands_position_capture_replacements() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"alo alo");
+        let pattern = runtime.push_string(b"()[al]");
+        let replacement = runtime.push_string(b"%1");
+
+        let values =
+            string_gsub(&mut runtime, &[subject, pattern, replacement]).expect("gsub should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(values[0]),
+            Some(b"12o 56o".as_slice())
+        );
+        assert_eq!(values[1], Value::integer(4));
     }
 
     #[test]

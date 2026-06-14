@@ -6,7 +6,9 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
 use super::{
     optional_integer_arg,
-    pattern::{has_unsupported_pattern_special_with_captures, simple_pattern_match_from},
+    pattern::{
+        PatternCapture, has_unsupported_pattern_special_with_captures, simple_pattern_match_from,
+    },
     relative_start, string_arg,
 };
 
@@ -108,8 +110,21 @@ pub(super) fn string_gmatch_aux(
     match_
         .captures
         .into_iter()
-        .map(|(start, end)| runtime.intern_short_string(&subject[start..end]))
+        .map(|capture| capture_value(runtime, &subject, capture))
         .collect()
+}
+
+fn capture_value(
+    runtime: &mut dyn NativeRuntime,
+    subject: &[u8],
+    capture: PatternCapture,
+) -> Result<Value, NativeError> {
+    match capture {
+        PatternCapture::String { start, end } => runtime.intern_short_string(&subject[start..end]),
+        PatternCapture::Position(position) => Ok(Value::integer(
+            i64::try_from(position + 1).expect("capture position fits LuaInteger"),
+        )),
+    }
 }
 
 #[cfg(test)]
@@ -305,6 +320,26 @@ mod tests {
         assert_eq!(first.len(), 2);
         assert_eq!(runtime.short_string_bytes(first[0]), Some(b"a".as_slice()));
         assert_eq!(runtime.short_string_bytes(first[1]), Some(b"1".as_slice()));
+    }
+
+    #[test]
+    fn string_gmatch_aux_returns_position_captures() {
+        let mut runtime = TestRuntime {
+            gmatch_aux: Value::native_function_index(7),
+            ..TestRuntime::default()
+        };
+        let subject = runtime.push_string(b"abc");
+        let pattern = runtime.push_string(b"()");
+        let values = string_gmatch(&mut runtime, &[subject, pattern]).expect("gmatch should pass");
+        let state = values[0];
+
+        let first = string_gmatch_aux(&mut runtime, &[state, Value::nil()])
+            .expect("first gmatch aux should pass");
+        let second = string_gmatch_aux(&mut runtime, &[state, first[0]])
+            .expect("second gmatch aux should pass");
+
+        assert_eq!(first, vec![Value::integer(1)]);
+        assert_eq!(second, vec![Value::integer(2)]);
     }
 
     #[test]

@@ -115,8 +115,8 @@ precision, float width/precision/sign/alternate-form flags for
 flags, `%c`, `%q`, `%p`, and escaped-percent `string.format`, `.` wildcard,
 `^`/`$` anchor, `%` character-class, bracket-class, quantifier, `%b`
 balanced-delimiter, and `%f` frontier pattern matching for `string.find`,
-`string.match`, and `string.gsub`, capture back-references, literal
-string-replacement `string.gsub`, capture-returning `string.find` and
+`string.match`, and `string.gsub`, capture back-references, position captures,
+literal string-replacement `string.gsub`, capture-returning `string.find` and
 `string.match`, replacement captures for string-replacement `string.gsub`,
 table/function replacement values for `string.gsub`, callable and generic-for
 `string.gmatch`, `string.len`, `string.lower`, `string.upper`,
@@ -259,6 +259,7 @@ Completed:
   - M11.2 executable `%b` balanced-delimiter matching for string.find, string.match, and string.gsub.
   - M11.2 executable `%f` frontier matching for string.find, string.match, and string.gsub.
   - M11.2 executable string pattern capture back-references.
+  - M11.2 executable string pattern position captures.
   - M11.2 executable capture-returning string.match native spec.
   - M11.2 executable capture-returning string.find native spec.
   - M11.2 executable string.gsub string replacement captures.
@@ -812,7 +813,7 @@ Delivered:
 ### Immediate Gaps for M11
 
 - Add remaining string pattern behavior beyond the currently covered subset,
-  including position captures and `string.gmatch`-specific anchor semantics.
+  including `string.gmatch`-specific anchor semantics.
 
 ### Product Gaps
 
@@ -837,21 +838,20 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 string pattern capture back-reference verification passed:
+M11.2 string pattern position capture verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib backreference
-cargo test -p elara-stdlib pattern_gap
-cargo test -p elara-api backreferences
+cargo test -p elara-stdlib position_capture
+cargo test -p elara-api position_captures
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M11.2 with remaining string pattern behavior, starting with position
-captures `()`.
+Continue M11.2 with remaining string pattern behavior, starting with
+`string.gmatch`-specific anchor semantics.
 
 ## Current Risk Notes
 
