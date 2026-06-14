@@ -885,6 +885,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_string_gmatch_literal_start_anchor() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "for w in string.gmatch('a^b ^c', '^.') do return string.byte(w) end\nreturn 0",
+                &profile,
+            ),
+            Ok(vec![Value::integer(94)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_gsub_table_replacement() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 

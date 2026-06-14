@@ -87,7 +87,24 @@ pub(super) fn simple_pattern_match_from(
     pattern: &[u8],
     start: usize,
 ) -> Option<PatternMatch> {
-    let pattern = ParsedPattern::new(pattern);
+    simple_pattern_match_from_with_anchor_mode(haystack, pattern, start, true)
+}
+
+pub(super) fn simple_pattern_match_from_without_start_anchor(
+    haystack: &[u8],
+    pattern: &[u8],
+    start: usize,
+) -> Option<PatternMatch> {
+    simple_pattern_match_from_with_anchor_mode(haystack, pattern, start, false)
+}
+
+fn simple_pattern_match_from_with_anchor_mode(
+    haystack: &[u8],
+    pattern: &[u8],
+    start: usize,
+    honor_start_anchor: bool,
+) -> Option<PatternMatch> {
+    let pattern = ParsedPattern::new(pattern, honor_start_anchor);
     if pattern.body.is_empty() && !pattern.anchor_end {
         return (start <= haystack.len()).then_some(PatternMatch {
             start,
@@ -129,8 +146,8 @@ struct ParsedPattern<'a> {
 }
 
 impl<'a> ParsedPattern<'a> {
-    fn new(pattern: &'a [u8]) -> Self {
-        let anchor_start = pattern.first() == Some(&b'^');
+    fn new(pattern: &'a [u8], honor_start_anchor: bool) -> Self {
+        let anchor_start = honor_start_anchor && pattern.first() == Some(&b'^');
         let anchor_end = pattern.last() == Some(&b'$');
         let start = usize::from(anchor_start);
         let end = pattern.len().saturating_sub(usize::from(anchor_end));
@@ -574,6 +591,7 @@ mod tests {
         PatternCapture, has_unsupported_pattern_special,
         has_unsupported_pattern_special_with_captures, simple_pattern_find,
         simple_pattern_find_from, simple_pattern_match_from,
+        simple_pattern_match_from_without_start_anchor,
     };
 
     #[test]
@@ -593,6 +611,15 @@ mod tests {
         assert_eq!(simple_pattern_find(b"abc", b"$"), Some((3, 3)));
         assert_eq!(simple_pattern_find(b"abc", b"^$"), None);
         assert_eq!(simple_pattern_find(b"", b"^$"), Some((0, 0)));
+    }
+
+    #[test]
+    fn simple_pattern_match_can_treat_start_anchor_as_literal() {
+        let match_ = simple_pattern_match_from_without_start_anchor(b"a^b ^c", b"^.", 0)
+            .expect("literal caret should match");
+
+        assert_eq!(match_.start, 1);
+        assert_eq!(match_.end, 3);
     }
 
     #[test]

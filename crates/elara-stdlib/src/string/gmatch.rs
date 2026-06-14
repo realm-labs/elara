@@ -7,7 +7,8 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime, StdLib};
 use super::{
     optional_integer_arg,
     pattern::{
-        PatternCapture, has_unsupported_pattern_special_with_captures, simple_pattern_match_from,
+        PatternCapture, has_unsupported_pattern_special_with_captures,
+        simple_pattern_match_from_without_start_anchor,
     },
     relative_start, string_arg,
 };
@@ -90,7 +91,8 @@ pub(super) fn string_gmatch_aux(
         return Ok(Vec::new());
     }
 
-    let Some(match_) = simple_pattern_match_from(&subject, &pattern, cursor) else {
+    let Some(match_) = simple_pattern_match_from_without_start_anchor(&subject, &pattern, cursor)
+    else {
         return Ok(Vec::new());
     };
     let next_cursor = if match_.start == match_.end {
@@ -340,6 +342,29 @@ mod tests {
 
         assert_eq!(first, vec![Value::integer(1)]);
         assert_eq!(second, vec![Value::integer(2)]);
+    }
+
+    #[test]
+    fn string_gmatch_treats_start_anchor_as_literal_pattern_byte() {
+        let mut runtime = TestRuntime {
+            gmatch_aux: Value::native_function_index(7),
+            ..TestRuntime::default()
+        };
+        let subject = runtime.push_string(b"a^b ^c");
+        let pattern = runtime.push_string(b"^.");
+        let values = string_gmatch(&mut runtime, &[subject, pattern]).expect("gmatch should pass");
+        let state = values[0];
+
+        let first = string_gmatch_aux(&mut runtime, &[state, Value::nil()])
+            .expect("first gmatch aux should pass");
+        let second = string_gmatch_aux(&mut runtime, &[state, first[0]])
+            .expect("second gmatch aux should pass");
+
+        assert_eq!(runtime.short_string_bytes(first[0]), Some(b"^b".as_slice()));
+        assert_eq!(
+            runtime.short_string_bytes(second[0]),
+            Some(b"^c".as_slice())
+        );
     }
 
     #[test]

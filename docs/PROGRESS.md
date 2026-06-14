@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M11 Standard Library MVP
-Current step: M11.2 Implement base, table, math, and string essentials
+Current step: M11.3 Implement coroutine and utf8 libraries
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -119,9 +119,9 @@ balanced-delimiter, and `%f` frontier pattern matching for `string.find`,
 literal string-replacement `string.gsub`, capture-returning `string.find` and
 `string.match`, replacement captures for string-replacement `string.gsub`,
 table/function replacement values for `string.gsub`, callable and generic-for
-`string.gmatch`, `string.len`, `string.lower`, `string.upper`,
-`string.reverse`, `string.rep`, and `string.sub` are executable and covered
-through stdlib-backed API evaluation.
+`string.gmatch` with Lua-style leading-caret behavior, `string.len`,
+`string.lower`, `string.upper`, `string.reverse`, `string.rep`, and
+`string.sub` are executable and covered through stdlib-backed API evaluation.
 Table natives `table.concat`, `table.insert`, `table.move`, `table.pack`,
 `table.remove`, default and custom-comparator `table.sort`, and
 `table.unpack` are executable and covered through stdlib-backed API
@@ -275,9 +275,12 @@ Completed:
   - M11.2 stdlib-backed string.gmatch generic-for iterator path.
   - M11.2 call lowering preserves local callable values across assignment calls.
   - M11.2 Lua-style callable string.gmatch iterator state.
+  - M11.2 Lua-style string.gmatch leading-caret semantics.
+  - M11.2 Implement base, table, math, and string essentials.
+  - M11.2 exit criteria validation.
 
 In progress:
-  - M11.2 Implement base, table, math, and string essentials.
+  - M11.3 Implement coroutine and utf8 libraries.
   - Rust API.
   - JIT.
   - C API.
@@ -812,8 +815,8 @@ Delivered:
 
 ### Immediate Gaps for M11
 
-- Add remaining string pattern behavior beyond the currently covered subset,
-  including `string.gmatch`-specific anchor semantics.
+- Implement coroutine standard functions backed by primitive coroutine support.
+- Implement utf8 library basics.
 
 ### Product Gaps
 
@@ -835,23 +838,28 @@ M10.3 is complete.
 M10.4 is complete.
 M10 is complete.
 M11.1 is complete.
+M11.2 is complete.
 
 ## Last Verification
 
-M11.2 string pattern position capture verification passed:
+M11.2 string.gmatch leading-caret and exit verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib position_capture
-cargo test -p elara-api position_captures
+cargo test -p elara-stdlib start_anchor
+cargo test -p elara-api literal_start_anchor
+cargo test -p elara-stdlib base
+cargo test -p elara-stdlib table
+cargo test -p elara-stdlib math
+cargo test -p elara-stdlib string
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M11.2 with remaining string pattern behavior, starting with
-`string.gmatch`-specific anchor semantics.
+Continue M11.3 with coroutine standard-library functions backed by primitive
+coroutine support.
 
 ## Current Risk Notes
 
