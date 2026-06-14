@@ -491,6 +491,33 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_os_date_utc_table() {
+        let profile = StdLibProfile::Custom([StdLib::Os].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                r#"
+                local t = os.date("!*t", 0)
+                return t.year, t.month, t.day, t.hour, t.min, t.sec, t.wday, t.yday, t.isdst
+                "#,
+                &profile,
+            ),
+            Ok(vec![
+                Value::integer(1970),
+                Value::integer(1),
+                Value::integer(1),
+                Value::integer(0),
+                Value::integer(0),
+                Value::integer(0),
+                Value::integer(5),
+                Value::integer(1),
+                Value::boolean(false),
+            ])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_os_clock() {
         let profile = StdLibProfile::Custom([StdLib::Os].into_iter().collect());
 

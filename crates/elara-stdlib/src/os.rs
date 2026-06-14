@@ -15,9 +15,18 @@ use crate::{
     FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
 };
 
+mod date;
+mod time;
+
+use self::{
+    date::os_date,
+    time::{utc_date_time, utc_seconds_from_civil_time},
+};
+
 /// Executable `os` library functions currently implemented.
 pub const OS_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "clock"), os_clock),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "date"), os_date),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "difftime"), os_difftime),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "getenv"), os_getenv),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "remove"), os_remove),
@@ -145,6 +154,10 @@ fn os_setlocale(
 }
 
 fn current_unix_time() -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::integer(current_unix_seconds()?)])
+}
+
+pub(super) fn current_unix_seconds() -> Result<i64, NativeError> {
     let seconds = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|error| NativeErrorKind::RuntimeError {
@@ -154,7 +167,7 @@ fn current_unix_time() -> Result<Vec<Value>, NativeError> {
     let seconds = i64::try_from(seconds).map_err(|_| NativeErrorKind::RuntimeError {
         message: "system time cannot be represented as Lua integer".into(),
     })?;
-    Ok(vec![Value::integer(seconds)])
+    Ok(seconds)
 }
 
 fn required_integer_field(
@@ -224,77 +237,14 @@ fn write_normalized_time_fields(
     table: Value,
     seconds: i64,
 ) -> Result<(), NativeError> {
-    let days = seconds.div_euclid(SECONDS_PER_DAY);
-    let seconds_of_day = seconds.rem_euclid(SECONDS_PER_DAY);
-    let (year, month, day) = civil_from_days(days);
-    let hour = seconds_of_day / SECONDS_PER_HOUR;
-    let min = (seconds_of_day % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE;
-    let sec = seconds_of_day % SECONDS_PER_MINUTE;
-
-    set_integer_field(runtime, table, b"year", year)?;
-    set_integer_field(runtime, table, b"month", month)?;
-    set_integer_field(runtime, table, b"day", day)?;
-    set_integer_field(runtime, table, b"hour", hour)?;
-    set_integer_field(runtime, table, b"min", min)?;
-    set_integer_field(runtime, table, b"sec", sec)?;
+    let date = utc_date_time(seconds);
+    set_integer_field(runtime, table, b"year", date.year)?;
+    set_integer_field(runtime, table, b"month", date.month)?;
+    set_integer_field(runtime, table, b"day", date.day)?;
+    set_integer_field(runtime, table, b"hour", date.hour)?;
+    set_integer_field(runtime, table, b"min", date.min)?;
+    set_integer_field(runtime, table, b"sec", date.sec)?;
     Ok(())
-}
-
-const SECONDS_PER_MINUTE: i64 = 60;
-const SECONDS_PER_HOUR: i64 = 60 * SECONDS_PER_MINUTE;
-const SECONDS_PER_DAY: i64 = 24 * SECONDS_PER_HOUR;
-
-fn utc_seconds_from_civil_time(
-    mut year: i64,
-    month: i64,
-    day: i64,
-    hour: i64,
-    min: i64,
-    sec: i64,
-) -> Result<i64, NativeError> {
-    let month_index = month - 1;
-    year += month_index.div_euclid(12);
-    let month = month_index.rem_euclid(12) + 1;
-    let days = days_from_civil(year, month, 1)
-        .checked_add(day - 1)
-        .ok_or_else(time_representability_error)?;
-    let seconds = i128::from(days) * i128::from(SECONDS_PER_DAY)
-        + i128::from(hour) * i128::from(SECONDS_PER_HOUR)
-        + i128::from(min) * i128::from(SECONDS_PER_MINUTE)
-        + i128::from(sec);
-    i64::try_from(seconds).map_err(|_| time_representability_error())
-}
-
-fn days_from_civil(mut year: i64, month: i64, day: i64) -> i64 {
-    year -= i64::from(month <= 2);
-    let era = year.div_euclid(400);
-    let year_of_era = year - era * 400;
-    let month_prime = month + if month > 2 { -3 } else { 9 };
-    let day_of_year = (153 * month_prime + 2) / 5 + day - 1;
-    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
-    era * 146_097 + day_of_era - 719_468
-}
-
-fn civil_from_days(days: i64) -> (i64, i64, i64) {
-    let days = days + 719_468;
-    let era = days.div_euclid(146_097);
-    let day_of_era = days - era * 146_097;
-    let year_of_era =
-        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let mut year = year_of_era + era * 400;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let month_prime = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
-    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
-    year += i64::from(month <= 2);
-    (year, month, day)
-}
-
-fn time_representability_error() -> NativeError {
-    NativeErrorKind::RuntimeError {
-        message: "time result cannot be represented in this installation".into(),
-    }
-    .into()
 }
 
 fn utf8_string_arg<'a>(
@@ -311,7 +261,7 @@ fn utf8_string_arg<'a>(
         .map_err(Into::into)
 }
 
-fn optional_utf8_string_arg<'a>(
+pub(super) fn optional_utf8_string_arg<'a>(
     runtime: &'a dyn NativeRuntime,
     args: &[Value],
     index: usize,
@@ -538,6 +488,63 @@ mod tests {
             &NativeErrorKind::TypeError {
                 index: 1,
                 expected: "integer",
+            }
+        );
+    }
+
+    #[test]
+    fn os_date_returns_utc_table_fields() {
+        let function = function("date");
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"!*t");
+
+        let result =
+            function(&mut runtime, &[format, Value::integer(0)]).expect("os.date should pass");
+
+        let table = result[0];
+        assert_eq!(runtime.integer_field(table, b"year"), Some(1970));
+        assert_eq!(runtime.integer_field(table, b"month"), Some(1));
+        assert_eq!(runtime.integer_field(table, b"day"), Some(1));
+        assert_eq!(runtime.integer_field(table, b"hour"), Some(0));
+        assert_eq!(runtime.integer_field(table, b"min"), Some(0));
+        assert_eq!(runtime.integer_field(table, b"sec"), Some(0));
+        assert_eq!(runtime.integer_field(table, b"wday"), Some(5));
+        assert_eq!(runtime.integer_field(table, b"yday"), Some(1));
+        let isdst = runtime.intern_string(b"isdst");
+        assert_eq!(runtime.table_get(table, isdst), Ok(Value::boolean(false)));
+    }
+
+    #[test]
+    fn os_date_validates_supported_utc_table_subset() {
+        let function = function("date");
+        let mut runtime = TestRuntime::default();
+        let unsupported_format = runtime.push_string(b"%Y");
+        let utc_table_format = runtime.push_string(b"!*t");
+
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1)])
+                .expect_err("non-string format")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "string",
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[utc_table_format, Value::boolean(true)])
+                .expect_err("non-integer time")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "integer",
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[unsupported_format, Value::integer(0)])
+                .expect_err("unsupported format")
+                .kind(),
+            &NativeErrorKind::RuntimeError {
+                message: "os.date currently supports only UTC table format '!*t'".into(),
             }
         );
     }
