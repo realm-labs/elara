@@ -11,8 +11,8 @@ use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
 use elara_stdlib::{
     BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, LuaRandomState, MATH_CONSTANTS, NativeError,
     NativeErrorKind, NativeRuntime, PACKAGE_CONFIG, PACKAGE_CPATH, PACKAGE_PATH,
-    STRING_GMATCH_AUX_NATIVE, StdLib, StdLibProfile, StdLibSet, UTF8_CHAR_PATTERN,
-    UTF8_CODES_AUX_LAX_NATIVE, UTF8_CODES_AUX_STRICT_NATIVE, native_functions,
+    PACKAGE_PRELOAD_SEARCHER_NATIVE, STRING_GMATCH_AUX_NATIVE, StdLib, StdLibProfile, StdLibSet,
+    UTF8_CHAR_PATTERN, UTF8_CODES_AUX_LAX_NATIVE, UTF8_CODES_AUX_STRICT_NATIVE, native_functions,
 };
 
 /// Builds a primitive runtime environment containing implemented stdlib natives
@@ -97,7 +97,9 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
             let require = fields
                 .iter()
                 .find_map(|(name, value)| (*name == "require").then_some(*value));
-            environment.set_global_table_with_string_and_empty_table_fields(
+            let preload_searcher =
+                register_hidden_native(environment, PACKAGE_PRELOAD_SEARCHER_NATIVE.function());
+            environment.set_global_table_with_string_and_table_fields(
                 library.name(),
                 fields,
                 [
@@ -105,7 +107,17 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
                     ("path", PACKAGE_PATH.as_bytes()),
                     ("cpath", PACKAGE_CPATH.as_bytes()),
                 ],
-                ["loaded", "preload", "searchers"],
+                [
+                    ("loaded", Vec::new()),
+                    ("preload", Vec::new()),
+                    (
+                        "searchers",
+                        vec![(
+                            Value::integer(1),
+                            Value::native_function_index(preload_searcher),
+                        )],
+                    ),
+                ],
             );
             if let Some(require) = require {
                 environment.set_global("require", require);

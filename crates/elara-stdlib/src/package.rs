@@ -9,16 +9,18 @@ use crate::{
 };
 
 mod loadlib;
+mod searcher;
 
 use self::loadlib::package_loadlib;
+use self::searcher::package_preload_searcher;
 
 const PATH_MARK: &str = "?";
 const PATH_SEPARATOR: &str = ";";
 const PACKAGE_GLOBAL: &[u8] = b"package";
 const LOADED_FIELD: &[u8] = b"loaded";
-const PRELOAD_FIELD: &[u8] = b"preload";
+pub(super) const PRELOAD_FIELD: &[u8] = b"preload";
 const SEARCHERS_FIELD: &[u8] = b"searchers";
-const PRELOAD_LOADER_DATA: &[u8] = b":preload:";
+pub(super) const PRELOAD_LOADER_DATA: &[u8] = b":preload:";
 
 #[cfg(windows)]
 const DIRECTORY_SEPARATOR: &str = "\\";
@@ -61,6 +63,12 @@ pub const PACKAGE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         package_require,
     ),
 ];
+
+/// Hidden package searcher used to seed `package.searchers[1]`.
+pub const PACKAGE_PRELOAD_SEARCHER_NATIVE: NativeFunctionSpec = NativeFunctionSpec::new(
+    FunctionSpec::new(StdLib::Package, "__preload_searcher"),
+    package_preload_searcher,
+);
 
 fn package_searchpath(
     runtime: &mut dyn NativeRuntime,
@@ -189,7 +197,10 @@ fn run_loader(
     Ok(vec![module, loader_data])
 }
 
-fn package_subtable(runtime: &mut dyn NativeRuntime, field: &[u8]) -> Result<Value, NativeError> {
+pub(super) fn package_subtable(
+    runtime: &mut dyn NativeRuntime,
+    field: &[u8],
+) -> Result<Value, NativeError> {
     let package = runtime.global_get(PACKAGE_GLOBAL)?;
     let key = runtime.intern_short_string(field)?;
     let value = runtime.table_get(package, key)?;

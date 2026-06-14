@@ -117,6 +117,49 @@ impl RuntimeEnvironment {
         });
     }
 
+    /// Registers one initial global table with prebuilt values, runtime-interned
+    /// string fields, and nested tables containing prebuilt value-keyed entries.
+    pub fn set_global_table_with_string_and_table_fields<I, N, S, SN, B, T, TN>(
+        &mut self,
+        name: impl Into<Box<str>>,
+        value_fields: I,
+        string_fields: S,
+        table_fields: T,
+    ) where
+        I: IntoIterator<Item = (N, Value)>,
+        N: Into<Box<str>>,
+        S: IntoIterator<Item = (SN, B)>,
+        SN: Into<Box<str>>,
+        B: Into<Box<[u8]>>,
+        T: IntoIterator<Item = (TN, Vec<(Value, Value)>)>,
+        TN: Into<Box<str>>,
+    {
+        self.globals.push(InitialGlobal {
+            name: name.into(),
+            value: InitialValue::Table(
+                value_fields
+                    .into_iter()
+                    .map(|(name, value)| InitialField {
+                        name: name.into(),
+                        value: InitialFieldValue::Value(value),
+                    })
+                    .chain(string_fields.into_iter().map(|(name, bytes)| InitialField {
+                        name: name.into(),
+                        value: InitialFieldValue::String(bytes.into()),
+                    }))
+                    .chain(
+                        table_fields
+                            .into_iter()
+                            .map(|(name, entries)| InitialField {
+                                name: name.into(),
+                                value: InitialFieldValue::ValueTable(entries),
+                            }),
+                    )
+                    .collect(),
+            ),
+        });
+    }
+
     /// Registers one native function and returns its runtime index.
     pub fn push_native<F>(&mut self, function: F) -> u32
     where
@@ -211,4 +254,5 @@ pub(super) enum InitialFieldValue {
     Value(Value),
     String(Box<[u8]>),
     Table(Vec<InitialField>),
+    ValueTable(Vec<(Value, Value)>),
 }

@@ -333,6 +333,32 @@ fn initial_global_tables_can_seed_empty_table_fields() {
 }
 
 #[test]
+fn initial_global_tables_can_seed_nested_value_table_fields() {
+    let native = Value::native_function_index(3);
+    let mut environment = RuntimeEnvironment::new();
+    environment.set_global_table_with_string_and_table_fields(
+        "package",
+        std::iter::empty::<(&str, Value)>(),
+        std::iter::empty::<(&str, &[u8])>(),
+        [("searchers", vec![(Value::integer(1), native)])],
+    );
+
+    let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+    let module = builder.add_string_constant("package");
+    let searchers = builder.add_string_constant("searchers");
+    builder.emit_abx(Op::GetEnv, 0, u64::from(module));
+    builder.emit_abx(Op::LoadString, 1, u64::from(searchers));
+    builder.emit_abc(Op::GetTable, 1, 0, 1);
+    builder.emit_abx(Op::LoadInt, 2, 1);
+    builder.emit_abc(Op::GetTable, 1, 1, 2);
+    builder.emit_abc(Op::Return, 1, 1, 0);
+
+    let output = execute_proto_with_environment(&builder.finish(), environment)
+        .expect("registered nested table field should execute");
+    assert_eq!(output.values, vec![native]);
+}
+
+#[test]
 fn native_functions_can_allocate_runtime_strings() {
     let mut environment = RuntimeEnvironment::new();
     environment.register_native_global("label", |context, _args| {

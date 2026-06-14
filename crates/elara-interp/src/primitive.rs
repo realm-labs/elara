@@ -891,6 +891,15 @@ fn seed_initial_field_value(
             }
             Ok(Value::table_index(tables.push_table(table)))
         }
+        InitialFieldValue::ValueTable(entries) => {
+            let mut table = Table::new();
+            for (key, value) in entries {
+                if !table.raw_set_value(*key, *value) {
+                    return Err(RuntimeErrorKind::InvalidTableKey.into());
+                }
+            }
+            Ok(Value::table_index(tables.push_table(table)))
+        }
     }
 }
 

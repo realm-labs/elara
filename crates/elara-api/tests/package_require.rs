@@ -111,3 +111,17 @@ fn package_loadlib_reports_unsupported_dynamic_loading() {
         Ok(vec![Value::nil()])
     );
 }
+
+#[test]
+fn package_searchers_includes_preload_searcher() {
+    let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
+
+    assert_eq!(
+        eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "local function loader()\n  return 42\nend\npackage.preload.mod = loader\nlocal found = package.searchers[1]('mod')\nreturn found('mod')",
+            &profile,
+        ),
+        Ok(vec![Value::integer(42)])
+    );
+}
