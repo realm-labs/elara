@@ -112,7 +112,13 @@ fn debug_getlocal(
         })?;
     let local_index = integer_arg(args, target_index + 1)?;
     if target.is_closure() {
-        return Ok(vec![Value::nil()]);
+        return Ok(
+            if let Some(name) = runtime.debug_getlocal_function(target, local_index)? {
+                vec![name]
+            } else {
+                vec![Value::nil()]
+            },
+        );
     }
     let level = target.as_integer().ok_or(NativeErrorKind::TypeError {
         index: target_index + 1,

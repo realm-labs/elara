@@ -179,6 +179,39 @@ fn native_context_reads_lua_caller_locals() {
 }
 
 #[test]
+fn native_context_reads_function_target_parameter_names() {
+    let mut environment = RuntimeEnvironment::new();
+    environment.register_native_global("capture", |context, args| {
+        let Some(function) = args.first().copied() else {
+            return Ok(vec![Value::boolean(false)]);
+        };
+        let Some(name) = context.debug_getlocal_function(function, 1)? else {
+            return Ok(vec![Value::boolean(false)]);
+        };
+        Ok(vec![Value::boolean(
+            context.string_bytes(name) == Some(b"arg" as &[u8]),
+        )])
+    });
+
+    let mut child = ProtoBuilder::new().with_signature(1, 1, false);
+    child.add_local_var("arg", 0, 0, u32::MAX);
+    child.emit_abc(Op::Return, 0, 0, 0);
+
+    let mut parent = ProtoBuilder::new().with_signature(3, 0, false);
+    let capture = parent.add_string_constant("capture");
+    let child_index = parent.add_child(child.finish());
+    parent.emit_abx(Op::GetEnv, 0, u64::from(capture));
+    parent.emit_abx(Op::Closure, 1, u64::from(child_index));
+    parent.emit_abc(Op::Call, 0, 2, 1);
+    parent.emit_abc(Op::Return, 0, 1, 0);
+
+    assert_eq!(
+        execute_proto_with_environment(&parent.finish(), environment).map(|output| output.values),
+        Ok(vec![Value::boolean(true)])
+    );
+}
+
+#[test]
 fn native_context_sets_lua_caller_locals() {
     let mut environment = RuntimeEnvironment::new();
     environment.register_native_global("mutate", |context, _args| {

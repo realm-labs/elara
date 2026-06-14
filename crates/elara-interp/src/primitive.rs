@@ -234,6 +234,15 @@ impl<'a> NativeContext<'a> {
         debug::get_local(level, local, self.strings, self.debug_frames)
     }
 
+    /// Returns a parameter name for a Lua function target.
+    pub fn debug_getlocal_function(
+        &mut self,
+        function: Value,
+        local: i64,
+    ) -> RuntimeResult<Option<Value>> {
+        debug::get_local_name_for_function(function, local, self.closures, self.strings)
+    }
+
     /// Sets a captured local for a Lua stack level and returns its name.
     pub fn debug_setlocal(
         &mut self,

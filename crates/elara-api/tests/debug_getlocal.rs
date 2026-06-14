@@ -44,6 +44,21 @@ fn debug_getlocal_returns_nil_for_absent_locals() {
 }
 
 #[test]
+fn debug_getlocal_returns_nil_for_no_parameter_function_targets() {
+    assert_eq!(
+        eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "local function probe()
+               return 42
+             end
+             return debug.getlocal(probe, 1)",
+            &profile(),
+        ),
+        Ok(vec![Value::nil()])
+    );
+}
+
+#[test]
 fn debug_getlocal_rejects_bad_arguments_and_out_of_range_levels() {
     assert_eq!(
         eval_simple_source_with_stdlib(

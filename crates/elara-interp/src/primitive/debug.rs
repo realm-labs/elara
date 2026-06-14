@@ -121,6 +121,39 @@ pub(super) fn get_local(
     Ok(Some((strings.intern_value(name), value)))
 }
 
+pub(super) fn get_local_name_for_function(
+    function: Value,
+    local: i64,
+    closures: &[RuntimeClosure],
+    strings: &mut RuntimeStrings,
+) -> RuntimeResult<Option<Value>> {
+    let Some(local_index) = local
+        .checked_sub(1)
+        .and_then(|index| usize::try_from(index).ok())
+    else {
+        return Ok(None);
+    };
+    let Some(closure_index) = function.as_closure_index() else {
+        return Ok(None);
+    };
+    let Some(closure) = closures.get(closure_index as usize) else {
+        return Ok(None);
+    };
+    if local_index >= usize::from(closure.proto.params) {
+        return Ok(None);
+    }
+    let Some(local) = closure
+        .proto
+        .debug
+        .local_vars
+        .iter()
+        .find(|local| usize::from(local.register) == local_index)
+    else {
+        return Ok(None);
+    };
+    Ok(Some(strings.intern_value(local.name.as_bytes())))
+}
+
 pub(super) fn set_local(
     level: i64,
     local: i64,

@@ -7,6 +7,8 @@ struct TestRuntime {
     strings: Vec<Box<[u8]>>,
     debug_local: Option<(Value, Value)>,
     debug_local_request: Option<(i64, i64)>,
+    debug_local_function: Option<Value>,
+    debug_local_function_request: Option<(Value, i64)>,
     debug_setlocal: Option<Value>,
     debug_setlocal_request: Option<(i64, i64, Value)>,
 }
@@ -40,6 +42,15 @@ impl NativeRuntime for TestRuntime {
     ) -> Result<Option<(Value, Value)>, crate::NativeError> {
         self.debug_local_request = Some((level, local));
         Ok(self.debug_local)
+    }
+
+    fn debug_getlocal_function(
+        &mut self,
+        function: Value,
+        local: i64,
+    ) -> Result<Option<Value>, crate::NativeError> {
+        self.debug_local_function_request = Some((function, local));
+        Ok(self.debug_local_function)
     }
 
     fn debug_setlocal(
@@ -86,6 +97,23 @@ fn debug_getlocal_returns_nil_for_absent_locals_and_function_targets() {
             .expect("function-target locals are not materialized yet"),
         vec![Value::nil()]
     );
+    assert_eq!(runtime.debug_local_function_request, Some((target, 1)));
+}
+
+#[test]
+fn debug_getlocal_forwards_function_target_queries() {
+    let function = function("getlocal");
+    let mut runtime = TestRuntime::default();
+    let target = Value::closure_index(3);
+    let name = runtime.push_string(b"arg");
+    runtime.debug_local_function = Some(name);
+
+    assert_eq!(
+        function(&mut runtime, &[target, Value::integer(1)])
+            .expect("debug.getlocal function target should pass"),
+        vec![name]
+    );
+    assert_eq!(runtime.debug_local_function_request, Some((target, 1)));
 }
 
 #[test]
