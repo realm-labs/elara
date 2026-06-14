@@ -1197,6 +1197,39 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_base_functions_accept_long_strings() {
+        let profile = StdLibProfile::Custom([StdLib::Base, StdLib::Package].into_iter().collect());
+        let path_len = i64::try_from(PACKAGE_PATH.len()).expect("package path length fits");
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "return rawlen(package.path), rawequal(tostring(package.path), package.path), tonumber(package.path, 16)",
+                &profile,
+            ),
+            Ok(vec![
+                Value::integer(path_len),
+                Value::boolean(true),
+                Value::nil(),
+            ])
+        );
+
+        let error = eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "return error(package.path)",
+            &profile,
+        )
+        .expect_err("long string error should raise");
+
+        match error {
+            EvalError::Runtime(error) => assert_eq!(error.message(), PACKAGE_PATH),
+            EvalError::Diagnostics(diagnostics) => {
+                panic!("expected runtime error, got diagnostics {diagnostics:?}")
+            }
+        }
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_len() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 

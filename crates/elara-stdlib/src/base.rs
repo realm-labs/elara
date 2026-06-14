@@ -163,7 +163,7 @@ fn base_pcall(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
         }
         Err(message) => Ok(vec![
             Value::boolean(false),
-            runtime.intern_short_string(message.as_bytes())?,
+            runtime.intern_string(message.as_bytes())?,
         ]),
     }
 }
@@ -180,7 +180,7 @@ fn base_xpcall(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
             Ok(results)
         }
         Err(message) => {
-            let message = runtime.intern_short_string(message.as_bytes())?;
+            let message = runtime.intern_string(message.as_bytes())?;
             match runtime.protected_call(handler, &[message])? {
                 Ok(values) => {
                     let mut results = Vec::with_capacity(values.len() + 1);
@@ -190,7 +190,7 @@ fn base_xpcall(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
                 }
                 Err(handler_message) => Ok(vec![
                     Value::boolean(false),
-                    runtime.intern_short_string(handler_message.as_bytes())?,
+                    runtime.intern_string(handler_message.as_bytes())?,
                 ]),
             }
         }
@@ -234,7 +234,7 @@ fn base_rawlen(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
     let value = *args
         .first()
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
-    if let Some(bytes) = runtime.short_string_bytes(value) {
+    if let Some(bytes) = runtime.string_bytes(value) {
         let len = i64::try_from(bytes.len()).expect("runtime string length must fit in LuaInteger");
         return Ok(vec![Value::integer(len)]);
     }
@@ -328,7 +328,7 @@ fn base_tonumber(
         }
         return Ok(vec![
             runtime
-                .short_string_bytes(value)
+                .string_bytes(value)
                 .and_then(parse_standard_number)
                 .unwrap_or_else(Value::nil),
         ]);
@@ -342,7 +342,7 @@ fn base_tonumber(
         return Err(NativeErrorKind::ArgumentOutOfRange { index: 2 }.into());
     }
     let bytes = runtime
-        .short_string_bytes(value)
+        .string_bytes(value)
         .ok_or(NativeErrorKind::TypeError {
             index: 1,
             expected: "string",
@@ -359,11 +359,11 @@ fn base_tostring(
     let value = *args
         .first()
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
-    if runtime.short_string_bytes(value).is_some() {
+    if runtime.string_bytes(value).is_some() {
         return Ok(vec![value]);
     }
     let text = tostring_bytes(value);
-    Ok(vec![runtime.intern_short_string(text.as_bytes())?])
+    Ok(vec![runtime.intern_string(text.as_bytes())?])
 }
 
 fn base_type(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -423,12 +423,12 @@ fn tostring_bytes(value: Value) -> String {
 
 fn printable_bytes(runtime: &dyn NativeRuntime, value: Value) -> Vec<u8> {
     runtime
-        .short_string_bytes(value)
+        .string_bytes(value)
         .map_or_else(|| tostring_bytes(value).into_bytes(), <[u8]>::to_vec)
 }
 
 fn error_message(runtime: &dyn NativeRuntime, value: Value) -> String {
-    runtime.short_string_bytes(value).map_or_else(
+    runtime.string_bytes(value).map_or_else(
         || tostring_bytes(value),
         |bytes| String::from_utf8_lossy(bytes).into_owned(),
     )
