@@ -461,6 +461,16 @@ impl RuntimeDebugHooks {
             .map(RuntimeDebugHook::to_parts)
     }
 
+    /// Returns whether a hook function is currently installed.
+    #[must_use]
+    pub fn is_active(&self) -> bool {
+        self.state
+            .lock()
+            .expect("debug hook lock must not be poisoned")
+            .hook
+            .is_some()
+    }
+
     /// Installs hook metadata.
     pub fn set(&self, function: Value, mask: Vec<u8>, count: LuaInteger) -> RuntimeResult<()> {
         let function = RuntimeDebugHookFunction::from_value(function)?;
@@ -1176,6 +1186,27 @@ impl From<RuntimeErrorKind> for RuntimeError {
 /// Executes a verified prototype and returns the first return values.
 pub fn execute_proto(proto: &Proto) -> RuntimeResult<Vec<Value>> {
     execute_proto_with_output(proto).map(|output| output.values)
+}
+
+/// Returns whether a Proto or any child Proto reads or writes the runtime environment.
+#[must_use]
+pub fn proto_uses_runtime_environment(proto: &Proto) -> bool {
+    let uses_direct_environment = proto
+        .code
+        .iter()
+        .any(|instr| matches!(instr.op(), Op::GetEnv | Op::SetEnv | Op::DeclGlobal));
+    let has_default_environment = proto
+        .upvalues
+        .iter()
+        .any(|upvalue| upvalue.name.as_deref() == Some("_ENV"));
+    let uses_environment_table = has_default_environment
+        && proto
+            .code
+            .iter()
+            .any(|instr| matches!(instr.op(), Op::GetTable | Op::SetTable));
+    uses_direct_environment
+        || uses_environment_table
+        || proto.children.iter().any(proto_uses_runtime_environment)
 }
 
 /// Executes a verified prototype and returns values plus runtime-owned tables.

@@ -209,6 +209,12 @@ impl RuntimeEnvironment {
         index
     }
 
+    /// Returns whether this environment currently has an installed debug hook.
+    #[must_use]
+    pub fn debug_hooks_active(&self) -> bool {
+        self.debug_hooks.is_active()
+    }
+
     pub(super) fn into_parts(self) -> (RuntimeNatives, RuntimeDebugHooks, Vec<InitialGlobal>) {
         (self.natives, self.debug_hooks, self.globals)
     }

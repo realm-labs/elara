@@ -1,9 +1,8 @@
 //! Optional JIT configuration exposed by the public API.
 
+use elara_jit::JitRuntimeMode;
+
 /// Optional JIT execution mode for a Lua runtime.
-///
-/// This is configuration plumbing only. M16 later milestones add lowering,
-/// runtime helpers, hot counters, and interpreter/JIT transitions.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum JitMode {
     /// Always execute through the interpreter.
@@ -16,4 +15,14 @@ pub enum JitMode {
     },
     /// Compile supported functions before first execution.
     Always,
+}
+
+impl JitMode {
+    pub(crate) const fn runtime_mode(self) -> JitRuntimeMode {
+        match self {
+            Self::Off => JitRuntimeMode::Off,
+            Self::Hot { threshold } => JitRuntimeMode::Hot { threshold },
+            Self::Always => JitRuntimeMode::Always,
+        }
+    }
 }

@@ -8,6 +8,10 @@ use std::{
 use elara_compiler::compile_simple_chunk;
 use elara_core::{SourceId, Value};
 use elara_interp::execute_proto_with_environment;
+#[cfg(feature = "jit")]
+use elara_interp::proto_uses_runtime_environment;
+#[cfg(feature = "jit")]
+use elara_jit::{JitRuntime, JitRuntimeStats};
 use elara_stdlib::StdLibProfile;
 
 #[cfg(feature = "jit")]
@@ -204,6 +208,10 @@ impl Chunk<'_> {
 
     /// Evaluates this chunk through the current simple compiler/interpreter path.
     pub fn eval(&self) -> Result<Vec<Value>, EvalError> {
+        self.eval_report().map(|report| report.values)
+    }
+
+    fn eval_report(&self) -> Result<EvalReport, EvalError> {
         let compiled = compile_simple_chunk(self.source_id, &self.source);
         if !compiled.diagnostics.is_empty() {
             return Err(EvalError::Diagnostics(compiled.diagnostics));
@@ -217,10 +225,31 @@ impl Chunk<'_> {
                 function.call(context, args)
             });
         }
+        #[cfg(feature = "jit")]
+        if self.lua.jit_mode != JitMode::Off && !proto_uses_runtime_environment(&proto) {
+            let mut jit = JitRuntime::new(self.lua.jit_mode.runtime_mode());
+            jit.set_debug_hooks_active(environment.debug_hooks_active());
+            let values = jit.execute(&proto).map_err(EvalError::Runtime)?;
+            return Ok(EvalReport {
+                values,
+                jit_stats: Some(jit.stats()),
+            });
+        }
         execute_proto_with_environment(&proto, environment)
-            .map(|output| output.values)
+            .map(|output| EvalReport {
+                values: output.values,
+                #[cfg(feature = "jit")]
+                jit_stats: None,
+            })
             .map_err(EvalError::Runtime)
     }
+}
+
+struct EvalReport {
+    values: Vec<Value>,
+    #[cfg(feature = "jit")]
+    #[allow(dead_code)]
+    jit_stats: Option<JitRuntimeStats>,
 }
 
 #[derive(Clone, Debug)]
@@ -278,6 +307,44 @@ mod tests {
             .build();
 
         assert_eq!(lua.jit_mode(), JitMode::Hot { threshold: 128 });
+    }
+
+    #[cfg(feature = "jit")]
+    #[test]
+    fn chunk_jit_always_executes_environment_independent_proto() {
+        let lua = LuaBuilder::new()
+            .stdlib_profile(StdLibProfile::Custom(StdLibSet::new()))
+            .jit(JitMode::Always)
+            .build();
+
+        let report = lua
+            .load("return 8 + 9")
+            .eval_report()
+            .expect("arithmetic chunk should execute");
+        let stats = report.jit_stats.expect("chunk should use JIT runtime");
+
+        assert_eq!(report.values, vec![Value::integer(17)]);
+        assert_eq!(stats.compile_attempts, 1);
+        assert_eq!(stats.compile_successes, 1);
+        assert_eq!(stats.jit_runs, 1);
+        assert_eq!(stats.interpreter_runs, 0);
+    }
+
+    #[cfg(feature = "jit")]
+    #[test]
+    fn chunk_jit_keeps_debug_environment_chunks_on_interpreter() {
+        let lua = LuaBuilder::new()
+            .stdlib_profile(StdLibProfile::Custom([StdLib::Debug].into_iter().collect()))
+            .jit(JitMode::Always)
+            .build();
+
+        let report = lua
+            .load("return debug.gethook()")
+            .eval_report()
+            .expect("debug chunk should execute");
+
+        assert_eq!(report.values, vec![Value::nil()]);
+        assert_eq!(report.jit_stats, None);
     }
 
     #[test]

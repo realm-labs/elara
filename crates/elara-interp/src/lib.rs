@@ -11,5 +11,5 @@ pub use primitive::{
     CoroutineResume, NativeContext, PrimitiveCoroutine, ProtectedRuntimeOutput, RuntimeEnvironment,
     RuntimeError, RuntimeErrorKind, RuntimeNatives, RuntimeResult, execute_proto,
     execute_proto_protected, execute_proto_with_environment, execute_proto_with_natives,
-    execute_proto_with_output,
+    execute_proto_with_output, proto_uses_runtime_environment,
 };
