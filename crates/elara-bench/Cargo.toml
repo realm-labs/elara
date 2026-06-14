@@ -5,6 +5,11 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+elara-api.workspace = true
+
+[[bench]]
+name = "interpreter"
+harness = false
 
 [lints]
 workspace = true

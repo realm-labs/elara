@@ -22,6 +22,9 @@ dependencies = [
 [[package]]
 name = "elara-bench"
 version = "0.1.0"
+dependencies = [
+ "elara-api",
+]
 
 [[package]]
 name = "elara-bytecode"

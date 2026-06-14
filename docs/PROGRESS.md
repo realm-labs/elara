@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M15 Interpreter Optimization
-Current step: M15.1 Add benchmark harness
+Current step: M15.2 Optimize VM dispatch and stack access
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -148,6 +148,9 @@ before drop plus reachable-object deferral.
 The core GC exposes incremental mode and phase state, and mutation paths for
 tables and thread stacks use write barriers that preserve tri-color invariants
 by graying black containers when white children are stored.
+The benchmark crate now provides a stable custom `cargo bench` harness with
+microbenchmarks for arithmetic, table access, calls, and strings plus macro
+workloads for accumulator, table-build/sum, and string-pattern paths.
 
 Current state:
 
@@ -311,10 +314,10 @@ Completed:
   - M14.3 Add finalization and userdata lifecycle.
   - M14.4 Add incremental collection and write barriers.
   - M14 exit criteria validation.
+  - M15.1 Add benchmark harness.
 
 In progress:
   - Interpreter optimization.
-  - Benchmark harnesses.
   - JIT.
   - C API.
 ```
@@ -955,22 +958,23 @@ M14.2 is complete.
 M14.3 is complete.
 M14.4 is complete.
 M14 is complete.
+M15.1 is complete.
 
 ## Last Verification
 
-M14.4 incremental GC verification passed:
+M15.1 benchmark harness verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-core incremental_gc
-cargo test -p elara-core
-cargo clippy -p elara-core --all-targets -- -D warnings
+cargo bench -p elara-bench
+cargo test -p elara-bench
+cargo clippy -p elara-bench --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M15.1 with a benchmark harness for arithmetic, table access, calls, and
-strings.
+Continue M15.2 with verified unchecked stack access in hot paths, fewer
+temporary allocations, cold slow paths, and safety comments.
 
 ## Current Risk Notes
 
@@ -1022,4 +1026,4 @@ strings.
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | Not started | Starts M16. |
 | C API | Not started | Starts M19, optional/current-version only. |
-| Benchmarks | Not started | Starts M15. |
+| Benchmarks | Initial M15 harness complete | Stable custom `cargo bench` runner covers arithmetic, table access, calls, strings, and representative macro workloads. |
