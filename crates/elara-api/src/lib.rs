@@ -9,8 +9,10 @@
 //! the C API layer.
 
 pub mod chunk;
+pub mod conversion;
 pub mod simple_eval;
 pub mod stdlib;
 
 pub use chunk::{Chunk, Lua, LuaBuilder};
+pub use conversion::{ConversionError, FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, LuaValue};
 pub use simple_eval::{EvalError, eval_simple_source, eval_simple_source_with_stdlib};

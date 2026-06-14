@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-14
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M12 Public Rust Embedding API
-Current step: M12.2 Add `IntoLua` and `FromLua`
+Current step: M12.3 Add native Rust functions
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -286,6 +286,7 @@ Completed:
   - M11.4 Add sandboxed profile tests.
   - M11 exit criteria validation.
   - M12.1 Add `LuaBuilder`, `Lua`, and `Chunk`.
+  - M12.2 Add `IntoLua` and `FromLua`.
 
 In progress:
   - Rust API.
@@ -865,6 +866,9 @@ Delivered:
   source text, and chunks evaluate through the existing stdlib-backed simple
   compiler/interpreter path. The top-level `elara` facade re-exports these safe
   handles.
+- The public API exposes owned `LuaValue` conversion helpers plus `IntoLua`,
+  `FromLua`, `IntoLuaMulti`, and `FromLuaMulti` traits for nil/unit, booleans,
+  integers, floats, UTF-8 strings, options, and one-/two-value tuple basics.
 
 ## Remaining Gaps
 
@@ -898,14 +902,15 @@ M11.3 is complete with explicit full-profile coroutine gaps.
 M11.4 is complete.
 M11 is complete.
 M12.1 is complete.
+M12.2 is complete.
 
 ## Last Verification
 
-M12.1 chunk API verification passed:
+M12.2 conversion verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-api chunk
+cargo test -p elara-api conversion
 cargo test -p elara
 cargo clippy -p elara-api --all-targets -- -D warnings
 cargo clippy -p elara --all-targets -- -D warnings
@@ -913,7 +918,8 @@ cargo clippy -p elara --all-targets -- -D warnings
 
 ## Next Recommended Action
 
-Continue M12.2 with primitive, string, option, and tuple conversion traits.
+Continue M12.3 with native Rust function creation, typed argument extraction,
+multiple returns, and error conversion.
 
 ## Current Risk Notes
 

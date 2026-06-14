@@ -9,4 +9,7 @@
 //! raw runtime implementation details.
 
 pub use elara_api as api;
-pub use elara_api::{Chunk, EvalError, Lua, LuaBuilder};
+pub use elara_api::{
+    Chunk, ConversionError, EvalError, FromLua, FromLuaMulti, IntoLua, IntoLuaMulti, Lua,
+    LuaBuilder, LuaValue,
+};
