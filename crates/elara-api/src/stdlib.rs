@@ -6,7 +6,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use elara_core::Value;
+use elara_core::{ThreadStatus, Value};
 use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
 use elara_stdlib::{
     BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, LuaRandomState, MATH_CONSTANTS, NativeError,
@@ -62,6 +62,7 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
     let random_state =
         (library == StdLib::Math).then(|| Arc::new(Mutex::new(LuaRandomState::default())));
     let helpers = match library {
+        StdLib::Coroutine => register_coroutine_helpers(),
         StdLib::String => register_string_helpers(environment),
         StdLib::Utf8 => register_utf8_helpers(environment),
         _ => NativeHelpers::default(),
@@ -119,6 +120,13 @@ fn register_string_helpers(environment: &mut RuntimeEnvironment) -> NativeHelper
     }
 }
 
+fn register_coroutine_helpers() -> NativeHelpers {
+    NativeHelpers {
+        coroutine_registry: Some(Arc::new(Mutex::new(CoroutineRegistry::default()))),
+        ..NativeHelpers::default()
+    }
+}
+
 fn register_utf8_helpers(environment: &mut RuntimeEnvironment) -> NativeHelpers {
     let utf8_codes_aux_strict =
         register_hidden_native(environment, UTF8_CODES_AUX_STRICT_NATIVE.function());
@@ -149,9 +157,28 @@ fn register_hidden_native(
 struct NativeHelpers {
     base_next: Option<u32>,
     base_ipairs_aux: Option<u32>,
+    coroutine_registry: Option<Arc<Mutex<CoroutineRegistry>>>,
     string_gmatch_aux: Option<u32>,
     utf8_codes_aux_strict: Option<u32>,
     utf8_codes_aux_lax: Option<u32>,
+}
+
+#[derive(Default)]
+struct CoroutineRegistry {
+    statuses: Vec<ThreadStatus>,
+}
+
+impl CoroutineRegistry {
+    fn create(&mut self) -> Value {
+        let index = u32::try_from(self.statuses.len()).expect("coroutine count must fit in u32");
+        self.statuses.push(ThreadStatus::Runnable);
+        Value::thread_index(index)
+    }
+
+    fn status(&self, thread: Value) -> Option<ThreadStatus> {
+        let index = thread.as_thread_index()? as usize;
+        self.statuses.get(index).copied()
+    }
 }
 
 struct InterpNativeRuntime<'a, 'runtime> {
@@ -364,6 +391,43 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
             }
             .into()),
         }
+    }
+
+    fn create_coroutine(&mut self, function: Value) -> Result<Value, NativeError> {
+        if !function.is_closure() {
+            return Err(NativeErrorKind::TypeError {
+                index: 1,
+                expected: "function",
+            }
+            .into());
+        }
+        let registry = self.helpers.coroutine_registry.as_ref().ok_or_else(|| {
+            NativeErrorKind::RuntimeError {
+                message: "coroutine registry is not registered".into(),
+            }
+        })?;
+        let mut registry = registry.lock().map_err(|_| NativeErrorKind::RuntimeError {
+            message: "coroutine registry lock poisoned".into(),
+        })?;
+        Ok(registry.create())
+    }
+
+    fn thread_status(&self, thread: Value) -> Result<ThreadStatus, NativeError> {
+        let registry = self.helpers.coroutine_registry.as_ref().ok_or_else(|| {
+            NativeErrorKind::RuntimeError {
+                message: "coroutine registry is not registered".into(),
+            }
+        })?;
+        let registry = registry.lock().map_err(|_| NativeErrorKind::RuntimeError {
+            message: "coroutine registry lock poisoned".into(),
+        })?;
+        registry.status(thread).ok_or_else(|| {
+            NativeErrorKind::TypeError {
+                index: 1,
+                expected: "thread",
+            }
+            .into()
+        })
     }
 }
 

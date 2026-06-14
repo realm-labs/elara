@@ -570,6 +570,36 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_coroutine_create() {
+        let profile = StdLibProfile::Custom([StdLib::Coroutine].into_iter().collect());
+
+        let values = eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "local function f() return 1 end\nreturn coroutine.create(f)",
+            &profile,
+        )
+        .expect("coroutine.create should execute");
+
+        assert_eq!(values.len(), 1);
+        assert!(values[0].is_thread());
+    }
+
+    #[test]
+    fn eval_simple_with_stdlib_executes_coroutine_create_status() {
+        let profile = StdLibProfile::Custom([StdLib::Coroutine].into_iter().collect());
+
+        let values = eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "local function f() return 1 end\nreturn coroutine.status(coroutine.create(f))",
+            &profile,
+        )
+        .expect("coroutine.status should execute");
+
+        assert_eq!(values.len(), 1);
+        assert!(values[0].is_string());
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_print() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 

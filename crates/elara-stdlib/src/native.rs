@@ -148,6 +148,14 @@ pub trait NativeRuntime {
         .into())
     }
 
+    /// Creates a runtime-owned coroutine from a Lua or native function.
+    fn create_coroutine(&mut self, _function: Value) -> Result<Value, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support coroutine creation".into(),
+        }
+        .into())
+    }
+
     /// Returns the status of a runtime-owned Lua thread.
     fn thread_status(&self, _thread: Value) -> Result<ThreadStatus, NativeError> {
         Err(NativeErrorKind::RuntimeError {

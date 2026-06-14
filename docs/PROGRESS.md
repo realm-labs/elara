@@ -827,13 +827,16 @@ Delivered:
 - `Value` can represent runtime thread placeholders and `coroutine.status`
   reports runnable/suspended/running/dead coroutine status names through a
   stdlib runtime hook.
+- `coroutine.create` registers runtime coroutine handles through shared API-side
+  coroutine state and returns Lua thread values that `coroutine.status` can
+  inspect.
 
 ## Remaining Gaps
 
 ### Immediate Gaps for M11
 
-- Implement coroutine creation, resume/yield, running, wrap, isyieldable, and
-  close backed by primitive coroutine support.
+- Implement coroutine resume/yield, running, wrap, isyieldable, and close backed
+  by primitive coroutine support.
 
 ### Product Gaps
 
@@ -859,15 +862,12 @@ M11.2 is complete.
 
 ## Last Verification
 
-M11.3 `coroutine.status` verification passed:
+M11.3 `coroutine.create` verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-core value
 cargo test -p elara-stdlib coroutine
-cargo test -p elara-stdlib base
-cargo test -p elara-api coroutine_status
-cargo clippy -p elara-core --all-targets -- -D warnings
+cargo test -p elara-api coroutine
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```

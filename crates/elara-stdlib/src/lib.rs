@@ -440,7 +440,10 @@ pub const BASE_FUNCTIONS: &[FunctionSpec] = &[
 ];
 
 /// Coroutine library function descriptors.
-pub const COROUTINE_FUNCTIONS: &[FunctionSpec] = &[FunctionSpec::new(StdLib::Coroutine, "status")];
+pub const COROUTINE_FUNCTIONS: &[FunctionSpec] = &[
+    FunctionSpec::new(StdLib::Coroutine, "create"),
+    FunctionSpec::new(StdLib::Coroutine, "status"),
+];
 
 /// Essential table library function descriptors.
 pub const TABLE_FUNCTIONS: &[FunctionSpec] = &[
@@ -803,6 +806,9 @@ mod tests {
 
         assert!(functions.iter().any(
             |function| function.descriptor() == FunctionSpec::new(StdLib::Coroutine, "status")
+        ));
+        assert!(functions.iter().any(
+            |function| function.descriptor() == FunctionSpec::new(StdLib::Coroutine, "create")
         ));
     }
 
