@@ -13,6 +13,7 @@ const PATH_SEPARATOR: &str = ";";
 const PACKAGE_GLOBAL: &[u8] = b"package";
 const LOADED_FIELD: &[u8] = b"loaded";
 const PRELOAD_FIELD: &[u8] = b"preload";
+const SEARCHERS_FIELD: &[u8] = b"searchers";
 const PRELOAD_LOADER_DATA: &[u8] = b":preload:";
 
 #[cfg(windows)]
@@ -108,6 +109,10 @@ fn package_require(
         return Ok(vec![current]);
     }
 
+    if let Some((loader, loader_data)) = searcher_loader(runtime, name)? {
+        return run_loader(runtime, loaded, name, loader, loader_data);
+    }
+
     let preload = package_subtable(runtime, PRELOAD_FIELD)?;
     let loader = runtime.table_get(preload, name)?;
     if !loader.is_closure() {
@@ -118,6 +123,44 @@ fn package_require(
     }
 
     let loader_data = runtime.intern_string(PRELOAD_LOADER_DATA)?;
+    run_loader(runtime, loaded, name, loader, loader_data)
+}
+
+fn searcher_loader(
+    runtime: &mut dyn NativeRuntime,
+    name: Value,
+) -> Result<Option<(Value, Value)>, NativeError> {
+    let searchers = package_subtable(runtime, SEARCHERS_FIELD)?;
+    let mut index = 1;
+    loop {
+        let searcher = runtime.table_get(searchers, Value::integer(index))?;
+        if searcher.is_nil() {
+            return Ok(None);
+        }
+        if !searcher.is_closure() {
+            return Err(NativeError::lua_error(format!(
+                "package.searchers[{index}] is not a function"
+            )));
+        }
+        let results = match runtime.protected_call(searcher, &[name])? {
+            Ok(results) => results,
+            Err(message) => return Err(NativeError::lua_error(message)),
+        };
+        if let Some(loader) = results.first().copied().filter(|value| value.is_closure()) {
+            let loader_data = results.get(1).copied().unwrap_or_else(Value::nil);
+            return Ok(Some((loader, loader_data)));
+        }
+        index += 1;
+    }
+}
+
+fn run_loader(
+    runtime: &mut dyn NativeRuntime,
+    loaded: Value,
+    name: Value,
+    loader: Value,
+    loader_data: Value,
+) -> Result<Vec<Value>, NativeError> {
     let loaded_value = match runtime.protected_call(loader, &[name, loader_data])? {
         Ok(results) => results.first().copied().unwrap_or_else(Value::nil),
         Err(message) => return Err(NativeError::lua_error(message)),
@@ -427,12 +470,10 @@ mod tests {
         let mut runtime = TestRuntime::default();
         let name = runtime.push_string(b"mod");
         let loader = Value::native_function_index(7);
-        let loaded_key = runtime.push_string(b"loaded");
-        let preload_key = runtime.push_string(b"preload");
         let loaded = runtime.push_table(&[]);
         let preload = runtime.push_table(&[(name, loader)]);
-        let package = runtime.push_table(&[(loaded_key, loaded), (preload_key, preload)]);
-        runtime.set_global(b"package", package);
+        let searchers = runtime.push_table(&[]);
+        install_package_tables(&mut runtime, loaded, preload, searchers);
         runtime.protected_results.push(Ok(vec![Value::integer(42)]));
 
         let result = function(&mut runtime, &[name]).expect("require should load");
@@ -448,17 +489,42 @@ mod tests {
     }
 
     #[test]
+    fn package_require_loads_module_from_custom_searcher() {
+        let function = function("require");
+        let mut runtime = TestRuntime::default();
+        let name = runtime.push_string(b"mod");
+        let searcher = Value::native_function_index(5);
+        let loader = Value::native_function_index(7);
+        let loader_data = runtime.push_string(b"custom");
+        let loaded = runtime.push_table(&[]);
+        let preload = runtime.push_table(&[]);
+        let searchers = runtime.push_table(&[(Value::integer(1), searcher)]);
+        install_package_tables(&mut runtime, loaded, preload, searchers);
+        runtime
+            .protected_results
+            .push(Ok(vec![loader, loader_data]));
+        runtime.protected_results.push(Ok(vec![Value::integer(42)]));
+
+        let result = function(&mut runtime, &[name]).expect("require should load");
+
+        assert_eq!(result, vec![Value::integer(42), loader_data]);
+        assert_eq!(
+            runtime.protected_calls,
+            vec![(searcher, vec![name]), (loader, vec![name, loader_data])]
+        );
+        assert_eq!(runtime.get_table(loaded, name), Value::integer(42));
+    }
+
+    #[test]
     fn package_require_uses_true_when_loader_returns_nil() {
         let function = function("require");
         let mut runtime = TestRuntime::default();
         let name = runtime.push_string(b"mod");
         let loader = Value::native_function_index(7);
-        let loaded_key = runtime.push_string(b"loaded");
-        let preload_key = runtime.push_string(b"preload");
         let loaded = runtime.push_table(&[]);
         let preload = runtime.push_table(&[(name, loader)]);
-        let package = runtime.push_table(&[(loaded_key, loaded), (preload_key, preload)]);
-        runtime.set_global(b"package", package);
+        let searchers = runtime.push_table(&[]);
+        install_package_tables(&mut runtime, loaded, preload, searchers);
         runtime.protected_results.push(Ok(vec![Value::nil()]));
 
         let result = function(&mut runtime, &[name]).expect("require should load");
@@ -472,12 +538,10 @@ mod tests {
         let function = function("require");
         let mut runtime = TestRuntime::default();
         let name = runtime.push_string(b"mod");
-        let loaded_key = runtime.push_string(b"loaded");
-        let preload_key = runtime.push_string(b"preload");
         let loaded = runtime.push_table(&[(name, Value::integer(99))]);
         let preload = runtime.push_table(&[]);
-        let package = runtime.push_table(&[(loaded_key, loaded), (preload_key, preload)]);
-        runtime.set_global(b"package", package);
+        let searchers = runtime.push_table(&[]);
+        install_package_tables(&mut runtime, loaded, preload, searchers);
 
         let result = function(&mut runtime, &[name]).expect("require should use cache");
 
@@ -490,12 +554,10 @@ mod tests {
         let function = function("require");
         let mut runtime = TestRuntime::default();
         let name = runtime.push_string(b"missing");
-        let loaded_key = runtime.push_string(b"loaded");
-        let preload_key = runtime.push_string(b"preload");
         let loaded = runtime.push_table(&[]);
         let preload = runtime.push_table(&[]);
-        let package = runtime.push_table(&[(loaded_key, loaded), (preload_key, preload)]);
-        runtime.set_global(b"package", package);
+        let searchers = runtime.push_table(&[]);
+        install_package_tables(&mut runtime, loaded, preload, searchers);
 
         let error = function(&mut runtime, &[name]).expect_err("missing module should error");
 
@@ -534,6 +596,23 @@ mod tests {
             .find(|function| function.descriptor().name() == name)
             .expect("package native function should exist")
             .function()
+    }
+
+    fn install_package_tables(
+        runtime: &mut TestRuntime,
+        loaded: Value,
+        preload: Value,
+        searchers: Value,
+    ) {
+        let loaded_key = runtime.push_string(b"loaded");
+        let preload_key = runtime.push_string(b"preload");
+        let searchers_key = runtime.push_string(b"searchers");
+        let package = runtime.push_table(&[
+            (loaded_key, loaded),
+            (preload_key, preload),
+            (searchers_key, searchers),
+        ]);
+        runtime.set_global(b"package", package);
     }
 
     fn unique_temp_dir() -> std::path::PathBuf {
