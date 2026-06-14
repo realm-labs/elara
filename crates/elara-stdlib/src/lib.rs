@@ -911,6 +911,11 @@ mod tests {
                 == FunctionSpec::new(StdLib::Debug, "getmetatable"))
         );
         assert!(
+            functions.iter().any(
+                |function| function.descriptor() == FunctionSpec::new(StdLib::Debug, "gethook")
+            )
+        );
+        assert!(
             functions.iter().any(|function| function.descriptor()
                 == FunctionSpec::new(StdLib::Debug, "setmetatable"))
         );

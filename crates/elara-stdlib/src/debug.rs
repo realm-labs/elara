@@ -8,6 +8,7 @@ use crate::{
 
 /// Executable `debug` library functions currently implemented.
 pub const DEBUG_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Debug, "gethook"), debug_gethook),
     NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Debug, "getmetatable"),
         debug_getmetatable,
@@ -25,6 +26,13 @@ pub const DEBUG_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
         debug_traceback,
     ),
 ];
+
+fn debug_gethook(
+    _runtime: &mut dyn NativeRuntime,
+    _args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::nil()])
+}
 
 fn debug_getmetatable(
     runtime: &mut dyn NativeRuntime,
@@ -199,6 +207,21 @@ mod tests {
             self.registry = Some(registry);
             Ok(registry)
         }
+    }
+
+    #[test]
+    fn debug_gethook_returns_nil_without_installed_hook() {
+        let function = function("gethook");
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            function(&mut runtime, &[]).expect("debug.gethook should pass"),
+            vec![Value::nil()]
+        );
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1)]).expect("non-thread arg should pass"),
+            vec![Value::nil()]
+        );
     }
 
     #[test]
