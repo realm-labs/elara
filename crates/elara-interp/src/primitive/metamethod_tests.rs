@@ -316,6 +316,43 @@ fn metamethods_call_invokes_function_fallback() {
 }
 
 #[test]
+fn metamethods_call_invokes_native_function_fallback() {
+    let mut strings = RuntimeStrings::new();
+    let mut tables = RuntimeTables::new();
+    let table = tables.push_table(Table::new());
+    let call_key = strings.intern_short_value("__call");
+    let mut natives = RuntimeNatives::new();
+    let native = natives.push(|_context, args| {
+        assert!(args.first().copied().is_some_and(Value::is_table));
+        Ok(vec![Value::integer(321)])
+    });
+    let mut metatable = Table::new();
+    assert!(metatable.raw_set_value(call_key, Value::native_function_index(native)));
+    let metatable = tables.push_table(metatable);
+    tables
+        .set_metatable(table as usize, Some(metatable))
+        .expect("metatable link should be valid");
+    let mut closures = Vec::new();
+    let mut globals = runtime_globals(&mut tables);
+    let mut thread = LuaThread::new();
+    thread.push_value(Value::table_index(table));
+    thread.push_value(Value::integer(1));
+
+    execute_call(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Call, 0, 2, 1),
+        &mut tables,
+        &mut strings,
+        &natives,
+        &mut globals,
+    )
+    .expect("native __call should execute");
+
+    assert_eq!(thread.stack_value(0), Some(Value::integer(321)));
+}
+
+#[test]
 fn metamethods_concat_executes_raw_short_strings() {
     let mut closures = Vec::new();
     let mut tables = RuntimeTables::new();

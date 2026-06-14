@@ -415,7 +415,9 @@ impl SimpleCompiler {
         args: &[Expr<'_>],
         result_count: u32,
     ) -> u16 {
-        let register = self.compile_expr(callee);
+        let callee = self.compile_expr(callee);
+        let register = self.alloc_register();
+        self.emit_move(register, callee);
         self.compile_call_args_and_emit(expr, register, args, result_count);
         register
     }

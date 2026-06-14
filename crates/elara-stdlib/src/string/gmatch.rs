@@ -13,6 +13,7 @@ use super::{
 const SUBJECT_KEY: Value = Value::integer(1);
 const PATTERN_KEY: Value = Value::integer(2);
 const CURSOR_KEY: Value = Value::integer(3);
+const CALL_KEY_BYTES: &[u8] = b"__call";
 
 pub(super) fn string_gmatch(
     runtime: &mut dyn NativeRuntime,
@@ -47,11 +48,11 @@ pub(super) fn string_gmatch(
         (PATTERN_KEY, pattern_value),
         (CURSOR_KEY, Value::integer(cursor)),
     ])?;
-    Ok(vec![
-        runtime.native_function(StdLib::String, "__gmatch_aux")?,
-        state,
-        Value::nil(),
-    ])
+    let call_key = runtime.intern_short_string(CALL_KEY_BYTES)?;
+    let aux = runtime.native_function(StdLib::String, "__gmatch_aux")?;
+    let metatable = runtime.create_table(&[(call_key, aux)])?;
+    runtime.table_set_metatable(state, metatable)?;
+    Ok(vec![state])
 }
 
 pub(super) fn string_gmatch_aux(
@@ -121,6 +122,7 @@ mod tests {
     struct TestRuntime {
         strings: Vec<Box<[u8]>>,
         tables: Vec<Vec<(Value, Value)>>,
+        metatables: Vec<Option<Value>>,
         gmatch_aux: Value,
     }
 
@@ -129,6 +131,7 @@ mod tests {
             Self {
                 strings: Vec::new(),
                 tables: Vec::new(),
+                metatables: Vec::new(),
                 gmatch_aux: Value::nil(),
             }
         }
@@ -136,6 +139,14 @@ mod tests {
 
     impl TestRuntime {
         fn push_string(&mut self, bytes: &[u8]) -> Value {
+            if let Some(index) = self
+                .strings
+                .iter()
+                .position(|string| string.as_ref() == bytes)
+            {
+                let index = u32::try_from(index).expect("test string index fits in u32");
+                return Value::closure_index(index);
+            }
             let index = u32::try_from(self.strings.len()).expect("test string index fits in u32");
             self.strings.push(bytes.into());
             Value::closure_index(index)
@@ -155,6 +166,7 @@ mod tests {
         fn create_table(&mut self, entries: &[(Value, Value)]) -> Result<Value, NativeError> {
             let index = u32::try_from(self.tables.len()).expect("test table index fits in u32");
             self.tables.push(entries.to_vec());
+            self.metatables.push(None);
             Ok(Value::table_index(index))
         }
 
@@ -178,6 +190,35 @@ mod tests {
             Ok(())
         }
 
+        fn table_metatable(&self, table: Value) -> Result<Value, NativeError> {
+            let table_index = table.as_table_index().ok_or_else(non_table_error)? as usize;
+            self.tables.get(table_index).ok_or_else(non_table_error)?;
+            Ok(self
+                .metatables
+                .get(table_index)
+                .copied()
+                .flatten()
+                .unwrap_or_else(Value::nil))
+        }
+
+        fn table_set_metatable(
+            &mut self,
+            table: Value,
+            metatable: Value,
+        ) -> Result<(), NativeError> {
+            let table_index = table.as_table_index().ok_or_else(non_table_error)? as usize;
+            self.tables.get(table_index).ok_or_else(non_table_error)?;
+            if !metatable.is_nil() {
+                let metatable_index =
+                    metatable.as_table_index().ok_or_else(non_table_error)? as usize;
+                self.tables
+                    .get(metatable_index)
+                    .ok_or_else(non_table_error)?;
+            }
+            self.metatables[table_index] = (!metatable.is_nil()).then_some(metatable);
+            Ok(())
+        }
+
         fn native_function(&self, library: StdLib, name: &str) -> Result<Value, NativeError> {
             match (library, name) {
                 (StdLib::String, "__gmatch_aux") => Ok(self.gmatch_aux),
@@ -197,7 +238,7 @@ mod tests {
     }
 
     #[test]
-    fn string_gmatch_returns_iterator_state_triplet() {
+    fn string_gmatch_returns_callable_iterator_state() {
         let mut runtime = TestRuntime {
             gmatch_aux: Value::native_function_index(7),
             ..TestRuntime::default()
@@ -207,9 +248,18 @@ mod tests {
 
         let values = string_gmatch(&mut runtime, &[subject, pattern]).expect("gmatch should pass");
 
-        assert_eq!(values[0], Value::native_function_index(7));
-        assert!(values[1].is_table());
-        assert!(values[2].is_nil());
+        assert_eq!(values.len(), 1);
+        assert!(values[0].is_table());
+        let metatable = runtime
+            .table_metatable(values[0])
+            .expect("gmatch state should have a metatable");
+        let call_key = runtime.push_string(b"__call");
+        assert_eq!(
+            runtime
+                .table_get(metatable, call_key)
+                .expect("metatable __call should be readable"),
+            Value::native_function_index(7)
+        );
     }
 
     #[test]
@@ -221,7 +271,7 @@ mod tests {
         let subject = runtime.push_string(b"a1 b22");
         let pattern = runtime.push_string(b"%d+");
         let values = string_gmatch(&mut runtime, &[subject, pattern]).expect("gmatch should pass");
-        let state = values[1];
+        let state = values[0];
 
         let first = string_gmatch_aux(&mut runtime, &[state, Value::nil()])
             .expect("first gmatch aux should pass");
@@ -247,7 +297,7 @@ mod tests {
         let subject = runtime.push_string(b"a1 b22");
         let pattern = runtime.push_string(b"(%a)(%d+)");
         let values = string_gmatch(&mut runtime, &[subject, pattern]).expect("gmatch should pass");
-        let state = values[1];
+        let state = values[0];
 
         let first = string_gmatch_aux(&mut runtime, &[state, Value::nil()])
             .expect("first gmatch aux should pass");
@@ -266,7 +316,7 @@ mod tests {
         let subject = runtime.push_string(b"ab");
         let pattern = runtime.push_string(b"");
         let values = string_gmatch(&mut runtime, &[subject, pattern]).expect("gmatch should pass");
-        let state = values[1];
+        let state = values[0];
 
         let first = string_gmatch_aux(&mut runtime, &[state, Value::nil()])
             .expect("first gmatch aux should pass");

@@ -4,8 +4,8 @@ use elara_bytecode::Instr;
 use elara_core::{LuaFloat, LuaInteger, LuaThread, Value};
 
 use super::{
-    CallableFunction, RuntimeClosure, RuntimeErrorKind, RuntimeGlobals, RuntimeNatives,
-    RuntimeResult, RuntimeStrings, RuntimeTables, call_function, register, set_register,
+    RuntimeClosure, RuntimeErrorKind, RuntimeGlobals, RuntimeNatives, RuntimeResult,
+    RuntimeStrings, RuntimeTables, call_function, callable_from_value, register, set_register,
 };
 
 pub(super) fn prepare_numeric_for(thread: &mut LuaThread, instr: Instr) -> RuntimeResult<bool> {
@@ -168,19 +168,7 @@ pub(super) fn execute_generic_for_call(
     let state = register(thread, base + 1)?;
     let control = register(thread, base + 2)?;
     let args = vec![state, control];
-    let callable = if let Some(closure_index) = iterator.as_closure_index() {
-        CallableFunction::Lua {
-            closure_index: closure_index as usize,
-            args,
-        }
-    } else if let Some(native_index) = iterator.as_native_function_index() {
-        CallableFunction::Native {
-            native_index: native_index as usize,
-            args,
-        }
-    } else {
-        return Err(RuntimeErrorKind::NonCallableValue.into());
-    };
+    let callable = callable_from_value(iterator, args, tables, strings)?;
     let mut to_be_closed = Vec::new();
     let mut context = super::ExecutionContext {
         closures,

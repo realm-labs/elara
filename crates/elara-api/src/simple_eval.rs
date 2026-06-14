@@ -843,6 +843,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_callable_string_gmatch() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local it = string.gmatch('a1 b22', '%d+')\nlocal a = it()\nlocal b = it()\nreturn string.len(a) + string.len(b)",
+                &profile,
+            ),
+            Ok(vec![Value::integer(3)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_string_gsub_table_replacement() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 

@@ -419,7 +419,23 @@ fn functions_compile_local_function_call() {
     assert_eq!(proto.children.len(), 1);
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 CLOSURE       A=0 Bx=0\n0001 CALL          A=0 B=1 C=1\n0002 RETURN        A=0 B=1 C=0\n",
+        "0000 CLOSURE       A=0 Bx=0\n0001 MOVE          A=1 B=0 C=0\n0002 CALL          A=1 B=1 C=1\n0003 RETURN        A=1 B=1 C=0\n",
+    );
+}
+
+#[test]
+fn functions_preserve_local_callable_across_assignment_calls() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local function answer()\n  return 42\nend\nlocal a = answer()\nlocal b = answer()\nreturn a + b",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_eq!(proto.children.len(), 1);
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 CLOSURE       A=0 Bx=0\n0001 MOVE          A=1 B=0 C=0\n0002 CALL          A=1 B=1 C=1\n0003 MOVE          A=2 B=1 C=0\n0004 MOVE          A=3 B=0 C=0\n0005 CALL          A=3 B=1 C=1\n0006 MOVE          A=4 B=3 C=0\n0007 ADD           A=2 B=2 C=4\n0008 RETURN        A=2 B=1 C=0\n",
     );
 }
 
@@ -498,7 +514,7 @@ fn varargs_compile_anonymous_vararg_call() {
     );
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 CLOSURE       A=0 Bx=0\n0001 LOAD_K        A=1 Bx=0 ; 42\n0002 CALL          A=0 B=2 C=1\n0003 RETURN        A=0 B=1 C=0\n",
+        "0000 CLOSURE       A=0 Bx=0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_K        A=2 Bx=0 ; 42\n0003 CALL          A=1 B=2 C=1\n0004 RETURN        A=1 B=1 C=0\n",
     );
 }
 
@@ -519,6 +535,6 @@ fn varargs_compile_named_vararg_table() {
     );
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 CLOSURE       A=0 Bx=0\n0001 LOAD_K        A=1 Bx=0 ; 42\n0002 CALL          A=0 B=2 C=1\n0003 RETURN        A=0 B=1 C=0\n",
+        "0000 CLOSURE       A=0 Bx=0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_K        A=2 Bx=0 ; 42\n0003 CALL          A=1 B=2 C=1\n0004 RETURN        A=1 B=1 C=0\n",
     );
 }

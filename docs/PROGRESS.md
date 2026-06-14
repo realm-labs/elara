@@ -118,7 +118,7 @@ balanced-delimiter, and `%f` frontier pattern matching for `string.find`,
 `string.match`, and `string.gsub`, literal string-replacement `string.gsub`,
 capture-returning `string.find` and `string.match`, replacement captures for
 string-replacement `string.gsub`, table/function replacement values for
-`string.gsub`, capture-returning generic-for `string.gmatch`, `string.len`,
+`string.gsub`, callable and generic-for `string.gmatch`, `string.len`,
 `string.lower`, `string.upper`, `string.reverse`, `string.rep`, and
 `string.sub` are executable and covered through stdlib-backed API evaluation.
 Table natives `table.concat`, `table.insert`, `table.move`, `table.pack`,
@@ -127,7 +127,9 @@ executable and covered through stdlib-backed API evaluation.
 Generic-for lowering now preserves call-expression multiple returns in iterator
 protocol registers, and the primitive interpreter can call native iterator
 functions from `TFOR_CALL`, enabling stdlib-backed `ipairs` and raw `pairs`
-loops.
+loops. Ordinary call-expression lowering preserves local callable values across
+assignment calls, and generic-for iterator calls now honor `__call`
+metamethod-backed table iterators.
 
 Current state:
 
@@ -265,6 +267,8 @@ Completed:
   - M11.2 executable base ipairs and raw pairs native specs.
   - M11.2 native iterator support for generic for loops.
   - M11.2 stdlib-backed string.gmatch generic-for iterator path.
+  - M11.2 call lowering preserves local callable values across assignment calls.
+  - M11.2 Lua-style callable string.gmatch iterator state.
 
 In progress:
   - M11.2 Implement base, table, math, and string essentials.
@@ -802,8 +806,6 @@ Delivered:
 
 ### Immediate Gaps for M11
 
-- Fill the remaining executable string entries, including Lua-style callable
-  `string.gmatch` closures.
 - Add `__pairs` metamethod support once stdlib natives can call Lua callbacks
   through the runtime.
 - Add runtime callback support for custom `table.sort` comparators.
@@ -835,20 +837,24 @@ M11.1 is complete.
 
 ## Last Verification
 
-M11.2 executable string.gsub table/function replacements verification passed:
+M11.2 callable string.gmatch verification passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-stdlib string_
-cargo test -p elara-api gsub_
+cargo test -p elara-compiler simple_expr
+cargo test -p elara-interp metamethods_call_invokes_native_function_fallback
+cargo test -p elara-stdlib string_gmatch
+cargo test -p elara-api string_gmatch
+cargo clippy -p elara-compiler --all-targets -- -D warnings
+cargo clippy -p elara-interp --all-targets -- -D warnings
 cargo clippy -p elara-stdlib --all-targets -- -D warnings
 cargo clippy -p elara-api --all-targets -- -D warnings
 ```
 
 ## Next Recommended Action
 
-Continue M11.2 by filling the remaining executable string behavior, with
-Lua-style callable `string.gmatch` closures as the next known gap.
+Continue M11.2 with `__pairs` metamethod support for base `pairs` as the next
+known gap.
 
 ## Current Risk Notes
 
