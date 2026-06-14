@@ -559,6 +559,23 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_executes_os_setlocale_c_subset() {
+        let profile = StdLibProfile::Custom([StdLib::Os].into_iter().collect());
+
+        let values = eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "return os.setlocale(nil), os.setlocale('C', 'numeric'), os.setlocale('zz_NO')",
+            &profile,
+        )
+        .expect("os.setlocale should evaluate");
+
+        assert_eq!(values.len(), 3);
+        assert!(values[0].is_string());
+        assert!(values[1].is_string());
+        assert_eq!(values[2], Value::nil());
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_package_searchpath_found() {
         let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
 

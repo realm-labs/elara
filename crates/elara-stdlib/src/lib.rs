@@ -871,6 +871,10 @@ mod tests {
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Os, "rename"))
         );
         assert!(
+            functions.iter().any(|function| function.descriptor()
+                == FunctionSpec::new(StdLib::Os, "setlocale"))
+        );
+        assert!(
             functions
                 .iter()
                 .any(|function| function.descriptor() == FunctionSpec::new(StdLib::Os, "time"))

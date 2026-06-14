@@ -22,12 +22,14 @@ pub const OS_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "getenv"), os_getenv),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "remove"), os_remove),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "rename"), os_rename),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "setlocale"), os_setlocale),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "time"), os_time),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Os, "tmpname"), os_tmpname),
 ];
 
 static CLOCK_START: OnceLock<Instant> = OnceLock::new();
 static TMPNAME_COUNTER: AtomicU64 = AtomicU64::new(0);
+const LOCALE_CATEGORIES: &[&str] = &["all", "collate", "ctype", "monetary", "numeric", "time"];
 
 fn os_clock(_runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let start = CLOCK_START.get_or_init(Instant::now);
@@ -110,6 +112,25 @@ fn os_tmpname(runtime: &mut dyn NativeRuntime, _args: &[Value]) -> Result<Vec<Va
     .into())
 }
 
+fn os_setlocale(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let locale = optional_utf8_string_arg(runtime, args, 1)?;
+    let category = optional_utf8_string_arg(runtime, args, 2)?.unwrap_or("all");
+    if !LOCALE_CATEGORIES.contains(&category) {
+        return Err(NativeErrorKind::RuntimeError {
+            message: format!("invalid locale category '{category}'").into_boxed_str(),
+        }
+        .into());
+    }
+
+    match locale {
+        None | Some("C") => Ok(vec![runtime.intern_short_string(b"C")?]),
+        Some(_) => Ok(vec![Value::nil()]),
+    }
+}
+
 fn current_unix_time() -> Result<Vec<Value>, NativeError> {
     let seconds = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -130,6 +151,32 @@ fn utf8_string_arg<'a>(
 ) -> Result<&'a str, NativeError> {
     let bytes = string_arg(runtime, args, index)?;
     std::str::from_utf8(bytes)
+        .map_err(|_| NativeErrorKind::TypeError {
+            index,
+            expected: "utf-8 string",
+        })
+        .map_err(Into::into)
+}
+
+fn optional_utf8_string_arg<'a>(
+    runtime: &'a dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<Option<&'a str>, NativeError> {
+    let Some(value) = args.get(index - 1).copied() else {
+        return Ok(None);
+    };
+    if value.is_nil() {
+        return Ok(None);
+    }
+    let bytes = runtime
+        .short_string_bytes(value)
+        .ok_or(NativeErrorKind::TypeError {
+            index,
+            expected: "string",
+        })?;
+    std::str::from_utf8(bytes)
+        .map(Some)
         .map_err(|_| NativeErrorKind::TypeError {
             index,
             expected: "utf-8 string",
@@ -490,6 +537,67 @@ mod tests {
         assert!(
             !std::path::Path::new(std::str::from_utf8(first_name).expect("tmpname is utf-8"))
                 .exists()
+        );
+    }
+
+    #[test]
+    fn os_setlocale_supports_c_locale_queries() {
+        let function = function("setlocale");
+        let mut runtime = TestRuntime::default();
+        let c_locale = runtime.push_string(b"C");
+        let category = runtime.push_string(b"numeric");
+
+        let queried = function(&mut runtime, &[]).expect("os.setlocale query should pass");
+        let set = function(&mut runtime, &[c_locale, category]).expect("os.setlocale should pass");
+
+        assert_eq!(runtime.bytes(queried[0]), Some(b"C".as_slice()));
+        assert_eq!(runtime.bytes(set[0]), Some(b"C".as_slice()));
+    }
+
+    #[test]
+    fn os_setlocale_returns_nil_for_unsupported_locale() {
+        let function = function("setlocale");
+        let mut runtime = TestRuntime::default();
+        let locale = runtime.push_string(b"zz_NO");
+
+        assert_eq!(
+            function(&mut runtime, &[locale]).expect("os.setlocale should pass"),
+            vec![Value::nil()]
+        );
+    }
+
+    #[test]
+    fn os_setlocale_validates_arguments() {
+        let function = function("setlocale");
+        let mut runtime = TestRuntime::default();
+        let c_locale = runtime.push_string(b"C");
+        let invalid_category = runtime.push_string(b"invalid");
+
+        assert_eq!(
+            function(&mut runtime, &[Value::integer(1)])
+                .expect_err("non-string locale")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "string",
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[c_locale, Value::integer(1)])
+                .expect_err("non-string category")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "string",
+            }
+        );
+        assert_eq!(
+            function(&mut runtime, &[c_locale, invalid_category])
+                .expect_err("invalid category")
+                .kind(),
+            &NativeErrorKind::RuntimeError {
+                message: "invalid locale category 'invalid'".into(),
+            }
         );
     }
 
