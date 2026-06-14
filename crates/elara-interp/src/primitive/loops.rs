@@ -170,6 +170,7 @@ pub(super) fn execute_generic_for_call(
     let args = vec![state, control];
     let callable = callable_from_value(iterator, args, tables, strings)?;
     let mut to_be_closed = Vec::new();
+    let mut debug_frames = Vec::new();
     let mut context = super::ExecutionContext {
         closures,
         tables,
@@ -177,6 +178,7 @@ pub(super) fn execute_generic_for_call(
         natives,
         globals,
         to_be_closed: &mut to_be_closed,
+        debug_frames: &mut debug_frames,
     };
     let returns = call_function(callable, &mut context)?;
 

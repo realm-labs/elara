@@ -8,12 +8,14 @@ use elara_core::{
     SHORT_STRING_MAX_BYTES, StringInterner, Table, ThreadStatus, TraceFrame, Value,
 };
 
+mod debug;
 mod environment;
 mod global;
 mod loops;
 mod metamethod;
 mod table;
 
+use debug::{RuntimeDebugFrame, RuntimeDebugFrameKind};
 pub use environment::RuntimeEnvironment;
 use environment::{InitialFieldValue, InitialValue};
 use global::{RuntimeGlobals, execute_decl_global, execute_get_env, execute_set_env};
@@ -59,6 +61,7 @@ pub struct NativeContext<'a> {
     strings: &'a mut RuntimeStrings,
     natives: &'a RuntimeNatives,
     globals: &'a mut RuntimeGlobals,
+    debug_frames: &'a mut Vec<RuntimeDebugFrame>,
 }
 
 impl<'a> NativeContext<'a> {
@@ -187,6 +190,34 @@ impl<'a> NativeContext<'a> {
             .get_named(name.as_ref(), self.strings, self.tables)
     }
 
+    /// Returns a `debug.getinfo` table for a stack level, or nil when unavailable.
+    pub fn debug_info_for_level(&mut self, level: i64, options: &[u8]) -> RuntimeResult<Value> {
+        debug::info_for_level(
+            level,
+            options,
+            self.closures,
+            self.tables,
+            self.strings,
+            self.debug_frames,
+        )
+    }
+
+    /// Returns a `debug.getinfo` table for a function value, or nil when unavailable.
+    pub fn debug_info_for_function(
+        &mut self,
+        function: Value,
+        options: &[u8],
+    ) -> RuntimeResult<Value> {
+        debug::info_for_function(
+            function,
+            options,
+            self.closures,
+            self.natives,
+            self.tables,
+            self.strings,
+        )
+    }
+
     /// Returns a runtime-owned table's metatable, or nil when absent.
     pub fn table_metatable(&self, table: Value) -> RuntimeResult<Value> {
         let table_index = table
@@ -233,6 +264,7 @@ impl<'a> NativeContext<'a> {
             natives: self.natives,
             globals: self.globals,
             to_be_closed: &mut to_be_closed,
+            debug_frames: self.debug_frames,
         };
         call_function(callable, &mut context)
     }
@@ -461,6 +493,7 @@ impl PrimitiveCoroutine {
 
             let instr = frame.proto.code[frame.pc];
             frame.pc += 1;
+            let mut debug_frames = Vec::new();
             let mut context = ExecutionContext {
                 closures: &mut self.closures,
                 tables: &mut self.tables,
@@ -468,6 +501,7 @@ impl PrimitiveCoroutine {
                 natives: &self.natives,
                 globals: &mut self.globals,
                 to_be_closed: &mut self.to_be_closed,
+                debug_frames: &mut debug_frames,
             };
 
             match execute_instruction(
@@ -835,6 +869,7 @@ fn execute_proto_with_output_in_mode(
     }
     let global_value = globals.value();
     let mut to_be_closed = Vec::new();
+    let mut debug_frames = Vec::new();
     let mut context = ExecutionContext {
         closures: &mut closures,
         tables: &mut tables,
@@ -842,8 +877,17 @@ fn execute_proto_with_output_in_mode(
         natives: &natives,
         globals: &mut globals,
         to_be_closed: &mut to_be_closed,
+        debug_frames: &mut debug_frames,
     };
-    let values = execute_proto_with_upvalues(proto, &[global_value], &[], &mut context, protected)?;
+    let values = execute_proto_with_upvalues(
+        proto,
+        &[global_value],
+        &[],
+        None,
+        RuntimeDebugFrameKind::Main,
+        &mut context,
+        protected,
+    )?;
     Ok(RuntimeOutput {
         values,
         tables,
@@ -914,9 +958,15 @@ fn execute_proto_with_upvalues(
     proto: &Proto,
     upvalues: &[Value],
     varargs: &[Value],
+    function: Option<Value>,
+    frame_kind: RuntimeDebugFrameKind,
     context: &mut ExecutionContext<'_>,
     protected: bool,
 ) -> RuntimeResult<Vec<Value>> {
+    let debug_frame_base = context.debug_frames.len();
+    context
+        .debug_frames
+        .push(RuntimeDebugFrame::new(proto.clone(), function, frame_kind));
     let mut thread = LuaThread::new();
     thread.resize_stack_with_nil(usize::from(proto.max_stack));
     if protected {
@@ -929,6 +979,9 @@ fn execute_proto_with_upvalues(
     let result = loop {
         if pc >= proto.code.len() {
             break Ok(Vec::new());
+        }
+        if let Some(frame) = context.debug_frames.last_mut() {
+            frame.current_pc = Some(pc);
         }
         let instr = proto.code[pc];
         pc += 1;
@@ -957,7 +1010,10 @@ fn execute_proto_with_upvalues(
     };
 
     match result {
-        Ok(values) => Ok(values),
+        Ok(values) => {
+            context.debug_frames.truncate(debug_frame_base);
+            Ok(values)
+        }
         Err(error) => {
             close_to_count(
                 &thread,
@@ -969,6 +1025,7 @@ fn execute_proto_with_upvalues(
                 context.to_be_closed,
                 0,
             )?;
+            context.debug_frames.truncate(debug_frame_base);
             Err(error)
         }
     }
@@ -1331,6 +1388,7 @@ pub(super) struct ExecutionContext<'a> {
     natives: &'a RuntimeNatives,
     globals: &'a mut RuntimeGlobals,
     to_be_closed: &'a mut Vec<usize>,
+    debug_frames: &'a mut Vec<RuntimeDebugFrame>,
 }
 
 fn capture_upvalues(
@@ -1470,6 +1528,7 @@ fn call_close_metamethod(
         strings,
         natives,
         globals,
+        None,
     )?;
     Ok(())
 }
@@ -1544,6 +1603,7 @@ fn call_function(
             context.strings,
             context.natives,
             context.globals,
+            Some(context.debug_frames),
         ),
         CallableFunction::Native { native_index, args } => {
             let function = context.natives.get(native_index).ok_or(
@@ -1551,14 +1611,21 @@ fn call_function(
                     index: native_index,
                 },
             )?;
+            let debug_frame_base = context.debug_frames.len();
+            context
+                .debug_frames
+                .push(RuntimeDebugFrame::native(native_index));
             let mut native_context = NativeContext {
                 closures: context.closures,
                 tables: context.tables,
                 strings: context.strings,
                 natives: context.natives,
                 globals: context.globals,
+                debug_frames: context.debug_frames,
             };
-            function(&mut native_context, &args)
+            let result = function(&mut native_context, &args);
+            context.debug_frames.truncate(debug_frame_base);
+            result
         }
     }
 }
@@ -1575,6 +1642,7 @@ fn execute_call(
 ) -> RuntimeResult<Option<usize>> {
     let callable = callable_function(thread, tables, strings, instr)?;
     let mut to_be_closed = Vec::new();
+    let mut debug_frames = Vec::new();
     let mut context = ExecutionContext {
         closures,
         tables,
@@ -1582,6 +1650,7 @@ fn execute_call(
         natives,
         globals,
         to_be_closed: &mut to_be_closed,
+        debug_frames: &mut debug_frames,
     };
     let returns = call_function(callable, &mut context)?;
     write_call_returns(thread, instr, &returns)
@@ -1614,6 +1683,7 @@ fn write_values(
     Ok(base + count)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn call_closure(
     closures: &mut Vec<RuntimeClosure>,
     closure_index: usize,
@@ -1622,7 +1692,10 @@ fn call_closure(
     strings: &mut RuntimeStrings,
     natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
+    debug_frames: Option<&mut Vec<RuntimeDebugFrame>>,
 ) -> RuntimeResult<Vec<Value>> {
+    let mut empty_debug_frames = Vec::new();
+    let debug_frames = debug_frames.unwrap_or(&mut empty_debug_frames);
     let closure = closures
         .get(closure_index)
         .cloned()
@@ -1635,12 +1708,21 @@ fn call_closure(
         natives,
         globals,
         to_be_closed: &mut to_be_closed,
+        debug_frames,
     };
-    execute_proto_with_upvalues(&closure.proto, &closure.upvalues, args, &mut context, false)
-        .map_err(|mut error| {
-            error.push_trace_frame(trace_frame(&closure.proto));
-            error
-        })
+    execute_proto_with_upvalues(
+        &closure.proto,
+        &closure.upvalues,
+        args,
+        Some(Value::closure_index(closure_index as u32)),
+        RuntimeDebugFrameKind::Lua,
+        &mut context,
+        false,
+    )
+    .map_err(|mut error| {
+        error.push_trace_frame(trace_frame(&closure.proto));
+        error
+    })
 }
 
 fn trace_frame(proto: &Proto) -> TraceFrame {

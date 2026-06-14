@@ -229,6 +229,7 @@ fn call_named_binary_metamethod(
         strings,
         natives,
         globals,
+        None,
     )?;
     Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
 }
@@ -337,6 +338,7 @@ fn call_unary_closure_metamethod(
         strings,
         natives,
         globals,
+        None,
     )?;
     Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
 }
@@ -442,6 +444,7 @@ fn call_comparison_metamethod(
         strings,
         natives,
         globals,
+        None,
     )?;
     Ok(Some(returns.first().copied().unwrap_or_else(Value::nil)))
 }

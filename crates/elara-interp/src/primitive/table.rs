@@ -281,6 +281,7 @@ impl RuntimeTables {
                     strings,
                     natives,
                     globals,
+                    None,
                 )?;
                 return Ok(returns.first().copied().unwrap_or_else(Value::nil));
             }
@@ -332,6 +333,7 @@ impl RuntimeTables {
                     strings,
                     natives,
                     globals,
+                    None,
                 )?;
                 return Ok(());
             }

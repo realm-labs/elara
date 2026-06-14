@@ -115,6 +115,43 @@ fn native_functions_execute_call() {
 }
 
 #[test]
+fn native_context_materializes_debug_info_for_lua_caller() {
+    let mut environment = RuntimeEnvironment::new();
+    environment.register_native_global("capture", |context, _args| {
+        Ok(vec![context.debug_info_for_level(1, b"Slf")?])
+    });
+
+    let mut builder = ProtoBuilder::new()
+        .with_signature(1, 0, false)
+        .with_source_name("debug.lua");
+    let capture = builder.add_string_constant("capture");
+    builder.emit_line(Instr::abx(Op::GetEnv, 0, u64::from(capture)), 10);
+    builder.emit_line(Instr::abc(Op::Call, 0, 1, 1), 11);
+    builder.emit_line(Instr::abc(Op::Return, 0, 1, 0), 12);
+
+    let mut output = execute_proto_with_environment(&builder.finish(), environment)
+        .expect("debug info capture should execute");
+    let info = output.values[0]
+        .as_table_index()
+        .expect("debug info should be a table") as usize;
+    let source = output.strings.intern_short_value("source");
+    let currentline = output.strings.intern_short_value("currentline");
+    let what = output.strings.intern_short_value("what");
+    let func = output.strings.intern_short_value("func");
+    let table = output.tables.get(info).expect("debug info table");
+
+    let source = table.raw_get_value(source);
+    assert_eq!(
+        output.strings.string_bytes(source),
+        Some(b"debug.lua" as &[u8])
+    );
+    assert_eq!(table.raw_get_value(currentline), Value::integer(11));
+    let what = table.raw_get_value(what);
+    assert_eq!(output.strings.string_bytes(what), Some(b"main" as &[u8]));
+    assert_eq!(table.raw_get_value(func), Value::nil());
+}
+
+#[test]
 fn cloned_native_registries_share_later_registrations() {
     let natives = RuntimeNatives::new();
     let shared = natives.clone();
@@ -665,6 +702,7 @@ fn to_be_closed_close_calls_close_metamethod_in_reverse_order() {
     thread.push_value(Value::table_index(second_table));
 
     {
+        let mut debug_frames = Vec::new();
         let mut context = ExecutionContext {
             closures: &mut closures,
             tables: &mut tables,
@@ -672,6 +710,7 @@ fn to_be_closed_close_calls_close_metamethod_in_reverse_order() {
             natives: &natives,
             globals: &mut globals,
             to_be_closed: &mut to_be_closed,
+            debug_frames: &mut debug_frames,
         };
         execute_tbc(&thread, &mut context, Instr::abc(Op::Tbc, 0, 0, 0))
             .expect("first table should be closable");
@@ -760,6 +799,7 @@ fn to_be_closed_error_unwind_runs_close_metamethod() {
     thread.push_value(Value::nil());
 
     {
+        let mut debug_frames = Vec::new();
         let mut context = ExecutionContext {
             closures: &mut closures,
             tables: &mut tables,
@@ -767,6 +807,7 @@ fn to_be_closed_error_unwind_runs_close_metamethod() {
             natives: &natives,
             globals: &mut globals,
             to_be_closed: &mut to_be_closed,
+            debug_frames: &mut debug_frames,
         };
         execute_tbc(&thread, &mut context, Instr::abc(Op::Tbc, 0, 0, 0))
             .expect("table should be closable");

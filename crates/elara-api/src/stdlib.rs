@@ -9,11 +9,12 @@ use std::{
 use elara_core::{ThreadStatus, Value};
 use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
 use elara_stdlib::{
-    BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, LuaRandomState, MATH_CONSTANTS, NativeError,
-    NativeErrorKind, NativeRuntime, PACKAGE_C_ROOT_SEARCHER_NATIVE, PACKAGE_C_SEARCHER_NATIVE,
-    PACKAGE_CONFIG, PACKAGE_CPATH, PACKAGE_LUA_SEARCHER_NATIVE, PACKAGE_PATH,
-    PACKAGE_PRELOAD_SEARCHER_NATIVE, STRING_GMATCH_AUX_NATIVE, StdLib, StdLibProfile, StdLibSet,
-    UTF8_CHAR_PATTERN, UTF8_CODES_AUX_LAX_NATIVE, UTF8_CODES_AUX_STRICT_NATIVE, native_functions,
+    BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, DebugInfoTarget, LuaRandomState, MATH_CONSTANTS,
+    NativeError, NativeErrorKind, NativeRuntime, PACKAGE_C_ROOT_SEARCHER_NATIVE,
+    PACKAGE_C_SEARCHER_NATIVE, PACKAGE_CONFIG, PACKAGE_CPATH, PACKAGE_LUA_SEARCHER_NATIVE,
+    PACKAGE_PATH, PACKAGE_PRELOAD_SEARCHER_NATIVE, STRING_GMATCH_AUX_NATIVE, StdLib, StdLibProfile,
+    StdLibSet, UTF8_CHAR_PATTERN, UTF8_CODES_AUX_LAX_NATIVE, UTF8_CODES_AUX_STRICT_NATIVE,
+    native_functions,
 };
 
 /// Builds a primitive runtime environment containing implemented stdlib natives
@@ -473,6 +474,21 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
         Ok(table)
     }
 
+    fn debug_getinfo(
+        &mut self,
+        target: DebugInfoTarget,
+        options: Option<&[u8]>,
+    ) -> Result<Value, NativeError> {
+        let options = options.unwrap_or(b"flnSrtu");
+        let result = match target {
+            DebugInfoTarget::Level(level) => self.context.debug_info_for_level(level, options),
+            DebugInfoTarget::Function(function) => {
+                self.context.debug_info_for_function(function, options)
+            }
+        };
+        result.map_err(runtime_error_to_native_error)
+    }
+
     fn table_metatable(&self, table: Value) -> Result<Value, NativeError> {
         self.context.table_metatable(table).map_err(|error| {
             NativeErrorKind::RuntimeError {
@@ -741,6 +757,13 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
 fn missing_native_helper() -> NativeError {
     NativeErrorKind::RuntimeError {
         message: "native helper is not registered".into(),
+    }
+    .into()
+}
+
+fn runtime_error_to_native_error(error: elara_interp::RuntimeError) -> NativeError {
+    NativeErrorKind::RuntimeError {
+        message: error.message().into(),
     }
     .into()
 }
