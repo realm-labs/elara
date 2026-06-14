@@ -603,6 +603,23 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_registers_package_state_tables() {
+        let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
+
+        let values = eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "return package.loaded, package.preload",
+            &profile,
+        )
+        .expect("package state tables should evaluate");
+
+        assert_eq!(values.len(), 2);
+        assert!(values[0].is_table());
+        assert!(values[1].is_table());
+        assert_ne!(values[0], values[1]);
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_assert() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 

@@ -825,7 +825,7 @@ fn seed_initial_value(
             let mut table = Table::new();
             for field in fields {
                 let key = environment_key(field.name(), strings)?;
-                let value = seed_initial_field_value(field.value(), strings)?;
+                let value = seed_initial_field_value(field.value(), tables, strings)?;
                 if !table.raw_set_value(key, value) {
                     return Err(RuntimeErrorKind::InvalidTableKey.into());
                 }
@@ -837,6 +837,7 @@ fn seed_initial_value(
 
 fn seed_initial_field_value(
     value: &InitialFieldValue,
+    tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
 ) -> RuntimeResult<Value> {
     match value {
@@ -846,6 +847,17 @@ fn seed_initial_field_value(
                 return Err(RuntimeErrorKind::GlobalNameTooLong.into());
             }
             Ok(strings.intern_short_value(bytes))
+        }
+        InitialFieldValue::Table(fields) => {
+            let mut table = Table::new();
+            for field in fields {
+                let key = environment_key(field.name(), strings)?;
+                let value = seed_initial_field_value(field.value(), tables, strings)?;
+                if !table.raw_set_value(key, value) {
+                    return Err(RuntimeErrorKind::InvalidTableKey.into());
+                }
+            }
+            Ok(Value::table_index(tables.push_table(table)))
         }
     }
 }

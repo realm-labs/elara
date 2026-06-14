@@ -276,6 +276,35 @@ fn initial_global_tables_can_seed_string_fields() {
 }
 
 #[test]
+fn initial_global_tables_can_seed_empty_table_fields() {
+    let mut environment = RuntimeEnvironment::new();
+    environment.set_global_table_with_string_and_empty_table_fields(
+        "package",
+        std::iter::empty::<(&str, Value)>(),
+        std::iter::empty::<(&str, &[u8])>(),
+        ["loaded", "preload"],
+    );
+
+    let mut builder = ProtoBuilder::new().with_signature(3, 0, false);
+    let module = builder.add_string_constant("package");
+    let loaded = builder.add_string_constant("loaded");
+    let preload = builder.add_string_constant("preload");
+    builder.emit_abx(Op::GetEnv, 0, u64::from(module));
+    builder.emit_abx(Op::LoadString, 1, u64::from(loaded));
+    builder.emit_abc(Op::GetTable, 1, 0, 1);
+    builder.emit_abx(Op::LoadString, 2, u64::from(preload));
+    builder.emit_abc(Op::GetTable, 2, 0, 2);
+    builder.emit_abc(Op::Return, 1, 2, 0);
+
+    let output = execute_proto_with_environment(&builder.finish(), environment)
+        .expect("registered empty table fields should execute");
+    assert_eq!(output.values.len(), 2);
+    assert!(output.values[0].is_table());
+    assert!(output.values[1].is_table());
+    assert_ne!(output.values[0], output.values[1]);
+}
+
+#[test]
 fn native_functions_can_allocate_runtime_strings() {
     let mut environment = RuntimeEnvironment::new();
     environment.register_native_global("label", |context, _args| {

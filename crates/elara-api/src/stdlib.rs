@@ -93,10 +93,11 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
     }
     match library {
         StdLib::Package => {
-            environment.set_global_table_with_string_fields(
+            environment.set_global_table_with_string_and_empty_table_fields(
                 library.name(),
                 fields,
                 [("config", PACKAGE_CONFIG.as_bytes())],
+                ["loaded", "preload"],
             );
         }
         StdLib::Utf8 => {
