@@ -456,6 +456,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_math_tointeger_accepts_long_strings() {
+        let profile = StdLibProfile::Custom([StdLib::Math, StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local value = string.rep('1', 19)\nreturn math.tointeger(value)",
+                &profile,
+            ),
+            Ok(vec![Value::integer(1_111_111_111_111_111_111)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_os_difftime() {
         let profile = StdLibProfile::Custom([StdLib::Os].into_iter().collect());
 

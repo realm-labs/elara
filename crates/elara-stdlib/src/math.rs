@@ -430,7 +430,7 @@ fn number_result(value: LuaFloat) -> Value {
 fn to_integer(runtime: &dyn NativeRuntime, value: Value) -> Option<i64> {
     value.to_integer_exact().or_else(|| {
         runtime
-            .short_string_bytes(value)
+            .string_bytes(value)
             .and_then(parse_standard_number)
             .and_then(Value::to_integer_exact)
     })
