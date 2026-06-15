@@ -418,6 +418,10 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture("stdlib/string_char_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture(
+        "stdlib/string_byte_out_of_range.lua",
+        vec![Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/string_byte_range.lua",
         vec![Value::integer(66), Value::integer(67)],
     );
