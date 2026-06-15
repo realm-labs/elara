@@ -223,6 +223,18 @@ fn conformance_standard_library_fixtures() {
         );
     });
     assert_success_fixture(
+        "stdlib/string_format_string_modifiers.lua",
+        vec![
+            Value::integer(10),
+            Value::integer(32),
+            Value::integer(32),
+            Value::integer(97),
+            Value::integer(58),
+            Value::integer(32),
+            Value::integer(32),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_ops.lua",
         vec![
             Value::integer(8),
