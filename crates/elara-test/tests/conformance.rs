@@ -195,6 +195,16 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_format_quote.lua",
+        vec![
+            Value::integer(4),
+            Value::integer(34),
+            Value::integer(97),
+            Value::integer(98),
+            Value::integer(34),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_ops.lua",
         vec![
             Value::integer(8),
