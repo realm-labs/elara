@@ -99,6 +99,16 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_ops.lua",
+        vec![
+            Value::integer(8),
+            Value::integer(4),
+            Value::integer(99),
+            Value::integer(90),
+            Value::integer(97),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/math_numeric.lua",
         vec![
             Value::integer(3),
