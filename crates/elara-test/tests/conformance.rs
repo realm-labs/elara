@@ -101,6 +101,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_pattern_captures.lua",
+        vec![Value::integer(5), Value::integer(7)],
+    );
+    assert_success_fixture(
         "stdlib/string_format.lua",
         vec![
             Value::integer(7),

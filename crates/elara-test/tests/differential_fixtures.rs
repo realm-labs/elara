@@ -20,6 +20,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_pcall.lua",
     "stdlib/base_xpcall.lua",
     "stdlib/math_string_patterns.lua",
+    "stdlib/string_pattern_captures.lua",
     "stdlib/string_format.lua",
     "stdlib/string_ops.lua",
     "stdlib/string_byte_char.lua",
