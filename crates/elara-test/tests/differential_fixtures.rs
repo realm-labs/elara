@@ -68,6 +68,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/debug_uservalue.lua",
     "stdlib/debug_hooks.lua",
     "stdlib/os_time_date.lua",
+    "stdlib/os_date_format.lua",
     "stdlib/os_locale.lua",
     "stdlib/os_execute.lua",
     "stdlib/os_clock.lua",

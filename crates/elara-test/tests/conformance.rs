@@ -434,6 +434,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/os_date_format.lua",
+        vec![
+            Value::integer(19),
+            Value::integer(49),
+            Value::integer(32),
+            Value::integer(48),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/os_locale.lua",
         vec![Value::integer(67), Value::integer(67), Value::boolean(true)],
     );
