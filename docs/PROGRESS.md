@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-15
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M20 Release Hardening and 1.0 Candidate
-Current step: M20.1 Complete conformance gap review
+Current step: M20.2 Complete performance report
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -1260,20 +1260,41 @@ Delivered:
 
 ## Remaining Gaps
 
-### Explicit Full-Profile Standard-Library Gaps
+### Release Conformance Dashboard
+
+- `tests/conformance` currently contains four smoke fixtures: one language
+  success case, one standard-library success case, one runtime-error class
+  case, and one coroutine wrapper case.
+- `crates/elara-api/tests` provides broader public-API coverage for `debug`,
+  `io`, `os`, and `package` behavior, and crate-local unit tests cover the
+  bulk of base/table/math/string/utf8 native behavior, but these are not a
+  substitute for a broad official Lua conformance corpus.
+- Differential test utilities exist and can invoke an `ELARA_LUA` reference
+  interpreter, but there is not yet a release-sized differential fixture set.
+
+### Explicitly Scoped Unsupported Behavior
 
 - Implement coroutine suspension from `coroutine.yield`, yielding resume and
   wrap behavior, and full primitive-backed close semantics.
+- File-handle-backed `io` behavior is intentionally represented by safe
+  unsupported stubs until runtime file handles are implemented.
+- Dynamic Lua file loading and dynamic C library loading remain unsupported;
+  `package.loadlib` and C searchers report explicit unsupported-loader results.
+- `os.exit` validates arguments but does not terminate the host process.
+- C API source compatibility is tested for core stack/call usage, but binary
+  compatibility with existing Lua modules is not promised.
+- Remaining unsupported `string.format` conversion forms and unsupported or
+  malformed string-pattern forms report explicit runtime errors.
 
 ### Product Gaps
 
 Major implementation work is still pending:
 
 - Bitwise opcode execution and corresponding metamethod dispatch.
-- Broader full-profile standard library coverage.
-- Broader Rust API compatibility.
-- Cranelift JIT.
-- Benchmarks.
+- Broader full-profile standard-library conformance.
+- Release-sized conformance and differential fixture coverage.
+- Release performance report across interpreter, JIT, API, and official Lua.
+- Unsafe/public API audit and compile-checked examples.
 
 M9 is complete.
 M10.1 is complete.
@@ -1325,24 +1346,23 @@ M19.2 is complete.
 M19.3 is complete.
 M19.4 is complete.
 M19 is complete.
+M20.1 is complete.
 
 ## Last Verification
 
-M19.4 C integration validation passed:
+M20.1 release conformance gap review validation passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-capi --tests
-cargo clippy -p elara-capi --all-targets -- -D warnings
-git diff --check
 cargo test --workspace
-cargo test --workspace --features jit debug
+cargo test --workspace --features jit
+git diff --check
 ```
 
 ## Next Recommended Action
 
-Start M20.1 by reviewing conformance coverage and updating `docs/PROGRESS.md`
-with the release hardening gap summary.
+Start M20.2 by running and documenting release performance comparisons for the
+interpreter, JIT, public API path, and official Lua reference where available.
 
 ## Current Risk Notes
 
@@ -1390,7 +1410,7 @@ with the release hardening gap summary.
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
 | Standard library | M18.2 complete | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path searchers in `package.searchers[3]` and `[4]`, `package.searchpath`, `debug.gethook`/`debug.sethook` hook metadata installation and clearing plus call/return/line/count hook callback dispatch, `debug.getinfo` runtime-hook validation and current-thread frame materialization, read-only stack-level `debug.getlocal`, function-target `debug.getlocal` parameter names, stack-level `debug.setlocal` for current-thread Lua frames, and primitive coroutine debug frames for native debug calls, read-only `debug.getupvalue`, `debug.setupvalue` over shared runtime upvalue cells, `debug.upvalueid`, `debug.upvaluejoin`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, pre-userdata `debug.setuservalue`, and `debug.traceback` message handling plus stack-frame formatting are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | Initial M12 surface complete | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings. |
-| Conformance | Initial M13 subset complete | Language, stdlib, error, and coroutine fixture subsets run through the public API. |
+| Conformance | M20.1 reviewed | Four smoke fixtures run through the public API; broader API/unit coverage exists, but release-sized conformance and differential fixture expansion remains a product gap. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | M17 complete; M18.2 debug interaction complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, debug-hook forced interpretation, API JIT selection for environment-independent chunks with debug/runtime-environment chunks kept on the interpreter, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |
