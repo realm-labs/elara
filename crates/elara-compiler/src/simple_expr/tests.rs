@@ -43,6 +43,18 @@ fn simple_expr_compiles_unary_arithmetic() {
 }
 
 #[test]
+fn simple_expr_compiles_bitwise_operations() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "return ~(1 & 3) | (8 >> 1)");
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_K        A=0 Bx=0 ; 1\n0001 LOAD_K        A=1 Bx=1 ; 3\n0002 BAND          A=0 B=0 C=1\n0003 BNOT          A=0 B=0 C=0\n0004 LOAD_K        A=2 Bx=2 ; 8\n0005 LOAD_K        A=3 Bx=3 ; 1\n0006 SHR           A=2 B=2 C=3\n0007 BOR           A=0 B=0 C=2\n0008 RETURN        A=0 B=1 C=0\n",
+    );
+}
+
+#[test]
 fn simple_expr_compiles_concat() {
     let compiled = compile_simple_chunk(SourceId::new(0), "return \"a\" .. \"b\"");
     assert_eq!(compiled.diagnostics, Vec::new());

@@ -71,6 +71,14 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_returns_bitwise_from_source() {
+        assert_eq!(
+            eval_simple_source(SourceId::new(0), "return (10 & 12) | (1 << 2), ~0"),
+            Ok(vec![Value::integer(12), Value::integer(-1)])
+        );
+    }
+
+    #[test]
     fn eval_simple_returns_recursive_self_reference() {
         let values = eval_simple_source(
             SourceId::new(0),

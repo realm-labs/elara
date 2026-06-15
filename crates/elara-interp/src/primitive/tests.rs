@@ -95,6 +95,58 @@ fn arithmetic_executes_unary_minus() {
 }
 
 #[test]
+fn arithmetic_executes_integer_bitwise_operations() {
+    let mut builder = ProtoBuilder::new().with_signature(7, 0, false);
+    let left = builder.add_constant(Value::integer(0b1010));
+    let right = builder.add_constant(Value::integer(0b1100));
+    builder.emit_abx(Op::LoadK, 0, u64::from(left));
+    builder.emit_abx(Op::LoadK, 1, u64::from(right));
+    builder.emit_abc(Op::BAnd, 2, 0, 1);
+    builder.emit_abc(Op::BOr, 3, 0, 1);
+    builder.emit_abc(Op::BXor, 4, 0, 1);
+    builder.emit_abc(Op::BNot, 5, 0, 0);
+    builder.emit_abc(Op::Return, 2, 4, 0);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Ok(vec![
+            Value::integer(0b1000),
+            Value::integer(0b1110),
+            Value::integer(0b0110),
+            Value::integer(!0b1010),
+        ])
+    );
+}
+
+#[test]
+fn arithmetic_executes_integer_shift_operations() {
+    let mut builder = ProtoBuilder::new().with_signature(8, 0, false);
+    let value = builder.add_constant(Value::integer(8));
+    let two = builder.add_constant(Value::integer(2));
+    let wide = builder.add_constant(Value::integer(64));
+    let negative = builder.add_constant(Value::integer(-1));
+    builder.emit_abx(Op::LoadK, 0, u64::from(value));
+    builder.emit_abx(Op::LoadK, 1, u64::from(two));
+    builder.emit_abx(Op::LoadK, 2, u64::from(wide));
+    builder.emit_abx(Op::LoadK, 3, u64::from(negative));
+    builder.emit_abc(Op::Shl, 4, 0, 1);
+    builder.emit_abc(Op::Shr, 5, 0, 1);
+    builder.emit_abc(Op::Shl, 6, 0, 2);
+    builder.emit_abc(Op::Shr, 7, 0, 3);
+    builder.emit_abc(Op::Return, 4, 4, 0);
+
+    assert_eq!(
+        execute_proto(&builder.finish()),
+        Ok(vec![
+            Value::integer(32),
+            Value::integer(2),
+            Value::integer(0),
+            Value::integer(16),
+        ])
+    );
+}
+
+#[test]
 fn native_functions_execute_call() {
     let natives = RuntimeNatives::new();
     let native = natives.push_simple(native_add);

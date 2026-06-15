@@ -18,9 +18,9 @@ pub(super) fn execute_arithmetic(
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<()> {
     let op = instr.op();
-    if op == Op::Unm {
+    if matches!(op, Op::Unm | Op::BNot) {
         let value = register(thread, instr.b() as usize)?;
-        let result = if let Some(result) = negate(value) {
+        let result = if let Some(result) = unary_arithmetic(op, value) {
             result
         } else {
             call_unary_metamethod(op, value, closures, tables, strings, natives, globals)?
@@ -141,6 +141,10 @@ pub(super) fn execute_concat(
 }
 
 fn binary_arithmetic(op: Op, left: Value, right: Value) -> Option<Value> {
+    if matches!(op, Op::BAnd | Op::BOr | Op::BXor | Op::Shl | Op::Shr) {
+        return bitwise_arithmetic(op, left, right);
+    }
+
     match (left.as_integer(), right.as_integer()) {
         (Some(left), Some(right)) => integer_arithmetic(op, left, right),
         _ => float_arithmetic(op, left.to_float()?, right.to_float()?),
@@ -173,11 +177,42 @@ fn float_arithmetic(op: Op, left: LuaFloat, right: LuaFloat) -> Option<Value> {
     Some(Value::float(value))
 }
 
-fn negate(value: Value) -> Option<Value> {
-    if let Some(value) = value.as_integer() {
-        return value.checked_neg().map(Value::integer);
+fn bitwise_arithmetic(op: Op, left: Value, right: Value) -> Option<Value> {
+    let left = left.to_integer_exact()?;
+    let right = right.to_integer_exact()?;
+    let value = match op {
+        Op::BAnd => left & right,
+        Op::BOr => left | right,
+        Op::BXor => left ^ right,
+        Op::Shl => shift_left(left, right),
+        Op::Shr => shift_left(left, right.wrapping_neg()),
+        _ => return None,
+    };
+    Some(Value::integer(value))
+}
+
+fn unary_arithmetic(op: Op, value: Value) -> Option<Value> {
+    match op {
+        Op::Unm => {
+            if let Some(value) = value.as_integer() {
+                return value.checked_neg().map(Value::integer);
+            }
+            Some(Value::float(-value.to_float()?))
+        }
+        Op::BNot => value.to_integer_exact().map(|value| Value::integer(!value)),
+        _ => None,
     }
-    Some(Value::float(-value.to_float()?))
+}
+
+fn shift_left(value: LuaInteger, count: LuaInteger) -> LuaInteger {
+    let bits = LuaInteger::BITS as LuaInteger;
+    if count <= -bits || count >= bits {
+        0
+    } else if count < 0 {
+        value >> u32::try_from(count.unsigned_abs()).expect("shift count is in range")
+    } else {
+        value << u32::try_from(count).expect("shift count is in range")
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -287,6 +322,11 @@ fn binary_metamethod_name(op: Op) -> Option<&'static str> {
         Op::IDiv => Some("__idiv"),
         Op::Mod => Some("__mod"),
         Op::Pow => Some("__pow"),
+        Op::BAnd => Some("__band"),
+        Op::BOr => Some("__bor"),
+        Op::BXor => Some("__bxor"),
+        Op::Shl => Some("__shl"),
+        Op::Shr => Some("__shr"),
         _ => None,
     }
 }
@@ -294,6 +334,7 @@ fn binary_metamethod_name(op: Op) -> Option<&'static str> {
 fn unary_metamethod_name(op: Op) -> Option<&'static str> {
     match op {
         Op::Unm => Some("__unm"),
+        Op::BNot => Some("__bnot"),
         _ => None,
     }
 }

@@ -158,6 +158,73 @@ fn metamethods_arithmetic_calls_unary_minus() {
 }
 
 #[test]
+fn metamethods_arithmetic_calls_bitwise_and() {
+    let mut strings = RuntimeStrings::new();
+    let mut tables = RuntimeTables::new();
+    let table = tables.push_table(Table::new());
+    let band_key = strings.intern_short_value("__band");
+    let mut metatable = Table::new();
+    assert!(metatable.raw_set_value(band_key, Value::closure_index(0)));
+    let metatable = tables.push_table(metatable);
+    tables
+        .set_metatable(table as usize, Some(metatable))
+        .expect("metatable link should be valid");
+    let mut closures = vec![constant_closure(Value::integer(123))];
+    let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
+    let mut thread = LuaThread::new();
+    thread.push_value(Value::table_index(table));
+    thread.push_value(Value::integer(1));
+    thread.push_value(Value::nil());
+
+    execute_arithmetic(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::BAnd, 2, 0, 1),
+        &mut tables,
+        &mut strings,
+        &natives,
+        &mut globals,
+    )
+    .expect("__band should execute");
+
+    assert_eq!(thread.stack_value(2), Some(Value::integer(123)));
+}
+
+#[test]
+fn metamethods_arithmetic_calls_bitwise_not() {
+    let mut strings = RuntimeStrings::new();
+    let mut tables = RuntimeTables::new();
+    let table = tables.push_table(Table::new());
+    let bnot_key = strings.intern_short_value("__bnot");
+    let mut metatable = Table::new();
+    assert!(metatable.raw_set_value(bnot_key, Value::closure_index(0)));
+    let metatable = tables.push_table(metatable);
+    tables
+        .set_metatable(table as usize, Some(metatable))
+        .expect("metatable link should be valid");
+    let mut closures = vec![constant_closure(Value::integer(321))];
+    let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
+    let mut thread = LuaThread::new();
+    thread.push_value(Value::table_index(table));
+    thread.push_value(Value::nil());
+
+    execute_arithmetic(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::BNot, 1, 0, 0),
+        &mut tables,
+        &mut strings,
+        &natives,
+        &mut globals,
+    )
+    .expect("__bnot should execute");
+
+    assert_eq!(thread.stack_value(1), Some(Value::integer(321)));
+}
+
+#[test]
 fn metamethods_comparison_executes_raw_less_than() {
     let mut closures = Vec::new();
     let mut tables = RuntimeTables::new();

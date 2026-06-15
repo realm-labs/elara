@@ -1583,17 +1583,28 @@ fn execute_instruction(
             let captured = capture_upvalues(&child, thread, upvalues, open_upvalues)?;
             context.closures[closure_index].upvalues = captured;
         }
-        Op::Add | Op::Sub | Op::Mul | Op::Div | Op::IDiv | Op::Mod | Op::Pow | Op::Unm => {
-            execute_arithmetic(
-                thread,
-                context.closures,
-                instr,
-                context.tables,
-                context.strings,
-                context.natives,
-                context.globals,
-            )?
-        }
+        Op::Add
+        | Op::Sub
+        | Op::Mul
+        | Op::Div
+        | Op::IDiv
+        | Op::Mod
+        | Op::Pow
+        | Op::Unm
+        | Op::BAnd
+        | Op::BOr
+        | Op::BXor
+        | Op::Shl
+        | Op::Shr
+        | Op::BNot => execute_arithmetic(
+            thread,
+            context.closures,
+            instr,
+            context.tables,
+            context.strings,
+            context.natives,
+            context.globals,
+        )?,
         Op::AddInt => execute_add_int(
             thread,
             context.closures,
