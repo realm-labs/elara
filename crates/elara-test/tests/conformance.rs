@@ -489,6 +489,7 @@ fn conformance_standard_library_fixtures() {
         "stdlib/table_unpack.lua",
         vec![Value::integer(6), Value::integer(7)],
     );
+    assert_success_fixture("stdlib/table_unpack_empty.lua", Vec::new());
     assert_success_fixture(
         "stdlib/table_sort.lua",
         vec![Value::integer(1), Value::integer(2), Value::integer(3)],
