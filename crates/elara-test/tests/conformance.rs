@@ -334,6 +334,7 @@ fn conformance_standard_library_fixtures() {
         "stdlib/math_integer_rounding.lua",
         vec![Value::integer(9), Value::integer(9)],
     );
+    assert_success_fixture("stdlib/math_log_identity.lua", vec![Value::float(0.0)]);
     assert_success_fixture(
         "stdlib/math_trig.lua",
         vec![
