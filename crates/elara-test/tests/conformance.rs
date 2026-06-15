@@ -128,6 +128,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(4), Value::integer(5)],
     );
     assert_success_fixture(
+        "stdlib/string_position_captures.lua",
+        vec![Value::integer(3), Value::integer(5)],
+    );
+    assert_success_fixture(
         "stdlib/string_pattern_advanced.lua",
         vec![Value::integer(7), Value::integer(3)],
     );
