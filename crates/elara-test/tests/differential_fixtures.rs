@@ -23,6 +23,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/package_require.lua",
     "stdlib/package_searchpath.lua",
     "stdlib/debug_introspection.lua",
+    "stdlib/debug_registry.lua",
     "stdlib/os_time_date.lua",
     "stdlib/os_locale.lua",
     "coroutine/wrap.lua",

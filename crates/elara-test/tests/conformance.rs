@@ -163,6 +163,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/debug_registry.lua",
+        vec![Value::integer(42), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/os_time_date.lua",
         vec![
             Value::integer(1970),
