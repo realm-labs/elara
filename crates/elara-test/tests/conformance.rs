@@ -337,6 +337,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_byte_range.lua",
+        vec![Value::integer(66), Value::integer(67)],
+    );
+    assert_success_fixture(
         "stdlib/math_numeric.lua",
         vec![
             Value::integer(3),
