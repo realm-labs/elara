@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-15
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M19 Optional Current-Version C API
-Current step: M19.3 Implement C function registration and calls
+Current step: M19.4 Add C integration tests
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -1239,6 +1239,10 @@ Delivered:
   type inspection, string/number/integer/boolean conversions, light userdata,
   C-function stack values, and neutral null-state/invalid-index handling for
   the stack API surface.
+- The optional C API crate can invoke stack-registered C functions through
+  `lua_pcallk`, including active C call-frame stack indexing, fixed-result and
+  multiret normalization, runtime-error reporting for invalid calls, and panic
+  containment for Rust `extern "C-unwind"` callbacks.
 - `elara-test` exposes configurable official-Lua runner helpers using
   `ELARA_LUA`, captures stdout/stderr and success/error classes, and can compare
   official Lua runs against Elara's public API evaluation path for differential
@@ -1315,14 +1319,15 @@ M18.4 is complete.
 M18 is complete.
 M19.1 is complete.
 M19.2 is complete.
+M19.3 is complete.
 
 ## Last Verification
 
-M19.2 stack-backed C API core validation passed:
+M19.3 C function registration and protected-call validation passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-capi stack
+cargo test -p elara-capi c_function
 cargo clippy -p elara-capi --all-targets -- -D warnings
 git diff --check
 cargo test --workspace
@@ -1331,8 +1336,8 @@ cargo test --workspace --features jit debug
 
 ## Next Recommended Action
 
-Start M19.3 by wiring C-function registration and calls through the stack-backed
-C API state, including the protected-call boundary and panic containment.
+Start M19.4 by adding a small C integration module compiled against the packaged
+Elara C API headers.
 
 ## Current Risk Notes
 
@@ -1384,5 +1389,5 @@ C API state, including the protected-call boundary and panic containment.
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | M17 complete; M18.2 debug interaction complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, debug-hook forced interpretation, API JIT selection for environment-independent chunks with debug/runtime-environment chunks kept on the interpreter, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |
-| C API | M19.2 complete | Current-version `lua.h`, `lauxlib.h`, and `lualib.h` scaffolding is packaged by `elara-capi`; stack-backed `lua_State` top manipulation, push/copy/rotate behavior, primitive type inspection, and basic conversions are implemented. |
+| C API | M19.3 complete | Current-version `lua.h`, `lauxlib.h`, and `lualib.h` scaffolding is packaged by `elara-capi`; stack-backed `lua_State` top manipulation, push/copy/rotate behavior, primitive type inspection, basic conversions, stack-registered C function calls, protected-call result normalization, and Rust callback panic containment are implemented. |
 | Benchmarks | M15 baseline complete | Stable custom `cargo bench` runner covers arithmetic, table access, calls, strings, and representative macro workloads; `docs/PERFORMANCE.md` records the current baseline and comparison gaps. |

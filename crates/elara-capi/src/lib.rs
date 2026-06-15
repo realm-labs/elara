@@ -9,11 +9,17 @@
 //!
 //! It must not introduce compatibility branches for old Lua C APIs.
 //! Stack API entrypoints return neutral C API values for null states and invalid
-//! indices. Protected call panic containment is handled by the later C-call
-//! trampoline layer.
+//! indices. The initial protected C-call boundary catches Rust panics from
+//! `extern "C-unwind"` callbacks and converts them into Lua-style runtime
+//! errors.
 
 use std::ffi::{CStr, c_char, c_int, c_void};
+use std::panic::{self, AssertUnwindSafe};
 use std::ptr;
+
+const LUA_MULTRET: c_int = -1;
+const LUA_OK: c_int = 0;
+const LUA_ERRRUN: c_int = 2;
 
 const LUA_TNONE: c_int = -1;
 const LUA_TNIL: c_int = 0;
@@ -40,7 +46,10 @@ const LUA_TYPENAMES: [&[u8]; 10] = [
 pub type lua_Integer = i64;
 pub type lua_Unsigned = u64;
 pub type lua_Number = f64;
-pub type lua_CFunction = Option<unsafe extern "C" fn(*mut lua_State) -> c_int>;
+pub type lua_CFunction = Option<unsafe extern "C-unwind" fn(*mut lua_State) -> c_int>;
+pub type lua_KContext = isize;
+pub type lua_KFunction =
+    Option<unsafe extern "C-unwind" fn(*mut lua_State, c_int, lua_KContext) -> c_int>;
 pub type lua_Alloc =
     Option<unsafe extern "C" fn(*mut c_void, *mut c_void, usize, usize) -> *mut c_void>;
 
@@ -48,6 +57,7 @@ pub type lua_Alloc =
 #[repr(C)]
 pub struct lua_State {
     stack: Vec<CValue>,
+    call_bases: Vec<usize>,
     _alloc: lua_Alloc,
     _alloc_ud: *mut c_void,
 }
@@ -113,6 +123,7 @@ pub unsafe extern "C" fn lua_newstate(f: lua_Alloc, ud: *mut c_void) -> *mut lua
 
     Box::into_raw(Box::new(lua_State {
         stack: Vec::new(),
+        call_bases: Vec::new(),
         _alloc: f,
         _alloc_ud: ud,
     }))
@@ -134,7 +145,10 @@ pub unsafe extern "C" fn lua_newthread(_state: *mut lua_State) -> *mut lua_State
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_gettop(state: *mut lua_State) -> c_int {
-    with_state(state, |state| usize_to_c_int(state.stack.len())).unwrap_or(0)
+    with_state(state, |state| {
+        usize_to_c_int(state.stack.len().saturating_sub(current_base(state)))
+    })
+    .unwrap_or(0)
 }
 
 #[unsafe(no_mangle)]
@@ -144,12 +158,15 @@ pub unsafe extern "C" fn lua_settop(state: *mut lua_State, idx: c_int) {
     };
 
     if idx >= 0 {
-        resize_stack(state, idx as usize);
+        let target_len = current_base(state).saturating_add(idx as usize);
+        resize_stack(state, target_len);
         return;
     }
 
     let next_top = state.stack.len() as isize + idx as isize + 1;
-    state.stack.truncate(next_top.max(0) as usize);
+    state
+        .stack
+        .truncate(next_top.max(current_base(state) as isize) as usize);
 }
 
 #[unsafe(no_mangle)]
@@ -414,6 +431,40 @@ pub unsafe extern "C" fn lua_topointer(state: *mut lua_State, idx: c_int) -> *co
     .unwrap_or(ptr::null())
 }
 
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn lua_pcallk(
+    state: *mut lua_State,
+    nargs: c_int,
+    nresults: c_int,
+    _msgh: c_int,
+    _ctx: lua_KContext,
+    _k: lua_KFunction,
+) -> c_int {
+    let prepared = match prepare_c_call(state, nargs, nresults) {
+        Ok(prepared) => prepared,
+        Err(message) => {
+            push_call_error(state, &message);
+            return LUA_ERRRUN;
+        }
+    };
+
+    let call_result = panic::catch_unwind(AssertUnwindSafe(|| {
+        let Some(function) = prepared.function else {
+            return Err("attempt to call a null C function".to_owned());
+        };
+        // SAFETY: The C function pointer came from `lua_pushcclosure`. The
+        // protected boundary catches Rust unwinds from `extern "C-unwind"`
+        // callbacks and restores the stack below.
+        Ok(unsafe { function(state) })
+    }));
+
+    match call_result {
+        Ok(Ok(return_count)) => finish_c_call(state, prepared, return_count, nresults),
+        Ok(Err(message)) => finish_c_call_error(state, prepared, &message),
+        Err(payload) => finish_c_call_error(state, prepared, &panic_message(payload.as_ref())),
+    }
+}
+
 /// Packaged C API header directory exposed by the build script.
 pub const INCLUDE_DIR: &str = env!("ELARA_CAPI_INCLUDE_DIR");
 
@@ -448,7 +499,7 @@ fn with_value<R>(state: *mut lua_State, idx: c_int, f: impl FnOnce(&CValue) -> R
 
 fn stack_index(state: &lua_State, idx: c_int) -> Option<usize> {
     if idx > 0 {
-        let index = (idx - 1) as usize;
+        let index = current_base(state).checked_add((idx - 1) as usize)?;
         return (index < state.stack.len()).then_some(index);
     }
 
@@ -460,6 +511,147 @@ fn stack_index(state: &lua_State, idx: c_int) -> Option<usize> {
     }
 
     None
+}
+
+fn current_base(state: &lua_State) -> usize {
+    state.call_bases.last().copied().unwrap_or(0)
+}
+
+struct PreparedCall {
+    function_index: usize,
+    function: lua_CFunction,
+}
+
+fn prepare_c_call(
+    state: *mut lua_State,
+    nargs: c_int,
+    nresults: c_int,
+) -> Result<PreparedCall, String> {
+    if nargs < 0 {
+        return Err("negative argument count".to_owned());
+    }
+    if nresults < LUA_MULTRET {
+        return Err("invalid result count".to_owned());
+    }
+
+    let Some(state) = state_mut(state) else {
+        return Err("null lua_State".to_owned());
+    };
+    let nargs = nargs as usize;
+    let base = current_base(state);
+    let visible_top = state.stack.len().saturating_sub(base);
+    if visible_top < nargs.saturating_add(1) {
+        return Err("not enough values for C call".to_owned());
+    }
+
+    let function_index = state.stack.len() - nargs - 1;
+    let function = match state.stack.get(function_index) {
+        Some(CValue::CFunction(function)) => *function,
+        Some(_) => return Err("attempt to call a non-function value".to_owned()),
+        None => return Err("missing C function value".to_owned()),
+    };
+    state.stack.remove(function_index);
+    if state.call_bases.try_reserve(1).is_err() {
+        state
+            .stack
+            .insert(function_index, CValue::CFunction(function));
+        return Err("unable to allocate C call frame".to_owned());
+    }
+    state.call_bases.push(function_index);
+
+    Ok(PreparedCall {
+        function_index,
+        function,
+    })
+}
+
+fn finish_c_call(
+    state: *mut lua_State,
+    prepared: PreparedCall,
+    return_count: c_int,
+    wanted_count: c_int,
+) -> c_int {
+    if return_count < 0 {
+        return finish_c_call_error(
+            state,
+            prepared,
+            "C function returned a negative result count",
+        );
+    }
+
+    let Some(state) = state_mut(state) else {
+        return LUA_ERRRUN;
+    };
+    pop_call_base(state, prepared.function_index);
+
+    let return_count = return_count as usize;
+    let available = state.stack.len().saturating_sub(prepared.function_index);
+    if return_count > available {
+        let message = "C function returned more results than are on the stack";
+        return push_prepared_error(state, prepared.function_index, message);
+    }
+
+    let result_start = state.stack.len() - return_count;
+    let mut results = state.stack[result_start..].to_vec();
+    state.stack.truncate(prepared.function_index);
+
+    if wanted_count != LUA_MULTRET {
+        normalize_fixed_results(&mut results, wanted_count as usize);
+    }
+
+    if state.stack.try_reserve(results.len()).is_err() {
+        return push_prepared_error(
+            state,
+            prepared.function_index,
+            "unable to allocate C call results",
+        );
+    }
+    state.stack.extend(results);
+    LUA_OK
+}
+
+fn finish_c_call_error(state: *mut lua_State, prepared: PreparedCall, message: &str) -> c_int {
+    let Some(state) = state_mut(state) else {
+        return LUA_ERRRUN;
+    };
+    pop_call_base(state, prepared.function_index);
+    push_prepared_error(state, prepared.function_index, message)
+}
+
+fn push_call_error(state: *mut lua_State, message: &str) {
+    if let Some(state) = state_mut(state) {
+        let base = current_base(state);
+        push_prepared_error(state, base, message);
+    }
+}
+
+fn push_prepared_error(state: &mut lua_State, stack_len: usize, message: &str) -> c_int {
+    state.stack.truncate(stack_len);
+    push_string_payload(state, message.as_bytes());
+    LUA_ERRRUN
+}
+
+fn pop_call_base(state: &mut lua_State, expected_base: usize) {
+    if state.call_bases.last().copied() == Some(expected_base) {
+        state.call_bases.pop();
+    }
+}
+
+fn normalize_fixed_results(results: &mut Vec<CValue>, wanted_count: usize) {
+    if results.len() > wanted_count {
+        results.drain(..results.len() - wanted_count);
+    }
+    results.resize(wanted_count, CValue::Nil);
+}
+
+fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
+    if let Some(message) = payload.downcast_ref::<&'static str>() {
+        return format!("panic in C function: {message}");
+    }
+    if let Some(message) = payload.downcast_ref::<String>() {
+        return format!("panic in C function: {message}");
+    }
+    "panic in C function".to_owned()
 }
 
 fn push_value(state: *mut lua_State, value: CValue) {
@@ -529,194 +721,4 @@ fn string_payload(bytes: &[u8]) -> Option<&[u8]> {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::ffi::{CStr, CString, c_void};
-    use std::path::Path;
-
-    use super::{
-        INCLUDE_DIR, LAUXLIB_H, LUA_H, LUA_TBOOLEAN, LUA_TNIL, LUA_TNONE, LUA_TNUMBER, LUA_TSTRING,
-        LUALIB_H, lua_Alloc, lua_State, lua_checkstack, lua_close, lua_copy, lua_gettop,
-        lua_isinteger, lua_isnumber, lua_isstring, lua_newstate, lua_pushboolean, lua_pushinteger,
-        lua_pushlstring, lua_pushnil, lua_pushnumber, lua_pushstring, lua_pushvalue, lua_rotate,
-        lua_settop, lua_toboolean, lua_tointegerx, lua_tolstring, lua_tonumberx, lua_type,
-        lua_typename,
-    };
-
-    unsafe extern "C" fn test_alloc(
-        _ud: *mut c_void,
-        _ptr: *mut c_void,
-        _osize: usize,
-        _nsize: usize,
-    ) -> *mut c_void {
-        std::ptr::null_mut()
-    }
-
-    struct TestState(*mut lua_State);
-
-    impl TestState {
-        fn new() -> Self {
-            // SAFETY: Tests close the state through the RAII guard.
-            let alloc: lua_Alloc = Some(test_alloc);
-            let state = unsafe { lua_newstate(alloc, std::ptr::null_mut()) };
-            assert!(!state.is_null());
-            Self(state)
-        }
-
-        fn as_ptr(&self) -> *mut lua_State {
-            self.0
-        }
-    }
-
-    impl Drop for TestState {
-        fn drop(&mut self) {
-            // SAFETY: The guard owns the state returned by `lua_newstate`.
-            unsafe { lua_close(self.0) };
-        }
-    }
-
-    #[test]
-    fn c_api_headers_are_packaged() {
-        let include_dir = Path::new(INCLUDE_DIR);
-
-        assert!(include_dir.join("lua.h").is_file());
-        assert!(include_dir.join("lauxlib.h").is_file());
-        assert!(include_dir.join("lualib.h").is_file());
-    }
-
-    #[test]
-    fn lua_header_targets_current_lua_version_only() {
-        assert!(LUA_H.contains("#define LUA_VERSION_MAJOR \"5\""));
-        assert!(LUA_H.contains("#define LUA_VERSION_MINOR \"5\""));
-        assert!(LUA_H.contains("#define LUA_VERSION_RELEASE \"0\""));
-        assert!(LUA_H.contains("#define LUA_VERSION_NUM 505"));
-        assert!(!LUA_H.contains("LUA_VERSION_NUM 504"));
-    }
-
-    #[test]
-    fn auxiliary_headers_include_lua_header() {
-        assert!(LAUXLIB_H.contains("#include \"lua.h\""));
-        assert!(LUALIB_H.contains("#include \"lua.h\""));
-        assert!(LAUXLIB_H.contains("luaL_newstate"));
-        assert!(LUALIB_H.contains("luaopen_package"));
-    }
-
-    #[test]
-    fn stack_newstate_starts_empty_and_settop_grows_with_nil() {
-        let state = TestState::new();
-
-        // SAFETY: The test uses a live state and valid C API calls.
-        unsafe {
-            assert_eq!(lua_gettop(state.as_ptr()), 0);
-            lua_settop(state.as_ptr(), 3);
-            assert_eq!(lua_gettop(state.as_ptr()), 3);
-            assert_eq!(lua_type(state.as_ptr(), 1), LUA_TNIL);
-            assert_eq!(lua_type(state.as_ptr(), -1), LUA_TNIL);
-
-            lua_settop(state.as_ptr(), -2);
-            assert_eq!(lua_gettop(state.as_ptr()), 2);
-            assert_eq!(lua_checkstack(state.as_ptr(), 16), 1);
-        }
-    }
-
-    #[test]
-    fn stack_push_and_type_inspection_round_trips_primitives() {
-        let state = TestState::new();
-
-        // SAFETY: The test uses a live state and valid C API calls.
-        unsafe {
-            lua_pushnil(state.as_ptr());
-            lua_pushboolean(state.as_ptr(), 1);
-            lua_pushinteger(state.as_ptr(), 42);
-            lua_pushnumber(state.as_ptr(), 3.5);
-
-            assert_eq!(lua_gettop(state.as_ptr()), 4);
-            assert_eq!(lua_type(state.as_ptr(), 1), LUA_TNIL);
-            assert_eq!(lua_type(state.as_ptr(), 2), LUA_TBOOLEAN);
-            assert_eq!(lua_type(state.as_ptr(), 3), LUA_TNUMBER);
-            assert_eq!(lua_type(state.as_ptr(), 9), LUA_TNONE);
-            assert_eq!(lua_isinteger(state.as_ptr(), 3), 1);
-            assert_eq!(lua_isinteger(state.as_ptr(), 4), 0);
-            assert_eq!(lua_isnumber(state.as_ptr(), 4), 1);
-            assert_eq!(lua_isstring(state.as_ptr(), 3), 1);
-            assert_eq!(lua_toboolean(state.as_ptr(), 1), 0);
-            assert_eq!(lua_toboolean(state.as_ptr(), 2), 1);
-
-            let mut is_num = 0;
-            assert_eq!(lua_tointegerx(state.as_ptr(), 3, &mut is_num), 42);
-            assert_eq!(is_num, 1);
-            assert_eq!(lua_tonumberx(state.as_ptr(), 4, &mut is_num), 3.5);
-            assert_eq!(is_num, 1);
-            assert_eq!(lua_tonumberx(state.as_ptr(), 1, &mut is_num), 0.0);
-            assert_eq!(is_num, 0);
-        }
-    }
-
-    #[test]
-    fn stack_strings_return_stable_bytes() {
-        let state = TestState::new();
-        let c_string = CString::new("hello").unwrap();
-
-        // SAFETY: The test passes valid string pointers and a live state.
-        unsafe {
-            let pushed = lua_pushstring(state.as_ptr(), c_string.as_ptr());
-            assert_eq!(CStr::from_ptr(pushed).to_str().unwrap(), "hello");
-            assert_eq!(lua_type(state.as_ptr(), -1), LUA_TSTRING);
-
-            let bytes = b"a\0b";
-            let pushed = lua_pushlstring(state.as_ptr(), bytes.as_ptr().cast(), bytes.len());
-            assert!(!pushed.is_null());
-
-            let mut len = 0;
-            let returned = lua_tolstring(state.as_ptr(), -1, &mut len);
-            assert_eq!(len, 3);
-            assert_eq!(
-                std::slice::from_raw_parts(returned.cast::<u8>(), len),
-                bytes
-            );
-        }
-    }
-
-    #[test]
-    fn stack_negative_indices_copy_rotate_and_pop() {
-        let state = TestState::new();
-
-        // SAFETY: The test uses a live state and valid stack indices.
-        unsafe {
-            lua_pushinteger(state.as_ptr(), 1);
-            lua_pushinteger(state.as_ptr(), 2);
-            lua_pushinteger(state.as_ptr(), 3);
-            lua_copy(state.as_ptr(), -1, 1);
-
-            let mut is_num = 0;
-            assert_eq!(lua_tointegerx(state.as_ptr(), 1, &mut is_num), 3);
-            assert_eq!(is_num, 1);
-
-            lua_rotate(state.as_ptr(), 1, 1);
-            assert_eq!(lua_tointegerx(state.as_ptr(), 1, &mut is_num), 3);
-            assert_eq!(lua_tointegerx(state.as_ptr(), 2, &mut is_num), 3);
-            assert_eq!(lua_tointegerx(state.as_ptr(), 3, &mut is_num), 2);
-
-            lua_pushvalue(state.as_ptr(), 2);
-            assert_eq!(lua_gettop(state.as_ptr()), 4);
-            assert_eq!(lua_tointegerx(state.as_ptr(), -1, &mut is_num), 3);
-
-            lua_settop(state.as_ptr(), -2);
-            assert_eq!(lua_gettop(state.as_ptr()), 3);
-        }
-    }
-
-    #[test]
-    fn stack_typename_returns_current_lua_names() {
-        // SAFETY: `lua_typename` returns pointers to static names.
-        unsafe {
-            assert_eq!(
-                CStr::from_ptr(lua_typename(std::ptr::null_mut(), LUA_TNONE)).to_str(),
-                Ok("no value")
-            );
-            assert_eq!(
-                CStr::from_ptr(lua_typename(std::ptr::null_mut(), LUA_TNUMBER)).to_str(),
-                Ok("number")
-            );
-        }
-    }
-}
+mod tests;
