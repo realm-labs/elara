@@ -15,6 +15,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_table.lua",
     "stdlib/base_rawlen.lua",
     "stdlib/base_raw_access.lua",
+    "stdlib/base_iteration.lua",
     "stdlib/base_conversion.lua",
     "stdlib/base_pcall.lua",
     "stdlib/base_xpcall.lua",
