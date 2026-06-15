@@ -159,6 +159,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(120), Value::integer(120), Value::integer(51)],
     );
     assert_success_fixture(
+        "stdlib/string_gmatch_positions.lua",
+        vec![Value::integer(14)],
+    );
+    assert_success_fixture(
         "stdlib/string_pattern_advanced.lua",
         vec![Value::integer(7), Value::integer(3)],
     );
