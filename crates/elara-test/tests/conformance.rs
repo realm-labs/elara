@@ -203,6 +203,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(true), Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/package_config.lua",
+        vec![Value::integer(115), Value::integer(10)],
+    );
+    assert_success_fixture(
         "stdlib/package_loadlib.lua",
         vec![Value::boolean(true)],
     );
