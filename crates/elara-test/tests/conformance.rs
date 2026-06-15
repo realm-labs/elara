@@ -335,6 +335,7 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(9), Value::integer(9)],
     );
     assert_success_fixture("stdlib/math_log_identity.lua", vec![Value::float(0.0)]);
+    assert_success_fixture("stdlib/math_sqrt_zero.lua", vec![Value::float(0.0)]);
     assert_success_fixture(
         "stdlib/math_trig.lua",
         vec![
