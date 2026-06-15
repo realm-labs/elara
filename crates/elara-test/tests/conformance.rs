@@ -68,6 +68,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_pcall.lua",
+        vec![Value::boolean(true), Value::integer(42)],
+    );
+    assert_success_fixture(
         "stdlib/math_string_patterns.lua",
         vec![
             Value::integer(7),

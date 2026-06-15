@@ -355,7 +355,7 @@ mod tests {
                 "return math.randomseed(7, 9)",
                 &profile,
             ),
-            Ok(vec![Value::integer(7)])
+            Ok(vec![Value::integer(7), Value::integer(9)])
         );
     }
 
@@ -564,14 +564,19 @@ mod tests {
     fn eval_simple_with_stdlib_os_functions_accept_long_strings() {
         let profile = StdLibProfile::Custom([StdLib::Os, StdLib::String].into_iter().collect());
 
-        assert_eq!(
-            eval_simple_source_with_stdlib(
-                SourceId::new(0),
-                "local format = string.rep('!%Y', 20)\nlocal name = string.rep('ELARA_ABSENT_', 5)\nlocal path = string.rep('missing-', 8)\nreturn string.len(os.date(format, 0)), os.getenv(name), os.remove(path)",
-                &profile,
-            ),
-            Ok(vec![Value::integer(99), Value::nil(), Value::nil()])
-        );
+        let values = eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "local format = string.rep('!%Y', 20)\nlocal name = string.rep('ELARA_ABSENT_', 5)\nlocal path = string.rep('missing-', 8)\nreturn string.len(os.date(format, 0)), os.getenv(name), os.remove(path)",
+            &profile,
+        )
+        .expect("os long-string paths should evaluate");
+
+        assert_eq!(values.len(), 5);
+        assert_eq!(values[0], Value::integer(99));
+        assert_eq!(values[1], Value::nil());
+        assert_eq!(values[2], Value::nil());
+        assert!(values[3].is_string());
+        assert_eq!(values[4], Value::integer(2));
     }
 
     #[test]
@@ -699,7 +704,9 @@ mod tests {
         )
         .expect("package.searchpath should evaluate");
 
-        assert_eq!(values, vec![Value::nil()]);
+        assert_eq!(values.len(), 2);
+        assert_eq!(values[0], Value::nil());
+        assert!(values[1].is_string());
     }
 
     #[test]
@@ -713,7 +720,9 @@ mod tests {
         )
         .expect("package.searchpath should read package.path");
 
-        assert_eq!(values, vec![Value::nil()]);
+        assert_eq!(values.len(), 2);
+        assert_eq!(values[0], Value::nil());
+        assert!(values[1].is_string());
     }
 
     #[test]
@@ -822,7 +831,7 @@ mod tests {
 
         assert_eq!(
             eval_simple_source_with_stdlib(SourceId::new(0), "return assert(true, 42)", &profile),
-            Ok(vec![Value::boolean(true)])
+            Ok(vec![Value::boolean(true), Value::integer(42)])
         );
     }
 
@@ -851,7 +860,11 @@ mod tests {
                 "return pcall(assert, true, 42)",
                 &profile,
             ),
-            Ok(vec![Value::boolean(true)])
+            Ok(vec![
+                Value::boolean(true),
+                Value::boolean(true),
+                Value::integer(42)
+            ])
         );
     }
 
@@ -862,7 +875,7 @@ mod tests {
         assert_eq!(
             eval_simple_source_with_stdlib(
                 SourceId::new(0),
-                "return pcall(error, 'boom')",
+                "local ok = pcall(error, 'boom')\nreturn ok",
                 &profile,
             ),
             Ok(vec![Value::boolean(false)])
@@ -879,7 +892,11 @@ mod tests {
                 "return xpcall(assert, tostring, true, 42)",
                 &profile,
             ),
-            Ok(vec![Value::boolean(true)])
+            Ok(vec![
+                Value::boolean(true),
+                Value::boolean(true),
+                Value::integer(42)
+            ])
         );
     }
 
@@ -890,10 +907,10 @@ mod tests {
         assert_eq!(
             eval_simple_source_with_stdlib(
                 SourceId::new(0),
-                "return xpcall(error, tostring, 'boom')",
+                "local function handler()\n  return 9\nend\nreturn xpcall(error, handler, 'boom')",
                 &profile,
             ),
-            Ok(vec![Value::boolean(false)])
+            Ok(vec![Value::boolean(false), Value::integer(9)])
         );
     }
 
@@ -1005,8 +1022,9 @@ mod tests {
         )
         .expect("coroutine.running should execute");
 
-        assert_eq!(values.len(), 1);
+        assert_eq!(values.len(), 2);
         assert!(values[0].is_thread());
+        assert_eq!(values[1], Value::boolean(true));
     }
 
     #[test]
@@ -1186,7 +1204,7 @@ mod tests {
                 "local t = {10, 20}\nreturn next(t)",
                 &profile,
             ),
-            Ok(vec![Value::integer(1)])
+            Ok(vec![Value::integer(1), Value::integer(10)])
         );
     }
 
@@ -1328,6 +1346,7 @@ mod tests {
                 Value::integer(50),
                 Value::integer(97),
                 Value::integer(50),
+                Value::integer(50),
             ])
         );
     }
@@ -1356,7 +1375,7 @@ mod tests {
                 "return utf8.offset('aé𝄞', 3)",
                 &profile,
             ),
-            Ok(vec![Value::integer(4)])
+            Ok(vec![Value::integer(4), Value::integer(7)])
         );
     }
 
@@ -1558,7 +1577,7 @@ mod tests {
                 "return string.match('flaaap', '()aa()')",
                 &profile,
             ),
-            Ok(vec![Value::integer(3)])
+            Ok(vec![Value::integer(3), Value::integer(5)])
         );
     }
 
@@ -1566,14 +1585,18 @@ mod tests {
     fn eval_simple_with_stdlib_executes_string_find_captures() {
         let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
 
-        assert_eq!(
-            eval_simple_source_with_stdlib(
-                SourceId::new(0),
-                "return string.find('abc123', '(%a+)(%d+)')",
-                &profile,
-            ),
-            Ok(vec![Value::integer(1)])
-        );
+        let values = eval_simple_source_with_stdlib(
+            SourceId::new(0),
+            "return string.find('abc123', '(%a+)(%d+)')",
+            &profile,
+        )
+        .expect("string.find captures should evaluate");
+
+        assert_eq!(values.len(), 4);
+        assert_eq!(values[0], Value::integer(1));
+        assert_eq!(values[1], Value::integer(6));
+        assert!(values[2].is_string());
+        assert!(values[3].is_string());
     }
 
     #[test]

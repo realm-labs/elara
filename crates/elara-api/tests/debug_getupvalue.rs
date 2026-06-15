@@ -23,8 +23,9 @@ fn debug_getupvalue_returns_lua_upvalue_name() {
     )
     .expect("debug.getupvalue should return a name");
 
-    assert_eq!(values.len(), 1);
+    assert_eq!(values.len(), 2);
     assert!(values[0].is_string());
+    assert_eq!(values[1], Value::integer(41));
 }
 
 #[test]

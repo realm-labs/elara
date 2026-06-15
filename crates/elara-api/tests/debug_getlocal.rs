@@ -23,8 +23,9 @@ fn debug_getlocal_returns_lua_local_name_and_value() {
     )
     .expect("debug.getlocal should return a name/value pair");
 
-    assert_eq!(values.len(), 1);
+    assert_eq!(values.len(), 2);
     assert!(values[0].is_string());
+    assert_eq!(values[1], Value::integer(42));
 }
 
 #[test]

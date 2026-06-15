@@ -210,6 +210,28 @@ impl SimpleCompiler {
     }
 
     fn compile_return(&mut self, values: &[Expr<'_>]) {
+        if let Some((last, prefix)) = values.split_last()
+            && let ExprKind::Call { callee, args, .. } = last.kind()
+        {
+            let registers = self.compile_expression_list(prefix);
+            let start = if registers.is_empty() {
+                self.next_register
+            } else {
+                self.contiguous_return_start(&registers)
+            };
+            let call_register = start
+                .checked_add(
+                    u16::try_from(registers.len())
+                        .expect("return expression count must fit in register range"),
+                )
+                .expect("return call register must fit in register range");
+            self.ensure_register_slot(call_register);
+            self.compile_call_into_register(last, callee, args, call_register, 0);
+            self.emit_close_all();
+            self.builder.emit_abc(Op::Return, start, 0, 0);
+            return;
+        }
+
         let registers = self.compile_expression_list(values);
         let start = self.contiguous_return_start(&registers);
         self.emit_close_all();

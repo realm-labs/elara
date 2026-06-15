@@ -2239,6 +2239,16 @@ fn write_values(
     } else {
         result_count as usize
     };
+    if result_count == 0 {
+        let required = base
+            .checked_add(count)
+            .ok_or(RuntimeErrorKind::RegisterOutOfBounds {
+                register: usize::MAX,
+            })?;
+        if required > thread.stack_len() {
+            thread.resize_stack_with_nil(required);
+        }
+    }
     for index in 0..count {
         let value = values.get(index).copied().unwrap_or_else(Value::nil);
         set_register(thread, base + index, value)?;

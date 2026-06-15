@@ -22,7 +22,7 @@ fn debug_sethook_clears_hooks() {
 
     assert_eq!(
         eval_simple_source_with_stdlib(SourceId::new(0), "return debug.sethook()", &profile,),
-        Ok(vec![Value::nil()])
+        Ok(vec![])
     );
 }
 

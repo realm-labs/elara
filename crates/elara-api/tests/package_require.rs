@@ -13,22 +13,25 @@ fn package_require_loads_preloaded_module() {
     )
     .expect("package.require should load from package.preload");
 
-    assert_eq!(values.len(), 1);
+    assert_eq!(values.len(), 2);
     assert_eq!(values[0], Value::integer(42));
+    assert!(values[1].is_string());
 }
 
 #[test]
 fn global_require_loads_preloaded_module() {
     let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
 
-    assert_eq!(
-        eval_simple_source_with_stdlib(
-            SourceId::new(0),
-            "local function loader()\n  return 42\nend\npackage.preload.mod = loader\nreturn require('mod')",
-            &profile,
-        ),
-        Ok(vec![Value::integer(42)])
-    );
+    let values = eval_simple_source_with_stdlib(
+        SourceId::new(0),
+        "local function loader()\n  return 42\nend\npackage.preload.mod = loader\nreturn require('mod')",
+        &profile,
+    )
+    .expect("global require should load from package.preload");
+
+    assert_eq!(values.len(), 2);
+    assert_eq!(values[0], Value::integer(42));
+    assert!(values[1].is_string());
 }
 
 #[test]
@@ -41,7 +44,7 @@ fn global_require_uses_custom_package_searcher() {
             "local function loader()\n  return 77\nend\nlocal function searcher()\n  return loader, 13\nend\npackage.searchers[1] = searcher\nreturn require('mod')",
             &profile,
         ),
-        Ok(vec![Value::integer(77)])
+        Ok(vec![Value::integer(77), Value::integer(13)])
     );
 }
 
@@ -102,14 +105,17 @@ fn package_require_reports_missing_preload() {
 fn package_loadlib_reports_unsupported_dynamic_loading() {
     let profile = StdLibProfile::Custom([StdLib::Package].into_iter().collect());
 
-    assert_eq!(
-        eval_simple_source_with_stdlib(
-            SourceId::new(0),
-            "return package.loadlib('missing.so', 'luaopen_missing')",
-            &profile,
-        ),
-        Ok(vec![Value::nil()])
-    );
+    let values = eval_simple_source_with_stdlib(
+        SourceId::new(0),
+        "return package.loadlib('missing.so', 'luaopen_missing')",
+        &profile,
+    )
+    .expect("package.loadlib should return unsupported-loader result values");
+
+    assert_eq!(values.len(), 3);
+    assert_eq!(values[0], Value::nil());
+    assert!(values[1].is_string());
+    assert!(values[2].is_string());
 }
 
 #[test]

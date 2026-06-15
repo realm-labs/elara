@@ -451,7 +451,7 @@ fn functions_compile_local_function_call() {
     assert_eq!(proto.children.len(), 1);
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 CLOSURE       A=0 Bx=0\n0001 MOVE          A=1 B=0 C=0\n0002 CALL          A=1 B=1 C=1\n0003 RETURN        A=1 B=1 C=0\n",
+        "0000 CLOSURE       A=0 Bx=0\n0001 MOVE          A=1 B=0 C=0\n0002 CALL          A=1 B=1 C=0\n0003 RETURN        A=1 B=0 C=0\n",
     );
 }
 
@@ -546,7 +546,7 @@ fn varargs_compile_anonymous_vararg_call() {
     );
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 CLOSURE       A=0 Bx=0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_K        A=2 Bx=0 ; 42\n0003 CALL          A=1 B=2 C=1\n0004 RETURN        A=1 B=1 C=0\n",
+        "0000 CLOSURE       A=0 Bx=0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_K        A=2 Bx=0 ; 42\n0003 CALL          A=1 B=2 C=0\n0004 RETURN        A=1 B=0 C=0\n",
     );
 }
 
@@ -567,6 +567,6 @@ fn varargs_compile_named_vararg_table() {
     );
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 CLOSURE       A=0 Bx=0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_K        A=2 Bx=0 ; 42\n0003 CALL          A=1 B=2 C=1\n0004 RETURN        A=1 B=1 C=0\n",
+        "0000 CLOSURE       A=0 Bx=0\n0001 MOVE          A=1 B=0 C=0\n0002 LOAD_K        A=2 Bx=0 ; 42\n0003 CALL          A=1 B=2 C=0\n0004 RETURN        A=1 B=0 C=0\n",
     );
 }
