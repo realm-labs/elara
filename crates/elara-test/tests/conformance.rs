@@ -104,6 +104,16 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/utf8_iteration.lua",
+        vec![
+            Value::integer(198),
+            Value::integer(3),
+            Value::integer(2),
+            Value::integer(3),
+            Value::integer(91),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/os_package_debug.lua",
         vec![
             Value::float(6.0),
