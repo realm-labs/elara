@@ -248,6 +248,7 @@ fn conformance_error_fixtures() {
     assert_error_fixture("errors/bad_argument.lua");
     assert_error_fixture("errors/non_table_index.lua");
     assert_error_fixture("errors/arithmetic_type.lua");
+    assert_error_fixture("errors/debug_uservalue.lua");
 }
 
 #[test]

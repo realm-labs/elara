@@ -45,6 +45,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "errors/bad_argument.lua",
     "errors/non_table_index.lua",
     "errors/arithmetic_type.lua",
+    "errors/debug_uservalue.lua",
 ];
 
 #[test]
