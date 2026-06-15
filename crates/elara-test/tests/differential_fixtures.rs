@@ -47,6 +47,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_gmatch_positions.lua",
     "stdlib/string_rep_empty.lua",
     "stdlib/string_reverse_empty.lua",
+    "stdlib/string_sub_default_end.lua",
     "stdlib/string_sub_empty.lua",
     "stdlib/string_pattern_advanced.lua",
     "stdlib/string_format.lua",

@@ -255,6 +255,10 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture("stdlib/string_rep_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture("stdlib/string_reverse_empty.lua", vec![Value::integer(0)]);
+    assert_success_fixture(
+        "stdlib/string_sub_default_end.lua",
+        vec![Value::integer(2), Value::integer(99), Value::integer(100)],
+    );
     assert_success_fixture("stdlib/string_sub_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture(
         "stdlib/string_pattern_advanced.lua",
