@@ -202,6 +202,16 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/table_ranges.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(98),
+            Value::integer(20),
+            Value::integer(30),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_sort.lua",
         vec![Value::integer(1), Value::integer(2), Value::integer(3)],
     );
