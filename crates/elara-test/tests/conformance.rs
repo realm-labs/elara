@@ -380,10 +380,26 @@ fn conformance_standard_library_fixtures() {
         "stdlib/package_config.lua",
         vec![Value::integer(115), Value::integer(10)],
     );
-    assert_success_fixture(
-        "stdlib/package_loadlib.lua",
-        vec![Value::boolean(true)],
-    );
+    assert_success_fixture_values("stdlib/package_loadlib.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            3,
+            "package.loadlib should return nil plus message plus stage"
+        );
+        assert_eq!(
+            actual[0],
+            Value::nil(),
+            "package.loadlib result should be nil"
+        );
+        assert!(
+            actual[1].is_string(),
+            "package.loadlib message should be a string: {actual:?}"
+        );
+        assert!(
+            actual[2].is_string(),
+            "package.loadlib stage should be a string: {actual:?}"
+        );
+    });
     assert_success_fixture(
         "stdlib/package_c_searchers.lua",
         vec![

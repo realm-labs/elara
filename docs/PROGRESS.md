@@ -1315,8 +1315,8 @@ Delivered:
   configuration strings, package preload/require
   caching plus direct preload searcher hits and Lua searcher misses, direct
   `package.searchpath` miss result classification,
-  C-searcher miss results, unsupported `package.loadlib` results, debug frame
-  introspection,
+  C-searcher miss results, unsupported `package.loadlib` result
+  classification, debug frame introspection,
   debug local inspection/mutation, debug uservalue nil classification, debug
   traceback string results, raw debug metatable access/mutation, mutable
   debug registry access, debug upvalue inspection/mutation/join behavior, no-hook
@@ -1431,7 +1431,7 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 `package.searchpath` result fixture expansion passed:
+Post-M20.4 `package.loadlib` result fixture expansion passed:
 
 ```bash
 cargo test -p elara-test
