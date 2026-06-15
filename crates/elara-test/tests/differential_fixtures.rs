@@ -22,6 +22,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_string_utf8.lua",
     "stdlib/table_mutation.lua",
     "stdlib/io_stubs.lua",
+    "stdlib/io_type.lua",
     "stdlib/utf8_iteration.lua",
     "stdlib/os_package_debug.lua",
     "stdlib/package_require.lua",

@@ -145,6 +145,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/io_type.lua",
+        vec![Value::boolean(true), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/utf8_iteration.lua",
         vec![
             Value::integer(198),
