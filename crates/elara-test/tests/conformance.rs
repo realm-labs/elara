@@ -546,6 +546,15 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(2), Value::integer(1), Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/table_remove_first.lua",
+        vec![
+            Value::integer(10),
+            Value::integer(20),
+            Value::integer(30),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_remove_position.lua",
         vec![
             Value::integer(20),
