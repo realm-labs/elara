@@ -38,6 +38,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_format_float.lua",
     "stdlib/string_format_quote.lua",
     "stdlib/string_format_percent.lua",
+    "stdlib/string_format_pointer.lua",
     "stdlib/string_ops.lua",
     "stdlib/string_byte_char.lua",
     "stdlib/math_numeric.lua",
