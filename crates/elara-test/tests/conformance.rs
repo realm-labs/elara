@@ -389,6 +389,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(2), Value::integer(1), Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/table_move_overlap.lua",
+        vec![Value::integer(1), Value::integer(1), Value::integer(2)],
+    );
+    assert_success_fixture(
         "stdlib/table_ranges.lua",
         vec![
             Value::integer(3),
