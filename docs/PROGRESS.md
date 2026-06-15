@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-15
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M20 Release Hardening and 1.0 Candidate
-Current step: M20.2 Complete performance report
+Current step: M20.3 Audit unsafe and public API
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -1257,6 +1257,10 @@ Delivered:
 - Reusable fuzz target entry points now exercise arbitrary bytes through the
   lexer/parser/simple compiler path, bytecode verifier, and raw table
   operations, with deterministic unit tests and workspace verification.
+- The benchmark harness now emits release comparison rows for the public API
+  interpreter path, the public API JIT path, and official Lua 5.5 when
+  available, plus an API overhead workload; `docs/PERFORMANCE.md` records the
+  M20 local release report and methodology caveats.
 
 ## Remaining Gaps
 
@@ -1293,7 +1297,6 @@ Major implementation work is still pending:
 - Bitwise opcode execution and corresponding metamethod dispatch.
 - Broader full-profile standard-library conformance.
 - Release-sized conformance and differential fixture coverage.
-- Release performance report across interpreter, JIT, API, and official Lua.
 - Unsafe/public API audit and compile-checked examples.
 
 M9 is complete.
@@ -1347,22 +1350,24 @@ M19.3 is complete.
 M19.4 is complete.
 M19 is complete.
 M20.1 is complete.
+M20.2 is complete.
 
 ## Last Verification
 
-M20.1 release conformance gap review validation passed:
+M20.2 release performance report validation passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test --workspace
-cargo test --workspace --features jit
+cargo test -p elara-bench
+cargo clippy -p elara-bench --all-targets -- -D warnings
+cargo bench -p elara-bench
 git diff --check
 ```
 
 ## Next Recommended Action
 
-Start M20.2 by running and documenting release performance comparisons for the
-interpreter, JIT, public API path, and official Lua reference where available.
+Start M20.3 by auditing unsafe blocks, public API docs, and compile-checked
+examples.
 
 ## Current Risk Notes
 
@@ -1415,4 +1420,4 @@ interpreter, JIT, public API path, and official Lua reference where available.
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | M17 complete; M18.2 debug interaction complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, debug-hook forced interpretation, API JIT selection for environment-independent chunks with debug/runtime-environment chunks kept on the interpreter, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |
 | C API | M19 complete | Current-version `lua.h`, `lauxlib.h`, and `lualib.h` scaffolding is packaged by `elara-capi`; stack-backed `lua_State` top manipulation, push/copy/rotate behavior, primitive type inspection, basic conversions, stack-registered C function calls, protected-call result normalization, Rust callback panic containment, and source-level C module compilation against packaged headers are implemented. |
-| Benchmarks | M15 baseline complete | Stable custom `cargo bench` runner covers arithmetic, table access, calls, strings, and representative macro workloads; `docs/PERFORMANCE.md` records the current baseline and comparison gaps. |
+| Benchmarks | M20.2 complete | Stable custom `cargo bench` runner covers API overhead, arithmetic, table access, calls, strings, and representative macro workloads across interpreter API, JIT API, and official Lua 5.5 reference rows; `docs/PERFORMANCE.md` records the M20 release report and remaining methodology gaps. |

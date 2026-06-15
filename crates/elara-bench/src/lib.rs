@@ -8,7 +8,7 @@
 
 use std::time::{Duration, Instant};
 
-use elara_api::{EvalError, Lua};
+use elara_api::{EvalError, JitMode, Lua};
 
 /// One benchmark workload.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -36,6 +36,11 @@ pub struct BenchmarkResult {
 
 /// Interpreter microbenchmarks.
 pub const MICRO_BENCHMARKS: &[BenchmarkCase] = &[
+    BenchmarkCase {
+        name: "api_return_constant",
+        source: "return 1",
+        iterations: 500,
+    },
     BenchmarkCase {
         name: "micro_arithmetic_for_loop",
         source: "local x = 0\nfor i = 1, 50 do x = x + i end\nreturn x",
@@ -84,7 +89,7 @@ pub const MACRO_BENCHMARKS: &[BenchmarkCase] = &[
     },
     BenchmarkCase {
         name: "macro_string_patterns",
-        source: "local s = \"a1 b2 c3 d4\"\nreturn string.gsub(s, \"%a\", \"x\")",
+        source: "local s = \"a1 b2 c3 d4\"\nlocal r = string.gsub(s, \"%a\", \"x\")\nreturn string.len(r)",
         iterations: 25,
     },
 ];
@@ -92,6 +97,16 @@ pub const MACRO_BENCHMARKS: &[BenchmarkCase] = &[
 /// Runs one benchmark case through the public API interpreter path.
 pub fn run_case(case: BenchmarkCase) -> Result<BenchmarkResult, EvalError> {
     let lua = Lua::new();
+    run_case_with_lua(case, &lua)
+}
+
+/// Runs one benchmark case through the public API JIT path.
+pub fn run_case_jit(case: BenchmarkCase) -> Result<BenchmarkResult, EvalError> {
+    let lua = Lua::builder().jit(JitMode::Always).build();
+    run_case_with_lua(case, &lua)
+}
+
+fn run_case_with_lua(case: BenchmarkCase, lua: &Lua) -> Result<BenchmarkResult, EvalError> {
     let mut last_result_count = 0;
     let started = Instant::now();
     for _ in 0..case.iterations {
