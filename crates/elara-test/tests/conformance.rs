@@ -388,6 +388,7 @@ fn conformance_error_fixtures() {
     assert_error_fixture("errors/non_table_index.lua");
     assert_error_fixture("errors/arithmetic_type.lua");
     assert_error_fixture("errors/debug_uservalue.lua");
+    assert_error_fixture("errors/string_format_unsupported.lua");
 }
 
 #[test]
