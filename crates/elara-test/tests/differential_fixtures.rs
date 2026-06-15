@@ -57,6 +57,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/math_trig.lua",
     "stdlib/math_angle_zero.lua",
     "stdlib/math_decompose.lua",
+    "stdlib/math_frexp_zero.lua",
     "stdlib/math_modf.lua",
     "stdlib/math_nil_results.lua",
     "stdlib/math_type_subtypes.lua",
