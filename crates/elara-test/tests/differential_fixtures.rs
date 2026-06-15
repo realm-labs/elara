@@ -20,6 +20,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_rawset_nil.lua",
     "stdlib/base_iteration.lua",
     "stdlib/base_metatable.lua",
+    "stdlib/base_metatable_protected_set.lua",
     "stdlib/base_assert.lua",
     "stdlib/base_assert_pcall.lua",
     "stdlib/base_next.lua",

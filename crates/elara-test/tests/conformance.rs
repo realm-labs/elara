@@ -89,6 +89,22 @@ fn conformance_standard_library_fixtures() {
             Value::boolean(true),
         ],
     );
+    assert_success_fixture_values("stdlib/base_metatable_protected_set.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            2,
+            "protected metatable update should return status plus message"
+        );
+        assert_eq!(
+            actual[0],
+            Value::boolean(false),
+            "protected metatable update should be caught"
+        );
+        assert!(
+            actual[1].is_string(),
+            "protected metatable message should be a string: {actual:?}"
+        );
+    });
     assert_success_fixture(
         "stdlib/base_assert.lua",
         vec![Value::boolean(true), Value::integer(42)],
