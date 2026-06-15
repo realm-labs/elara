@@ -159,6 +159,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_tonumber_number.lua",
+        vec![Value::integer(12), Value::float(12.5)],
+    );
+    assert_success_fixture(
         "stdlib/base_tonumber_standard.lua",
         vec![Value::integer(-12), Value::integer(16), Value::float(3.5)],
     );
