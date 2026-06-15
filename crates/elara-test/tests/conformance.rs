@@ -565,6 +565,13 @@ fn conformance_standard_library_fixtures() {
     });
     assert_success_fixture("stdlib/os_clock.lua", vec![Value::integer(110)]);
     assert_success_fixture("stdlib/os_tmpname.lua", vec![Value::integer(115)]);
+    assert_success_fixture_values("stdlib/os_tmpname_result.lua", |actual| {
+        assert_eq!(actual.len(), 1, "os.tmpname should return one filename");
+        assert!(
+            actual[0].is_string(),
+            "os.tmpname result should be a string: {actual:?}"
+        );
+    });
     assert_success_fixture("stdlib/os_getenv.lua", vec![Value::boolean(true)]);
     assert_success_fixture_values("stdlib/os_remove.lua", |actual| {
         assert_eq!(
