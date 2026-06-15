@@ -1287,11 +1287,11 @@ Delivered:
   `ELARA_LUA`, including stderr-aware error classification for stdin-based Lua
   runs.
 - The conformance standard-library smoke matrix now also includes exact-value
-  fixtures for base/table helpers, math functions combined with string pattern
-  operations, table mutation helpers, UTF-8 iterator/offset helpers,
-  pre-file-handle `io` stubs, package preload/require caching plus Lua searcher
-  misses, debug frame introspection, and deterministic UTC `os.date`/`os.time`
-  behavior.
+  fixtures for base/table helpers, broader deterministic math functions, math
+  functions combined with string pattern operations, table mutation helpers,
+  UTF-8 iterator/offset helpers, pre-file-handle `io` stubs, package
+  preload/require caching plus Lua searcher misses, debug frame introspection,
+  and deterministic UTC `os.date`/`os.time` behavior.
 - The conformance language smoke matrix now also includes exact-value fixtures
   for table field construction/access, zero-argument closure capture, Lua 5.5
   global declarations/functions, and arithmetic metamethod dispatch.
@@ -1303,7 +1303,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains twenty-seven smoke fixtures across
+- `tests/conformance` currently contains twenty-eight smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check returned primitive values through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
@@ -1393,7 +1393,7 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 standard-library UTF-8 iterator fixture expansion passed:
+Post-M20.4 standard-library deterministic math fixture expansion passed:
 
 ```bash
 cargo test -p elara-test
