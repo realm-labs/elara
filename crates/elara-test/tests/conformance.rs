@@ -537,6 +537,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(1), Value::integer(2)],
     );
     assert_success_fixture(
+        "stdlib/table_insert_first.lua",
+        vec![Value::integer(97), Value::integer(98), Value::integer(99)],
+    );
+    assert_success_fixture(
         "stdlib/table_insert_position.lua",
         vec![Value::integer(97), Value::integer(98), Value::integer(99)],
     );
