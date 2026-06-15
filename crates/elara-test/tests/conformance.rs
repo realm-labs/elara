@@ -20,6 +20,26 @@ fn conformance_language_fixtures() {
         ],
     );
     assert_success_fixture("language/varargs.lua", vec![Value::integer(10)]);
+    assert_success_fixture(
+        "language/table_fields.lua",
+        vec![
+            Value::integer(10),
+            Value::integer(20),
+            Value::integer(30),
+            Value::integer(40),
+            Value::integer(40),
+            Value::integer(4),
+        ],
+    );
+    assert_success_fixture(
+        "language/closures.lua",
+        vec![Value::integer(42), Value::integer(42)],
+    );
+    assert_success_fixture(
+        "language/global_declarations.lua",
+        vec![Value::integer(42), Value::integer(42)],
+    );
+    assert_success_fixture("language/metamethods.lua", vec![Value::integer(42)]);
 }
 
 #[test]
