@@ -99,6 +99,17 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_tostring.lua",
+        vec![
+            Value::integer(110),
+            Value::integer(3),
+            Value::integer(102),
+            Value::integer(5),
+            Value::integer(45),
+            Value::integer(3),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_pcall.lua",
         vec![Value::boolean(true), Value::integer(42)],
     );
