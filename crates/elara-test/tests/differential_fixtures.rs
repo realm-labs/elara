@@ -43,6 +43,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "coroutine/wrap.lua",
     "coroutine/resume_status.lua",
     "coroutine/lifecycle.lua",
+    "coroutine/close.lua",
     "errors/non_callable.lua",
     "errors/base_error.lua",
     "errors/syntax_unclosed.lua",

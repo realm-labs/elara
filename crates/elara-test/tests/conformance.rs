@@ -286,6 +286,7 @@ fn conformance_coroutine_fixtures() {
             Value::integer(100),
         ],
     );
+    assert_success_fixture("coroutine/close.lua", vec![Value::boolean(true)]);
 }
 
 fn assert_success_fixture(path: &str, expected: Vec<Value>) {
