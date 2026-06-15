@@ -305,6 +305,7 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture("stdlib/os_tmpname.lua", vec![Value::integer(115)]);
     assert_success_fixture("stdlib/os_getenv.lua", vec![Value::boolean(true)]);
     assert_success_fixture("stdlib/os_remove.lua", vec![Value::boolean(true)]);
+    assert_success_fixture("stdlib/os_rename.lua", vec![Value::boolean(true)]);
 }
 
 #[test]
