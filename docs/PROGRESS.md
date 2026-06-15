@@ -1325,8 +1325,9 @@ Delivered:
   integer, character, and float output, plus `os.execute` shell availability
   and success/failure command status tuples, `os.clock` result classification,
   `os.tmpname` string results, absent `os.getenv` handling,
-  absent-file `os.remove`/`os.rename` handling, UTC `os.date` table/string
-  formatting, UTC `os.time`, and C-locale `os.setlocale` behavior.
+  absent-file `os.remove` result classification and `os.rename` handling, UTC
+  `os.date` table/string formatting, UTC `os.time`, and C-locale
+  `os.setlocale` behavior.
 - The conformance language smoke matrix now also includes exact-value fixtures
   for table field construction/access, zero-argument closure capture, Lua 5.5
   global declarations/functions, and arithmetic metamethod dispatch.
@@ -1432,7 +1433,7 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 `io.tmpfile` result fixture expansion passed:
+Post-M20.4 `os.remove` result fixture expansion passed:
 
 ```bash
 cargo test -p elara-test

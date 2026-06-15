@@ -542,7 +542,26 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture("stdlib/os_clock.lua", vec![Value::integer(110)]);
     assert_success_fixture("stdlib/os_tmpname.lua", vec![Value::integer(115)]);
     assert_success_fixture("stdlib/os_getenv.lua", vec![Value::boolean(true)]);
-    assert_success_fixture("stdlib/os_remove.lua", vec![Value::boolean(true)]);
+    assert_success_fixture_values("stdlib/os_remove.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            3,
+            "os.remove absent path should return nil plus message plus code"
+        );
+        assert_eq!(
+            actual[0],
+            Value::nil(),
+            "os.remove absent path result should be nil"
+        );
+        assert!(
+            actual[1].is_string(),
+            "os.remove message should be a string: {actual:?}"
+        );
+        assert!(
+            actual[2].as_integer().is_some_and(|code| code != 0),
+            "os.remove code should be non-zero: {actual:?}"
+        );
+    });
     assert_success_fixture("stdlib/os_rename.lua", vec![Value::boolean(true)]);
 }
 
