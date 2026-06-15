@@ -351,6 +351,17 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(true), Value::boolean(true), Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/math_type_subtypes.lua",
+        vec![
+            Value::integer(7),
+            Value::integer(105),
+            Value::integer(114),
+            Value::integer(5),
+            Value::integer(102),
+            Value::integer(116),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/math_random.lua",
         vec![Value::integer(1), Value::integer(7), Value::integer(9)],
     );
