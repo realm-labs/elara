@@ -1325,7 +1325,7 @@ Delivered:
   integer, character, and float output, plus `os.execute` shell availability
   and success/failure command status tuples, `os.clock` result classification,
   `os.tmpname` string results, absent `os.getenv` handling,
-  absent-file `os.remove` result classification and `os.rename` handling, UTC
+  absent-file `os.remove`/`os.rename` result classification, UTC
   `os.date` table/string formatting, UTC `os.time`, and C-locale
   `os.setlocale` behavior.
 - The conformance language smoke matrix now also includes exact-value fixtures
@@ -1433,7 +1433,7 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 `os.remove` result fixture expansion passed:
+Post-M20.4 `os.rename` result fixture expansion passed:
 
 ```bash
 cargo test -p elara-test

@@ -1,1 +1,1 @@
-return rawequal(os.rename("elara_absent", "elara_to"), nil)
+return os.rename("__elara_absent_conformance_rename__", "__elara_absent_conformance_to__")

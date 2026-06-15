@@ -562,7 +562,26 @@ fn conformance_standard_library_fixtures() {
             "os.remove code should be non-zero: {actual:?}"
         );
     });
-    assert_success_fixture("stdlib/os_rename.lua", vec![Value::boolean(true)]);
+    assert_success_fixture_values("stdlib/os_rename.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            3,
+            "os.rename absent path should return nil plus message plus code"
+        );
+        assert_eq!(
+            actual[0],
+            Value::nil(),
+            "os.rename absent path result should be nil"
+        );
+        assert!(
+            actual[1].is_string(),
+            "os.rename message should be a string: {actual:?}"
+        );
+        assert!(
+            actual[2].as_integer().is_some_and(|code| code != 0),
+            "os.rename code should be non-zero: {actual:?}"
+        );
+    });
 }
 
 #[test]
