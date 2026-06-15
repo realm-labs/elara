@@ -100,6 +100,14 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_tonumber_radix.lua",
+        vec![
+            Value::integer(255),
+            Value::integer(35),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_tostring.lua",
         vec![
             Value::integer(110),
