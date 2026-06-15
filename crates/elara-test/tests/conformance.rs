@@ -215,6 +215,16 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(98), Value::integer(115)],
     );
     assert_success_fixture(
+        "stdlib/debug_metatable.lua",
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/debug_hooks.lua",
         vec![
             Value::boolean(true),
