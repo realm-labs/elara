@@ -173,6 +173,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(true), Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/package_loadlib.lua",
+        vec![Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/debug_introspection.lua",
         vec![
             Value::integer(76),
