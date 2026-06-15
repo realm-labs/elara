@@ -533,6 +533,10 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture("stdlib/utf8_char_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture("stdlib/utf8_codepoint_empty.lua", Vec::new());
     assert_success_fixture(
+        "stdlib/utf8_codepoint_range.lua",
+        vec![Value::integer(66), Value::integer(67)],
+    );
+    assert_success_fixture(
         "stdlib/utf8_multibyte.lua",
         vec![
             Value::integer(6),
