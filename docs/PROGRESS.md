@@ -3,8 +3,8 @@
 Status: Rolling current-state document  
 Last updated: 2026-06-15
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
-Current milestone: M19 Optional Current-Version C API
-Current step: M19.4 Add C integration tests
+Current milestone: M20 Release Hardening and 1.0 Candidate
+Current step: M20.1 Complete conformance gap review
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -1243,6 +1243,10 @@ Delivered:
   `lua_pcallk`, including active C call-frame stack indexing, fixed-result and
   multiret normalization, runtime-error reporting for invalid calls, and panic
   containment for Rust `extern "C-unwind"` callbacks.
+- The optional C API crate now has an integration test that compiles a small C
+  module against the packaged current-version headers, exercising stack
+  registration and protected-call macros at source level while keeping binary
+  compatibility explicitly out of scope.
 - `elara-test` exposes configurable official-Lua runner helpers using
   `ELARA_LUA`, captures stdout/stderr and success/error classes, and can compare
   official Lua runs against Elara's public API evaluation path for differential
@@ -1269,7 +1273,6 @@ Major implementation work is still pending:
 - Broader full-profile standard library coverage.
 - Broader Rust API compatibility.
 - Cranelift JIT.
-- Optional C API.
 - Benchmarks.
 
 M9 is complete.
@@ -1320,14 +1323,16 @@ M18 is complete.
 M19.1 is complete.
 M19.2 is complete.
 M19.3 is complete.
+M19.4 is complete.
+M19 is complete.
 
 ## Last Verification
 
-M19.3 C function registration and protected-call validation passed:
+M19.4 C integration validation passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-capi c_function
+cargo test -p elara-capi --tests
 cargo clippy -p elara-capi --all-targets -- -D warnings
 git diff --check
 cargo test --workspace
@@ -1336,8 +1341,8 @@ cargo test --workspace --features jit debug
 
 ## Next Recommended Action
 
-Start M19.4 by adding a small C integration module compiled against the packaged
-Elara C API headers.
+Start M20.1 by reviewing conformance coverage and updating `docs/PROGRESS.md`
+with the release hardening gap summary.
 
 ## Current Risk Notes
 
@@ -1389,5 +1394,5 @@ Elara C API headers.
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | M17 complete; M18.2 debug interaction complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, debug-hook forced interpretation, API JIT selection for environment-independent chunks with debug/runtime-environment chunks kept on the interpreter, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |
-| C API | M19.3 complete | Current-version `lua.h`, `lauxlib.h`, and `lualib.h` scaffolding is packaged by `elara-capi`; stack-backed `lua_State` top manipulation, push/copy/rotate behavior, primitive type inspection, basic conversions, stack-registered C function calls, protected-call result normalization, and Rust callback panic containment are implemented. |
+| C API | M19 complete | Current-version `lua.h`, `lauxlib.h`, and `lualib.h` scaffolding is packaged by `elara-capi`; stack-backed `lua_State` top manipulation, push/copy/rotate behavior, primitive type inspection, basic conversions, stack-registered C function calls, protected-call result normalization, Rust callback panic containment, and source-level C module compilation against packaged headers are implemented. |
 | Benchmarks | M15 baseline complete | Stable custom `cargo bench` runner covers arithmetic, table access, calls, strings, and representative macro workloads; `docs/PERFORMANCE.md` records the current baseline and comparison gaps. |
