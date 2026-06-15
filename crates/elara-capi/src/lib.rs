@@ -1,5 +1,4 @@
 #![allow(non_camel_case_types)]
-#![allow(clippy::missing_safety_doc)]
 
 //! Optional Lua 5.5 C API layer for Elara.
 //!
@@ -115,6 +114,13 @@ impl CValue {
     }
 }
 
+/// Creates a new Lua C API state.
+///
+/// # Safety
+///
+/// `f`, when present, must be a valid Lua allocator callback for the lifetime
+/// of the state. `ud` is stored opaquely and passed back only to allocator
+/// callbacks.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_newstate(f: lua_Alloc, ud: *mut c_void) -> *mut lua_State {
     if f.is_none() {
@@ -129,6 +135,12 @@ pub unsafe extern "C" fn lua_newstate(f: lua_Alloc, ud: *mut c_void) -> *mut lua
     }))
 }
 
+/// Closes a Lua C API state.
+///
+/// # Safety
+///
+/// `state` must be null or a pointer returned by `lua_newstate` that has not
+/// already been closed. After this call the pointer must not be used again.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_close(state: *mut lua_State) {
     if !state.is_null() {
@@ -138,11 +150,22 @@ pub unsafe extern "C" fn lua_close(state: *mut lua_State) {
     }
 }
 
+/// Creates a new Lua thread.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`. Thread
+/// creation is not implemented yet, so this returns null.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_newthread(_state: *mut lua_State) -> *mut lua_State {
     ptr::null_mut()
 }
 
+/// Returns the visible stack top.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_gettop(state: *mut lua_State) -> c_int {
     with_state(state, |state| {
@@ -151,6 +174,11 @@ pub unsafe extern "C" fn lua_gettop(state: *mut lua_State) -> c_int {
     .unwrap_or(0)
 }
 
+/// Sets the visible stack top.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_settop(state: *mut lua_State, idx: c_int) {
     let Some(state) = state_mut(state) else {
@@ -169,6 +197,13 @@ pub unsafe extern "C" fn lua_settop(state: *mut lua_State, idx: c_int) {
         .truncate(next_top.max(current_base(state) as isize) as usize);
 }
 
+/// Pushes a copy of a stack value.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`. `idx` must
+/// follow Lua stack-indexing rules; invalid indices push nil in this partial
+/// implementation.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_pushvalue(state: *mut lua_State, idx: c_int) {
     let Some(state) = state_mut(state) else {
@@ -180,6 +215,12 @@ pub unsafe extern "C" fn lua_pushvalue(state: *mut lua_State, idx: c_int) {
     push_stack(state, value);
 }
 
+/// Rotates a stack segment.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`. `idx` must
+/// identify a visible stack slot when rotation is desired.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_rotate(state: *mut lua_State, idx: c_int, n: c_int) {
     let Some(state) = state_mut(state) else {
@@ -201,6 +242,12 @@ pub unsafe extern "C" fn lua_rotate(state: *mut lua_State, idx: c_int, n: c_int)
     }
 }
 
+/// Copies one stack slot into another.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`. Valid stack
+/// indices follow the Lua C API contract.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_copy(state: *mut lua_State, fromidx: c_int, toidx: c_int) {
     let Some(state) = state_mut(state) else {
@@ -215,6 +262,11 @@ pub unsafe extern "C" fn lua_copy(state: *mut lua_State, fromidx: c_int, toidx: 
     state.stack[to_index] = value;
 }
 
+/// Ensures additional stack capacity.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_checkstack(state: *mut lua_State, n: c_int) -> c_int {
     let Some(state) = state_mut(state) else {
@@ -226,11 +278,21 @@ pub unsafe extern "C" fn lua_checkstack(state: *mut lua_State, n: c_int) -> c_in
     c_bool(state.stack.try_reserve(n as usize).is_ok())
 }
 
+/// Returns the Lua type tag at a stack index.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_type(state: *mut lua_State, idx: c_int) -> c_int {
     with_value(state, idx, CValue::type_tag).unwrap_or(LUA_TNONE)
 }
 
+/// Returns the static Lua type name for a type tag.
+///
+/// # Safety
+///
+/// The returned pointer is static and must not be written to or freed.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_typename(_state: *mut lua_State, tp: c_int) -> *const c_char {
     let name_index = if tp == LUA_TNONE {
@@ -243,6 +305,11 @@ pub unsafe extern "C" fn lua_typename(_state: *mut lua_State, tp: c_int) -> *con
     LUA_TYPENAMES[name_index].as_ptr().cast()
 }
 
+/// Tests whether a stack value is convertible to a number.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_isnumber(state: *mut lua_State, idx: c_int) -> c_int {
     c_bool(
@@ -252,6 +319,11 @@ pub unsafe extern "C" fn lua_isnumber(state: *mut lua_State, idx: c_int) -> c_in
     )
 }
 
+/// Tests whether a stack value is a string or number.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_isstring(state: *mut lua_State, idx: c_int) -> c_int {
     c_bool(matches!(
@@ -260,6 +332,11 @@ pub unsafe extern "C" fn lua_isstring(state: *mut lua_State, idx: c_int) -> c_in
     ))
 }
 
+/// Tests whether a stack value is a C function.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_iscfunction(state: *mut lua_State, idx: c_int) -> c_int {
     c_bool(matches!(
@@ -268,26 +345,52 @@ pub unsafe extern "C" fn lua_iscfunction(state: *mut lua_State, idx: c_int) -> c
     ))
 }
 
+/// Tests whether a stack value is an integer.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_isinteger(state: *mut lua_State, idx: c_int) -> c_int {
     c_bool(with_value(state, idx, |value| matches!(value, CValue::Integer(_))).unwrap_or(false))
 }
 
+/// Pushes nil.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_pushnil(state: *mut lua_State) {
     push_value(state, CValue::Nil);
 }
 
+/// Pushes a floating-point number.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_pushnumber(state: *mut lua_State, n: lua_Number) {
     push_value(state, CValue::Number(n));
 }
 
+/// Pushes an integer.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_pushinteger(state: *mut lua_State, n: lua_Integer) {
     push_value(state, CValue::Integer(n));
 }
 
+/// Pushes a byte string with an explicit length.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`. If `s` is
+/// non-null, it must point to at least `len` readable bytes.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_pushlstring(
     state: *mut lua_State,
@@ -308,6 +411,12 @@ pub unsafe extern "C" fn lua_pushlstring(
     push_string_payload(state, payload)
 }
 
+/// Pushes a null-terminated C string.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`. If `s` is
+/// non-null, it must point to a valid null-terminated byte string.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_pushstring(state: *mut lua_State, s: *const c_char) -> *const c_char {
     let Some(state) = state_mut(state) else {
@@ -323,6 +432,12 @@ pub unsafe extern "C" fn lua_pushstring(state: *mut lua_State, s: *const c_char)
     push_string_payload(state, bytes)
 }
 
+/// Pushes a C closure.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`. `fn_`, when
+/// present, must be callable with this state under the Lua C API contract.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_pushcclosure(state: *mut lua_State, fn_: lua_CFunction, n: c_int) {
     let Some(state) = state_mut(state) else {
@@ -336,16 +451,33 @@ pub unsafe extern "C" fn lua_pushcclosure(state: *mut lua_State, fn_: lua_CFunct
     push_stack(state, CValue::CFunction(fn_));
 }
 
+/// Pushes a boolean.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_pushboolean(state: *mut lua_State, b: c_int) {
     push_value(state, CValue::Boolean(b != 0));
 }
 
+/// Pushes light userdata.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`. The pointer
+/// is stored opaquely and not dereferenced by Elara.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_pushlightuserdata(state: *mut lua_State, p: *mut c_void) {
     push_value(state, CValue::LightUserData(p));
 }
 
+/// Converts a stack value to a number.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`. `isnum`
+/// must be null or writable for one `c_int`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_tonumberx(
     state: *mut lua_State,
@@ -357,6 +489,12 @@ pub unsafe extern "C" fn lua_tonumberx(
     value.unwrap_or(0.0)
 }
 
+/// Converts a stack value to an integer.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`. `isnum`
+/// must be null or writable for one `c_int`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_tointegerx(
     state: *mut lua_State,
@@ -368,6 +506,11 @@ pub unsafe extern "C" fn lua_tointegerx(
     value.unwrap_or(0)
 }
 
+/// Converts a stack value to Lua truthiness.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_toboolean(state: *mut lua_State, idx: c_int) -> c_int {
     c_bool(
@@ -378,6 +521,13 @@ pub unsafe extern "C" fn lua_toboolean(state: *mut lua_State, idx: c_int) -> c_i
     )
 }
 
+/// Converts a stack string to a borrowed byte pointer.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`. `len` must
+/// be null or writable for one `usize`. A non-null return pointer is valid only
+/// while the stack value remains alive and unmodified.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_tolstring(
     state: *mut lua_State,
@@ -402,6 +552,11 @@ pub unsafe extern "C" fn lua_tolstring(
     bytes.as_ptr().cast()
 }
 
+/// Converts a stack value to a C function pointer.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_tocfunction(state: *mut lua_State, idx: c_int) -> lua_CFunction {
     with_value(state, idx, |value| match value {
@@ -411,6 +566,12 @@ pub unsafe extern "C" fn lua_tocfunction(state: *mut lua_State, idx: c_int) -> l
     .flatten()
 }
 
+/// Converts a stack value to userdata.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`. Returned
+/// light userdata pointers are opaque and owned by the caller.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_touserdata(state: *mut lua_State, idx: c_int) -> *mut c_void {
     with_value(state, idx, |value| match value {
@@ -420,6 +581,13 @@ pub unsafe extern "C" fn lua_touserdata(state: *mut lua_State, idx: c_int) -> *m
     .unwrap_or(ptr::null_mut())
 }
 
+/// Converts a stack value to a stable identity pointer where supported.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`. Returned
+/// pointers are borrowed identities and must not be dereferenced unless the C
+/// API type-specific contract permits it.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_topointer(state: *mut lua_State, idx: c_int) -> *const c_void {
     with_value(state, idx, |value| match value {
@@ -431,6 +599,13 @@ pub unsafe extern "C" fn lua_topointer(state: *mut lua_State, idx: c_int) -> *co
     .unwrap_or(ptr::null())
 }
 
+/// Calls a protected C function on the stack.
+///
+/// # Safety
+///
+/// `state` must be null or a live state returned by `lua_newstate`. Stack
+/// contents must satisfy the Lua C API call convention: the callable value is
+/// below `nargs` arguments, and any callback must obey its declared ABI.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn lua_pcallk(
     state: *mut lua_State,

@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-15
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M20 Release Hardening and 1.0 Candidate
-Current step: M20.3 Audit unsafe and public API
+Current step: M20.4 Prepare release candidate
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -1261,6 +1261,12 @@ Delivered:
   interpreter path, the public API JIT path, and official Lua 5.5 when
   available, plus an API overhead workload; `docs/PERFORMANCE.md` records the
   M20 local release report and methodology caveats.
+- The M20.3 safety and public API audit is recorded in
+  `docs/SAFETY_API_AUDIT.md`; workspace clippy now denies missing unsafe
+  function safety docs and undocumented unsafe blocks, the C API unsafe
+  entrypoints have explicit `# Safety` sections, the facade docs include a
+  native-function quick start doctest, and `crates/elara/examples/basic_embed.rs`
+  compile-checks direct evaluation plus typed native callback registration.
 
 ## Remaining Gaps
 
@@ -1297,7 +1303,6 @@ Major implementation work is still pending:
 - Bitwise opcode execution and corresponding metamethod dispatch.
 - Broader full-profile standard-library conformance.
 - Release-sized conformance and differential fixture coverage.
-- Unsafe/public API audit and compile-checked examples.
 
 M9 is complete.
 M10.1 is complete.
@@ -1351,23 +1356,25 @@ M19.4 is complete.
 M19 is complete.
 M20.1 is complete.
 M20.2 is complete.
+M20.3 is complete.
 
 ## Last Verification
 
-M20.2 release performance report validation passed:
+M20.3 safety and public API audit validation passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo test -p elara-bench
-cargo clippy -p elara-bench --all-targets -- -D warnings
-cargo bench -p elara-bench
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+cargo test --workspace --all-targets
+cargo doc --workspace --no-deps
 git diff --check
 ```
 
 ## Next Recommended Action
 
-Start M20.3 by auditing unsafe blocks, public API docs, and compile-checked
-examples.
+Start M20.4 by preparing the release candidate README, examples, version
+constants, and tag plan.
 
 ## Current Risk Notes
 
@@ -1414,7 +1421,7 @@ examples.
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
 | Standard library | M18.2 complete | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path searchers in `package.searchers[3]` and `[4]`, `package.searchpath`, `debug.gethook`/`debug.sethook` hook metadata installation and clearing plus call/return/line/count hook callback dispatch, `debug.getinfo` runtime-hook validation and current-thread frame materialization, read-only stack-level `debug.getlocal`, function-target `debug.getlocal` parameter names, stack-level `debug.setlocal` for current-thread Lua frames, and primitive coroutine debug frames for native debug calls, read-only `debug.getupvalue`, `debug.setupvalue` over shared runtime upvalue cells, `debug.upvalueid`, `debug.upvaluejoin`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, pre-userdata `debug.setuservalue`, and `debug.traceback` message handling plus stack-frame formatting are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
-| Rust API | Initial M12 surface complete | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings. |
+| Rust API | M20.3 audited | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings; facade docs and `basic_embed` example compile against the safe public surface. |
 | Conformance | M20.1 reviewed | Four smoke fixtures run through the public API; broader API/unit coverage exists, but release-sized conformance and differential fixture expansion remains a product gap. |
 | Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |

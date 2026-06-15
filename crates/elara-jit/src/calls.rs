@@ -256,9 +256,11 @@ pub extern "C" fn jit_call_helper(context: *mut JitRuntimeContext) -> JitStatus 
     };
 
     let routed = {
-        // SAFETY: All pointers come from `JitCallRuntimeContext::new` or an
-        // equivalent generated-code context and were checked for null above.
+        // SAFETY: The trampoline pointer comes from `JitCallRuntimeContext::new`
+        // or an equivalent generated-code context and was checked for null.
         let trampoline = unsafe { trampoline.as_ref() };
+        // SAFETY: The request pointer comes from `JitCallRuntimeContext::new`
+        // or an equivalent generated-code context and was checked for null.
         let request = unsafe { request.as_ref() };
         trampoline.route(request)
     };

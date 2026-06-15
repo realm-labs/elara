@@ -23,8 +23,8 @@ struct TestState(*mut lua_State);
 
 impl TestState {
     fn new() -> Self {
-        // SAFETY: Tests close the state through the RAII guard.
         let alloc: lua_Alloc = Some(test_alloc);
+        // SAFETY: Tests close the state through the RAII guard.
         let state = unsafe { lua_newstate(alloc, std::ptr::null_mut()) };
         assert!(!state.is_null());
         Self(state)

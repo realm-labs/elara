@@ -239,6 +239,8 @@ impl GcTracer<'_> {
         };
 
         let header = allocation.header() as *const GcHeader;
+        // SAFETY: `header` points at the header embedded in an arena allocation
+        // found above, and mark tracing does not move or sweep allocations.
         if unsafe { (*header).color() } != GcColor::White {
             return false;
         }

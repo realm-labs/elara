@@ -7,6 +7,23 @@
 //! The facade is intentionally thin during bootstrap. Public items should be
 //! re-exported here only after they are safe embedding abstractions rather than
 //! raw runtime implementation details.
+//!
+//! # Example
+//!
+//! ```rust
+//! use elara::{Lua, NativeFunctionError};
+//!
+//! # fn main() {
+//! let lua = Lua::new();
+//! let add = lua.create_function(|(left, right): (i64, i64)| {
+//!     Ok::<(i64,), NativeFunctionError>((left + right,))
+//! });
+//! lua.set_global_function("add", add);
+//!
+//! let values = lua.eval("return add(20, 22)").expect("chunk should evaluate");
+//! assert_eq!(values.first().and_then(|value| value.as_integer()), Some(42));
+//! # }
+//! ```
 
 pub use elara_api as api;
 pub use elara_api::{
