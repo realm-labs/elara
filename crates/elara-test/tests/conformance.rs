@@ -385,6 +385,10 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture("stdlib/table_remove_empty.lua", vec![Value::boolean(true)]);
     assert_success_fixture(
+        "stdlib/table_remove_default.lua",
+        vec![Value::integer(2), Value::integer(1), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/table_ranges.lua",
         vec![
             Value::integer(3),
