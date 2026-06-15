@@ -74,8 +74,8 @@ pub struct RunOutput {
 impl RunOutput {
     /// Success/error class for coarse differential comparisons.
     #[must_use]
-    pub const fn class(&self) -> RunClass {
-        if self.success {
+    pub fn class(&self) -> RunClass {
+        if self.success && self.stderr.is_empty() {
             RunClass::Success
         } else {
             RunClass::Error

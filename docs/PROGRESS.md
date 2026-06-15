@@ -1278,20 +1278,30 @@ Delivered:
   `__bxor`, `__shl`, `__shr`, and `__bnot` metamethod dispatch through the
   interpreter arithmetic path. Compiler snapshots and public API evaluation
   tests cover source-level bitwise expressions.
+- Conformance fixtures now cover an expanded release smoke matrix across
+  language control flow, bitwise operators, varargs, standard-library
+  table/string/utf8/os/package/debug cases, coroutine resume/wrap cases, and
+  runtime-error classes. The conformance harness verifies returned primitive
+  values for success fixtures, and an optional differential fixture test
+  compares the same portable fixture set against official Lua through
+  `ELARA_LUA`, including stderr-aware error classification for stdin-based Lua
+  runs.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains four smoke fixtures: one language
-  success case, one standard-library success case, one runtime-error class
-  case, and one coroutine wrapper case.
+- `tests/conformance` currently contains eleven smoke fixtures across
+  language, standard-library, runtime-error, and coroutine cases. Success
+  fixtures check returned primitive values through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
   `io`, `os`, and `package` behavior, and crate-local unit tests cover the
   bulk of base/table/math/string/utf8 native behavior, but these are not a
   substitute for a broad official Lua conformance corpus.
 - Differential test utilities exist and can invoke an `ELARA_LUA` reference
-  interpreter, but there is not yet a release-sized differential fixture set.
+  interpreter. The portable conformance smoke fixtures can now compare
+  success/error classes against official Lua, but there is not yet a
+  release-sized differential fixture set.
 
 ### Explicitly Scoped Unsupported Behavior
 
@@ -1371,22 +1381,21 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 bitwise opcode validation passed:
+Post-M20.4 expanded conformance fixture validation passed:
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test -p elara-compiler simple_expr_compiles_bitwise_operations
-cargo test -p elara-interp arithmetic_executes_integer
-cargo test -p elara-interp metamethods_arithmetic_calls_bitwise
-cargo test -p elara-api eval_simple_returns_bitwise_from_source
+cargo clippy -p elara-test --all-targets -- -D warnings
+cargo test -p elara-test
+ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test differential_fixtures
 git diff --check
 ```
 
 ## Next Recommended Action
 
-Continue reducing remaining release gaps by broadening full-profile standard
-library conformance and release-sized differential fixtures.
+Continue reducing remaining release gaps by adding more full-profile
+standard-library fixtures and growing the optional official-Lua differential
+fixture set beyond the current smoke matrix.
 
 ## Current Risk Notes
 
@@ -1434,8 +1443,8 @@ library conformance and release-sized differential fixtures.
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/bitwise/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
 | Standard library | M18.2 complete | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path searchers in `package.searchers[3]` and `[4]`, `package.searchpath`, `debug.gethook`/`debug.sethook` hook metadata installation and clearing plus call/return/line/count hook callback dispatch, `debug.getinfo` runtime-hook validation and current-thread frame materialization, read-only stack-level `debug.getlocal`, function-target `debug.getlocal` parameter names, stack-level `debug.setlocal` for current-thread Lua frames, and primitive coroutine debug frames for native debug calls, read-only `debug.getupvalue`, `debug.setupvalue` over shared runtime upvalue cells, `debug.upvalueid`, `debug.upvaluejoin`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, pre-userdata `debug.setuservalue`, and `debug.traceback` message handling plus stack-frame formatting are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | M20.3 audited | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings; facade docs and `basic_embed` example compile against the safe public surface. |
-| Conformance | M20.1 reviewed | Four smoke fixtures run through the public API; broader API/unit coverage exists, but release-sized conformance and differential fixture expansion remains a product gap. |
-| Differential testing | Initial M13 runner complete | Configurable official-Lua runner compares success/error classes with Elara. |
+| Conformance | Expanded post-M20.4 | Eleven smoke fixtures run through the public API with exact primitive return-value checks for success cases; broader API/unit coverage exists, but release-sized conformance remains a product gap. |
+| Differential testing | Expanded post-M20.4 | Configurable official-Lua runner compares success/error classes with Elara, including the portable conformance smoke fixture set when `ELARA_LUA` is configured. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | M17 complete; M18.2 debug interaction complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, debug-hook forced interpretation, API JIT selection for environment-independent chunks with debug/runtime-environment chunks kept on the interpreter, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |
 | C API | M19 complete | Current-version `lua.h`, `lauxlib.h`, and `lualib.h` scaffolding is packaged by `elara-capi`; stack-backed `lua_State` top manipulation, push/copy/rotate behavior, primitive type inspection, basic conversions, stack-registered C function calls, protected-call result normalization, Rust callback panic containment, and source-level C module compilation against packaged headers are implemented. |
