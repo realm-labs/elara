@@ -75,6 +75,16 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(true), Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/base_rawequal_values.lua",
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(false),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_iteration.lua",
         vec![Value::integer(66), Value::integer(42)],
     );
