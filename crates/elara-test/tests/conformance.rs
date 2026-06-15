@@ -501,6 +501,19 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(67), Value::integer(67), Value::boolean(true)],
     );
     assert_success_fixture("stdlib/os_execute.lua", vec![Value::boolean(true)]);
+    assert_success_fixture_values("stdlib/os_execute_status.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            3,
+            "os.execute command should return status tuple"
+        );
+        assert_eq!(actual[0], Value::boolean(true), "os.execute should succeed");
+        assert!(
+            actual[1].is_string(),
+            "os.execute status label should be a string: {actual:?}"
+        );
+        assert_eq!(actual[2], Value::integer(0), "os.execute code should be 0");
+    });
     assert_success_fixture("stdlib/os_clock.lua", vec![Value::integer(110)]);
     assert_success_fixture("stdlib/os_tmpname.lua", vec![Value::integer(115)]);
     assert_success_fixture("stdlib/os_getenv.lua", vec![Value::boolean(true)]);
