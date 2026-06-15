@@ -303,6 +303,14 @@ fn conformance_standard_library_fixtures() {
             Value::boolean(true),
         ],
     );
+    assert_success_fixture_values("stdlib/io_open_result.lua", |actual| {
+        assert_eq!(actual.len(), 2, "io.open should return nil plus message");
+        assert_eq!(actual[0], Value::nil(), "io.open result should be nil");
+        assert!(
+            actual[1].is_string(),
+            "io.open message should be a string: {actual:?}"
+        );
+    });
     assert_success_fixture(
         "stdlib/io_type.lua",
         vec![Value::boolean(true), Value::boolean(true)],
@@ -501,11 +509,17 @@ fn conformance_coroutine_fixtures() {
 }
 
 fn assert_success_fixture(path: &str, expected: Vec<Value>) {
+    assert_success_fixture_values(path, |actual| {
+        assert_eq!(actual, expected, "fixture values mismatch for {path}");
+    });
+}
+
+fn assert_success_fixture_values(path: &str, assert_values: impl FnOnce(Vec<Value>)) {
     let source = fs::read_to_string(fixture_path(path)).expect("fixture should be readable");
     let actual = Lua::new()
         .eval(source)
         .unwrap_or_else(|error| panic!("fixture {path} should succeed: {error:?}"));
-    assert_eq!(actual, expected, "fixture values mismatch for {path}");
+    assert_values(actual);
 }
 
 fn assert_error_fixture(path: &str) {
