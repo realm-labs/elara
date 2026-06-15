@@ -360,10 +360,22 @@ fn conformance_standard_library_fixtures() {
         "stdlib/package_preload_searcher.lua",
         vec![Value::integer(42)],
     );
-    assert_success_fixture(
-        "stdlib/package_searchpath.lua",
-        vec![Value::boolean(true), Value::boolean(true)],
-    );
+    assert_success_fixture_values("stdlib/package_searchpath.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            2,
+            "package.searchpath should return nil plus message"
+        );
+        assert_eq!(
+            actual[0],
+            Value::nil(),
+            "package.searchpath path should be nil"
+        );
+        assert!(
+            actual[1].is_string(),
+            "package.searchpath miss message should be a string: {actual:?}"
+        );
+    });
     assert_success_fixture(
         "stdlib/package_config.lua",
         vec![Value::integer(115), Value::integer(10)],

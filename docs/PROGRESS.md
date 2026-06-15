@@ -1314,7 +1314,7 @@ Delivered:
   classification, pre-file-handle `io.type` nil classification, package
   configuration strings, package preload/require
   caching plus direct preload searcher hits and Lua searcher misses, direct
-  `package.searchpath` misses,
+  `package.searchpath` miss result classification,
   C-searcher miss results, unsupported `package.loadlib` results, debug frame
   introspection,
   debug local inspection/mutation, debug uservalue nil classification, debug
@@ -1431,7 +1431,7 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 `io.open` result fixture expansion passed:
+Post-M20.4 `package.searchpath` result fixture expansion passed:
 
 ```bash
 cargo test -p elara-test

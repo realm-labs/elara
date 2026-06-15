@@ -1,6 +1,4 @@
-local path, message = package.searchpath(
+return package.searchpath(
   "missing",
   "x/?.lua;y/?.lua"
 )
-
-return rawequal(path, nil), rawequal(message, nil)
