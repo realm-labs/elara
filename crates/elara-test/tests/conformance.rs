@@ -152,6 +152,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/math_trig.lua",
+        vec![
+            Value::float(1.0),
+            Value::float(0.0),
+            Value::float(180.0),
+            Value::float(1.0),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/math_random.lua",
         vec![Value::integer(1), Value::integer(7), Value::integer(9)],
     );
