@@ -399,6 +399,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_case_empty.lua",
+        vec![Value::integer(0), Value::integer(0)],
+    );
+    assert_success_fixture(
         "stdlib/string_byte_char.lua",
         vec![
             Value::integer(3),
