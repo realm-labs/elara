@@ -401,6 +401,7 @@ fn conformance_standard_library_fixtures() {
             Value::integer(3),
         ],
     );
+    assert_success_fixture("stdlib/table_concat_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture(
         "stdlib/table_ranges.lua",
         vec![
