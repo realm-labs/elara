@@ -89,6 +89,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_unpack.lua",
     "stdlib/table_unpack_empty.lua",
     "stdlib/table_sort.lua",
+    "stdlib/table_sort_strings.lua",
     "stdlib/io_stubs.lua",
     "stdlib/io_open_result.lua",
     "stdlib/io_tmpfile_result.lua",
