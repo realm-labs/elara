@@ -23,6 +23,10 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "coroutine/resume_status.lua",
     "errors/non_callable.lua",
     "errors/base_error.lua",
+    "errors/syntax_unclosed.lua",
+    "errors/bad_argument.lua",
+    "errors/non_table_index.lua",
+    "errors/arithmetic_type.lua",
 ];
 
 #[test]

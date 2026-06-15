@@ -133,6 +133,10 @@ fn conformance_standard_library_fixtures() {
 fn conformance_error_fixtures() {
     assert_error_fixture("errors/non_callable.lua");
     assert_error_fixture("errors/base_error.lua");
+    assert_error_fixture("errors/syntax_unclosed.lua");
+    assert_error_fixture("errors/bad_argument.lua");
+    assert_error_fixture("errors/non_table_index.lua");
+    assert_error_fixture("errors/arithmetic_type.lua");
 }
 
 #[test]
