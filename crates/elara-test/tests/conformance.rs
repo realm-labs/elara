@@ -45,6 +45,7 @@ fn conformance_language_fixtures() {
 #[test]
 fn conformance_standard_library_fixtures() {
     assert_success_fixture("stdlib/math_abs.lua", vec![Value::integer(42)]);
+    assert_success_fixture("stdlib/math_abs_float.lua", vec![Value::float(2.5)]);
     assert_success_fixture(
         "stdlib/base_table.lua",
         vec![
