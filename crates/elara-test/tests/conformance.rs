@@ -514,6 +514,19 @@ fn conformance_standard_library_fixtures() {
         );
         assert_eq!(actual[2], Value::integer(0), "os.execute code should be 0");
     });
+    assert_success_fixture_values("stdlib/os_execute_failure.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            3,
+            "failed os.execute command should return status tuple"
+        );
+        assert_eq!(actual[0], Value::nil(), "os.execute should report failure");
+        assert!(
+            actual[1].is_string(),
+            "os.execute status label should be a string: {actual:?}"
+        );
+        assert_eq!(actual[2], Value::integer(7), "os.execute code should be 7");
+    });
     assert_success_fixture("stdlib/os_clock.lua", vec![Value::integer(110)]);
     assert_success_fixture("stdlib/os_tmpname.lua", vec![Value::integer(115)]);
     assert_success_fixture("stdlib/os_getenv.lua", vec![Value::boolean(true)]);
