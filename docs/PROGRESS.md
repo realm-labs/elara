@@ -1305,9 +1305,9 @@ Delivered:
   match-init helpers,
   position-capture helpers, bounded substitution helpers,
   position-capturing iterator helpers, capture/replacement helpers,
-  balanced/frontier string pattern helpers, table mutation and empty removal,
-  explicit range/destination helpers, table unpack range helpers, and default
-  sorting helpers,
+  balanced/frontier string pattern helpers, table mutation, append insertion,
+  and empty removal, explicit range/destination helpers, table unpack range
+  helpers, and default sorting helpers,
   UTF-8 character construction and iterator/offset helpers, multibyte UTF-8
   length/codepoint/offset helpers,
   base protected-call multiple returns, base extended protected-call error
@@ -1346,7 +1346,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains one hundred six smoke fixtures across
+- `tests/conformance` currently contains one hundred seven smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check returned primitive values and selected string-result classes
   through the public API.
@@ -1437,7 +1437,7 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 `table.remove` empty-table fixture expansion passed:
+Post-M20.4 `table.insert` append fixture expansion passed:
 
 ```bash
 cargo test -p elara-test
@@ -1501,7 +1501,7 @@ fixture set beyond the current smoke matrix.
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/bitwise/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
 | Standard library | M18.2 complete | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path searchers in `package.searchers[3]` and `[4]`, `package.searchpath`, `debug.gethook`/`debug.sethook` hook metadata installation and clearing plus call/return/line/count hook callback dispatch, `debug.getinfo` runtime-hook validation and current-thread frame materialization, read-only stack-level `debug.getlocal`, function-target `debug.getlocal` parameter names, stack-level `debug.setlocal` for current-thread Lua frames, and primitive coroutine debug frames for native debug calls, read-only `debug.getupvalue`, `debug.setupvalue` over shared runtime upvalue cells, `debug.upvalueid`, `debug.upvaluejoin`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, pre-userdata `debug.setuservalue`, and `debug.traceback` message handling plus stack-frame formatting are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | M20.3 audited | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings; facade docs and `basic_embed` example compile against the safe public surface. |
-| Conformance | Expanded post-M20.4 | One hundred six smoke fixtures run through the public API with primitive return-value checks, selected string-result class checks, and error-class checks for failure cases; broader API/unit coverage exists, but release-sized conformance remains a product gap. |
+| Conformance | Expanded post-M20.4 | One hundred seven smoke fixtures run through the public API with primitive return-value checks, selected string-result class checks, and error-class checks for failure cases; broader API/unit coverage exists, but release-sized conformance remains a product gap. |
 | Differential testing | Expanded post-M20.4 | Configurable official-Lua runner compares success/error classes with Elara, including the portable conformance smoke fixture set when `ELARA_LUA` is configured. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | M17 complete; M18.2 debug interaction complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, debug-hook forced interpretation, API JIT selection for environment-independent chunks with debug/runtime-environment chunks kept on the interpreter, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |

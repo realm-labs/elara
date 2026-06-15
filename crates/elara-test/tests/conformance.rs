@@ -379,6 +379,10 @@ fn conformance_standard_library_fixtures() {
             Value::integer(8),
         ],
     );
+    assert_success_fixture(
+        "stdlib/table_insert_append.lua",
+        vec![Value::integer(1), Value::integer(2)],
+    );
     assert_success_fixture("stdlib/table_remove_empty.lua", vec![Value::boolean(true)]);
     assert_success_fixture(
         "stdlib/table_ranges.lua",
