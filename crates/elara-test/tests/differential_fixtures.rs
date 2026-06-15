@@ -51,6 +51,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_sort.lua",
     "stdlib/io_stubs.lua",
     "stdlib/io_open_result.lua",
+    "stdlib/io_tmpfile_result.lua",
     "stdlib/io_type.lua",
     "stdlib/utf8_iteration.lua",
     "stdlib/utf8_char.lua",

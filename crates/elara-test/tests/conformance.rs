@@ -311,6 +311,18 @@ fn conformance_standard_library_fixtures() {
             "io.open message should be a string: {actual:?}"
         );
     });
+    assert_success_fixture_values("stdlib/io_tmpfile_result.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            2,
+            "io.tmpfile should return nil plus message"
+        );
+        assert_eq!(actual[0], Value::nil(), "io.tmpfile result should be nil");
+        assert!(
+            actual[1].is_string(),
+            "io.tmpfile message should be a string: {actual:?}"
+        );
+    });
     assert_success_fixture(
         "stdlib/io_type.lua",
         vec![Value::boolean(true), Value::boolean(true)],
