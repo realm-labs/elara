@@ -366,6 +366,7 @@ fn conformance_standard_library_fixtures() {
         "stdlib/math_minmax_float.lua",
         vec![Value::float(1.5), Value::integer(7)],
     );
+    assert_success_fixture("stdlib/math_fmod_negative.lua", vec![Value::integer(-2)]);
     assert_success_fixture(
         "stdlib/math_random.lua",
         vec![Value::integer(1), Value::integer(7), Value::integer(9)],
