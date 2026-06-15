@@ -361,6 +361,7 @@ fn conformance_standard_library_fixtures() {
             Value::integer(116),
         ],
     );
+    assert_success_fixture("stdlib/math_tointeger_float.lua", vec![Value::integer(7)]);
     assert_success_fixture(
         "stdlib/math_random.lua",
         vec![Value::integer(1), Value::integer(7), Value::integer(9)],
