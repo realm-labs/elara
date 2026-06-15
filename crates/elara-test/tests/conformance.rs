@@ -257,6 +257,22 @@ fn conformance_standard_library_fixtures() {
         "stdlib/string_gsub_limit.lua",
         vec![Value::integer(120), Value::integer(120), Value::integer(51)],
     );
+    assert_success_fixture_values("stdlib/string_gsub_missing.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            2,
+            "string.gsub missing fixture should return string and count"
+        );
+        assert!(
+            actual[0].is_string(),
+            "string.gsub missing result should be a string: {actual:?}"
+        );
+        assert_eq!(
+            actual[1],
+            Value::integer(0),
+            "string.gsub missing count should be zero"
+        );
+    });
     assert_success_fixture(
         "stdlib/string_gmatch_positions.lua",
         vec![Value::integer(14)],
