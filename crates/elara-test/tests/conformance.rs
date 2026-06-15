@@ -85,6 +85,22 @@ fn conformance_standard_library_fixtures() {
         "stdlib/base_assert.lua",
         vec![Value::boolean(true), Value::integer(42)],
     );
+    assert_success_fixture_values("stdlib/base_assert_pcall.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            2,
+            "protected assert failure should return status plus message"
+        );
+        assert_eq!(
+            actual[0],
+            Value::boolean(false),
+            "protected assert should catch false condition"
+        );
+        assert!(
+            actual[1].is_string(),
+            "protected assert message should be a string: {actual:?}"
+        );
+    });
     assert_success_fixture(
         "stdlib/base_next.lua",
         vec![Value::integer(1), Value::integer(10)],
