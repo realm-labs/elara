@@ -77,6 +77,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_string_utf8.lua",
     "stdlib/table_mutation.lua",
     "stdlib/table_insert_append.lua",
+    "stdlib/table_insert_position.lua",
     "stdlib/table_remove_empty.lua",
     "stdlib/table_remove_default.lua",
     "stdlib/table_remove_position.lua",
