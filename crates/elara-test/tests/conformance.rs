@@ -335,6 +335,18 @@ fn conformance_standard_library_fixtures() {
             "io.write message should be a string: {actual:?}"
         );
     });
+    assert_success_fixture_values("stdlib/io_flush_result.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            2,
+            "io.flush should return nil plus message"
+        );
+        assert_eq!(actual[0], Value::nil(), "io.flush result should be nil");
+        assert!(
+            actual[1].is_string(),
+            "io.flush message should be a string: {actual:?}"
+        );
+    });
     assert_success_fixture(
         "stdlib/io_type.lua",
         vec![Value::boolean(true), Value::boolean(true)],

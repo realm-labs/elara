@@ -53,6 +53,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/io_open_result.lua",
     "stdlib/io_tmpfile_result.lua",
     "stdlib/io_write_result.lua",
+    "stdlib/io_flush_result.lua",
     "stdlib/io_type.lua",
     "stdlib/utf8_iteration.lua",
     "stdlib/utf8_char.lua",
