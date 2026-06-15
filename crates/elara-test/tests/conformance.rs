@@ -345,6 +345,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/math_angle_zero.lua",
+        vec![Value::float(0.0), Value::float(0.0)],
+    );
+    assert_success_fixture(
         "stdlib/math_decompose.lua",
         vec![Value::float(0.75), Value::integer(4)],
     );
