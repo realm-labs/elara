@@ -1,0 +1,1 @@
+return rawequal(next({}), nil)
