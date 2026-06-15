@@ -161,6 +161,14 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/math_decompose.lua",
+        vec![Value::float(0.75), Value::integer(4)],
+    );
+    assert_success_fixture(
+        "stdlib/math_modf.lua",
+        vec![Value::integer(-3), Value::float(-0.25)],
+    );
+    assert_success_fixture(
         "stdlib/math_random.lua",
         vec![Value::integer(1), Value::integer(7), Value::integer(9)],
     );
