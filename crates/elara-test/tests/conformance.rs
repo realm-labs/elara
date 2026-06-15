@@ -205,6 +205,19 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_format_quote_scalars.lua",
+        vec![
+            Value::integer(15),
+            Value::integer(110),
+            Value::integer(58),
+            Value::integer(116),
+            Value::integer(58),
+            Value::integer(45),
+            Value::integer(58),
+            Value::integer(53),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_format_percent.lua",
         vec![
             Value::integer(5),
