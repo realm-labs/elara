@@ -35,6 +35,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/os_locale.lua",
     "stdlib/os_execute.lua",
     "stdlib/os_tmpname.lua",
+    "stdlib/os_getenv.lua",
     "coroutine/wrap.lua",
     "coroutine/resume_status.lua",
     "coroutine/lifecycle.lua",
