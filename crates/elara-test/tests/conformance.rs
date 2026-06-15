@@ -232,6 +232,15 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(1), Value::integer(65)],
     );
     assert_success_fixture(
+        "stdlib/utf8_multibyte.lua",
+        vec![
+            Value::integer(6),
+            Value::integer(2),
+            Value::integer(119070),
+            Value::integer(3),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/os_package_debug.lua",
         vec![
             Value::float(6.0),
