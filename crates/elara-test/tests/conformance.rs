@@ -581,6 +581,15 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture("stdlib/table_concat_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture(
+        "stdlib/table_concat_default_separator.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(97),
+            Value::integer(98),
+            Value::integer(99),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_concat_default.lua",
         vec![
             Value::integer(5),
