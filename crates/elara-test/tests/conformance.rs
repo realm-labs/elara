@@ -541,6 +541,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/utf8_offset_missing.lua",
+        vec![Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/os_package_debug.lua",
         vec![
             Value::float(6.0),
