@@ -141,6 +141,14 @@ fn conformance_standard_library_fixtures() {
         "stdlib/base_pcall.lua",
         vec![Value::boolean(true), Value::integer(42)],
     );
+    assert_success_fixture_values("stdlib/base_pcall_error.lua", |actual| {
+        assert_eq!(actual.len(), 2, "pcall error should return status plus message");
+        assert_eq!(actual[0], Value::boolean(false), "pcall should catch error");
+        assert!(
+            actual[1].is_string(),
+            "pcall error message should be a string: {actual:?}"
+        );
+    });
     assert_success_fixture(
         "stdlib/base_xpcall.lua",
         vec![Value::boolean(false), Value::integer(9)],
