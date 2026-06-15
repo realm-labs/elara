@@ -548,6 +548,7 @@ fn conformance_standard_library_fixtures() {
         "stdlib/utf8_offset_backward_multibyte.lua",
         vec![Value::integer(3), Value::integer(3)],
     );
+    assert_success_fixture("stdlib/utf8_len_bounds.lua", vec![Value::integer(2)]);
     assert_success_fixture(
         "stdlib/os_package_debug.lua",
         vec![
