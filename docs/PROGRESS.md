@@ -1288,8 +1288,9 @@ Delivered:
   runs.
 - The conformance standard-library smoke matrix now also includes exact-value
   fixtures for base/table helpers, math functions combined with string pattern
-  operations, package preload/require caching plus Lua searcher misses, debug
-  frame introspection, and deterministic UTC `os.date`/`os.time` behavior.
+  operations, table mutation helpers, package preload/require caching plus Lua
+  searcher misses, debug frame introspection, and deterministic UTC
+  `os.date`/`os.time` behavior.
 - The conformance language smoke matrix now also includes exact-value fixtures
   for table field construction/access, zero-argument closure capture, Lua 5.5
   global declarations/functions, and arithmetic metamethod dispatch.
@@ -1301,7 +1302,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains twenty-four smoke fixtures across
+- `tests/conformance` currently contains twenty-five smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check returned primitive values through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
@@ -1391,15 +1392,17 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 error conformance fixture expansion passed:
+Post-M20.4 standard-library table mutation fixture expansion passed:
 
 ```bash
-cargo fmt --all -- --check
-cargo clippy -p elara-test --all-targets -- -D warnings
 cargo test -p elara-test
-ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test differential_fixtures
+cargo clippy -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
+
+`cargo fmt --all -- --check` currently fails on this Windows checkout because
+the repository-wide Rust files are reported with non-Unix newline style while
+`.rustfmt.toml` requires `newline_style = "Unix"`.
 
 ## Next Recommended Action
 

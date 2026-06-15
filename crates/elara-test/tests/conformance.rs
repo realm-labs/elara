@@ -83,6 +83,19 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/table_mutation.lua",
+        vec![
+            Value::integer(5),
+            Value::integer(97),
+            Value::integer(98),
+            Value::integer(20),
+            Value::integer(30),
+            Value::integer(40),
+            Value::integer(40),
+            Value::integer(8),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/os_package_debug.lua",
         vec![
             Value::float(6.0),

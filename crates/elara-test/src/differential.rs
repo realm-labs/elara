@@ -144,7 +144,9 @@ impl DifferentialRunner {
 
 #[cfg(test)]
 mod tests {
-    use super::{DifferentialComparison, DifferentialRunner, LuaRunner, RunClass, RunOutput};
+    use super::{DifferentialComparison, LuaRunner, RunClass, RunOutput};
+    #[cfg(unix)]
+    use super::DifferentialRunner;
 
     #[test]
     fn differential_runner_compares_success_and_error_classes() {
