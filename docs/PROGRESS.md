@@ -4,7 +4,7 @@ Status: Rolling current-state document
 Last updated: 2026-06-15
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M20 Release Hardening and 1.0 Candidate
-Current step: M20.4 Prepare release candidate
+Current step: M20 exit criteria audit
 
 This document is for orientation. It is not a changelog. When work progresses,
 replace stale status with the current state instead of appending history.
@@ -1267,6 +1267,12 @@ Delivered:
   entrypoints have explicit `# Safety` sections, the facade docs include a
   native-function quick start doctest, and `crates/elara/examples/basic_embed.rs`
   compile-checks direct evaluation plus typed native callback registration.
+- The M20.4 release-candidate pass expanded the README with usage, verification,
+  workspace, feature, and limitation details; added
+  `crates/elara/examples/jit_embed.rs` for feature-gated JIT embedding;
+  documented the version matrix and release/tag plan in `docs/RELEASE.md`; and
+  confirmed the workspace version constants still target Elara `0.1.0` and Lua
+  5.5.0.
 
 ## Remaining Gaps
 
@@ -1357,24 +1363,26 @@ M19 is complete.
 M20.1 is complete.
 M20.2 is complete.
 M20.3 is complete.
+M20.4 is complete.
 
 ## Last Verification
 
-M20.3 safety and public API audit validation passed:
+M20.4 release-candidate preparation validation passed:
 
 ```bash
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-cargo test --workspace --all-targets
-cargo doc --workspace --no-deps
+cargo test --workspace --all-features --all-targets
+cargo doc --workspace --all-features --no-deps
+cargo run -p elara --example basic_embed
+cargo run -p elara --features jit --example jit_embed
 git diff --check
 ```
 
 ## Next Recommended Action
 
-Start M20.4 by preparing the release candidate README, examples, version
-constants, and tag plan.
+Audit M20 exit criteria against the explicit remaining product gaps before
+claiming the overall goal complete.
 
 ## Current Risk Notes
 
@@ -1428,3 +1436,4 @@ constants, and tag plan.
 | JIT | M17 complete; M18.2 debug interaction complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, debug-hook forced interpretation, API JIT selection for environment-independent chunks with debug/runtime-environment chunks kept on the interpreter, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |
 | C API | M19 complete | Current-version `lua.h`, `lauxlib.h`, and `lualib.h` scaffolding is packaged by `elara-capi`; stack-backed `lua_State` top manipulation, push/copy/rotate behavior, primitive type inspection, basic conversions, stack-registered C function calls, protected-call result normalization, Rust callback panic containment, and source-level C module compilation against packaged headers are implemented. |
 | Benchmarks | M20.2 complete | Stable custom `cargo bench` runner covers API overhead, arithmetic, table access, calls, strings, and representative macro workloads across interpreter API, JIT API, and official Lua 5.5 reference rows; `docs/PERFORMANCE.md` records the M20 release report and remaining methodology gaps. |
+| Release candidate | M20.4 prepared | README usage and limitations are complete for the candidate; `docs/RELEASE.md` records version constants, gates, and tag plan; default and JIT embedding examples compile under all-features verification. |
