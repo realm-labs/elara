@@ -26,6 +26,31 @@ fn conformance_language_fixtures() {
 fn conformance_standard_library_fixtures() {
     assert_success_fixture("stdlib/math_abs.lua", vec![Value::integer(42)]);
     assert_success_fixture(
+        "stdlib/base_table.lua",
+        vec![
+            Value::integer(110),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::integer(3),
+            Value::integer(2),
+            Value::integer(100),
+            Value::integer(101),
+        ],
+    );
+    assert_success_fixture(
+        "stdlib/math_string_patterns.lua",
+        vec![
+            Value::integer(7),
+            Value::integer(2),
+            Value::integer(2),
+            Value::integer(42),
+            Value::integer(105),
+            Value::integer(4),
+            Value::integer(3),
+            Value::integer(3),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_string_utf8.lua",
         vec![
             Value::integer(1),
@@ -43,6 +68,42 @@ fn conformance_standard_library_fixtures() {
             Value::float(6.0),
             Value::integer(115),
             Value::integer(116),
+            Value::integer(115),
+        ],
+    );
+    assert_success_fixture(
+        "stdlib/package_require.lua",
+        vec![
+            Value::integer(77),
+            Value::integer(77),
+            Value::integer(77),
+            Value::integer(23),
+        ],
+    );
+    assert_success_fixture(
+        "stdlib/debug_introspection.lua",
+        vec![
+            Value::integer(76),
+            Value::integer(0),
+            Value::boolean(false),
+            Value::integer(109),
+            Value::integer(0),
+            Value::boolean(false),
+            Value::boolean(false),
+            Value::integer(0),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
+        "stdlib/os_time_date.lua",
+        vec![
+            Value::integer(1970),
+            Value::integer(1),
+            Value::integer(1),
+            Value::integer(0),
+            Value::integer(0),
+            Value::integer(0),
+            Value::float(86400.0),
             Value::integer(115),
         ],
     );
