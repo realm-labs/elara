@@ -302,6 +302,7 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(67), Value::integer(67), Value::boolean(true)],
     );
     assert_success_fixture("stdlib/os_execute.lua", vec![Value::boolean(true)]);
+    assert_success_fixture("stdlib/os_clock.lua", vec![Value::integer(110)]);
     assert_success_fixture("stdlib/os_tmpname.lua", vec![Value::integer(115)]);
     assert_success_fixture("stdlib/os_getenv.lua", vec![Value::boolean(true)]);
     assert_success_fixture("stdlib/os_remove.lua", vec![Value::boolean(true)]);
