@@ -175,6 +175,10 @@ fn conformance_standard_library_fixtures() {
             Value::integer(115),
         ],
     );
+    assert_success_fixture(
+        "stdlib/os_locale.lua",
+        vec![Value::integer(67), Value::integer(67), Value::boolean(true)],
+    );
 }
 
 #[test]
