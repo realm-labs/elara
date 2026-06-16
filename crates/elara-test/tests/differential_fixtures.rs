@@ -244,6 +244,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/package_require.lua",
     "stdlib/package_require_nil_loader.lua",
     "stdlib/package_require_custom_searcher.lua",
+    "stdlib/package_require_errors.lua",
     "stdlib/package_preload_searcher.lua",
     "stdlib/package_searchpath.lua",
     "stdlib/package_searchpath_found.lua",
