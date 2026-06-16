@@ -55,6 +55,25 @@ fn simple_expr_compiles_bitwise_operations() {
 }
 
 #[test]
+fn simple_expr_compiles_comparisons() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "return 1 == 1, 1 ~= 2, 2 < 3, 3 <= 3, 5 > 4, 5 >= 5",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+    let disassembly = disassemble(&proto);
+
+    assert!(disassembly.contains("EQ"));
+    assert!(disassembly.contains("LT"));
+    assert!(disassembly.contains("LE"));
+    assert!(
+        disassembly.contains("LOAD_BOOL"),
+        "not-equal should invert an equality result through false comparison"
+    );
+}
+
+#[test]
 fn simple_expr_compiles_concat() {
     let compiled = compile_simple_chunk(SourceId::new(0), "return \"a\" .. \"b\"");
     assert_eq!(compiled.diagnostics, Vec::new());

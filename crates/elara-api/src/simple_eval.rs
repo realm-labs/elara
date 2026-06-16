@@ -79,6 +79,25 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_returns_comparisons_from_source() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "return 1 == 1, 1 ~= 2, 2 < 3, 3 <= 3, 5 > 4, 5 >= 5, 1 == 2"
+            ),
+            Ok(vec![
+                Value::boolean(true),
+                Value::boolean(true),
+                Value::boolean(true),
+                Value::boolean(true),
+                Value::boolean(true),
+                Value::boolean(true),
+                Value::boolean(false),
+            ])
+        );
+    }
+
+    #[test]
     fn eval_simple_returns_recursive_self_reference() {
         let values = eval_simple_source(
             SourceId::new(0),

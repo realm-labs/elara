@@ -19,6 +19,19 @@ fn conformance_language_fixtures() {
             Value::integer(-1),
         ],
     );
+    assert_success_fixture(
+        "language/comparisons.lua",
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(false),
+            Value::boolean(false),
+        ],
+    );
     assert_success_fixture("language/varargs.lua", vec![Value::integer(10)]);
     assert_success_fixture(
         "language/table_fields.lua",

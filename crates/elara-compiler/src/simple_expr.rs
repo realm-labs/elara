@@ -665,6 +665,28 @@ impl SimpleCompiler {
 
         let left_register = self.compile_expr(left);
         let right_register = self.compile_expr(right);
+        if let Some((bytecode_op, left_operand, right_operand)) =
+            comparison_operands(op, left_register, right_register)
+        {
+            self.builder.emit_abc(
+                bytecode_op,
+                left_register,
+                u32::from(left_operand),
+                u32::from(right_operand),
+            );
+            if op == BinaryOp::Ne {
+                let false_register = self.alloc_register();
+                self.builder.emit_abc(Op::LoadBool, false_register, 0, 0);
+                self.builder.emit_abc(
+                    Op::Eq,
+                    left_register,
+                    u32::from(left_register),
+                    u32::from(false_register),
+                );
+            }
+            return left_register;
+        }
+
         let bytecode_op = match op {
             BinaryOp::Add => Op::Add,
             BinaryOp::Sub => Op::Sub,
@@ -741,6 +763,17 @@ fn add_int_immediate(expr: &Expr<'_>) -> Option<u32> {
     };
     let value = text.parse::<u32>().ok()?;
     (value <= MAX_C).then_some(value)
+}
+
+fn comparison_operands(op: BinaryOp, left: u16, right: u16) -> Option<(Op, u16, u16)> {
+    match op {
+        BinaryOp::Eq | BinaryOp::Ne => Some((Op::Eq, left, right)),
+        BinaryOp::Lt => Some((Op::Lt, left, right)),
+        BinaryOp::Le => Some((Op::Le, left, right)),
+        BinaryOp::Gt => Some((Op::Lt, right, left)),
+        BinaryOp::Ge => Some((Op::Le, right, left)),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
