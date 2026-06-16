@@ -728,13 +728,10 @@ fn conformance_standard_library_fixtures() {
             Value::integer(37),
         ],
     );
-    assert_success_fixture_values("stdlib/string_format_pointer.lua", |actual| {
-        assert_eq!(actual.len(), 1, "string.format %p should return one value");
-        assert!(
-            actual[0].is_string(),
-            "string.format %p result should be a string: {actual:?}"
-        );
-    });
+    assert_success_fixture(
+        "stdlib/string_format_pointer.lua",
+        vec![Value::integer(115)],
+    );
     assert_success_fixture(
         "stdlib/string_format_long_strings.lua",
         vec![Value::integer(50), Value::integer(107)],
