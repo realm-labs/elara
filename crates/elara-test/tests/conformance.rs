@@ -1142,6 +1142,19 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(251), Value::integer(33), Value::integer(124)],
     );
     assert_success_fixture(
+        "stdlib/table_concat_errors.lua",
+        vec![
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_ranges.lua",
         vec![
             Value::integer(3),

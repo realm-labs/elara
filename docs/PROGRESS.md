@@ -1439,6 +1439,9 @@ Delivered:
 - The table-library conformance and differential smoke matrix now covers
   `table.insert` and `table.remove` out-of-range/wrong-arity error result
   shapes.
+- The table-library conformance and differential smoke matrix now covers
+  `table.concat` non-string value, separator, and bound type-error result
+  shapes.
 - Named vararg tables now populate Lua 5.5's `n` count field, and the existing
   anonymous/named vararg conformance fixture asserts the count alongside the
   captured argument values.
@@ -1525,7 +1528,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains two hundred ninety-five smoke fixtures across
+- `tests/conformance` currently contains two hundred ninety-six smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
