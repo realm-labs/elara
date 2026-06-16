@@ -349,6 +349,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(2), Value::integer(97), Value::integer(98)],
     );
     assert_success_fixture(
+        "stdlib/string_match_start_anchor_init.lua",
+        vec![Value::integer(2), Value::integer(98), Value::integer(99)],
+    );
+    assert_success_fixture(
         "stdlib/string_match_init.lua",
         vec![Value::integer(2), Value::integer(98)],
     );
