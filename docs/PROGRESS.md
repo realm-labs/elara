@@ -1464,6 +1464,12 @@ Delivered:
   fixtures now assert exact iterator output bytes and positions.
 - The existing no-match `string.gsub` fixture now asserts exact original-string
   bytes plus the zero substitution count.
+- The simple compiler now preserves return-prefix locals when lowering a final
+  open call whose call frame would otherwise overwrite registers still needed
+  by nested call arguments.
+- The existing base protected-error fixtures for `setmetatable`, `assert`, and
+  `pcall` now assert exact string type-byte results instead of only string
+  value classes.
 
 ## Remaining Gaps
 
@@ -1559,12 +1565,14 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 string.gsub no-match exact-value coverage passed:
+Post-M20.4 protected-call return-prefix and base error type coverage passed:
 
 ```bash
+cargo test -p elara-compiler functions_preserve_fixed_call_results_with_argument_registers
+cargo test -p elara-api eval_simple_with_stdlib_pcall_preserves_global_function_argument
 cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures_match_official_lua_error_classes_when_configured
-cargo clippy -p elara-test --all-targets -- -D warnings
+cargo clippy -p elara-compiler -p elara-api -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 

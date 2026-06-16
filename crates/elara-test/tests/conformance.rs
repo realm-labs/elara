@@ -198,42 +198,18 @@ fn conformance_standard_library_fixtures() {
             Value::boolean(true),
         ],
     );
-    assert_success_fixture_values("stdlib/base_metatable_protected_set.lua", |actual| {
-        assert_eq!(
-            actual.len(),
-            2,
-            "protected metatable update should return status plus message"
-        );
-        assert_eq!(
-            actual[0],
-            Value::boolean(false),
-            "protected metatable update should be caught"
-        );
-        assert!(
-            actual[1].is_string(),
-            "protected metatable message should be a string: {actual:?}"
-        );
-    });
+    assert_success_fixture(
+        "stdlib/base_metatable_protected_set.lua",
+        vec![Value::boolean(false), Value::integer(115)],
+    );
     assert_success_fixture(
         "stdlib/base_assert.lua",
         vec![Value::boolean(true), Value::integer(42)],
     );
-    assert_success_fixture_values("stdlib/base_assert_pcall.lua", |actual| {
-        assert_eq!(
-            actual.len(),
-            2,
-            "protected assert failure should return status plus message"
-        );
-        assert_eq!(
-            actual[0],
-            Value::boolean(false),
-            "protected assert should catch false condition"
-        );
-        assert!(
-            actual[1].is_string(),
-            "protected assert message should be a string: {actual:?}"
-        );
-    });
+    assert_success_fixture(
+        "stdlib/base_assert_pcall.lua",
+        vec![Value::boolean(false), Value::integer(115)],
+    );
     assert_success_fixture(
         "stdlib/base_next.lua",
         vec![Value::integer(1), Value::integer(10)],
@@ -299,14 +275,10 @@ fn conformance_standard_library_fixtures() {
         "stdlib/base_pcall.lua",
         vec![Value::boolean(true), Value::integer(42)],
     );
-    assert_success_fixture_values("stdlib/base_pcall_error.lua", |actual| {
-        assert_eq!(actual.len(), 2, "pcall error should return status plus message");
-        assert_eq!(actual[0], Value::boolean(false), "pcall should catch error");
-        assert!(
-            actual[1].is_string(),
-            "pcall error message should be a string: {actual:?}"
-        );
-    });
+    assert_success_fixture(
+        "stdlib/base_pcall_error.lua",
+        vec![Value::boolean(false), Value::integer(115)],
+    );
     assert_success_fixture(
         "stdlib/base_xpcall.lua",
         vec![Value::boolean(false), Value::integer(9)],

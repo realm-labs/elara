@@ -235,7 +235,7 @@ impl SimpleCompiler {
             let start = if registers.is_empty() {
                 self.next_register
             } else {
-                self.contiguous_return_start(&registers)
+                self.contiguous_open_call_return_start(&registers)
             };
             let call_register = start
                 .checked_add(
@@ -372,6 +372,30 @@ impl SimpleCompiler {
             .enumerate()
             .all(|(index, register)| *register == first + index as u16 + 1)
         {
+            return first;
+        }
+
+        let start = self.next_register;
+        for register in registers {
+            let target = self.alloc_register();
+            self.emit_move(target, *register);
+        }
+        start
+    }
+
+    fn contiguous_open_call_return_start(&mut self, registers: &[u16]) -> u16 {
+        let Some((&first, rest)) = registers.split_first() else {
+            return self.next_register;
+        };
+
+        let prefix_is_contiguous = rest
+            .iter()
+            .enumerate()
+            .all(|(index, register)| *register == first + index as u16 + 1);
+        let call_register = first
+            .checked_add(u16::try_from(registers.len()).expect("return prefix count must fit"))
+            .expect("return call register must fit in register range");
+        if prefix_is_contiguous && call_register == self.next_register {
             return first;
         }
 

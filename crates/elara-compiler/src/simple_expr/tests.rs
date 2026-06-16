@@ -609,6 +609,21 @@ fn functions_expand_final_call_for_local_declarations() {
 }
 
 #[test]
+fn functions_preserve_fixed_call_results_with_argument_registers() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local values = {}\nlocal _ = setmetatable(values, { __metatable = 'locked' })\nlocal ok, message = pcall(setmetatable, values, {})\nreturn ok, string.byte(type(message), 1)",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 NEW_TABLE     A=0 B=0 C=0\n0001 MOVE          A=1 B=0 C=0\n0002 GET_UPVALUE   A=3 B=0 C=0\n0003 LOAD_STRING   A=4 Bx=0 ; \"setmetatable\"\n0004 GET_TABLE     A=5 B=3 C=4\n0005 MOVE          A=2 B=5 C=0\n0006 MOVE          A=3 B=1 C=0\n0007 NEW_TABLE     A=6 B=0 C=1\n0008 LOAD_STRING   A=7 Bx=1 ; \"__metatable\"\n0009 LOAD_STRING   A=8 Bx=2 ; \"locked\"\n0010 SET_TABLE     A=6 B=7 C=8\n0011 MOVE          A=4 B=6 C=0\n0012 CALL          A=2 B=3 C=1\n0013 MOVE          A=9 B=2 C=0\n0014 GET_UPVALUE   A=12 B=0 C=0\n0015 LOAD_STRING   A=13 Bx=3 ; \"pcall\"\n0016 GET_TABLE     A=14 B=12 C=13\n0017 MOVE          A=10 B=14 C=0\n0018 GET_UPVALUE   A=15 B=0 C=0\n0019 LOAD_STRING   A=16 Bx=4 ; \"setmetatable\"\n0020 GET_TABLE     A=17 B=15 C=16\n0021 MOVE          A=11 B=17 C=0\n0022 MOVE          A=12 B=1 C=0\n0023 NEW_TABLE     A=18 B=0 C=0\n0024 MOVE          A=13 B=18 C=0\n0025 CALL          A=10 B=4 C=2\n0026 MOVE          A=19 B=10 C=0\n0027 MOVE          A=20 B=11 C=0\n0028 MOVE          A=21 B=19 C=0\n0029 GET_UPVALUE   A=23 B=0 C=0\n0030 LOAD_STRING   A=24 Bx=5 ; \"string\"\n0031 GET_TABLE     A=25 B=23 C=24\n0032 LOAD_STRING   A=26 Bx=6 ; \"byte\"\n0033 GET_TABLE     A=27 B=25 C=26\n0034 MOVE          A=22 B=27 C=0\n0035 GET_UPVALUE   A=28 B=0 C=0\n0036 LOAD_STRING   A=29 Bx=7 ; \"type\"\n0037 GET_TABLE     A=30 B=28 C=29\n0038 MOVE          A=31 B=30 C=0\n0039 MOVE          A=32 B=20 C=0\n0040 CALL          A=31 B=2 C=1\n0041 MOVE          A=23 B=31 C=0\n0042 LOAD_K        A=33 Bx=0 ; 1\n0043 MOVE          A=24 B=33 C=0\n0044 CALL          A=22 B=3 C=0\n0045 RETURN        A=21 B=0 C=0\n",
+    );
+}
+
+#[test]
 fn functions_compile_recursive_self_reference() {
     let compiled = compile_simple_chunk(
         SourceId::new(0),

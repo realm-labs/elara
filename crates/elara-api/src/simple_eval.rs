@@ -1007,6 +1007,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_with_stdlib_pcall_preserves_global_function_argument() {
+        let profile = StdLibProfile::Custom([StdLib::Base, StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local values = {}\nlocal _ = setmetatable(values, { __metatable = 'locked' })\nlocal ok, message = pcall(setmetatable, values, {})\nreturn ok, string.byte(type(message), 1)",
+                &profile,
+            ),
+            Ok(vec![Value::boolean(false), Value::integer(115)])
+        );
+    }
+
+    #[test]
     fn eval_simple_with_stdlib_executes_base_xpcall_success() {
         let profile = StdLibProfile::Custom([StdLib::Base].into_iter().collect());
 
