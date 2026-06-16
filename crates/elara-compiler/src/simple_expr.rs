@@ -144,6 +144,7 @@ impl SimpleCompiler {
                     body,
                 } => self.compile_generic_for(names, values, body),
                 StmtKind::Break => self.compile_break(statement.span()),
+                StmtKind::Call(expr) => self.compile_call_statement(expr),
                 StmtKind::Return(values) => self.compile_return(values),
                 _ => self.diagnostics.push(
                     Diagnostic::error("unsupported statement in simple expression compiler")
@@ -509,6 +510,17 @@ impl SimpleCompiler {
 
     fn compile_call(&mut self, expr: &Expr<'_>, callee: &Expr<'_>, args: &[Expr<'_>]) -> u16 {
         self.compile_call_with_result_count(expr, callee, args, 1)
+    }
+
+    fn compile_call_statement(&mut self, expr: &Expr<'_>) {
+        if let ExprKind::Call { callee, args, .. } = expr.kind() {
+            self.compile_call_with_result_count(expr, callee, args, 1);
+        } else {
+            self.diagnostics.push(
+                Diagnostic::error("expected function call statement")
+                    .with_primary_span(expr.span()),
+            );
+        }
     }
 
     fn compile_call_with_result_count(

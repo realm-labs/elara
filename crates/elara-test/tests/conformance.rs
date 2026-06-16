@@ -39,6 +39,7 @@ fn conformance_language_fixtures() {
         "language/closure_upvalue_assignment.lua",
         vec![Value::integer(41), Value::integer(41)],
     );
+    assert_success_fixture("language/call_statement.lua", vec![Value::integer(42)]);
     assert_success_fixture(
         "language/global_declarations.lua",
         vec![Value::integer(42), Value::integer(42)],

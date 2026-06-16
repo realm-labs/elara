@@ -10,6 +10,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "language/table_fields.lua",
     "language/closures.lua",
     "language/closure_upvalue_assignment.lua",
+    "language/call_statement.lua",
     "language/global_declarations.lua",
     "language/metamethods.lua",
     "language/multiple_return_assignment.lua",

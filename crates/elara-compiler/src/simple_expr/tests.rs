@@ -78,6 +78,24 @@ fn simple_expr_reports_unsupported_statement() {
 }
 
 #[test]
+fn simple_expr_compiles_call_statement() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local function noop()\n  return 42\nend\nnoop()\nreturn 1",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert!(
+        proto
+            .code
+            .iter()
+            .any(|instr| instr.op() == Op::Call && instr.c() == 1),
+        "expected a fixed-result call for the call statement"
+    );
+}
+
+#[test]
 fn loops_compile_while_with_break() {
     let compiled = compile_simple_chunk(
         SourceId::new(0),
