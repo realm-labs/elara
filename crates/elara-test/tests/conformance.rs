@@ -245,6 +245,10 @@ fn conformance_standard_library_fixtures() {
         "stdlib/string_find_start_anchor_init.lua",
         vec![Value::integer(2), Value::integer(3)],
     );
+    assert_success_fixture(
+        "stdlib/string_find_end_anchor.lua",
+        vec![Value::integer(5), Value::integer(6)],
+    );
     assert_success_fixture_values("stdlib/string_find_captures.lua", |actual| {
         assert_eq!(
             actual.len(),
