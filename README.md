@@ -20,9 +20,9 @@ points, and release benchmark reporting.
 Known release-candidate limitations are explicit:
 
 - A release-sized official Lua conformance corpus is not yet included.
-- Differential utilities exist, but the fixture set is still small.
-- Bitwise opcode execution and corresponding metamethod dispatch are still a
-  product gap.
+- Differential utilities can compare exact primitive results for the portable
+  smoke fixtures when `ELARA_LUA` is configured, but the fixture set is still
+  small.
 - Coroutine yielding, file-handle-backed `io`, dynamic Lua/C loading, host
   process termination through `os.exit`, and some string pattern/format corners
   are intentionally scoped as unsupported or partial in this candidate.
