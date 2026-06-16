@@ -728,6 +728,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/string_byte_default_end.lua",
+        vec![Value::integer(90)],
+    );
+    assert_success_fixture(
         "stdlib/string_byte_range.lua",
         vec![Value::integer(66), Value::integer(67)],
     );
