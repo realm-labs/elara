@@ -1693,7 +1693,9 @@ fn execute_instruction(
                 *dynamic_top = top;
             }
         }
-        Op::VarargTable => execute_vararg_table(thread, instr, varargs, context.tables)?,
+        Op::VarargTable => {
+            execute_vararg_table(thread, instr, varargs, context.tables, context.strings)?
+        }
         Op::Call => {
             let callee = callable_function(thread, context.tables, context.strings, instr)?;
             match callee {

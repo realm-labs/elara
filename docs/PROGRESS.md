@@ -1384,6 +1384,9 @@ Delivered:
 - The conformance coroutine smoke matrix now also includes wrap, resume success,
   runnable coroutine close, current-thread `coroutine.running`, and
   created-coroutine lifecycle status coverage.
+- Named vararg tables now populate Lua 5.5's `n` count field, and the existing
+  anonymous/named vararg conformance fixture asserts the count alongside the
+  captured argument values.
 
 ## Remaining Gaps
 
@@ -1480,11 +1483,13 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 main-coroutine close error fixture expansion passed:
+Post-M20.4 named-vararg table count fix passed:
 
 ```bash
-cargo test -p elara-test conformance_error_fixtures
+cargo test -p elara-interp varargs_named_table_contains_arguments
+cargo test -p elara-test conformance_language_fixtures
 cargo test -p elara-test differential_fixtures_match_official_lua_error_classes_when_configured
+cargo clippy -p elara-interp --all-targets -- -D warnings
 git diff --check
 ```
 

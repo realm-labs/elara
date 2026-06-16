@@ -1743,13 +1743,15 @@ fn varargs_named_table_contains_arguments() {
     parent.emit_abc(Op::Call, 0, 3, 1);
     parent.emit_abc(Op::Return, 0, 1, 0);
 
-    let output = execute_proto_with_output(&parent.finish()).expect("execution should pass");
+    let mut output = execute_proto_with_output(&parent.finish()).expect("execution should pass");
     let table_index = output.values[0]
         .as_table_index()
         .expect("expected table placeholder");
+    let n_key = output.strings.intern_short_value("n");
     let table = &output.tables[table_index as usize];
 
     assert_eq!(table.raw_get_integer(1), Value::integer(42));
     assert_eq!(table.raw_get_integer(2), Value::integer(99));
     assert_eq!(table.raw_get_integer(3), Value::nil());
+    assert_eq!(table.raw_get_value(n_key), Value::integer(2));
 }

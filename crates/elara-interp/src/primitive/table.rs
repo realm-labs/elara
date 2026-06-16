@@ -377,8 +377,15 @@ pub(super) fn execute_vararg_table(
     instr: Instr,
     varargs: &[Value],
     tables: &mut RuntimeTables,
+    strings: &mut RuntimeStrings,
 ) -> RuntimeResult<()> {
     let mut table = Table::new();
+    let count = LuaInteger::try_from(varargs.len()).expect("vararg count must fit in LuaInteger");
+    let n_key = strings.intern_short_value("n");
+    if !table.raw_set_value(n_key, Value::integer(count)) {
+        return Err(RuntimeErrorKind::InvalidTableKey.into());
+    }
+
     for (index, value) in varargs.iter().copied().enumerate() {
         let key =
             LuaInteger::try_from(index + 1).expect("vararg table index must fit in LuaInteger");

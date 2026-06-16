@@ -66,7 +66,7 @@ fn conformance_language_fixtures() {
             Value::integer(5),
             Value::integer(6),
             Value::integer(7),
-            Value::nil(),
+            Value::integer(2),
         ],
     );
 }
