@@ -120,6 +120,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_sort.lua",
     "stdlib/table_sort_strings.lua",
     "stdlib/table_sort_single.lua",
+    "stdlib/table_sort_comparator.lua",
     "stdlib/io_stubs.lua",
     "stdlib/io_open_result.lua",
     "stdlib/io_tmpfile_result.lua",
