@@ -52,6 +52,10 @@ fn conformance_language_fixtures() {
             Value::integer(40),
         ],
     );
+    assert_success_fixture(
+        "language/multiple_return_reassignment.lua",
+        vec![Value::integer(10), Value::integer(20), Value::integer(1)],
+    );
 }
 
 #[test]
