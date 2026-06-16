@@ -515,6 +515,14 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/math_type_nil.lua",
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/math_constants.lua",
         vec![
             Value::integer(-1),
