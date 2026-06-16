@@ -815,6 +815,10 @@ fn conformance_standard_library_fixtures() {
         );
     });
     assert_success_fixture(
+        "stdlib/package_searchpath_found.lua",
+        vec![Value::integer(12), Value::integer(46), Value::integer(67)],
+    );
+    assert_success_fixture(
         "stdlib/package_config.lua",
         vec![Value::integer(115), Value::integer(10)],
     );
