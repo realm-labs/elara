@@ -1374,6 +1374,32 @@ fn closures_assign_shared_upvalue_cells() {
 }
 
 #[test]
+fn closures_sync_open_upvalue_writes_to_parent_stack() {
+    let mut child_builder = ProtoBuilder::new().with_signature(2, 0, false);
+    child_builder.add_upvalue(elara_bytecode::UpvalueDesc::new(Some("x"), true, 0));
+    let one = child_builder.add_constant(Value::integer(1));
+    child_builder.emit_abc(Op::GetUpvalue, 0, 0, 0);
+    child_builder.emit_abx(Op::LoadK, 1, u64::from(one));
+    child_builder.emit_abc(Op::Add, 0, 0, 1);
+    child_builder.emit_abc(Op::SetUpvalue, 0, 0, 0);
+    child_builder.emit_abc(Op::Return, 0, 1, 0);
+    let child = child_builder.finish();
+
+    let mut parent = ProtoBuilder::new().with_signature(2, 0, false);
+    let value = parent.add_constant(Value::integer(40));
+    let child_index = parent.add_child(child);
+    parent.emit_abx(Op::LoadK, 0, u64::from(value));
+    parent.emit_abx(Op::Closure, 1, u64::from(child_index));
+    parent.emit_abc(Op::Call, 1, 1, 1);
+    parent.emit_abc(Op::Return, 0, 1, 0);
+
+    assert_eq!(
+        execute_proto(&parent.finish()),
+        Ok(vec![Value::integer(41)])
+    );
+}
+
+#[test]
 fn conditionals_execute_test_and_jump() {
     let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
     let then_value = builder.add_constant(Value::integer(1));

@@ -944,6 +944,7 @@ impl PrimitiveCoroutine {
         let Some(parent) = self.frames.last_mut() else {
             return Ok(Some(values));
         };
+        sync_open_upvalues(&mut self.thread, &parent.open_upvalues)?;
         let top = write_values(&mut self.thread, slot.base, &values, slot.result_count)?;
         if slot.result_count == 0 {
             parent.dynamic_top = top;
@@ -1730,6 +1731,7 @@ fn execute_instruction(
                     )?;
                     let returns =
                         call_function(callable, context, Some(&mut *thread), current_debug_frame)?;
+                    sync_open_upvalues(thread, open_upvalues)?;
                     dispatch_debug_hook(
                         RuntimeDebugHookEvent::Return,
                         context,
@@ -1908,6 +1910,16 @@ fn capture_upvalues(
         captured.push(value);
     }
     Ok(captured)
+}
+
+fn sync_open_upvalues(
+    thread: &mut LuaThread,
+    open_upvalues: &HashMap<usize, RuntimeUpvalue>,
+) -> RuntimeResult<()> {
+    for (slot, upvalue) in open_upvalues {
+        set_register(thread, *slot, upvalue.get())?;
+    }
+    Ok(())
 }
 
 fn execute_vararg(

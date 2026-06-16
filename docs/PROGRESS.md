@@ -1394,6 +1394,8 @@ Delivered:
   captured locals and sibling closures observe the shared updated cell.
 - The simple compiler now accepts bare function-call statements and emits a
   fixed-result call into an ignored temporary register.
+- Open upvalue cells are synced back to still-active parent stack slots after
+  nested calls, so direct parent reads observe closure mutations.
 
 ## Remaining Gaps
 
@@ -1411,10 +1413,6 @@ Delivered:
   interpreter. The portable conformance smoke fixtures can now compare
   success/error classes against official Lua, but there is not yet a
   release-sized differential fixture set.
-- Open upvalue writes are shared across captured closure cells, but direct
-  reads from the still-active parent stack slot after a nested closure mutation
-  need a follow-up synchronization fix.
-
 ### Explicitly Scoped Unsupported Behavior
 
 - Implement coroutine suspension from `coroutine.yield`, yielding resume and
@@ -1493,13 +1491,13 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 call-statement compiler fix passed:
+Post-M20.4 open-upvalue stack synchronization fix passed:
 
 ```bash
-cargo test -p elara-compiler simple_expr_compiles_call_statement
+cargo test -p elara-interp closures_sync_open_upvalue_writes_to_parent_stack
 cargo test -p elara-test conformance_language_fixtures
 cargo test -p elara-test differential_fixtures_match_official_lua_error_classes_when_configured
-cargo clippy -p elara-compiler -p elara-test --all-targets -- -D warnings
+cargo clippy -p elara-interp -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 
@@ -1554,7 +1552,7 @@ fixture set beyond the current smoke matrix.
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode, including fixed-result lowering for bare call statements. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | M15 complete | Primitive bytecode execution includes structured errors, coroutines, close variables, native calls, bitwise operators, hot stack helpers, table/global inline caches, and an `ADD_INT` superinstruction. |
-| Variables/scopes | Complete | Local variables, assignment basics, fixed-parameter calls, captured outer local reads and writes through shared runtime upvalue cells, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
+| Variables/scopes | Complete | Local variables, assignment basics, fixed-parameter calls, captured outer local reads and writes through shared runtime upvalue cells with parent stack-slot synchronization after nested calls, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/bitwise/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
 | Standard library | M18.2 complete | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path searchers in `package.searchers[3]` and `[4]`, `package.searchpath`, `debug.gethook`/`debug.sethook` hook metadata installation and clearing plus call/return/line/count hook callback dispatch, `debug.getinfo` runtime-hook validation and current-thread frame materialization, read-only stack-level `debug.getlocal`, function-target `debug.getlocal` parameter names, stack-level `debug.setlocal` for current-thread Lua frames, and primitive coroutine debug frames for native debug calls, read-only `debug.getupvalue`, `debug.setupvalue` over shared runtime upvalue cells, `debug.upvalueid`, `debug.upvaluejoin`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, pre-userdata `debug.setuservalue`, and `debug.traceback` message handling plus stack-frame formatting are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
