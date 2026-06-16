@@ -676,6 +676,17 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(1), Value::integer(1), Value::integer(2)],
     );
     assert_success_fixture(
+        "stdlib/table_move_destination.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(2),
+            Value::integer(3),
+            Value::integer(1),
+            Value::integer(2),
+            Value::integer(3),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_move_empty.lua",
         vec![
             Value::boolean(true),
