@@ -1381,9 +1381,9 @@ Delivered:
   unsupported `string.format` conversion errors, and scoped unsupported
   `os.exit` behavior, plus `coroutine.yield` outside a resume boundary,
   attempted main-coroutine close, and invalid `debug.getinfo` option strings.
-- The conformance coroutine smoke matrix now also includes wrap, resume success,
-  runnable coroutine close, current-thread `coroutine.running`, and
-  created-coroutine lifecycle status coverage.
+- The conformance coroutine smoke matrix now also includes wrap, resume success
+  and returned values, runnable coroutine close, current-thread
+  `coroutine.running`, and created-coroutine lifecycle status coverage.
 - Named vararg tables now populate Lua 5.5's `n` count field, and the existing
   anonymous/named vararg conformance fixture asserts the count alongside the
   captured argument values.
@@ -1405,7 +1405,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains two hundred sixty-seven smoke fixtures across
+- `tests/conformance` currently contains two hundred sixty-eight smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check returned primitive values and selected string-result classes
   through the public API.
@@ -1495,10 +1495,10 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 string-pattern error fixture expansion passed:
+Post-M20.4 coroutine result-shape fixture expansion passed:
 
 ```bash
-cargo test -p elara-test conformance_error_fixtures
+cargo test -p elara-test conformance_coroutine_fixtures
 cargo test -p elara-test differential_fixtures_match_official_lua_error_classes_when_configured
 cargo clippy -p elara-test --all-targets -- -D warnings
 git diff --check

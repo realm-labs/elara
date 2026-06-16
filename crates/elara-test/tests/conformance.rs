@@ -1611,6 +1611,20 @@ fn conformance_coroutine_fixtures() {
     assert_success_fixture("coroutine/wrap.lua", vec![Value::integer(42)]);
     assert_success_fixture("coroutine/resume_status.lua", vec![Value::boolean(true)]);
     assert_success_fixture(
+        "coroutine/resume_values.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(42),
+            Value::integer(4),
+            Value::integer(100),
+            Value::nil(),
+            Value::integer(22),
+            Value::integer(42),
+            Value::integer(7),
+            Value::integer(119),
+        ],
+    );
+    assert_success_fixture(
         "coroutine/lifecycle.lua",
         vec![
             Value::integer(115),
