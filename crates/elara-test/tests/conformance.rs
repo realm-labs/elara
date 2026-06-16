@@ -1546,6 +1546,18 @@ fn conformance_coroutine_fixtures() {
         ],
     );
     assert_success_fixture("coroutine/close.lua", vec![Value::boolean(true)]);
+    assert_success_fixture_values("coroutine/running.lua", |actual| {
+        assert_eq!(actual.len(), 2, "coroutine.running should return two values");
+        assert!(
+            actual[0].is_thread(),
+            "coroutine.running first result should be a thread: {actual:?}"
+        );
+        assert_eq!(
+            actual[1],
+            Value::boolean(true),
+            "main coroutine.running result should report main thread"
+        );
+    });
 }
 
 fn assert_success_fixture(path: &str, expected: Vec<Value>) {
