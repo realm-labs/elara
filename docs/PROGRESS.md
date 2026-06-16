@@ -136,7 +136,8 @@ width, left-adjust, and zero-padding integer-family conversions, signed
 decimal `+`/space flags, alternate-form octal/hex integer flags, integer
 precision, float width/precision/sign/alternate-form flags for
 `%f`/`%e`/`%E`/`%g`/`%G`, `%a`/`%A` width/precision/sign/alternate-form
-flags, `%c`, `%q`, `%p`, and escaped-percent `string.format`, `.` wildcard,
+flags, `%c`/`%p` width and left-adjust modifiers, `%q`, and escaped-percent
+`string.format`, `.` wildcard,
 `^`/`$` anchor, `%` character-class, bracket-class, quantifier, `%b`
 balanced-delimiter, and `%f` frontier pattern matching for `string.find`,
 `string.match`, and `string.gsub`, capture back-references, position captures,
@@ -1376,8 +1377,8 @@ Delivered:
   debug registry access, debug upvalue inspection/mutation/join behavior, no-hook
   `debug.gethook`/`debug.sethook` behavior, deterministic `string.format`
   string width/precision, integer modifiers, precision, signed flags, and
-  alternate forms, character, float, quoted string/scalar, escaped-percent, and
-  pointer output plus long-string format arguments/results, plus `os.execute` shell availability and success/failure command
+  alternate forms, character and pointer width/left-adjust modifiers, float,
+  quoted string/scalar, escaped-percent, and pointer output plus long-string format arguments/results, plus `os.execute` shell availability and success/failure command
   status tuples, `os.clock` result classification,
   `os.tmpname` byte-level and string-result checks, absent `os.getenv` handling,
   absent-file `os.remove`/`os.rename` result classification, UTC
@@ -1443,12 +1444,15 @@ Delivered:
   unsupported string-pattern capture reference case.
 - The package conformance and differential smoke matrix now includes
   `package.searchpath` module-separator replacement in path-miss diagnostics.
+- `string.format` now supports Lua-style width and left-adjust modifiers for
+  `%c` and `%p`, and the conformance/differential matrix covers portable nil
+  pointer formatting.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains two hundred seventy-eight smoke fixtures across
+- `tests/conformance` currently contains two hundred seventy-nine smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check returned primitive values and selected string-result classes
   through the public API.
@@ -1538,14 +1542,13 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 binary register preservation passed:
+Post-M20.4 string.format `%c`/`%p` modifier preservation passed:
 
 ```bash
-cargo test -p elara-compiler simple_expr
-cargo test -p elara-api eval_simple_binary_expressions_preserve_local_operands
-cargo test -p elara-test conformance_language_fixtures
+cargo test -p elara-stdlib string_format
+cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures_match_official_lua_error_classes_when_configured
-cargo clippy -p elara-compiler -p elara-api -p elara-test --all-targets -- -D warnings
+cargo clippy -p elara-stdlib -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 
@@ -1603,9 +1606,9 @@ fixture set beyond the current smoke matrix.
 | Variables/scopes | Complete | Local variables, assignment basics, fixed-parameter calls, captured outer local reads and writes through shared runtime upvalue cells with parent stack-slot synchronization after nested calls, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/bitwise/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
-| Standard library | M18.2 complete | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path searchers in `package.searchers[3]` and `[4]`, `package.searchpath`, `debug.gethook`/`debug.sethook` hook metadata installation and clearing plus call/return/line/count hook callback dispatch, `debug.getinfo` runtime-hook validation and current-thread frame materialization, read-only stack-level `debug.getlocal`, function-target `debug.getlocal` parameter names, stack-level `debug.setlocal` for current-thread Lua frames, and primitive coroutine debug frames for native debug calls, read-only `debug.getupvalue`, `debug.setupvalue` over shared runtime upvalue cells, `debug.upvalueid`, `debug.upvaluejoin`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, pre-userdata `debug.setuservalue`, and `debug.traceback` message handling plus stack-frame formatting are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
+| Standard library | M18.2 complete | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path searchers in `package.searchers[3]` and `[4]`, `package.searchpath`, `debug.gethook`/`debug.sethook` hook metadata installation and clearing plus call/return/line/count hook callback dispatch, `debug.getinfo` runtime-hook validation and current-thread frame materialization, read-only stack-level `debug.getlocal`, function-target `debug.getlocal` parameter names, stack-level `debug.setlocal` for current-thread Lua frames, and primitive coroutine debug frames for native debug calls, read-only `debug.getupvalue`, `debug.setupvalue` over shared runtime upvalue cells, `debug.upvalueid`, `debug.upvaluejoin`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, pre-userdata `debug.setuservalue`, and `debug.traceback` message handling plus stack-frame formatting are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format` including `%c`/`%p` width and left-adjust modifiers, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | M20.3 audited | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings; facade docs and `basic_embed` example compile against the safe public surface. |
-| Conformance | Expanded post-M20.4 | Two hundred seventy-eight smoke fixtures run through the public API with primitive return-value checks, selected string-result class checks, and error-class checks for failure cases; broader API/unit coverage exists, but release-sized conformance remains a product gap. |
+| Conformance | Expanded post-M20.4 | Two hundred seventy-nine smoke fixtures run through the public API with primitive return-value checks, selected string-result class checks, and error-class checks for failure cases; broader API/unit coverage exists, but release-sized conformance remains a product gap. |
 | Differential testing | Expanded post-M20.4 | Configurable official-Lua runner compares success/error classes with Elara, including the portable conformance smoke fixture set when `ELARA_LUA` is configured. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | M17 complete; M18.2 debug interaction complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, debug-hook forced interpretation, API JIT selection for environment-independent chunks with debug/runtime-environment chunks kept on the interpreter, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |

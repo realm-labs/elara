@@ -693,6 +693,21 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_format_char_pointer_modifiers.lua",
+        vec![
+            Value::integer(7),
+            Value::integer(32),
+            Value::integer(65),
+            Value::integer(58),
+            Value::integer(66),
+            Value::integer(17),
+            Value::integer(32),
+            Value::integer(40),
+            Value::integer(58),
+            Value::integer(41),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_format_float.lua",
         vec![
             Value::integer(9),

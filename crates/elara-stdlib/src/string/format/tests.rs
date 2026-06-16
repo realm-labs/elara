@@ -360,6 +360,23 @@ fn string_format_formats_basic_character_conversions() {
 }
 
 #[test]
+fn string_format_formats_modified_character_conversions() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%3c:%-3c");
+
+    let values = string_format(
+        &mut runtime,
+        &[format, Value::integer(65), Value::integer(66)],
+    )
+    .expect("format should pass");
+
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"  A:B  ".as_slice())
+    );
+}
+
+#[test]
 fn string_format_formats_quoted_strings() {
     let mut runtime = TestRuntime::default();
     let format = runtime.push_string(b"%q");
@@ -451,6 +468,35 @@ fn string_format_formats_null_pointer_for_scalar_values() {
     assert_eq!(
         runtime.short_string_bytes(values[0]),
         Some(b"(null):(null):(null)".as_slice())
+    );
+}
+
+#[test]
+fn string_format_formats_modified_null_pointer_conversions() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%8p:%-8p");
+
+    let values = string_format(&mut runtime, &[format, Value::nil(), Value::nil()])
+        .expect("format should pass");
+
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"  (null):(null)  ".as_slice())
+    );
+}
+
+#[test]
+fn string_format_rejects_pointer_precision() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%.3p");
+
+    assert_eq!(
+        string_format(&mut runtime, &[format, Value::nil()])
+            .expect_err("pointer precision should fail")
+            .kind(),
+        &NativeErrorKind::RuntimeError {
+            message: "invalid conversion specification".into(),
+        }
     );
 }
 

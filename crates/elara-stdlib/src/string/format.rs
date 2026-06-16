@@ -50,6 +50,18 @@ pub(super) fn string_format(
             output.extend_from_slice(format_pointer_arg(runtime, value).as_bytes());
             arg_index += 1;
             index += 2;
+        } else if let Some((spec, conversion, next_index)) =
+            parse_character_pointer_spec(&format, index + 1)?
+        {
+            let value = next_format_arg(args, arg_index)?;
+            let bytes = if conversion == b'c' {
+                vec![integer_format_arg(runtime, value, arg_index + 1)? as u8]
+            } else {
+                format_pointer_arg(runtime, value).into_bytes()
+            };
+            output.extend_from_slice(&format_padded_bytes(bytes, &spec));
+            arg_index += 1;
+            index = next_index;
         } else if let Some(spec) = parse_float_spec(&format, index + 1)? {
             let value =
                 float_format_arg(runtime, next_format_arg(args, arg_index)?, arg_index + 1)?;
@@ -159,6 +171,43 @@ fn parse_string_spec(
     )))
 }
 
+fn parse_character_pointer_spec(
+    format: &[u8],
+    start: usize,
+) -> Result<Option<(StringFormatSpec, u8, usize)>, NativeError> {
+    let Some(conversion) = conversion_index(format, start) else {
+        return Ok(None);
+    };
+    let Some(spec @ (b'c' | b'p')) = format.get(conversion).copied() else {
+        return Ok(None);
+    };
+
+    let mut cursor = start;
+    let mut left_adjust = false;
+    while format.get(cursor) == Some(&b'-') {
+        left_adjust = true;
+        cursor += 1;
+    }
+    if matches!(format.get(cursor), Some(b'+' | b'#' | b'0' | b' ' | b'.')) {
+        return Err(invalid_format_spec());
+    }
+
+    let width = parse_two_digit_field(format, &mut cursor)?;
+    if cursor != conversion {
+        return Err(invalid_format_spec());
+    }
+
+    Ok(Some((
+        StringFormatSpec {
+            left_adjust,
+            width,
+            precision: None,
+        },
+        spec,
+        conversion + 1,
+    )))
+}
+
 fn conversion_index(format: &[u8], start: usize) -> Option<usize> {
     let mut cursor = start;
     while let Some(byte) = format.get(cursor) {
@@ -229,6 +278,22 @@ fn format_string_arg(
         let mut output = padding;
         output.extend_from_slice(&bytes);
         Ok(output)
+    }
+}
+
+fn format_padded_bytes(mut bytes: Vec<u8>, spec: &StringFormatSpec) -> Vec<u8> {
+    let width = spec.width.unwrap_or(0);
+    if bytes.len() >= width {
+        return bytes;
+    }
+    let padding = vec![b' '; width - bytes.len()];
+    if spec.left_adjust {
+        bytes.extend_from_slice(&padding);
+        bytes
+    } else {
+        let mut output = padding;
+        output.extend_from_slice(&bytes);
+        output
     }
 }
 
