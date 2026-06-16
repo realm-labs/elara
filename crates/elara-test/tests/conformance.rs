@@ -1519,82 +1519,34 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture("stdlib/os_execute.lua", vec![Value::boolean(true)]);
-    assert_success_fixture_values("stdlib/os_execute_status.lua", |actual| {
-        assert_eq!(
-            actual.len(),
-            3,
-            "os.execute command should return status tuple"
-        );
-        assert_eq!(actual[0], Value::boolean(true), "os.execute should succeed");
-        assert!(
-            actual[1].is_string(),
-            "os.execute status label should be a string: {actual:?}"
-        );
-        assert_eq!(actual[2], Value::integer(0), "os.execute code should be 0");
-    });
-    assert_success_fixture_values("stdlib/os_execute_failure.lua", |actual| {
-        assert_eq!(
-            actual.len(),
-            3,
-            "failed os.execute command should return status tuple"
-        );
-        assert_eq!(actual[0], Value::nil(), "os.execute should report failure");
-        assert!(
-            actual[1].is_string(),
-            "os.execute status label should be a string: {actual:?}"
-        );
-        assert_eq!(actual[2], Value::integer(7), "os.execute code should be 7");
-    });
+    assert_success_fixture(
+        "stdlib/os_execute_status.lua",
+        vec![Value::boolean(true), Value::integer(115), Value::integer(0)],
+    );
+    assert_success_fixture(
+        "stdlib/os_execute_failure.lua",
+        vec![Value::boolean(true), Value::integer(115), Value::integer(7)],
+    );
     assert_success_fixture("stdlib/os_clock.lua", vec![Value::integer(110)]);
     assert_success_fixture("stdlib/os_tmpname.lua", vec![Value::integer(115)]);
-    assert_success_fixture_values("stdlib/os_tmpname_result.lua", |actual| {
-        assert_eq!(actual.len(), 1, "os.tmpname should return one filename");
-        assert!(
-            actual[0].is_string(),
-            "os.tmpname result should be a string: {actual:?}"
-        );
-    });
+    assert_success_fixture("stdlib/os_tmpname_result.lua", vec![Value::integer(115)]);
     assert_success_fixture("stdlib/os_getenv.lua", vec![Value::boolean(true)]);
-    assert_success_fixture_values("stdlib/os_remove.lua", |actual| {
-        assert_eq!(
-            actual.len(),
-            3,
-            "os.remove absent path should return nil plus message plus code"
-        );
-        assert_eq!(
-            actual[0],
-            Value::nil(),
-            "os.remove absent path result should be nil"
-        );
-        assert!(
-            actual[1].is_string(),
-            "os.remove message should be a string: {actual:?}"
-        );
-        assert!(
-            actual[2].as_integer().is_some_and(|code| code != 0),
-            "os.remove code should be non-zero: {actual:?}"
-        );
-    });
-    assert_success_fixture_values("stdlib/os_rename.lua", |actual| {
-        assert_eq!(
-            actual.len(),
-            3,
-            "os.rename absent path should return nil plus message plus code"
-        );
-        assert_eq!(
-            actual[0],
-            Value::nil(),
-            "os.rename absent path result should be nil"
-        );
-        assert!(
-            actual[1].is_string(),
-            "os.rename message should be a string: {actual:?}"
-        );
-        assert!(
-            actual[2].as_integer().is_some_and(|code| code != 0),
-            "os.rename code should be non-zero: {actual:?}"
-        );
-    });
+    assert_success_fixture(
+        "stdlib/os_remove.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(115),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
+        "stdlib/os_rename.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(115),
+            Value::boolean(true),
+        ],
+    );
 }
 
 #[test]

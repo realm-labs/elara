@@ -1479,6 +1479,9 @@ Delivered:
 - The existing `package.searchpath` miss and unsupported `package.loadlib`
   fixtures now assert exact nil-result, string-message type-byte, and
   deterministic load stage results.
+- The existing `os.execute`, `os.tmpname`, `os.remove`, and `os.rename`
+  result fixtures now assert exact status/type booleans and type bytes while
+  keeping host-specific labels, names, and errno values out of the expectation.
 
 ## Remaining Gaps
 
@@ -1574,7 +1577,7 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 package miss/loadlib result coverage passed:
+Post-M20.4 OS result type coverage passed:
 
 ```bash
 cargo test -p elara-test conformance_standard_library_fixtures
