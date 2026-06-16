@@ -202,6 +202,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/utf8_len_empty.lua",
     "stdlib/utf8_len_bounds.lua",
     "stdlib/utf8_len_relative.lua",
+    "stdlib/utf8_len_invalid.lua",
     "stdlib/os_package_debug.lua",
     "stdlib/package_require.lua",
     "stdlib/package_require_nil_loader.lua",
