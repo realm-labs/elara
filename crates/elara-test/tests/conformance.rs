@@ -691,6 +691,15 @@ fn conformance_standard_library_fixtures() {
         "stdlib/table_sort_strings.lua",
         vec![Value::integer(97), Value::integer(98), Value::integer(99)],
     );
+    assert_success_fixture(
+        "stdlib/table_sort_long_strings.lua",
+        vec![
+            Value::integer(97),
+            Value::integer(50),
+            Value::integer(98),
+            Value::integer(50),
+        ],
+    );
     assert_success_fixture("stdlib/table_sort_single.lua", vec![Value::integer(42)]);
     assert_success_fixture(
         "stdlib/table_sort_comparator.lua",
