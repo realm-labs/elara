@@ -514,6 +514,14 @@ fn conformance_standard_library_fixtures() {
             Value::integer(116),
         ],
     );
+    assert_success_fixture(
+        "stdlib/math_constants.lua",
+        vec![
+            Value::integer(-1),
+            Value::integer(102),
+            Value::integer(102),
+        ],
+    );
     assert_success_fixture("stdlib/math_tointeger_float.lua", vec![Value::integer(7)]);
     assert_success_fixture(
         "stdlib/math_tointeger_integer.lua",
