@@ -1479,14 +1479,11 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 fixed-parameter plus named-vararg support passed:
+Post-M20.4 parameterized custom `package.require` searcher fixture refinement passed:
 
 ```bash
-cargo test -p elara-compiler functions_compile_fixed_parameters
-cargo test -p elara-compiler functions_compile_fixed_parameters_with_named_varargs
-cargo test -p elara-test conformance_language_fixtures
+cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures_match_official_lua_error_classes_when_configured
-cargo clippy -p elara-compiler -p elara-interp --all-targets -- -D warnings
 git diff --check
 ```
 

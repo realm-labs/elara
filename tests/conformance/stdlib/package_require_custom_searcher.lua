@@ -1,9 +1,9 @@
-local function loader()
-  return 80
+local function loader(name, data)
+  return data + string.len(name)
 end
 
-local function searcher()
-  return loader, 70
+local function searcher(name)
+  return loader, string.len(name) + 60
 end
 
 package.searchers[1] = searcher
