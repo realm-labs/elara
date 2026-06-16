@@ -66,6 +66,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_match_end_anchor.lua",
     "stdlib/string_match_captures.lua",
     "stdlib/string_match_balanced.lua",
+    "stdlib/string_match_frontier.lua",
     "stdlib/string_match_init.lua",
     "stdlib/string_match_missing.lua",
     "stdlib/string_gsub_limit.lua",
