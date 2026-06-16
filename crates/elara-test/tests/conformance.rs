@@ -242,6 +242,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(4), Value::integer(5)],
     );
     assert_success_fixture(
+        "stdlib/string_find_quantifiers.lua",
+        vec![Value::integer(1), Value::integer(4)],
+    );
+    assert_success_fixture(
         "stdlib/string_find_plain.lua",
         vec![Value::integer(4), Value::integer(4)],
     );
