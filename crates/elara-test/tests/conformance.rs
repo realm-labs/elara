@@ -337,6 +337,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(2), Value::integer(49), Value::integer(50)],
     );
     assert_success_fixture(
+        "stdlib/string_match_negated_bracket_class.lua",
+        vec![Value::integer(2), Value::integer(49), Value::integer(50)],
+    );
+    assert_success_fixture(
         "stdlib/string_match_init.lua",
         vec![Value::integer(2), Value::integer(98)],
     );
