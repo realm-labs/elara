@@ -70,6 +70,16 @@ fn conformance_language_fixtures() {
             Value::integer(98),
         ],
     );
+    assert_success_fixture(
+        "language/binary_operand_preservation.lua",
+        vec![
+            Value::integer(13),
+            Value::integer(12),
+            Value::integer(3),
+            Value::integer(2),
+            Value::boolean(true),
+        ],
+    );
     assert_success_fixture("language/varargs.lua", vec![Value::integer(10)]);
     assert_success_fixture(
         "language/table_fields.lua",

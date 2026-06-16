@@ -167,6 +167,23 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_binary_expressions_preserve_local_operands() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "local n = 12\nlocal text = 'ab'\nlocal joined = text .. 'c'\nreturn n + 1, n, #joined, #text, n == 12",
+            ),
+            Ok(vec![
+                Value::integer(13),
+                Value::integer(12),
+                Value::integer(3),
+                Value::integer(2),
+                Value::boolean(true),
+            ])
+        );
+    }
+
+    #[test]
     fn eval_simple_returns_comparisons_from_source() {
         assert_eq!(
             eval_simple_source(

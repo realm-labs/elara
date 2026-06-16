@@ -653,13 +653,14 @@ impl SimpleCompiler {
             && let Some(immediate) = add_int_immediate(right)
         {
             let left_register = self.compile_expr(left);
+            let result = self.alloc_register();
             self.builder.emit_abc(
                 Op::AddInt,
-                left_register,
+                result,
                 u32::from(left_register),
                 immediate,
             );
-            return left_register;
+            return result;
         }
 
         let left_register = self.compile_expr(left);
@@ -667,9 +668,10 @@ impl SimpleCompiler {
         if let Some((bytecode_op, left_operand, right_operand)) =
             comparison_operands(op, left_register, right_register)
         {
+            let result = self.alloc_register();
             self.builder.emit_abc(
                 bytecode_op,
-                left_register,
+                result,
                 u32::from(left_operand),
                 u32::from(right_operand),
             );
@@ -678,12 +680,12 @@ impl SimpleCompiler {
                 self.builder.emit_abc(Op::LoadBool, false_register, 0, 0);
                 self.builder.emit_abc(
                     Op::Eq,
-                    left_register,
-                    u32::from(left_register),
+                    result,
+                    u32::from(result),
                     u32::from(false_register),
                 );
             }
-            return left_register;
+            return result;
         }
 
         let bytecode_op = match op {
@@ -708,13 +710,14 @@ impl SimpleCompiler {
                 return left_register;
             }
         };
+        let result = self.alloc_register();
         self.builder.emit_abc(
             bytecode_op,
-            left_register,
+            result,
             u32::from(left_register),
             u32::from(right_register),
         );
-        left_register
+        result
     }
 
     fn alloc_register(&mut self) -> u16 {
