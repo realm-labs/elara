@@ -1473,6 +1473,9 @@ Delivered:
 - The existing `string.format("%p")` fixture now asserts the exact string
   type-byte result while keeping platform-dependent pointer text out of the
   portable expectation.
+- The existing unsupported pre-file-handle `io.open`, `io.tmpfile`,
+  `io.write`, and `io.flush` result fixtures now assert exact nil-result and
+  string-message type-byte results instead of only message string classes.
 
 ## Remaining Gaps
 
@@ -1568,7 +1571,7 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 portable `string.format("%p")` type coverage passed:
+Post-M20.4 unsupported IO result type coverage passed:
 
 ```bash
 cargo test -p elara-test conformance_standard_library_fixtures
