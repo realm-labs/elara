@@ -123,6 +123,20 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_unary_length_preserves_local_for_later_call() {
+        let profile = StdLibProfile::Custom([StdLib::String].into_iter().collect());
+
+        assert_eq!(
+            eval_simple_source_with_stdlib(
+                SourceId::new(0),
+                "local value = 12 .. 'ab'\nreturn #value, string.byte(value, 1)",
+                &profile,
+            ),
+            Ok(vec![Value::integer(4), Value::integer(49)])
+        );
+    }
+
+    #[test]
     fn eval_simple_returns_long_string_literal_length() {
         let literal = "a".repeat(elara_core::SHORT_STRING_MAX_BYTES + 1);
         let source = format!("return #'{literal}'");

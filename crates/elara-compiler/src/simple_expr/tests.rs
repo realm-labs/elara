@@ -38,7 +38,7 @@ fn simple_expr_compiles_unary_arithmetic() {
 
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 LOAD_K        A=0 Bx=0 ; 1\n0001 UNM           A=0 B=0 C=0\n0002 RETURN        A=0 B=1 C=0\n",
+        "0000 LOAD_K        A=0 Bx=0 ; 1\n0001 UNM           A=1 B=0 C=0\n0002 RETURN        A=1 B=1 C=0\n",
     );
 }
 
@@ -50,7 +50,7 @@ fn simple_expr_compiles_unary_not() {
 
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 LOAD_NIL      A=0 B=0 C=0\n0001 NOT           A=0 B=0 C=0\n0002 RETURN        A=0 B=1 C=0\n",
+        "0000 LOAD_NIL      A=0 B=0 C=0\n0001 NOT           A=1 B=0 C=0\n0002 RETURN        A=1 B=1 C=0\n",
     );
 }
 
@@ -62,7 +62,19 @@ fn simple_expr_compiles_unary_length() {
 
     assert_snapshot_eq(
         disassemble(&proto),
-        "0000 LOAD_STRING   A=0 Bx=0 ; \"abc\"\n0001 LEN           A=0 B=0 C=0\n0002 RETURN        A=0 B=1 C=0\n",
+        "0000 LOAD_STRING   A=0 Bx=0 ; \"abc\"\n0001 LEN           A=1 B=0 C=0\n0002 RETURN        A=1 B=1 C=0\n",
+    );
+}
+
+#[test]
+fn simple_expr_compiles_unary_without_clobbering_operand_register() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "local value = 'ab'\nreturn #value, value");
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_STRING   A=0 Bx=0 ; \"ab\"\n0001 MOVE          A=1 B=0 C=0\n0002 LEN           A=2 B=1 C=0\n0003 MOVE          A=3 B=2 C=0\n0004 MOVE          A=4 B=1 C=0\n0005 RETURN        A=3 B=2 C=0\n",
     );
 }
 

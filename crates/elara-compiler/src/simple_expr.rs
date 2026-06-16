@@ -627,14 +627,15 @@ impl SimpleCompiler {
 
     fn compile_unary(&mut self, expr: &Expr<'_>, op: UnaryOp) -> u16 {
         let value = self.compile_expr(expr);
+        let result = self.alloc_register();
         let bytecode_op = match op {
             UnaryOp::Neg => Op::Unm,
             UnaryOp::BitNot => Op::BNot,
             UnaryOp::Len => Op::Len,
             UnaryOp::Not => Op::Not,
         };
-        self.builder.emit_abc(bytecode_op, value, value.into(), 0);
-        value
+        self.builder.emit_abc(bytecode_op, result, value.into(), 0);
+        result
     }
 
     fn compile_binary(

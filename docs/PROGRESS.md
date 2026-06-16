@@ -53,8 +53,9 @@ opcodes work for table operands. Comparison opcodes execute with raw numeric
 comparison and table metamethod fallback. The simple compiler now lowers
 equality, inequality, and relational comparison expressions to those comparison
 opcodes. The bytecode and interpreter now support boolean `NOT`, and the simple
-compiler lowers unary `not` expressions with Lua truthiness. The simple compiler
-now also lowers `and` and `or` expressions with value-preserving short-circuit
+compiler lowers unary operators without clobbering operand registers, including
+unary `not` expressions with Lua truthiness. The simple compiler now also
+lowers `and` and `or` expressions with value-preserving short-circuit
 semantics. `LEN` executes for runtime strings, runtime tables with raw array
 length, and `__len` closure fallback. `CALL` can
 invoke function-valued `__call` fallback for table operands. `CONCAT` executes
@@ -1420,6 +1421,8 @@ Delivered:
   comparison opcodes.
 - The bytecode, primitive interpreter, and simple compiler now support unary
   `not` expressions with Lua truthiness.
+- The simple compiler now emits unary operator results into fresh registers so
+  locals reused later in a return list are not clobbered.
 - The simple compiler now lowers logical `and` and `or` expressions with Lua
   value-preserving short-circuit behavior.
 - The primitive interpreter now executes `LEN` for runtime string byte lengths,
@@ -1531,14 +1534,14 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 numeric concat coercion passed:
+Post-M20.4 unary register preservation passed:
 
 ```bash
-cargo test -p elara-interp metamethods_concat_coerces_numeric_operands
-cargo test -p elara-api eval_simple_concats_numeric_operands
+cargo test -p elara-compiler unary
+cargo test -p elara-api eval_simple_unary_length_preserves_local_for_later_call
 cargo test -p elara-test conformance_language_fixtures
 cargo test -p elara-test differential_fixtures_match_official_lua_error_classes_when_configured
-cargo clippy -p elara-interp -p elara-api -p elara-test --all-targets -- -D warnings
+cargo clippy -p elara-compiler -p elara-api -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 
@@ -1590,7 +1593,7 @@ fixture set beyond the current smoke matrix.
 | Statement parser | Complete | Declarations, assignments, control flow, function declarations, labels, and returns are implemented. |
 | Parser snapshots | Complete | Representative AST and malformed syntax diagnostic snapshots are implemented. |
 | Bytecode model | M18 complete | Proto, instruction encoding, opcode set including boolean `NOT`, constants, upvalues, source/line/local debug metadata, builder, disassembler, verifier, internal dump/load format with magic/version/header validation, and explicit unsupported official Lua chunk policy are implemented. |
-| Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode, including long string literals, unary `not`, logical `and`/`or`, comparison expression lowering, and fixed-result lowering for bare call statements. |
+| Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode, including long string literals, non-clobbering unary operators, logical `and`/`or`, comparison expression lowering, and fixed-result lowering for bare call statements. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | M15 complete | Primitive bytecode execution includes structured errors, coroutines, close variables, native calls, bitwise operators, boolean `NOT`, hot stack helpers, table/global inline caches, and an `ADD_INT` superinstruction. |
 | Variables/scopes | Complete | Local variables, assignment basics, fixed-parameter calls, captured outer local reads and writes through shared runtime upvalue cells with parent stack-slot synchronization after nested calls, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |

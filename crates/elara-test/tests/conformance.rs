@@ -62,7 +62,13 @@ fn conformance_language_fixtures() {
     assert_success_fixture("language/long_string_concat.lua", vec![Value::integer(42)]);
     assert_success_fixture(
         "language/numeric_concat.lua",
-        vec![Value::integer(4)],
+        vec![
+            Value::integer(4),
+            Value::integer(49),
+            Value::integer(50),
+            Value::integer(97),
+            Value::integer(98),
+        ],
     );
     assert_success_fixture("language/varargs.lua", vec![Value::integer(10)]);
     assert_success_fixture(
