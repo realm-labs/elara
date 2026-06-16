@@ -58,6 +58,7 @@ fn conformance_language_fixtures() {
         "language/length_operator.lua",
         vec![Value::integer(3), Value::integer(3), Value::integer(9)],
     );
+    assert_success_fixture("language/long_string_literal.lua", vec![Value::integer(41)]);
     assert_success_fixture("language/varargs.lua", vec![Value::integer(10)]);
     assert_success_fixture(
         "language/table_fields.lua",

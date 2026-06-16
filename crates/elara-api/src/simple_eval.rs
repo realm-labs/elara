@@ -123,6 +123,17 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_returns_long_string_literal_length() {
+        let literal = "a".repeat(elara_core::SHORT_STRING_MAX_BYTES + 1);
+        let source = format!("return #'{literal}'");
+
+        assert_eq!(
+            eval_simple_source(SourceId::new(0), &source),
+            Ok(vec![Value::integer(41)])
+        );
+    }
+
+    #[test]
     fn eval_simple_returns_comparisons_from_source() {
         assert_eq!(
             eval_simple_source(

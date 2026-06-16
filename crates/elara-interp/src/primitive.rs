@@ -1499,7 +1499,7 @@ fn execute_instruction(
                     index: instr.bx() as usize,
                 },
             )?;
-            let value = context.strings.intern_short_value(string);
+            let value = context.strings.intern_value(string);
             set_register(thread, instr.a().into(), value)?;
         }
         Op::GetEnv => {

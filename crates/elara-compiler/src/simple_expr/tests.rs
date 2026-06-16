@@ -1,5 +1,5 @@
 use elara_bytecode::{LocalVarDesc, Op, disassemble};
-use elara_core::SourceId;
+use elara_core::{SHORT_STRING_MAX_BYTES, SourceId};
 use elara_test::assert_snapshot_eq;
 
 use crate::compile_simple_chunk;
@@ -63,6 +63,22 @@ fn simple_expr_compiles_unary_length() {
     assert_snapshot_eq(
         disassemble(&proto),
         "0000 LOAD_STRING   A=0 Bx=0 ; \"abc\"\n0001 LEN           A=0 B=0 C=0\n0002 RETURN        A=0 B=1 C=0\n",
+    );
+}
+
+#[test]
+fn simple_expr_compiles_long_string_literal() {
+    let literal = "a".repeat(SHORT_STRING_MAX_BYTES + 1);
+    let source = format!("return '{literal}'");
+    let compiled = compile_simple_chunk(SourceId::new(0), &source);
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_eq!(proto.string_constants.len(), 1);
+    assert_eq!(proto.string_constants[0].as_ref(), literal.as_bytes());
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_STRING   A=0 Bx=0 ; \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n0001 RETURN        A=0 B=1 C=0\n",
     );
 }
 

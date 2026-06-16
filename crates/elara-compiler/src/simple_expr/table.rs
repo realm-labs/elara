@@ -1,7 +1,7 @@
 //! Table-related lowering for the simple compiler.
 
 use elara_bytecode::Op;
-use elara_core::{Diagnostic, SHORT_STRING_MAX_BYTES, Span, Value};
+use elara_core::{Diagnostic, Span, Value};
 use elara_syntax::{Expr, ExprKind, TableField, TableFieldKind};
 
 use super::SimpleCompiler;
@@ -15,11 +15,11 @@ impl SimpleCompiler {
             );
             return self.alloc_register();
         };
-        self.emit_string_constant(expr.span(), bytes)
+        self.emit_string_constant(bytes)
     }
 
-    pub(super) fn compile_string_key(&mut self, span: Span, text: &str) -> u16 {
-        self.emit_string_constant(span, text.as_bytes())
+    pub(super) fn compile_string_key(&mut self, _span: Span, text: &str) -> u16 {
+        self.emit_string_constant(text.as_bytes())
     }
 
     pub(super) fn compile_table_constructor(&mut self, fields: &[TableField<'_>]) -> u16 {
@@ -41,7 +41,7 @@ impl SimpleCompiler {
                     (key, self.compile_expr(value))
                 }
                 TableFieldKind::Named { name, value } => {
-                    let key = self.emit_string_constant(field.span(), name.as_bytes());
+                    let key = self.emit_string_constant(name.as_bytes());
                     (key, self.compile_expr(value))
                 }
                 TableFieldKind::Keyed { key, value } => {
@@ -81,15 +81,8 @@ impl SimpleCompiler {
             .emit_abc(Op::SetTable, table, u32::from(key), u32::from(value));
     }
 
-    fn emit_string_constant(&mut self, span: Span, bytes: &[u8]) -> u16 {
+    fn emit_string_constant(&mut self, bytes: &[u8]) -> u16 {
         let register = self.alloc_register();
-        if bytes.len() > SHORT_STRING_MAX_BYTES {
-            self.diagnostics.push(
-                Diagnostic::error("string literal exceeds current short-string support")
-                    .with_primary_span(span),
-            );
-            return register;
-        }
 
         let constant = self.builder.add_string_constant(bytes);
         self.builder
