@@ -118,6 +118,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(66), Value::integer(42)],
     );
     assert_success_fixture(
+        "stdlib/base_pairs_metamethod.lua",
+        vec![Value::integer(42), Value::boolean(true), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/base_metatable.lua",
         vec![
             Value::boolean(true),
