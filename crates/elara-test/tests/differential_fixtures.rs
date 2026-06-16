@@ -137,6 +137,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/utf8_codepoint_range.lua",
     "stdlib/utf8_codepoint_multibyte_range.lua",
     "stdlib/utf8_multibyte.lua",
+    "stdlib/utf8_long_strings.lua",
     "stdlib/utf8_offset_missing.lua",
     "stdlib/utf8_offset_backward_multibyte.lua",
     "stdlib/utf8_offset_containing.lua",

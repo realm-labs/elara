@@ -807,6 +807,16 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/utf8_long_strings.lua",
+        vec![
+            Value::integer(50),
+            Value::integer(50),
+            Value::integer(97),
+            Value::integer(50),
+            Value::integer(50),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/utf8_offset_missing.lua",
         vec![Value::boolean(true)],
     );
