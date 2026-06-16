@@ -1259,11 +1259,16 @@ fn execute_proto_with_output_in_mode(
     let mut strings = RuntimeStrings::new();
     let global_table = tables.push_table(Table::new());
     let mut globals = RuntimeGlobals::new(global_table);
+    let global_value = globals.value();
     for initial_global in initial_globals {
-        let value = seed_initial_value(initial_global.value(), &mut tables, &mut strings)?;
+        let value = seed_initial_value(
+            initial_global.value(),
+            global_value,
+            &mut tables,
+            &mut strings,
+        )?;
         globals.set_named(initial_global.name(), value, &mut strings, &mut tables)?;
     }
-    let global_value = globals.value();
     let mut to_be_closed = Vec::new();
     let mut debug_frames = Vec::new();
     let mut context = ExecutionContext {
@@ -1295,11 +1300,14 @@ fn execute_proto_with_output_in_mode(
 
 fn seed_initial_value(
     value: &InitialValue,
+    global_value: Value,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
 ) -> RuntimeResult<Value> {
     match value {
         InitialValue::Value(value) => Ok(*value),
+        InitialValue::String(bytes) => Ok(strings.intern_value(bytes)),
+        InitialValue::GlobalTable => Ok(global_value),
         InitialValue::Table(fields) => {
             let mut table = Table::new();
             for field in fields {

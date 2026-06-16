@@ -6,7 +6,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use elara_core::{ThreadStatus, Value};
+use elara_core::{LUA_SPEC, ThreadStatus, Value};
 use elara_interp::{NativeContext, RuntimeEnvironment, RuntimeErrorKind};
 use elara_stdlib::{
     BASE_IPAIRS_AUX_NATIVE, BASE_NEXT_NATIVE, DebugHookState, DebugInfoTarget, LuaRandomState,
@@ -46,6 +46,8 @@ fn register_library(environment: &mut RuntimeEnvironment, library: StdLib) {
     }
 
     if library == StdLib::Base {
+        environment.set_global_table_alias(StdLib::Base.name());
+        environment.set_global_string("_VERSION", LUA_SPEC.version_name.as_bytes());
         let helpers = register_base_helpers(environment);
         for spec in functions {
             let function = spec.function();

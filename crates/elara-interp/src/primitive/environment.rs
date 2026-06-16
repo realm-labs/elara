@@ -41,6 +41,22 @@ impl RuntimeEnvironment {
         });
     }
 
+    /// Registers one initial global string value.
+    pub fn set_global_string(&mut self, name: impl Into<Box<str>>, bytes: impl Into<Box<[u8]>>) {
+        self.globals.push(InitialGlobal {
+            name: name.into(),
+            value: InitialValue::String(bytes.into()),
+        });
+    }
+
+    /// Registers a global alias to the shared runtime global environment table.
+    pub fn set_global_table_alias(&mut self, name: impl Into<Box<str>>) {
+        self.globals.push(InitialGlobal {
+            name: name.into(),
+            value: InitialValue::GlobalTable,
+        });
+    }
+
     /// Registers one initial global table with prebuilt field values.
     pub fn set_global_table<I, N>(&mut self, name: impl Into<Box<str>>, fields: I)
     where
@@ -239,6 +255,8 @@ impl InitialGlobal {
 #[derive(Clone)]
 pub(super) enum InitialValue {
     Value(Value),
+    String(Box<[u8]>),
+    GlobalTable,
     Table(Vec<InitialField>),
 }
 

@@ -666,6 +666,36 @@ fn initial_global_tables_can_seed_nested_value_table_fields() {
 }
 
 #[test]
+fn initial_globals_can_alias_global_table_and_seed_strings() {
+    let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
+    let global_name = builder.add_string_constant("_G");
+    let version_name = builder.add_string_constant("_VERSION");
+    builder.emit_abx(Op::GetEnv, 0, u64::from(global_name));
+    builder.emit_abx(Op::GetEnv, 1, u64::from(version_name));
+    builder.emit_abc(Op::Return, 0, 2, 0);
+
+    let mut environment = RuntimeEnvironment::new();
+    environment.set_global_table_alias("_G");
+    environment.set_global_string("_VERSION", b"Lua 5.5".as_slice());
+
+    let output = execute_proto_with_environment(&builder.finish(), environment)
+        .expect("global table alias and string should seed");
+    let global = output.values[0];
+    let global_index = global.as_table_index().expect("_G should be a table") as usize;
+    let mut strings = output.strings;
+    let global_key = strings.intern_short_value("_G");
+
+    assert_eq!(
+        output.tables[global_index].raw_get_value(global_key),
+        global
+    );
+    assert_eq!(
+        strings.string_bytes(output.values[1]),
+        Some(b"Lua 5.5".as_slice())
+    );
+}
+
+#[test]
 fn native_functions_can_allocate_runtime_strings() {
     let mut environment = RuntimeEnvironment::new();
     environment.register_native_global("label", |context, _args| {

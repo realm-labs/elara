@@ -112,8 +112,9 @@ Base stdlib natives `assert`, `error`, `getmetatable`, `ipairs`, `next`,
 metamethod-backed `pairs`, `pcall`, `print`, `rawequal`, `rawget`, `rawlen`,
 `rawset`, numeric and count forms of `select`, `setmetatable`, `tonumber`,
 `tostring`, `type`, and `xpcall` are executable, and API stdlib profile
-registration now installs base natives as direct globals while
-keeping module libraries table-shaped. Native calls now receive a
+registration now installs base natives plus the `_G` global-table alias and
+`_VERSION` string as direct globals while keeping module libraries table-shaped.
+Native calls now receive a
 `NativeContext` that can allocate and inspect runtime-owned short strings,
 allocate runtime-owned tables, read/write raw runtime table entries, get/set
 runtime table metatable links, traverse raw runtime table entries, write host
@@ -1407,6 +1408,8 @@ Delivered:
 - The conformance coroutine smoke matrix now also includes wrap, resume success
   and returned values, runnable coroutine close, current-thread
   `coroutine.running`, and created-coroutine lifecycle status coverage.
+- The base-library conformance and differential smoke matrix now covers `_G`
+  identity and the current-version `_VERSION` string.
 - Named vararg tables now populate Lua 5.5's `n` count field, and the existing
   anonymous/named vararg conformance fixture asserts the count alongside the
   captured argument values.
@@ -1493,7 +1496,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains two hundred eighty-two smoke fixtures across
+- `tests/conformance` currently contains two hundred eighty-four smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
@@ -1511,7 +1514,11 @@ Delivered:
 - File-handle-backed `io` behavior is intentionally represented by safe
   unsupported stubs until runtime file handles are implemented.
 - Dynamic Lua file loading and dynamic C library loading remain unsupported;
-  `package.loadlib` and C searchers report explicit unsupported-loader results.
+  `load`, `loadfile`, `dofile`, `package.loadlib`, and C searchers report or
+  remain scoped to explicit unsupported-loader behavior until dynamic chunk and
+  host file loading are implemented.
+- Base-library `collectgarbage` and `warn` are not yet registered in runtime
+  stdlib profiles.
 - `os.exit` validates arguments but does not terminate the host process.
 - C API source compatibility is tested for core stack/call usage, but binary
   compatibility with existing Lua modules is not promised.
@@ -1582,12 +1589,13 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 exact primitive differential support passed:
+Latest focused product-gap verification passed:
 
 ```bash
-cargo test -p elara-test differential
+cargo test -p elara-interp initial_globals_can_alias_global_table_and_seed_strings
 cargo test -p elara-test conformance_standard_library_fixtures
-cargo clippy -p elara-test --all-targets -- -D warnings
+cargo test -p elara-test differential_fixtures
+cargo clippy -p elara-interp -p elara-api -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 

@@ -23,9 +23,10 @@ Known release-candidate limitations are explicit:
 - Differential utilities can compare exact primitive results for the portable
   smoke fixtures when `ELARA_LUA` is configured, but the fixture set is still
   small.
-- Coroutine yielding, file-handle-backed `io`, dynamic Lua/C loading, host
-  process termination through `os.exit`, and some string pattern/format corners
-  are intentionally scoped as unsupported or partial in this candidate.
+- Coroutine yielding, file-handle-backed `io`, dynamic Lua/C loading, base
+  `collectgarbage`/`warn`, host process termination through `os.exit`, and some
+  string pattern/format corners are intentionally scoped as unsupported or
+  partial in this candidate.
 - The `elara-capi` crate targets source-level Lua 5.5 header compatibility for
   tested stack/call usage. Binary compatibility with existing Lua modules is
   not promised.

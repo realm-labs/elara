@@ -154,6 +154,17 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_globals.lua",
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::integer(76),
+            Value::integer(53),
+            Value::integer(53),
+            Value::integer(7),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_rawlen.lua",
         vec![Value::integer(3), Value::integer(3)],
     );
