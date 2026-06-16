@@ -942,6 +942,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/os_time_defaults.lua",
+        vec![
+            Value::integer(0),
+            Value::integer(0),
+            Value::integer(0),
+            Value::integer(0),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/os_date_format.lua",
         vec![
             Value::integer(19),
