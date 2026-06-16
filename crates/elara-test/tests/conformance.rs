@@ -259,6 +259,10 @@ fn conformance_standard_library_fixtures() {
         );
     });
     assert_success_fixture(
+        "stdlib/string_find_frontier.lua",
+        vec![Value::integer(5), Value::integer(7)],
+    );
+    assert_success_fixture(
         "stdlib/string_find_missing.lua",
         vec![Value::boolean(true)],
     );
