@@ -1573,6 +1573,16 @@ fn execute_instruction(
                 })?;
             set_register(thread, instr.a().into(), value)?;
         }
+        Op::SetUpvalue => {
+            let value = register(thread, instr.a().into())?;
+            let upvalue =
+                upvalues
+                    .get(instr.b() as usize)
+                    .ok_or(RuntimeErrorKind::UpvalueOutOfBounds {
+                        index: instr.b() as usize,
+                    })?;
+            upvalue.set(value);
+        }
         Op::Closure => {
             let child_index = instr.bx() as usize;
             let child = proto

@@ -1339,6 +1339,41 @@ fn closures_capture_parent_stack_values() {
 }
 
 #[test]
+fn closures_assign_shared_upvalue_cells() {
+    let mut writer_builder = ProtoBuilder::new().with_signature(2, 0, false);
+    writer_builder.add_upvalue(elara_bytecode::UpvalueDesc::new(Some("x"), true, 0));
+    let one = writer_builder.add_constant(Value::integer(1));
+    writer_builder.emit_abc(Op::GetUpvalue, 0, 0, 0);
+    writer_builder.emit_abx(Op::LoadK, 1, u64::from(one));
+    writer_builder.emit_abc(Op::Add, 0, 0, 1);
+    writer_builder.emit_abc(Op::SetUpvalue, 0, 0, 0);
+    writer_builder.emit_abc(Op::Return, 0, 1, 0);
+    let writer = writer_builder.finish();
+
+    let mut reader_builder = ProtoBuilder::new().with_signature(1, 0, false);
+    reader_builder.add_upvalue(elara_bytecode::UpvalueDesc::new(Some("x"), true, 0));
+    reader_builder.emit_abc(Op::GetUpvalue, 0, 0, 0);
+    reader_builder.emit_abc(Op::Return, 0, 1, 0);
+    let reader = reader_builder.finish();
+
+    let mut parent = ProtoBuilder::new().with_signature(3, 0, false);
+    let value = parent.add_constant(Value::integer(40));
+    let writer_index = parent.add_child(writer);
+    let reader_index = parent.add_child(reader);
+    parent.emit_abx(Op::LoadK, 0, u64::from(value));
+    parent.emit_abx(Op::Closure, 1, u64::from(writer_index));
+    parent.emit_abx(Op::Closure, 2, u64::from(reader_index));
+    parent.emit_abc(Op::Call, 1, 1, 1);
+    parent.emit_abc(Op::Call, 2, 1, 1);
+    parent.emit_abc(Op::Return, 1, 2, 0);
+
+    assert_eq!(
+        execute_proto(&parent.finish()),
+        Ok(vec![Value::integer(41), Value::integer(41)])
+    );
+}
+
+#[test]
 fn conditionals_execute_test_and_jump() {
     let mut builder = ProtoBuilder::new().with_signature(2, 0, false);
     let then_value = builder.add_constant(Value::integer(1));
