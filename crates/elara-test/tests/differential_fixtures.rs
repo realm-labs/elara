@@ -14,6 +14,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "language/multiple_return_assignment.lua",
     "language/multiple_return_reassignment.lua",
     "language/function_parameters.lua",
+    "language/function_parameters_vararg.lua",
     "stdlib/math_abs.lua",
     "stdlib/math_abs_float.lua",
     "stdlib/base_table.lua",

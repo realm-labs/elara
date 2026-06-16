@@ -60,6 +60,15 @@ fn conformance_language_fixtures() {
         "language/function_parameters.lua",
         vec![Value::integer(42), Value::integer(7), Value::nil()],
     );
+    assert_success_fixture(
+        "language/function_parameters_vararg.lua",
+        vec![
+            Value::integer(5),
+            Value::integer(6),
+            Value::integer(7),
+            Value::nil(),
+        ],
+    );
 }
 
 #[test]

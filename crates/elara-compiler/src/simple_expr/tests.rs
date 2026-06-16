@@ -517,6 +517,25 @@ fn functions_compile_fixed_parameters() {
 }
 
 #[test]
+fn functions_compile_fixed_parameters_with_named_varargs() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local function collect(first, ... rest)\n  return first, rest\nend",
+    );
+
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_eq!(proto.children.len(), 1);
+    assert_eq!(proto.children[0].params, 1);
+    assert!(proto.children[0].is_vararg);
+    assert_snapshot_eq(
+        disassemble(&proto.children[0]),
+        "0000 VARARG_TABLE  A=1 B=0 C=0\n0001 RETURN        A=0 B=2 C=0\n",
+    );
+}
+
+#[test]
 fn closures_compile_outer_local_capture() {
     let compiled = compile_simple_chunk(
         SourceId::new(0),
