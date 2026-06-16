@@ -50,6 +50,7 @@ struct SimpleCompiler {
     globals: HashMap<String, GlobalAccess>,
     global_default: GlobalDefault,
     is_vararg: bool,
+    param_count: u8,
     loop_breaks: Vec<Vec<usize>>,
     to_be_closed: Vec<u16>,
 }
@@ -90,6 +91,7 @@ impl SimpleCompiler {
             globals: HashMap::new(),
             global_default: GlobalDefault::PreambularReadWrite,
             is_vararg: false,
+            param_count: 0,
             loop_breaks: Vec::new(),
             to_be_closed: Vec::new(),
         }
@@ -158,16 +160,27 @@ impl SimpleCompiler {
         name: &str,
         body: &FunctionBody<'_>,
     ) {
-        let named_vararg = match body.params.as_slice() {
-            [] => None,
-            [Param::Vararg(name)] => Some(*name),
-            _ => {
-                self.diagnostics.push(
-                    Diagnostic::error("function parameters are not supported yet")
-                        .with_primary_span(span),
-                );
-                return;
+        let mut fixed_params = Vec::new();
+        let mut named_vararg = None;
+        for param in &body.params {
+            match param {
+                Param::Name(name) if named_vararg.is_none() => fixed_params.push(*name),
+                Param::Vararg(name) if named_vararg.is_none() => named_vararg = Some(*name),
+                _ => {
+                    self.diagnostics.push(
+                        Diagnostic::error("unsupported function parameter list")
+                            .with_primary_span(span),
+                    );
+                    return;
+                }
             }
+        }
+
+        let Ok(param_count) = u8::try_from(fixed_params.len()) else {
+            self.diagnostics.push(
+                Diagnostic::error("too many function parameters").with_primary_span(span),
+            );
+            return;
         };
 
         if scope == FunctionScope::Global {
@@ -184,6 +197,10 @@ impl SimpleCompiler {
             self.globals.clone(),
             self.global_default,
         );
+        child.param_count = param_count;
+        for param in fixed_params {
+            child.ensure_local(param);
+        }
         child.is_vararg = named_vararg.is_some();
         if let Some(Some(name)) = named_vararg {
             child.define_named_vararg_table(name);
@@ -688,7 +705,7 @@ impl SimpleCompiler {
 
         let proto = self
             .builder
-            .with_signature(self.max_register.max(1), 0, self.is_vararg)
+            .with_signature(self.max_register.max(1), self.param_count, self.is_vararg)
             .finish();
         if let Err(errors) = verify_proto(&proto) {
             return CompileResult {

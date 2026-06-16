@@ -505,14 +505,15 @@ fn functions_compile_recursive_self_reference() {
 }
 
 #[test]
-fn functions_reject_parameters_for_now() {
+fn functions_compile_fixed_parameters() {
     let compiled = compile_simple_chunk(SourceId::new(0), "local function id(x) return x end");
 
-    assert!(compiled.proto.is_none());
-    assert_eq!(
-        compiled.diagnostics[0].message(),
-        "function parameters are not supported yet"
-    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_eq!(proto.children.len(), 1);
+    assert_eq!(proto.children[0].params, 1);
+    assert_snapshot_eq(disassemble(&proto.children[0]), "0000 RETURN        A=0 B=1 C=0\n");
 }
 
 #[test]

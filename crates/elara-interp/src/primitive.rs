@@ -1366,6 +1366,16 @@ fn execute_proto_with_upvalues(
         .push(RuntimeDebugFrame::new(proto.clone(), function, frame_kind));
     let mut thread = LuaThread::new();
     thread.resize_stack_with_nil(usize::from(proto.max_stack));
+    let fixed_arg_count = usize::from(proto.params);
+    for index in 0..fixed_arg_count {
+        let value = varargs.get(index).copied().unwrap_or_else(Value::nil);
+        set_register(&mut thread, index, value)?;
+    }
+    let varargs = if proto.is_vararg {
+        &varargs[fixed_arg_count.min(varargs.len())..]
+    } else {
+        &[]
+    };
     if protected {
         let _ = thread.push_frame(
             CallFrame::new(0, usize::from(proto.max_stack), ResultCount::Multiple).protected(),

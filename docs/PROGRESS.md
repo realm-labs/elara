@@ -29,8 +29,9 @@ detection with unsupported-format refusal, and simple expression codegen.
 VM/thread stack primitives and primitive arithmetic bytecode execution are
 implemented, and simple source chunks can be evaluated through the compile and
 interpreter path. Local variables and assignment basics are implemented.
-Simple function Protos and zero-argument Lua calls are implemented. Closures,
-shared runtime upvalue cells, and captured outer local reads are implemented.
+Simple function Protos and fixed-parameter Lua calls are implemented, including
+nil fill for missing fixed arguments. Closures, shared runtime upvalue cells,
+and captured outer local reads are implemented.
 Anonymous vararg functions can receive call arguments and lower `...` for the
 first requested value. Fixed-count Lua calls can receive multiple return values.
 Named vararg tables are compiled to `VARARG_TABLE` and executed through
@@ -1093,7 +1094,7 @@ Delivered:
 - Primitive bytecode execution for constants, arithmetic, and return values is available in `elara-interp`.
 - Simple source chunks can be compiled and evaluated through `elara-api`.
 - Local variable reads/writes and assignment basics are available in the compiler/interpreter path.
-- Simple nested Protos and zero-argument Lua calls are available.
+- Simple nested Protos and fixed-parameter Lua calls are available.
 - Captured outer local reads work through upvalue descriptors and runtime closure captures.
 - Anonymous vararg argument passing and first-value `...` lowering work in the compiler/interpreter path.
 - Fixed-count multiple call results work in the primitive interpreter.
@@ -1371,6 +1372,7 @@ Delivered:
 - The conformance language smoke matrix now also includes exact-value fixtures
   for table field construction/access, zero-argument closure capture, Lua 5.5
   global declarations/functions, arithmetic metamethod dispatch, and
+  fixed-parameter function calls with missing-argument nil fill, and
   multiple-return local assignment and reassignment.
 - The conformance error smoke matrix now includes parser diagnostics, explicit
   base-library errors, bad standard-library arguments, invalid indexing,
@@ -1385,7 +1387,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains two hundred fifty-six smoke fixtures across
+- `tests/conformance` currently contains two hundred fifty-seven smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check returned primitive values and selected string-result classes
   through the public API.
@@ -1476,11 +1478,13 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 non-string `debug.traceback` message fixture expansion passed:
+Post-M20.4 fixed-parameter function support passed:
 
 ```bash
-cargo test -p elara-test conformance_standard_library_fixtures
+cargo test -p elara-compiler functions_compile_fixed_parameters
+cargo test -p elara-test conformance_language_fixtures
 cargo test -p elara-test differential_fixtures_match_official_lua_error_classes_when_configured
+cargo clippy -p elara-compiler -p elara-interp --all-targets -- -D warnings
 git diff --check
 ```
 
@@ -1535,12 +1539,12 @@ fixture set beyond the current smoke matrix.
 | Compiler | Initial MVP complete | Simple return-expression codegen emits verified bytecode. |
 | VM/thread stack | Complete | VM state, Lua thread stack, call frames, and stack helpers are implemented. |
 | Interpreter | M15 complete | Primitive bytecode execution includes structured errors, coroutines, close variables, native calls, bitwise operators, hot stack helpers, table/global inline caches, and an `ADD_INT` superinstruction. |
-| Variables/scopes | Complete | Local variables, assignment basics, simple calls, captured outer local reads through shared runtime upvalue cells, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
+| Variables/scopes | Complete | Local variables, assignment basics, fixed-parameter calls, captured outer local reads through shared runtime upvalue cells, anonymous and named varargs, multiple call results, and recursive self-reference are implemented. |
 | Control flow | Complete | Conditional branches, `while`, `repeat`, `break`, numeric `for`, and generic `for` execute through bytecode. |
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/bitwise/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
 | Standard library | M18.2 complete | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path searchers in `package.searchers[3]` and `[4]`, `package.searchpath`, `debug.gethook`/`debug.sethook` hook metadata installation and clearing plus call/return/line/count hook callback dispatch, `debug.getinfo` runtime-hook validation and current-thread frame materialization, read-only stack-level `debug.getlocal`, function-target `debug.getlocal` parameter names, stack-level `debug.setlocal` for current-thread Lua frames, and primitive coroutine debug frames for native debug calls, read-only `debug.getupvalue`, `debug.setupvalue` over shared runtime upvalue cells, `debug.upvalueid`, `debug.upvaluejoin`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, pre-userdata `debug.setuservalue`, and `debug.traceback` message handling plus stack-frame formatting are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format`, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | M20.3 audited | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings; facade docs and `basic_embed` example compile against the safe public surface. |
-| Conformance | Expanded post-M20.4 | Two hundred fifty-six smoke fixtures run through the public API with primitive return-value checks, selected string-result class checks, and error-class checks for failure cases; broader API/unit coverage exists, but release-sized conformance remains a product gap. |
+| Conformance | Expanded post-M20.4 | Two hundred fifty-seven smoke fixtures run through the public API with primitive return-value checks, selected string-result class checks, and error-class checks for failure cases; broader API/unit coverage exists, but release-sized conformance remains a product gap. |
 | Differential testing | Expanded post-M20.4 | Configurable official-Lua runner compares success/error classes with Elara, including the portable conformance smoke fixture set when `ELARA_LUA` is configured. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | M17 complete; M18.2 debug interaction complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, debug-hook forced interpretation, API JIT selection for environment-independent chunks with debug/runtime-environment chunks kept on the interpreter, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |
