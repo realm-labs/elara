@@ -1456,6 +1456,8 @@ Delivered:
 - The conformance and differential matrix now exactly covers table/function
   `string.gsub` replacements that return nil or false and preserve original
   matched text.
+- The existing table/function `string.gsub` replacement fixtures now assert
+  exact byte-level replacement results instead of only string-result classes.
 
 ## Remaining Gaps
 
@@ -1551,7 +1553,7 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 string.gsub nil/false replacement fallback coverage passed:
+Post-M20.4 string.gsub exact table/function replacement coverage passed:
 
 ```bash
 cargo test -p elara-test conformance_standard_library_fixtures
