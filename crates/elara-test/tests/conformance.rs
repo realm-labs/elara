@@ -356,6 +356,21 @@ fn conformance_standard_library_fixtures() {
         "stdlib/string_match_end_anchor.lua",
         vec![Value::integer(2), Value::integer(98), Value::integer(99)],
     );
+    assert_success_fixture_values("stdlib/string_match_captures.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            2,
+            "string.match capture fixture should return captures"
+        );
+        assert!(
+            actual[0].is_string(),
+            "string.match first capture should be a string: {actual:?}"
+        );
+        assert!(
+            actual[1].is_string(),
+            "string.match second capture should be a string: {actual:?}"
+        );
+    });
     assert_success_fixture(
         "stdlib/string_match_init.lua",
         vec![Value::integer(2), Value::integer(98)],
