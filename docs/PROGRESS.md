@@ -1482,6 +1482,9 @@ Delivered:
 - The existing `os.execute`, `os.tmpname`, `os.remove`, and `os.rename`
   result fixtures now assert exact status/type booleans and type bytes while
   keeping host-specific labels, names, and errno values out of the expectation.
+- The existing `coroutine.running` fixture now asserts exact thread type-byte
+  and main-thread flag results, leaving only the generic success-fixture helper
+  as the conformance test's custom success assertion path.
 
 ## Remaining Gaps
 
@@ -1577,9 +1580,10 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 OS result type coverage passed:
+Post-M20.4 coroutine.running exact-value coverage passed:
 
 ```bash
+cargo test -p elara-test conformance_coroutine_fixtures
 cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures_match_official_lua_error_classes_when_configured
 cargo clippy -p elara-test --all-targets -- -D warnings
