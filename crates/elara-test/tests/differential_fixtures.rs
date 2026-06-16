@@ -57,6 +57,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_xpcall.lua",
     "stdlib/math_string_patterns.lua",
     "stdlib/string_pattern_captures.lua",
+    "stdlib/string_argument_errors.lua",
     "stdlib/string_find_positions.lua",
     "stdlib/string_find_dot_wildcard.lua",
     "stdlib/string_find_bracket_class.lua",

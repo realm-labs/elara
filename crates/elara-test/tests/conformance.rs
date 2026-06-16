@@ -358,6 +358,31 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(5), Value::integer(7)],
     );
     assert_success_fixture(
+        "stdlib/string_argument_errors.lua",
+        vec![
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_find_positions.lua",
         vec![Value::integer(4), Value::integer(5)],
     );
