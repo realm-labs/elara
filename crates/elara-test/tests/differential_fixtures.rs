@@ -104,6 +104,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_gsub_missing.lua",
     "stdlib/string_gsub_table_replacement.lua",
     "stdlib/string_gsub_function_replacement.lua",
+    "stdlib/string_gsub_nil_false_replacements.lua",
     "stdlib/string_gmatch_positions.lua",
     "stdlib/string_gmatch_captures.lua",
     "stdlib/string_gmatch_callable.lua",

@@ -640,6 +640,19 @@ fn conformance_standard_library_fixtures() {
         );
     });
     assert_success_fixture(
+        "stdlib/string_gsub_nil_false_replacements.lua",
+        vec![
+            Value::integer(11),
+            Value::integer(97),
+            Value::integer(100),
+            Value::integer(2),
+            Value::integer(11),
+            Value::integer(97),
+            Value::integer(100),
+            Value::integer(2),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_gmatch_positions.lua",
         vec![Value::integer(14)],
     );
