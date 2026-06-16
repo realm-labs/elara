@@ -1462,6 +1462,8 @@ Delivered:
   now assert exact captured bytes instead of only string-result classes.
 - The existing `string.gmatch` position, capture, callable, and leading-caret
   fixtures now assert exact iterator output bytes and positions.
+- The existing no-match `string.gsub` fixture now asserts exact original-string
+  bytes plus the zero substitution count.
 
 ## Remaining Gaps
 
@@ -1557,7 +1559,7 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 string.gmatch exact-value coverage passed:
+Post-M20.4 string.gsub no-match exact-value coverage passed:
 
 ```bash
 cargo test -p elara-test conformance_standard_library_fixtures
