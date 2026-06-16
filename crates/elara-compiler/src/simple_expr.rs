@@ -240,7 +240,7 @@ impl SimpleCompiler {
     }
 
     fn compile_local(&mut self, span: Span, names: &[NameDecl<'_>], values: &[Expr<'_>]) {
-        let value_registers = self.compile_expression_list(values);
+        let value_registers = self.compile_fixed_expression_list(values, names.len());
         for (index, name) in names.iter().enumerate() {
             let register = self.alloc_register();
             self.locals.insert(name.name.to_owned(), register);
@@ -270,7 +270,7 @@ impl SimpleCompiler {
     }
 
     fn compile_assignment(&mut self, span: Span, targets: &[Expr<'_>], values: &[Expr<'_>]) {
-        let value_registers = self.compile_expression_list(values);
+        let value_registers = self.compile_fixed_expression_list(values, targets.len());
         for (index, target) in targets.iter().enumerate() {
             let value = value_registers
                 .get(index)
@@ -290,6 +290,58 @@ impl SimpleCompiler {
             .iter()
             .map(|value| self.compile_expr(value))
             .collect()
+    }
+
+    fn compile_fixed_expression_list(
+        &mut self,
+        values: &[Expr<'_>],
+        target_count: usize,
+    ) -> Vec<u16> {
+        let Some((last, prefix)) = values.split_last() else {
+            return Vec::new();
+        };
+
+        let mut registers = Vec::new();
+        for value in prefix {
+            let register = self.compile_expr(value);
+            if registers.len() < target_count {
+                registers.push(register);
+            }
+        }
+
+        let remaining = target_count.saturating_sub(registers.len());
+        if remaining == 0 {
+            self.compile_expr(last);
+            return registers;
+        }
+
+        match last.kind() {
+            ExprKind::Call { callee, args, .. } => {
+                let register = self.next_register;
+                self.ensure_fixed_result_slots(register, remaining);
+                self.compile_call_into_register(last, callee, args, register, remaining as u32);
+                registers.extend((0..remaining).map(|offset| register + offset as u16));
+            }
+            ExprKind::Vararg => {
+                let register = self.next_register;
+                self.ensure_fixed_result_slots(register, remaining);
+                self.compile_vararg_into_register(last, register, remaining as u32);
+                registers.extend((0..remaining).map(|offset| register + offset as u16));
+            }
+            _ => registers.push(self.compile_expr(last)),
+        }
+
+        registers
+    }
+
+    fn ensure_fixed_result_slots(&mut self, register: u16, count: usize) {
+        if count == 0 {
+            return;
+        }
+        let last = register
+            .checked_add(u16::try_from(count - 1).expect("result count must fit in registers"))
+            .expect("result register range must fit in registers");
+        self.ensure_register_slot(last);
     }
 
     fn contiguous_return_start(&mut self, registers: &[u16]) -> u16 {
@@ -350,15 +402,19 @@ impl SimpleCompiler {
 
     fn compile_vararg(&mut self, expr: &Expr<'_>) -> u16 {
         let register = self.alloc_register();
+        self.compile_vararg_into_register(expr, register, 1);
+        register
+    }
+
+    fn compile_vararg_into_register(&mut self, expr: &Expr<'_>, register: u16, result_count: u32) {
         if self.is_vararg {
-            self.builder.emit_abc(Op::Vararg, register, 1, 0);
+            self.builder.emit_abc(Op::Vararg, register, result_count, 0);
         } else {
             self.diagnostics.push(
                 Diagnostic::error("vararg expression outside vararg function")
                     .with_primary_span(expr.span()),
             );
         }
-        register
     }
 
     fn compile_integer(&mut self, expr: &Expr<'_>, text: &str) -> u16 {

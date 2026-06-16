@@ -40,6 +40,18 @@ fn conformance_language_fixtures() {
         vec![Value::integer(42), Value::integer(42)],
     );
     assert_success_fixture("language/metamethods.lua", vec![Value::integer(42)]);
+    assert_success_fixture(
+        "language/multiple_return_assignment.lua",
+        vec![
+            Value::integer(10),
+            Value::integer(20),
+            Value::integer(1),
+            Value::integer(10),
+            Value::integer(20),
+            Value::integer(10),
+            Value::integer(40),
+        ],
+    );
 }
 
 #[test]
