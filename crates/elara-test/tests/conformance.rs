@@ -1909,6 +1909,23 @@ fn conformance_standard_library_fixtures() {
             Value::boolean(true),
         ],
     );
+    assert_success_fixture(
+        "stdlib/os_argument_errors.lua",
+        vec![
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+        ],
+    );
 }
 
 #[test]
