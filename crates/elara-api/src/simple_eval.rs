@@ -115,6 +115,14 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_returns_length_operator_from_source() {
+        assert_eq!(
+            eval_simple_source(SourceId::new(0), "return #'abc', #{ 1, 2, 3 }"),
+            Ok(vec![Value::integer(3), Value::integer(3)])
+        );
+    }
+
+    #[test]
     fn eval_simple_returns_comparisons_from_source() {
         assert_eq!(
             eval_simple_source(

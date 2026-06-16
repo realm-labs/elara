@@ -112,6 +112,10 @@ pub(super) fn execute_len(
         Value::integer(
             LuaInteger::try_from(table.array_len()).expect("table length must fit in LuaInteger"),
         )
+    } else if let Some(bytes) = strings.string_bytes(value) {
+        Value::integer(
+            LuaInteger::try_from(bytes.len()).expect("string length must fit in LuaInteger"),
+        )
     } else {
         return Err(RuntimeErrorKind::NonLengthOperand.into());
     };

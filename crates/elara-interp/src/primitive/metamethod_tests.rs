@@ -350,6 +350,31 @@ fn metamethods_len_executes_raw_table_length() {
 }
 
 #[test]
+fn metamethods_len_executes_raw_string_length() {
+    let mut closures = Vec::new();
+    let mut strings = RuntimeStrings::new();
+    let mut tables = RuntimeTables::new();
+    let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
+    let mut thread = LuaThread::new();
+    thread.push_value(strings.intern_value("abcd"));
+    thread.push_value(Value::nil());
+
+    execute_len(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Len, 1, 0, 0),
+        &mut tables,
+        &mut strings,
+        &natives,
+        &mut globals,
+    )
+    .expect("raw string length should execute");
+
+    assert_eq!(thread.stack_value(1), Some(Value::integer(4)));
+}
+
+#[test]
 fn metamethods_len_calls_function_fallback() {
     let mut strings = RuntimeStrings::new();
     let mut tables = RuntimeTables::new();

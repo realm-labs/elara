@@ -55,6 +55,18 @@ fn simple_expr_compiles_unary_not() {
 }
 
 #[test]
+fn simple_expr_compiles_unary_length() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "return #'abc'");
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_STRING   A=0 Bx=0 ; \"abc\"\n0001 LEN           A=0 B=0 C=0\n0002 RETURN        A=0 B=1 C=0\n",
+    );
+}
+
+#[test]
 fn simple_expr_compiles_logical_short_circuit() {
     let compiled = compile_simple_chunk(SourceId::new(0), "return false and 1, true or 2");
     assert_eq!(compiled.diagnostics, Vec::new());
