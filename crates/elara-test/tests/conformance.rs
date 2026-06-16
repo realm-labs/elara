@@ -372,6 +372,10 @@ fn conformance_standard_library_fixtures() {
         );
     });
     assert_success_fixture(
+        "stdlib/string_match_balanced.lua",
+        vec![Value::integer(7), Value::integer(40), Value::integer(41)],
+    );
+    assert_success_fixture(
         "stdlib/string_match_init.lua",
         vec![Value::integer(2), Value::integer(98)],
     );
