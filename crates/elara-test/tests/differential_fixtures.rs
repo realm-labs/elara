@@ -195,6 +195,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_concat_explicit_bounds.lua",
     "stdlib/table_concat_long_strings.lua",
     "stdlib/table_concat_errors.lua",
+    "stdlib/table_operand_type_errors.lua",
     "stdlib/table_ranges.lua",
     "stdlib/table_unpack.lua",
     "stdlib/table_unpack_default_bounds.lua",
