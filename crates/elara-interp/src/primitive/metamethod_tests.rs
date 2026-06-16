@@ -540,6 +540,36 @@ fn metamethods_concat_executes_raw_runtime_strings() {
 }
 
 #[test]
+fn metamethods_concat_coerces_numeric_operands() {
+    let mut closures = Vec::new();
+    let mut tables = RuntimeTables::new();
+    let mut strings = RuntimeStrings::new();
+    let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
+    let right = strings.intern_short_value(" apples");
+    let mut thread = LuaThread::new();
+    thread.push_value(Value::integer(12));
+    thread.push_value(right);
+    thread.push_value(Value::nil());
+
+    execute_concat(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Concat, 2, 0, 1),
+        &mut tables,
+        &mut strings,
+        &natives,
+        &mut globals,
+    )
+    .expect("raw numeric concat should execute");
+
+    let value = thread
+        .stack_value(2)
+        .expect("concat result should be written");
+    assert_eq!(strings.string_bytes(value), Some(b"12 apples".as_slice()));
+}
+
+#[test]
 fn metamethods_concat_calls_function_fallback() {
     let mut strings = RuntimeStrings::new();
     let mut tables = RuntimeTables::new();

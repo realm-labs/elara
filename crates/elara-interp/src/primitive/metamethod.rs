@@ -278,23 +278,30 @@ fn raw_concat(
     right: Value,
     strings: &mut RuntimeStrings,
 ) -> RuntimeResult<Option<Value>> {
-    let bytes = {
-        let Some(left) = strings.string_bytes(left) else {
-            return Ok(None);
-        };
-        let Some(right) = strings.string_bytes(right) else {
-            return Ok(None);
-        };
-        let len = left
-            .len()
-            .checked_add(right.len())
-            .ok_or(RuntimeErrorKind::StringConcatTooLong)?;
-        let mut bytes = Vec::with_capacity(len);
-        bytes.extend_from_slice(left);
-        bytes.extend_from_slice(right);
-        bytes
+    let Some(left) = raw_concat_operand_bytes(left, strings) else {
+        return Ok(None);
     };
+    let Some(right) = raw_concat_operand_bytes(right, strings) else {
+        return Ok(None);
+    };
+    let len = left
+        .len()
+        .checked_add(right.len())
+        .ok_or(RuntimeErrorKind::StringConcatTooLong)?;
+    let mut bytes = Vec::with_capacity(len);
+    bytes.extend_from_slice(&left);
+    bytes.extend_from_slice(&right);
     Ok(Some(strings.intern_value(bytes)))
+}
+
+fn raw_concat_operand_bytes(value: Value, strings: &RuntimeStrings) -> Option<Vec<u8>> {
+    if let Some(bytes) = strings.string_bytes(value) {
+        return Some(bytes.to_vec());
+    }
+    if let Some(value) = value.as_integer() {
+        return Some(value.to_string().into_bytes());
+    }
+    value.as_float().map(|value| value.to_string().into_bytes())
 }
 
 fn call_unary_metamethod(

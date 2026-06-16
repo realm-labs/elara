@@ -145,6 +145,14 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_concats_numeric_operands() {
+        assert_eq!(
+            eval_simple_source(SourceId::new(0), "local value = 12 .. 'ab'\nreturn #value"),
+            Ok(vec![Value::integer(4)])
+        );
+    }
+
+    #[test]
     fn eval_simple_returns_comparisons_from_source() {
         assert_eq!(
             eval_simple_source(
