@@ -286,6 +286,23 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
 ];
 
 #[test]
+fn differential_fixtures_match_official_lua_results_when_configured() {
+    let Some(official) = LuaRunner::from_env() else {
+        eprintln!("skipping differential fixtures; set ELARA_LUA to an official Lua executable");
+        return;
+    };
+    let runner = DifferentialRunner::new(official);
+
+    for fixture in DIFFERENTIAL_FIXTURES {
+        if fixture.starts_with("errors/") {
+            assert_fixture_class(&runner, fixture).expect("differential fixture should run");
+        } else {
+            assert_fixture_values(&runner, fixture).expect("differential fixture should run");
+        }
+    }
+}
+
+#[test]
 fn differential_fixtures_match_official_lua_error_classes_when_configured() {
     let Some(official) = LuaRunner::from_env() else {
         eprintln!("skipping differential fixtures; set ELARA_LUA to an official Lua executable");
@@ -296,6 +313,27 @@ fn differential_fixtures_match_official_lua_error_classes_when_configured() {
     for fixture in DIFFERENTIAL_FIXTURES {
         assert_fixture_class(&runner, fixture).expect("differential fixture should run");
     }
+}
+
+fn assert_fixture_values(runner: &DifferentialRunner, path: &str) -> io::Result<()> {
+    let source = fs::read_to_string(fixture_path(path))?;
+    let comparison = runner.compare_source_values(&source)?;
+    assert_eq!(
+        comparison.official.class(),
+        comparison.elara.class(),
+        "fixture {path} differed: official={:?} elara={:?}",
+        comparison.official.class(),
+        comparison.elara.class()
+    );
+    assert_eq!(
+        comparison.official.stdout, comparison.elara.stdout,
+        "fixture {path} returned different values\nofficial stdout:\n{}\nelara stdout:\n{}\nofficial stderr:\n{}\nelara stderr:\n{}",
+        comparison.official.stdout,
+        comparison.elara.stdout,
+        comparison.official.stderr,
+        comparison.elara.stderr,
+    );
+    Ok(())
 }
 
 fn assert_fixture_class(runner: &DifferentialRunner, path: &str) -> io::Result<()> {

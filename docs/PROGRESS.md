@@ -1485,6 +1485,9 @@ Delivered:
 - The existing `coroutine.running` fixture now asserts exact thread type-byte
   and main-thread flag results, leaving only the generic success-fixture helper
   as the conformance test's custom success assertion path.
+- The configurable official-Lua differential runner now has an exact primitive
+  success-value comparison path for portable conformance fixtures, while
+  keeping error fixtures on success/error class comparison.
 
 ## Remaining Gaps
 
@@ -1498,9 +1501,9 @@ Delivered:
   bulk of base/table/math/string/utf8 native behavior, but these are not a
   substitute for a broad official Lua conformance corpus.
 - Differential test utilities exist and can invoke an `ELARA_LUA` reference
-  interpreter. The portable conformance smoke fixtures can now compare
-  success/error classes against official Lua, but there is not yet a
-  release-sized differential fixture set.
+  interpreter. The portable conformance smoke fixtures can now compare exact
+  primitive success values and success/error classes against official Lua, but
+  there is not yet a release-sized differential fixture set.
 ### Explicitly Scoped Unsupported Behavior
 
 - Implement coroutine suspension from `coroutine.yield`, yielding resume and
@@ -1579,15 +1582,19 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 coroutine.running exact-value coverage passed:
+Post-M20.4 exact primitive differential support passed:
 
 ```bash
-cargo test -p elara-test conformance_coroutine_fixtures
+cargo test -p elara-test differential
 cargo test -p elara-test conformance_standard_library_fixtures
-cargo test -p elara-test differential_fixtures_match_official_lua_error_classes_when_configured
 cargo clippy -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
+
+No official Lua executable is currently on `PATH` or built under
+`~/Downloads/lua-lua-a5522f0`, so the `ELARA_LUA`-configured fixture comparison
+paths are compile/skip-tested locally rather than executed against a reference
+binary.
 
 `cargo fmt --all -- --check` currently fails on this Windows checkout because
 the repository-wide Rust files are reported with non-Unix newline style while
@@ -1646,7 +1653,7 @@ fixture set beyond the current smoke matrix.
 | Standard library | M18.2 complete | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path searchers in `package.searchers[3]` and `[4]`, `package.searchpath`, `debug.gethook`/`debug.sethook` hook metadata installation and clearing plus call/return/line/count hook callback dispatch, `debug.getinfo` runtime-hook validation and current-thread frame materialization, read-only stack-level `debug.getlocal`, function-target `debug.getlocal` parameter names, stack-level `debug.setlocal` for current-thread Lua frames, and primitive coroutine debug frames for native debug calls, read-only `debug.getupvalue`, `debug.setupvalue` over shared runtime upvalue cells, `debug.upvalueid`, `debug.upvaluejoin`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, pre-userdata `debug.setuservalue`, and `debug.traceback` message handling plus stack-frame formatting are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format` including `%c`/`%p` width and left-adjust modifiers plus `%q` finite float hex literals, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | M20.3 audited | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings; facade docs and `basic_embed` example compile against the safe public surface. |
 | Conformance | Expanded post-M20.4 | Two hundred eighty-two smoke fixtures run through the public API with exact portable primitive return-value checks and error-class checks for failure cases; broader API/unit coverage exists, but release-sized conformance remains a product gap. |
-| Differential testing | Expanded post-M20.4 | Configurable official-Lua runner compares success/error classes with Elara, including the portable conformance smoke fixture set when `ELARA_LUA` is configured. |
+| Differential testing | Expanded post-M20.4 | Configurable official-Lua runner compares exact primitive success values and success/error classes with Elara, including the portable conformance smoke fixture set when `ELARA_LUA` is configured. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | M17 complete; M18.2 debug interaction complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, debug-hook forced interpretation, API JIT selection for environment-independent chunks with debug/runtime-environment chunks kept on the interpreter, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |
 | C API | M19 complete | Current-version `lua.h`, `lauxlib.h`, and `lualib.h` scaffolding is packaged by `elara-capi`; stack-backed `lua_State` top manipulation, push/copy/rotate behavior, primitive type inspection, basic conversions, stack-registered C function calls, protected-call result normalization, Rust callback panic containment, and source-level C module compilation against packaged headers are implemented. |

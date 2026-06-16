@@ -8,6 +8,7 @@ use std::{
 };
 
 use elara_api::Lua;
+use elara_core::{LuaFloat, Value, ValueTag};
 
 /// Environment variable used to locate the official Lua executable.
 pub const OFFICIAL_LUA_ENV: &str = "ELARA_LUA";
@@ -57,6 +58,11 @@ impl LuaRunner {
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
         })
+    }
+
+    /// Runs Lua source and serializes returned primitive values to stdout.
+    pub fn run_source_values(&self, source: &str) -> io::Result<RunOutput> {
+        self.run_source(&official_value_wrapper(source))
     }
 }
 
@@ -140,13 +146,138 @@ impl DifferentialRunner {
         };
         Ok(DifferentialComparison { official, elara })
     }
+
+    /// Compares one source string, serializing successful primitive return values.
+    pub fn compare_source_values(&self, source: &str) -> io::Result<DifferentialComparison> {
+        let official = self.official.run_source_values(source)?;
+        let elara_result = Lua::new().eval(source);
+        let elara = match elara_result {
+            Ok(values) => match serialize_values(&values) {
+                Ok(stdout) => RunOutput {
+                    success: true,
+                    stdout,
+                    stderr: String::new(),
+                },
+                Err(message) => RunOutput {
+                    success: false,
+                    stdout: String::new(),
+                    stderr: message,
+                },
+            },
+            Err(error) => RunOutput {
+                success: false,
+                stdout: String::new(),
+                stderr: format!("{error:?}"),
+            },
+        };
+        Ok(DifferentialComparison { official, elara })
+    }
+}
+
+fn serialize_values(values: &[Value]) -> Result<String, String> {
+    let mut output = format!("{}\n", values.len());
+    for value in values {
+        match value.tag() {
+            ValueTag::Nil => output.push_str("nil\n"),
+            ValueTag::Bool => {
+                let bit = if value
+                    .as_bool()
+                    .expect("boolean tag should expose boolean payload")
+                {
+                    '1'
+                } else {
+                    '0'
+                };
+                output.push_str("bool:");
+                output.push(bit);
+                output.push('\n');
+            }
+            ValueTag::Integer => {
+                output.push_str("int:");
+                output.push_str(
+                    &value
+                        .as_integer()
+                        .expect("integer tag should expose integer payload")
+                        .to_string(),
+                );
+                output.push('\n');
+            }
+            ValueTag::Float => {
+                output.push_str("float:");
+                output.push_str(&format_float(
+                    value
+                        .as_float()
+                        .expect("float tag should expose float payload"),
+                ));
+                output.push('\n');
+            }
+            tag => {
+                return Err(format!("unsupported differential return value tag: {tag:?}"));
+            }
+        }
+    }
+    Ok(output)
+}
+
+fn format_float(value: LuaFloat) -> String {
+    format!("{value:.17}")
+}
+
+fn official_value_wrapper(source: &str) -> String {
+    format!(
+        r#"
+local chunk, load_error = load({}, "elara-differential", "t")
+if not chunk then
+  error(load_error)
+end
+
+local values = table.pack(chunk())
+io.write(tostring(values.n), "\n")
+for index = 1, values.n do
+  local value = values[index]
+  local kind = type(value)
+  if kind == "nil" then
+    io.write("nil\n")
+  elseif kind == "boolean" then
+    io.write("bool:", value and "1" or "0", "\n")
+  elseif kind == "number" then
+    if math.type and math.type(value) == "integer" then
+      io.write("int:", string.format("%d", value), "\n")
+    else
+      io.write("float:", string.format("%.17f", value), "\n")
+    end
+  else
+    error("unsupported differential return value type: " .. kind)
+  end
+end
+"#,
+        lua_long_literal(source)
+    )
+}
+
+fn lua_long_literal(value: &str) -> String {
+    for level in 0..=16 {
+        let delimiter = format!("]{}]", "=".repeat(level));
+        if !value.contains(&delimiter) {
+            return format!(
+                "[{}[{}]{}]",
+                "=".repeat(level),
+                value,
+                "=".repeat(level)
+            );
+        }
+    }
+    panic!("fixture source contains too many long-string delimiters");
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{DifferentialComparison, LuaRunner, RunClass, RunOutput};
+    use super::{
+        DifferentialComparison, LuaRunner, RunClass, RunOutput, lua_long_literal, serialize_values,
+    };
     #[cfg(unix)]
     use super::DifferentialRunner;
+    use elara_core::Value;
 
     #[test]
     fn differential_runner_compares_success_and_error_classes() {
@@ -166,6 +297,26 @@ mod tests {
         assert_eq!(comparison.official.class(), RunClass::Success);
         assert_eq!(comparison.elara.class(), RunClass::Error);
         assert!(!comparison.same_error_class());
+    }
+
+    #[test]
+    fn differential_serializer_formats_primitive_values() {
+        assert_eq!(
+            serialize_values(&[
+                Value::nil(),
+                Value::boolean(true),
+                Value::boolean(false),
+                Value::integer(42),
+                Value::float(1.5),
+            ]),
+            Ok("5\nnil\nbool:1\nbool:0\nint:42\nfloat:1.50000000000000000\n".to_owned())
+        );
+    }
+
+    #[test]
+    fn differential_wrapper_uses_safe_long_literal_delimiters() {
+        assert_eq!(lua_long_literal("return 42"), "[[return 42]]");
+        assert_eq!(lua_long_literal("]]"), "[=[]]]=]");
     }
 
     #[test]
@@ -200,6 +351,23 @@ mod tests {
             .expect("comparison should execute");
 
         assert!(comparison.same_error_class());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn differential_runner_compares_serialized_success_values() {
+        let script = fake_lua_script(
+            "compare_values",
+            "cat >/dev/null\nprintf '1\\nint:42\\n'\nexit 0\n",
+        );
+        let runner = DifferentialRunner::new(LuaRunner::new(&script));
+
+        let comparison = runner
+            .compare_source_values("return 42")
+            .expect("comparison should execute");
+
+        assert_eq!(comparison.elara.stdout, "1\nint:42\n");
+        assert_eq!(comparison.official.stdout, comparison.elara.stdout);
     }
 
     #[cfg(unix)]
