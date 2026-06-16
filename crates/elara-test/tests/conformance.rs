@@ -444,6 +444,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_gsub_balanced.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(97),
+            Value::integer(120),
+            Value::integer(101),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_gsub_limit.lua",
         vec![Value::integer(120), Value::integer(120), Value::integer(51)],
     );
