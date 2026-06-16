@@ -105,12 +105,13 @@ impl Verifier<'_> {
             | Op::LoadInt
             | Op::LoadFloat
             | Op::NewTable
-            | Op::Len
-            | Op::Unm
-            | Op::BNot
             | Op::VarargTable
             | Op::Close
             | Op::Tbc => self.check_register(offset, instr.a()),
+            Op::Len | Op::Unm | Op::BNot | Op::Not => {
+                self.check_register(offset, instr.a());
+                self.check_register(offset, instr.b());
+            }
             Op::Vararg => self.check_vararg(offset, instr),
             Op::Closure => {
                 self.check_register(offset, instr.a());

@@ -136,6 +136,8 @@ pub enum Op {
     Yield,
     /// Add a register and an unsigned integer immediate.
     AddInt,
+    /// Boolean negation.
+    Not,
 }
 
 impl Op {
@@ -197,6 +199,7 @@ impl Op {
             51 => Some(Self::Concat),
             52 => Some(Self::Yield),
             53 => Some(Self::AddInt),
+            54 => Some(Self::Not),
             _ => None,
         }
     }
@@ -259,6 +262,7 @@ impl Op {
             Self::Concat => "CONCAT",
             Self::Yield => "YIELD",
             Self::AddInt => "ADD_INT",
+            Self::Not => "NOT",
         }
     }
 }
@@ -380,7 +384,8 @@ mod tests {
         assert_eq!(Op::from_byte(51), Some(Op::Concat));
         assert_eq!(Op::from_byte(52), Some(Op::Yield));
         assert_eq!(Op::from_byte(53), Some(Op::AddInt));
-        assert_eq!(Op::from_byte(54), None);
+        assert_eq!(Op::from_byte(54), Some(Op::Not));
+        assert_eq!(Op::from_byte(55), None);
     }
 
     #[test]
@@ -390,6 +395,7 @@ mod tests {
         assert_eq!(Op::Yield.mnemonic(), "YIELD");
         assert_eq!(Op::VarargTable.mnemonic(), "VARARG_TABLE");
         assert_eq!(Op::AddInt.mnemonic(), "ADD_INT");
+        assert_eq!(Op::Not.mnemonic(), "NOT");
     }
 
     #[test]

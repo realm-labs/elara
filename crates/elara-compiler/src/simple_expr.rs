@@ -631,13 +631,7 @@ impl SimpleCompiler {
             UnaryOp::Neg => Op::Unm,
             UnaryOp::BitNot => Op::BNot,
             UnaryOp::Len => Op::Len,
-            UnaryOp::Not => {
-                self.diagnostics.push(
-                    Diagnostic::error("unsupported unary operator in simple expression compiler")
-                        .with_primary_span(expr.span()),
-                );
-                return value;
-            }
+            UnaryOp::Not => Op::Not,
         };
         self.builder.emit_abc(bytecode_op, value, value.into(), 0);
         value

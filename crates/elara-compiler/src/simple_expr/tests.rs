@@ -43,6 +43,18 @@ fn simple_expr_compiles_unary_arithmetic() {
 }
 
 #[test]
+fn simple_expr_compiles_unary_not() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "return not nil");
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_NIL      A=0 B=0 C=0\n0001 NOT           A=0 B=0 C=0\n0002 RETURN        A=0 B=1 C=0\n",
+    );
+}
+
+#[test]
 fn simple_expr_compiles_bitwise_operations() {
     let compiled = compile_simple_chunk(SourceId::new(0), "return ~(1 & 3) | (8 >> 1)");
     assert_eq!(compiled.diagnostics, Vec::new());

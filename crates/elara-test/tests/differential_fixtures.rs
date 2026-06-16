@@ -7,6 +7,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "language/control_flow.lua",
     "language/bitwise.lua",
     "language/comparisons.lua",
+    "language/not_truthiness.lua",
     "language/varargs.lua",
     "language/table_fields.lua",
     "language/closures.lua",

@@ -1653,6 +1653,10 @@ fn execute_instruction(
             context.natives,
             context.globals,
         )?,
+        Op::Not => {
+            let value = register(thread, instr.b() as usize)?;
+            set_register(thread, instr.a().into(), Value::boolean(!is_truthy(value)))?;
+        }
         Op::Eq | Op::Lt | Op::Le => {
             execute_comparison(
                 thread,

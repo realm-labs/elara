@@ -364,6 +364,7 @@ Tables:
 Arithmetic:
   ADD, SUB, MUL, DIV, IDIV, MOD, POW, UNM
   BAND, BOR, BXOR, SHL, SHR, BNOT
+  NOT
 
 Control flow:
   JMP, TEST, TEST_SET, EQ, LT, LE

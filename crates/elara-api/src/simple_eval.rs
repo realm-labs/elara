@@ -79,6 +79,24 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_returns_not_from_source() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "return not nil, not false, not true, not 0, not '', not (1 == 2)"
+            ),
+            Ok(vec![
+                Value::boolean(true),
+                Value::boolean(true),
+                Value::boolean(false),
+                Value::boolean(false),
+                Value::boolean(false),
+                Value::boolean(true),
+            ])
+        );
+    }
+
+    #[test]
     fn eval_simple_returns_comparisons_from_source() {
         assert_eq!(
             eval_simple_source(
