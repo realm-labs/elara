@@ -97,6 +97,24 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_returns_logical_operators_from_source() {
+        assert_eq!(
+            eval_simple_source(
+                SourceId::new(0),
+                "local calls = 0\nlocal function bump()\n  calls = calls + 1\n  return 99\nend\nreturn false and bump(), true or bump(), nil or 7, 0 and 8, nil and bump(), calls",
+            ),
+            Ok(vec![
+                Value::boolean(false),
+                Value::boolean(true),
+                Value::integer(7),
+                Value::integer(8),
+                Value::nil(),
+                Value::integer(0),
+            ])
+        );
+    }
+
+    #[test]
     fn eval_simple_returns_comparisons_from_source() {
         assert_eq!(
             eval_simple_source(

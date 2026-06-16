@@ -644,6 +644,10 @@ impl SimpleCompiler {
         left: &Expr<'_>,
         right: &Expr<'_>,
     ) -> u16 {
+        if matches!(op, BinaryOp::And | BinaryOp::Or) {
+            return self.compile_logical(op, left, right);
+        }
+
         if op == BinaryOp::Add
             && let Some(immediate) = add_int_immediate(right)
         {

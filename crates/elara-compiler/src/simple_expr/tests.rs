@@ -55,6 +55,23 @@ fn simple_expr_compiles_unary_not() {
 }
 
 #[test]
+fn simple_expr_compiles_logical_short_circuit() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "return false and 1, true or 2");
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+    let disassembly = disassemble(&proto);
+
+    assert!(
+        disassembly.contains("TEST          A=0 B=0 C=0"),
+        "`and` should skip the right operand when the left value is falsey"
+    );
+    assert!(
+        disassembly.contains("TEST          A=2 B=1 C=0"),
+        "`or` should skip the right operand when the left value is truthy"
+    );
+}
+
+#[test]
 fn simple_expr_compiles_bitwise_operations() {
     let compiled = compile_simple_chunk(SourceId::new(0), "return ~(1 & 3) | (8 >> 1)");
     assert_eq!(compiled.diagnostics, Vec::new());

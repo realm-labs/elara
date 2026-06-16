@@ -187,7 +187,6 @@ impl Verifier<'_> {
             }
             Op::Test => {
                 self.check_register(offset, instr.a());
-                self.check_register(offset, instr.b());
             }
             Op::Call | Op::TailCall => self.check_call(offset, instr),
             Op::Return | Op::Yield => self.check_return(offset, instr),
@@ -316,6 +315,17 @@ mod tests {
         builder.emit_abx(Op::LoadK, 0, u64::from(constant));
         builder.emit_abc(Op::Add, 1, 0, 0);
         builder.emit_abc(Op::Return, 1, 1, 0);
+        let proto = builder.finish();
+
+        assert_eq!(verify_proto(&proto), Ok(()));
+    }
+
+    #[test]
+    fn verifier_treats_test_b_as_condition_flag() {
+        let mut builder = ProtoBuilder::new().with_signature(1, 0, false);
+        builder.emit_abc(Op::LoadBool, 0, 1, 0);
+        builder.emit_abc(Op::Test, 0, 1, 0);
+        builder.emit_abc(Op::Return, 0, 1, 0);
         let proto = builder.finish();
 
         assert_eq!(verify_proto(&proto), Ok(()));

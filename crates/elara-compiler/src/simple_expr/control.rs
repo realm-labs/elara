@@ -2,11 +2,32 @@
 
 use elara_bytecode::Op;
 use elara_core::{Diagnostic, Span};
-use elara_syntax::{Block, Expr, ExprKind, IfClause};
+use elara_syntax::{BinaryOp, Block, Expr, ExprKind, IfClause};
 
 use super::SimpleCompiler;
 
 impl SimpleCompiler {
+    pub(super) fn compile_logical(
+        &mut self,
+        op: BinaryOp,
+        left: &Expr<'_>,
+        right: &Expr<'_>,
+    ) -> u16 {
+        let result = self.compile_expr(left);
+        let skip_right_when_truthy = match op {
+            BinaryOp::And => 0,
+            BinaryOp::Or => 1,
+            _ => unreachable!("compile_logical only handles logical operators"),
+        };
+        self.builder
+            .emit_abc(Op::Test, result, skip_right_when_truthy, 0);
+        let done = self.emit_jump_placeholder();
+        let right = self.compile_expr(right);
+        self.emit_move(result, right);
+        self.patch_jump_to_here(done);
+        result
+    }
+
     pub(super) fn compile_if(&mut self, clauses: &[IfClause<'_>], else_block: Option<&Block<'_>>) {
         let mut end_jumps = Vec::new();
 
