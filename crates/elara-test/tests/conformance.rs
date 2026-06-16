@@ -886,6 +886,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/package_require_nil_loader.lua",
+        vec![Value::boolean(true), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/package_preload_searcher.lua",
         vec![Value::integer(42)],
     );
