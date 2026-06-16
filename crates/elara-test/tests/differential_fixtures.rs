@@ -94,6 +94,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/math_ult_false.lua",
     "stdlib/math_ult_true.lua",
     "stdlib/math_random.lua",
+    "stdlib/math_random_modes.lua",
     "stdlib/table_string_utf8.lua",
     "stdlib/table_mutation.lua",
     "stdlib/table_insert_append.lua",

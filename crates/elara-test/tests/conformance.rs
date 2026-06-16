@@ -540,6 +540,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(1), Value::integer(7), Value::integer(9)],
     );
     assert_success_fixture(
+        "stdlib/math_random_modes.lua",
+        vec![Value::integer(102), Value::integer(105), Value::integer(114)],
+    );
+    assert_success_fixture(
         "stdlib/table_string_utf8.lua",
         vec![
             Value::integer(1),
