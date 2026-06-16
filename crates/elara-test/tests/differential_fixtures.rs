@@ -277,6 +277,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "errors/string_format_unsupported.lua",
     "errors/string_format_upper_f.lua",
     "errors/string_pattern_unsupported.lua",
+    "errors/string_gsub_invalid_replacement_escape.lua",
     "errors/coroutine_yield_outside.lua",
     "errors/debug_getinfo_invalid_option.lua",
     "errors/coroutine_close_main.lua",

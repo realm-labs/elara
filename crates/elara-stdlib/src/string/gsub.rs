@@ -152,9 +152,7 @@ fn append_string_replacement(
             continue;
         }
         let Some(next) = replacement.get(index + 1).copied() else {
-            output.push(byte);
-            index += 1;
-            continue;
+            return Err(invalid_replacement_escape());
         };
         match next {
             b'%' => output.push(b'%'),
@@ -166,11 +164,18 @@ fn append_string_replacement(
                 };
                 append_capture_replacement(output, subject, capture);
             }
-            _ => output.push(next),
+            _ => return Err(invalid_replacement_escape()),
         }
         index += 2;
     }
     Ok(())
+}
+
+fn invalid_replacement_escape() -> NativeError {
+    NativeErrorKind::RuntimeError {
+        message: "invalid use of '%' in replacement string".into(),
+    }
+    .into()
 }
 
 fn append_table_replacement(
@@ -624,6 +629,26 @@ mod tests {
             Some(b"12o 56o".as_slice())
         );
         assert_eq!(values[1], Value::integer(4));
+    }
+
+    #[test]
+    fn string_gsub_reports_invalid_replacement_escapes() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abc");
+        let pattern = runtime.push_string(b"a");
+        let invalid = runtime.push_string(b"%z");
+        let trailing = runtime.push_string(b"%");
+
+        for replacement in [invalid, trailing] {
+            assert_eq!(
+                string_gsub(&mut runtime, &[subject, pattern, replacement])
+                    .expect_err("invalid replacement escape should fail")
+                    .kind(),
+                &NativeErrorKind::RuntimeError {
+                    message: "invalid use of '%' in replacement string".into()
+                }
+            );
+        }
     }
 
     #[test]
