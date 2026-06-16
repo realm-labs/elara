@@ -180,6 +180,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/math_randomseed_errors.lua",
     "stdlib/math_number_argument_errors.lua",
     "stdlib/math_numeric_function_errors.lua",
+    "stdlib/math_more_numeric_function_errors.lua",
     "stdlib/table_string_utf8.lua",
     "stdlib/table_mutation.lua",
     "stdlib/table_insert_append.lua",
