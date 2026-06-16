@@ -181,6 +181,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_remove_default.lua",
     "stdlib/table_remove_first.lua",
     "stdlib/table_remove_position.lua",
+    "stdlib/table_insert_remove_errors.lua",
     "stdlib/table_move_overlap.lua",
     "stdlib/table_move_destination.lua",
     "stdlib/table_move_empty.lua",
