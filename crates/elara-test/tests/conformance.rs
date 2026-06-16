@@ -619,23 +619,45 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/string_gmatch_positions.lua",
-        vec![Value::integer(14)],
+        vec![
+            Value::integer(1),
+            Value::integer(3),
+            Value::integer(4),
+            Value::integer(6),
+        ],
     );
     assert_success_fixture(
         "stdlib/string_gmatch_captures.lua",
-        vec![Value::integer(5)],
+        vec![
+            Value::integer(97),
+            Value::integer(1),
+            Value::integer(49),
+            Value::integer(98),
+            Value::integer(2),
+            Value::integer(50),
+        ],
     );
     assert_success_fixture(
         "stdlib/string_gmatch_callable.lua",
         vec![
             Value::integer(1),
+            Value::integer(49),
             Value::integer(2),
+            Value::integer(50),
             Value::integer(3),
+            Value::integer(51),
         ],
     );
     assert_success_fixture(
         "stdlib/string_gmatch_start_anchor.lua",
-        vec![Value::integer(188)],
+        vec![
+            Value::integer(2),
+            Value::integer(94),
+            Value::integer(98),
+            Value::integer(2),
+            Value::integer(94),
+            Value::integer(99),
+        ],
     );
     assert_success_fixture(
         "stdlib/string_gmatch_empty_matches.lua",

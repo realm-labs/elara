@@ -1,7 +1,8 @@
-local total = 0
+local values = {}
 
 for start_pos, end_pos in string.gmatch("ab cd", "()%a+()") do
-  total = total + start_pos + end_pos
+  values[#values + 1] = start_pos
+  values[#values + 1] = end_pos
 end
 
-return total
+return table.unpack(values)

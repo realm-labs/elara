@@ -4,4 +4,7 @@ local first = iterator()
 local second = iterator()
 local third = iterator()
 
-return string.len(first), string.len(second), string.len(third)
+return
+  string.len(first), string.byte(first, 1),
+  string.len(second), string.byte(second, 1),
+  string.len(third), string.byte(third, 1)
