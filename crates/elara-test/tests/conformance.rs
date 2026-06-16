@@ -263,6 +263,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(5), Value::integer(7)],
     );
     assert_success_fixture(
+        "stdlib/string_find_balanced.lua",
+        vec![Value::integer(2), Value::integer(8)],
+    );
+    assert_success_fixture(
         "stdlib/string_find_missing.lua",
         vec![Value::boolean(true)],
     );
