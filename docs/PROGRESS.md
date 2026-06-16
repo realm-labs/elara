@@ -108,14 +108,15 @@ The API layer can build a primitive `RuntimeEnvironment` from implemented
 stdlib native specs, including shared reseedable math RNG state and math
 constants `pi`, `huge`, `maxinteger`, and `mininteger`, and simple source
 evaluation can run with a selected stdlib profile for supported native paths.
-Base stdlib natives `assert`, `error`, `getmetatable`, `ipairs`, `next`,
-metamethod-backed `pairs`, `pcall`, `print`, `rawequal`, `rawget`, `rawlen`,
-`rawset`, numeric and count forms of `select`, `setmetatable`, `tonumber`,
-`tostring`, `type`, and `xpcall` are executable, and API stdlib profile
-registration now installs base natives plus the `_G` global-table alias and
-`_VERSION` string as direct globals while keeping module libraries table-shaped.
-Native calls now receive a
-`NativeContext` that can allocate and inspect runtime-owned short strings,
+Base stdlib natives `assert`, safe unsupported `collectgarbage`, safe
+unsupported `dofile`, `error`, `getmetatable`, `ipairs`, safe unsupported
+`load`, safe unsupported `loadfile`, `next`, metamethod-backed `pairs`,
+`pcall`, `print`, `rawequal`, `rawget`, `rawlen`, `rawset`, numeric and count
+forms of `select`, `setmetatable`, `tonumber`, `tostring`, `type`, validating
+no-op `warn`, and `xpcall` are executable, and API stdlib profile registration
+now installs base natives plus the `_G` global-table alias and `_VERSION` string
+as direct globals while keeping module libraries table-shaped. Native calls now
+receive a `NativeContext` that can allocate and inspect runtime-owned short strings,
 allocate runtime-owned tables, read/write raw runtime table entries, get/set
 runtime table metatable links, traverse raw runtime table entries, write host
 output for `print`, and return registered native helper functions for iterator
@@ -1410,6 +1411,9 @@ Delivered:
   `coroutine.running`, and created-coroutine lifecycle status coverage.
 - The base-library conformance and differential smoke matrix now covers `_G`
   identity and the current-version `_VERSION` string.
+- The base-library conformance smoke matrix now covers the registered
+  unsupported dynamic-loading stubs, unsupported `collectgarbage`, and
+  validating no-op `warn`.
 - Named vararg tables now populate Lua 5.5's `n` count field, and the existing
   anonymous/named vararg conformance fixture asserts the count alongside the
   captured argument values.
@@ -1496,7 +1500,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains two hundred eighty-four smoke fixtures across
+- `tests/conformance` currently contains two hundred eighty-five smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
@@ -1514,11 +1518,11 @@ Delivered:
 - File-handle-backed `io` behavior is intentionally represented by safe
   unsupported stubs until runtime file handles are implemented.
 - Dynamic Lua file loading and dynamic C library loading remain unsupported;
-  `load`, `loadfile`, `dofile`, `package.loadlib`, and C searchers report or
-  remain scoped to explicit unsupported-loader behavior until dynamic chunk and
-  host file loading are implemented.
-- Base-library `collectgarbage` and `warn` are not yet registered in runtime
-  stdlib profiles.
+  `load`, `loadfile`, `dofile`, `package.loadlib`, and C searchers report
+  explicit unsupported-loader behavior until dynamic chunk and host file
+  loading are implemented.
+- Base-library `collectgarbage` is registered as an explicit unsupported stub;
+  `warn` validates string arguments but does not emit host warnings yet.
 - `os.exit` validates arguments but does not terminate the host process.
 - C API source compatibility is tested for core stack/call usage, but binary
   compatibility with existing Lua modules is not promised.
@@ -1592,10 +1596,9 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
-cargo test -p elara-interp initial_globals_can_alias_global_table_and_seed_strings
+cargo test -p elara-stdlib base_ --lib
 cargo test -p elara-test conformance_standard_library_fixtures
-cargo test -p elara-test differential_fixtures
-cargo clippy -p elara-interp -p elara-api -p elara-test --all-targets -- -D warnings
+cargo clippy -p elara-stdlib -p elara-api -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 

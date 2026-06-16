@@ -10,12 +10,19 @@ use crate::{
 /// Executable base-library functions currently implemented.
 pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "assert"), base_assert),
+    NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::Base, "collectgarbage"),
+        base_collectgarbage,
+    ),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "dofile"), base_dofile),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "error"), base_error),
     NativeFunctionSpec::new(
         FunctionSpec::new(StdLib::Base, "getmetatable"),
         base_getmetatable,
     ),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "ipairs"), base_ipairs),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "load"), base_load),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "loadfile"), base_loadfile),
     BASE_NEXT_NATIVE,
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "pairs"), base_pairs),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "pcall"), base_pcall),
@@ -32,8 +39,12 @@ pub const BASE_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "tonumber"), base_tonumber),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "tostring"), base_tostring),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "type"), base_type),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "warn"), base_warn),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "xpcall"), base_xpcall),
 ];
+
+const UNSUPPORTED_DYNAMIC_LOADING: &str = "dynamic Lua loading is not supported";
+const UNSUPPORTED_GC_CONTROL: &str = "collectgarbage is not supported";
 
 /// Hidden helper used by `ipairs`.
 pub const BASE_IPAIRS_AUX_NATIVE: NativeFunctionSpec = NativeFunctionSpec::new(
@@ -57,6 +68,19 @@ fn base_assert(
     } else {
         Err(NativeErrorKind::LuaError.into())
     }
+}
+
+fn base_collectgarbage(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    validate_optional_string(runtime, args, 1)?;
+    Err(NativeError::lua_error(UNSUPPORTED_GC_CONTROL))
+}
+
+fn base_dofile(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    validate_optional_string(runtime, args, 1)?;
+    Err(NativeError::lua_error(UNSUPPORTED_DYNAMIC_LOADING))
 }
 
 fn base_error(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -126,6 +150,31 @@ fn base_ipairs_aux(
     } else {
         Ok(vec![Value::integer(index), value])
     }
+}
+
+fn base_load(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let chunk = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    if runtime.string_bytes(chunk).is_none() && !is_function(chunk) {
+        return Err(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "string or function",
+        }
+        .into());
+    }
+    validate_optional_string(runtime, args, 2)?;
+    validate_optional_mode(runtime, args, 3)?;
+    unsupported_loading_result(runtime)
+}
+
+fn base_loadfile(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    validate_optional_string(runtime, args, 1)?;
+    validate_optional_mode(runtime, args, 2)?;
+    unsupported_loading_result(runtime)
 }
 
 fn base_next(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -375,8 +424,28 @@ fn base_type(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
     ])
 }
 
+fn base_warn(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    for index in 1..=args.len().max(1) {
+        let value = args
+            .get(index - 1)
+            .ok_or(NativeErrorKind::MissingArgument { index })?;
+        if runtime.string_bytes(*value).is_none() {
+            return Err(NativeErrorKind::TypeError {
+                index,
+                expected: "string",
+            }
+            .into());
+        }
+    }
+    Ok(Vec::new())
+}
+
 fn is_truthy(value: Value) -> bool {
     !value.is_nil() && value.as_bool() != Some(false)
+}
+
+fn is_function(value: Value) -> bool {
+    value.is_closure() || value.as_native_function_index().is_some()
 }
 
 fn type_name(value: Value) -> &'static str {
@@ -429,6 +498,50 @@ fn printable_bytes(runtime: &dyn NativeRuntime, value: Value) -> Vec<u8> {
     runtime
         .string_bytes(value)
         .map_or_else(|| tostring_bytes(value).into_bytes(), <[u8]>::to_vec)
+}
+
+fn unsupported_loading_result(runtime: &mut dyn NativeRuntime) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![
+        Value::nil(),
+        runtime.intern_string(UNSUPPORTED_DYNAMIC_LOADING.as_bytes())?,
+    ])
+}
+
+fn validate_optional_string(
+    runtime: &dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<(), NativeError> {
+    let Some(value) = args.get(index - 1).filter(|value| !value.is_nil()) else {
+        return Ok(());
+    };
+    if runtime.string_bytes(*value).is_some() {
+        Ok(())
+    } else {
+        Err(NativeErrorKind::TypeError {
+            index,
+            expected: "string",
+        }
+        .into())
+    }
+}
+
+fn validate_optional_mode(
+    runtime: &dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<(), NativeError> {
+    let Some(value) = args.get(index - 1).filter(|value| !value.is_nil()) else {
+        return Ok(());
+    };
+    let mode = runtime.string_bytes(*value).ok_or(NativeErrorKind::TypeError {
+        index,
+        expected: "string",
+    })?;
+    if mode.contains(&b'B') {
+        return Err(NativeError::lua_error("invalid mode"));
+    }
+    Ok(())
 }
 
 fn error_message(runtime: &dyn NativeRuntime, value: Value) -> String {

@@ -432,9 +432,13 @@ where
 /// Essential base library function descriptors.
 pub const BASE_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Base, "assert"),
+    FunctionSpec::new(StdLib::Base, "collectgarbage"),
+    FunctionSpec::new(StdLib::Base, "dofile"),
     FunctionSpec::new(StdLib::Base, "error"),
     FunctionSpec::new(StdLib::Base, "getmetatable"),
     FunctionSpec::new(StdLib::Base, "ipairs"),
+    FunctionSpec::new(StdLib::Base, "load"),
+    FunctionSpec::new(StdLib::Base, "loadfile"),
     FunctionSpec::new(StdLib::Base, "next"),
     FunctionSpec::new(StdLib::Base, "pairs"),
     FunctionSpec::new(StdLib::Base, "pcall"),
@@ -448,6 +452,7 @@ pub const BASE_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::Base, "tonumber"),
     FunctionSpec::new(StdLib::Base, "tostring"),
     FunctionSpec::new(StdLib::Base, "type"),
+    FunctionSpec::new(StdLib::Base, "warn"),
     FunctionSpec::new(StdLib::Base, "xpcall"),
 ];
 

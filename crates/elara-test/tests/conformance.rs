@@ -165,6 +165,20 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_unsupported_surface.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(115),
+            Value::boolean(true),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_rawlen.lua",
         vec![Value::integer(3), Value::integer(3)],
     );

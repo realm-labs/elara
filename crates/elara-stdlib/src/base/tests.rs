@@ -1,10 +1,11 @@
 use elara_core::Value;
 
 use super::{
-    BASE_NATIVE_FUNCTIONS, base_assert, base_error, base_getmetatable, base_ipairs,
-    base_ipairs_aux, base_next, base_pairs, base_pcall, base_print, base_rawequal, base_rawget,
-    base_rawlen, base_rawset, base_select, base_setmetatable, base_tonumber, base_tostring,
-    base_type, base_xpcall,
+    BASE_NATIVE_FUNCTIONS, base_assert, base_collectgarbage, base_dofile, base_error,
+    base_getmetatable, base_ipairs, base_ipairs_aux, base_load, base_loadfile, base_next,
+    base_pairs, base_pcall, base_print, base_rawequal, base_rawget, base_rawlen, base_rawset,
+    base_select, base_setmetatable, base_tonumber, base_tostring, base_type, base_warn,
+    base_xpcall,
 };
 use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -211,9 +212,13 @@ fn base_native_specs_cover_executable_subset() {
         .collect();
 
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "assert")));
+    assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "collectgarbage")));
+    assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "dofile")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "error")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "getmetatable")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "ipairs")));
+    assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "load")));
+    assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "loadfile")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "next")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "pairs")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "pcall")));
@@ -227,7 +232,111 @@ fn base_native_specs_cover_executable_subset() {
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "tonumber")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "tostring")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "type")));
+    assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "warn")));
     assert!(descriptors.contains(&FunctionSpec::new(StdLib::Base, "xpcall")));
+}
+
+#[test]
+fn base_dynamic_loading_functions_report_unsupported_results() {
+    let mut runtime = TestRuntime::default();
+    let chunk = runtime.push_string(b"return 42");
+    let filename = runtime.push_string(b"chunk.lua");
+
+    let values = call_with_runtime(&mut runtime, base_load, &[chunk]);
+    assert_eq!(values[0], Value::nil());
+    assert_eq!(
+        runtime.short_string_bytes(values[1]),
+        Some(b"dynamic Lua loading is not supported".as_slice())
+    );
+
+    let values = call_with_runtime(&mut runtime, base_loadfile, &[filename]);
+    assert_eq!(values[0], Value::nil());
+    assert_eq!(
+        runtime.short_string_bytes(values[1]),
+        Some(b"dynamic Lua loading is not supported".as_slice())
+    );
+
+    let error = base_dofile(&mut runtime, &[filename]).expect_err("dofile should fail");
+    assert_eq!(error.kind(), &NativeErrorKind::LuaError);
+    assert_eq!(error.message(), "dynamic Lua loading is not supported");
+}
+
+#[test]
+fn base_load_validates_chunk_and_mode_arguments() {
+    assert_eq!(
+        base_load(&mut TestRuntime::default(), &[])
+            .expect_err("chunk is required")
+            .kind(),
+        &NativeErrorKind::MissingArgument { index: 1 }
+    );
+    assert_eq!(
+        base_load(&mut TestRuntime::default(), &[Value::integer(1)])
+            .expect_err("chunk should be string or function")
+            .kind(),
+        &NativeErrorKind::TypeError {
+            index: 1,
+            expected: "string or function",
+        }
+    );
+
+    let mut runtime = TestRuntime::default();
+    let chunk = runtime.push_string(b"return 42");
+    assert_eq!(
+        base_load(
+            &mut runtime,
+            &[chunk, Value::nil(), Value::boolean(false)]
+        )
+        .expect_err("mode should be string")
+        .kind(),
+        &NativeErrorKind::TypeError {
+            index: 3,
+            expected: "string",
+        }
+    );
+    let binary_mode = runtime.push_string(b"B");
+    let error = base_load(&mut runtime, &[chunk, Value::nil(), binary_mode])
+        .expect_err("binary mode should fail");
+    assert_eq!(error.kind(), &NativeErrorKind::LuaError);
+    assert_eq!(error.message(), "invalid mode");
+}
+
+#[test]
+fn base_collectgarbage_reports_unsupported_gc_control() {
+    let mut runtime = TestRuntime::default();
+    let option = runtime.push_string(b"collect");
+
+    let error =
+        base_collectgarbage(&mut runtime, &[option]).expect_err("collectgarbage should fail");
+
+    assert_eq!(error.kind(), &NativeErrorKind::LuaError);
+    assert_eq!(error.message(), "collectgarbage is not supported");
+}
+
+#[test]
+fn base_warn_validates_strings_and_returns_no_values() {
+    let mut runtime = TestRuntime::default();
+    let first = runtime.push_string(b"first");
+    let second = runtime.push_string(b"second");
+
+    assert_eq!(
+        base_warn(&mut runtime, &[first, second]).expect("warn should pass"),
+        Vec::<Value>::new()
+    );
+    assert_eq!(
+        base_warn(&mut runtime, &[])
+            .expect_err("warn needs an argument")
+            .kind(),
+        &NativeErrorKind::MissingArgument { index: 1 }
+    );
+    assert_eq!(
+        base_warn(&mut runtime, &[first, Value::integer(1)])
+            .expect_err("warn arguments must be strings")
+            .kind(),
+        &NativeErrorKind::TypeError {
+            index: 2,
+            expected: "string",
+        }
+    );
 }
 
 #[test]
