@@ -1635,6 +1635,14 @@ fn conformance_coroutine_fixtures() {
     );
     assert_success_fixture("coroutine/close.lua", vec![Value::boolean(true)]);
     assert_success_fixture(
+        "coroutine/isyieldable.lua",
+        vec![
+            Value::boolean(false),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "coroutine/running.lua",
         vec![Value::integer(116), Value::boolean(true)],
     );

@@ -1408,7 +1408,8 @@ Delivered:
   attempted main-coroutine close, and invalid `debug.getinfo` option strings.
 - The conformance coroutine smoke matrix now also includes wrap, resume success
   and returned values, runnable coroutine close, current-thread
-  `coroutine.running`, and created-coroutine lifecycle status coverage.
+  `coroutine.running`, main-thread and created-coroutine `isyieldable`, and
+  created-coroutine lifecycle status coverage.
 - The base-library conformance and differential smoke matrix now covers `_G`
   identity and the current-version `_VERSION` string.
 - The base-library conformance smoke matrix now covers the registered
@@ -1503,7 +1504,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains two hundred eighty-six smoke fixtures across
+- `tests/conformance` currently contains two hundred eighty-seven smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
@@ -1599,10 +1600,9 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
-cargo test -p elara-stdlib base_ --lib
-cargo test -p elara-test conformance_standard_library_fixtures
+cargo test -p elara-test conformance_coroutine_fixtures
 cargo test -p elara-test differential_fixtures
-cargo clippy -p elara-stdlib -p elara-api -p elara-test --all-targets -- -D warnings
+cargo clippy -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 
