@@ -2031,6 +2031,23 @@ fn conformance_coroutine_fixtures() {
         "coroutine/running.lua",
         vec![Value::integer(116), Value::boolean(true)],
     );
+    assert_success_fixture(
+        "coroutine/argument_errors.lua",
+        vec![
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+        ],
+    );
 }
 
 fn assert_success_fixture(path: &str, expected: Vec<Value>) {

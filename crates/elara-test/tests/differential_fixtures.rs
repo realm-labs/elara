@@ -303,6 +303,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "coroutine/close.lua",
     "coroutine/isyieldable.lua",
     "coroutine/running.lua",
+    "coroutine/argument_errors.lua",
     "errors/non_callable.lua",
     "errors/base_error.lua",
     "errors/syntax_unclosed.lua",
