@@ -1418,6 +1418,9 @@ Delivered:
 - The base-library conformance and differential smoke matrix now covers
   portable `load`/`loadfile`/`dofile` error result shapes without depending on
   host-specific diagnostic text.
+- The debug-library conformance and differential smoke matrix now covers
+  `debug.sethook`/`debug.gethook` metadata round-tripping without depending on
+  callback execution.
 - Named vararg tables now populate Lua 5.5's `n` count field, and the existing
   anonymous/named vararg conformance fixture asserts the count alongside the
   captured argument values.
@@ -1504,7 +1507,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains two hundred eighty-seven smoke fixtures across
+- `tests/conformance` currently contains two hundred eighty-eight smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
@@ -1600,7 +1603,7 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
-cargo test -p elara-test conformance_coroutine_fixtures
+cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures
 cargo clippy -p elara-test --all-targets -- -D warnings
 git diff --check
