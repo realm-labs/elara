@@ -1350,8 +1350,8 @@ Delivered:
   explicit-bound, explicit, and long-string table concatenation,
   table unpack range, default-bound, nil-preserving, and empty-range helpers, and default numeric/string plus
   single-element, long-string, and comparator sorting helpers,
-  UTF-8 character construction, empty construction, and maximum codepoint
-  construction, iterator/offset helpers,
+  UTF-8 character construction, empty construction, maximum codepoint
+  construction, and upper-bound character errors, iterator/offset helpers,
   multibyte UTF-8 length/codepoint/offset helpers, ranged and multibyte
   ranged UTF-8 codepoint results, empty UTF-8 codepoint
   ranges, missing UTF-8 offset results, multibyte backward and containing
@@ -1469,6 +1469,8 @@ Delivered:
 - The utf8-library conformance and differential smoke matrix now covers
   `utf8.char`, `utf8.codepoint`, `utf8.len`, and `utf8.offset` argument error
   result shapes.
+- The utf8-library conformance and differential smoke matrix now covers
+  `utf8.char` upper-bound and later-argument range error result shapes.
 - The utf8-library conformance and differential smoke matrix now covers
   `utf8.codepoint`, `utf8.len`, and `utf8.offset` bounds error result shapes.
 - The utf8-library conformance and differential smoke matrix now covers
@@ -1592,7 +1594,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains three hundred twenty-five smoke fixtures across
+- `tests/conformance` currently contains three hundred twenty-six smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,

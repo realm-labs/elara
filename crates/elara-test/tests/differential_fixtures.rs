@@ -243,6 +243,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/utf8_len_invalid.lua",
     "stdlib/utf8_len_lax.lua",
     "stdlib/utf8_argument_errors.lua",
+    "stdlib/utf8_char_range_errors.lua",
     "stdlib/utf8_bounds_errors.lua",
     "stdlib/utf8_codes_errors.lua",
     "stdlib/utf8_invalid_errors.lua",
