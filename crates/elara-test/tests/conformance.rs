@@ -532,6 +532,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(14)],
     );
     assert_success_fixture(
+        "stdlib/string_gmatch_captures.lua",
+        vec![Value::integer(5)],
+    );
+    assert_success_fixture(
         "stdlib/string_gmatch_callable.lua",
         vec![
             Value::integer(1),
