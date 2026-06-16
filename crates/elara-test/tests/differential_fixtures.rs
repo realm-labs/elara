@@ -76,6 +76,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_gsub_literal.lua",
     "stdlib/string_gsub_dot_wildcard.lua",
     "stdlib/string_gsub_start_anchor.lua",
+    "stdlib/string_gsub_percent_class.lua",
     "stdlib/string_gsub_limit.lua",
     "stdlib/string_gsub_missing.lua",
     "stdlib/string_gsub_table_replacement.lua",
