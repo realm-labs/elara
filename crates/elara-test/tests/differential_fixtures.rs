@@ -58,6 +58,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_position_captures.lua",
     "stdlib/string_match_literal.lua",
     "stdlib/string_match_dot_wildcard.lua",
+    "stdlib/string_match_percent_class.lua",
     "stdlib/string_match_bracket_class.lua",
     "stdlib/string_match_negated_bracket_class.lua",
     "stdlib/string_match_quantifiers.lua",
