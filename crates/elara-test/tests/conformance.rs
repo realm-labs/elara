@@ -1576,6 +1576,7 @@ fn conformance_error_fixtures() {
     assert_error_fixture("errors/debug_uservalue.lua");
     assert_error_fixture("errors/string_format_unsupported.lua");
     assert_error_fixture("errors/os_exit_unsupported.lua");
+    assert_error_fixture("errors/coroutine_yield_outside.lua");
 }
 
 #[test]
