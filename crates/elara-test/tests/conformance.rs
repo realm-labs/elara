@@ -379,6 +379,17 @@ fn conformance_standard_library_fixtures() {
         "stdlib/string_match_frontier.lua",
         vec![Value::integer(3), Value::integer(49), Value::integer(51)],
     );
+    assert_success_fixture_values("stdlib/string_match_backreference.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            1,
+            "string.match backreference fixture should return one capture"
+        );
+        assert!(
+            actual[0].is_string(),
+            "string.match backreference capture should be a string: {actual:?}"
+        );
+    });
     assert_success_fixture(
         "stdlib/string_match_init.lua",
         vec![Value::integer(2), Value::integer(98)],
