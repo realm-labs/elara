@@ -269,6 +269,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "errors/arithmetic_type.lua",
     "errors/debug_uservalue.lua",
     "errors/string_format_unsupported.lua",
+    "errors/string_format_upper_f.lua",
     "errors/string_pattern_unsupported.lua",
     "errors/coroutine_yield_outside.lua",
     "errors/debug_getinfo_invalid_option.lua",
