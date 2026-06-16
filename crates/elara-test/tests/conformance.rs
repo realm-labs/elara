@@ -241,6 +241,23 @@ fn conformance_standard_library_fixtures() {
         "stdlib/string_find_start_anchor_init.lua",
         vec![Value::integer(2), Value::integer(3)],
     );
+    assert_success_fixture_values("stdlib/string_find_captures.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            4,
+            "string.find capture fixture should return bounds and captures"
+        );
+        assert_eq!(actual[0], Value::integer(1));
+        assert_eq!(actual[1], Value::integer(6));
+        assert!(
+            actual[2].is_string(),
+            "string.find first capture should be a string: {actual:?}"
+        );
+        assert!(
+            actual[3].is_string(),
+            "string.find second capture should be a string: {actual:?}"
+        );
+    });
     assert_success_fixture(
         "stdlib/string_find_missing.lua",
         vec![Value::boolean(true)],
