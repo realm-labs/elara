@@ -1092,6 +1092,21 @@ fn conformance_standard_library_fixtures() {
             Value::boolean(true),
         ],
     );
+    assert_success_fixture(
+        "stdlib/io_more_stubs.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(115),
+            Value::boolean(true),
+            Value::integer(115),
+            Value::boolean(true),
+            Value::integer(115),
+            Value::boolean(true),
+            Value::integer(115),
+            Value::boolean(true),
+            Value::integer(115),
+        ],
+    );
     assert_success_fixture_values("stdlib/io_open_result.lua", |actual| {
         assert_eq!(actual.len(), 2, "io.open should return nil plus message");
         assert_eq!(actual[0], Value::nil(), "io.open result should be nil");
