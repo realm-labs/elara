@@ -1420,6 +1420,18 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/debug_upvalueid_absent.lua",
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(false),
+            Value::boolean(false),
+            Value::boolean(false),
+            Value::boolean(false),
+            Value::boolean(false),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/debug_locals.lua",
         vec![
             Value::integer(43),
