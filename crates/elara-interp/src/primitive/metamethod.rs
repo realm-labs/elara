@@ -1,7 +1,7 @@
 //! Arithmetic and comparison helpers with metamethod fallback.
 
 use elara_bytecode::{Instr, Op};
-use elara_core::{LuaFloat, LuaInteger, LuaThread, SHORT_STRING_MAX_BYTES, Value};
+use elara_core::{LuaFloat, LuaInteger, LuaThread, Value};
 
 use super::{
     RuntimeClosure, RuntimeErrorKind, RuntimeGlobals, RuntimeNatives, RuntimeResult,
@@ -278,23 +278,23 @@ fn raw_concat(
     right: Value,
     strings: &mut RuntimeStrings,
 ) -> RuntimeResult<Option<Value>> {
-    let Some(left) = strings.short_string_bytes(left) else {
-        return Ok(None);
+    let bytes = {
+        let Some(left) = strings.string_bytes(left) else {
+            return Ok(None);
+        };
+        let Some(right) = strings.string_bytes(right) else {
+            return Ok(None);
+        };
+        let len = left
+            .len()
+            .checked_add(right.len())
+            .ok_or(RuntimeErrorKind::StringConcatTooLong)?;
+        let mut bytes = Vec::with_capacity(len);
+        bytes.extend_from_slice(left);
+        bytes.extend_from_slice(right);
+        bytes
     };
-    let Some(right) = strings.short_string_bytes(right) else {
-        return Ok(None);
-    };
-    let len = left
-        .len()
-        .checked_add(right.len())
-        .ok_or(RuntimeErrorKind::StringConcatTooLong)?;
-    if len > SHORT_STRING_MAX_BYTES {
-        return Err(RuntimeErrorKind::StringConcatTooLong.into());
-    }
-    let mut bytes = Vec::with_capacity(len);
-    bytes.extend_from_slice(left);
-    bytes.extend_from_slice(right);
-    Ok(Some(strings.intern_short_value(bytes)))
+    Ok(Some(strings.intern_value(bytes)))
 }
 
 fn call_unary_metamethod(

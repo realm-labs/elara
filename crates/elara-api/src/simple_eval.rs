@@ -134,6 +134,17 @@ mod tests {
     }
 
     #[test]
+    fn eval_simple_concats_runtime_long_strings() {
+        let left = "a".repeat(elara_core::SHORT_STRING_MAX_BYTES + 1);
+        let source = format!("local value = '{left}' .. 'b'\nreturn #value");
+
+        assert_eq!(
+            eval_simple_source(SourceId::new(0), &source),
+            Ok(vec![Value::integer(42)])
+        );
+    }
+
+    #[test]
     fn eval_simple_returns_comparisons_from_source() {
         assert_eq!(
             eval_simple_source(
