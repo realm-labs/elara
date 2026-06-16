@@ -1458,6 +1458,8 @@ Delivered:
   matched text.
 - The existing table/function `string.gsub` replacement fixtures now assert
   exact byte-level replacement results instead of only string-result classes.
+- The existing `string.find`/`string.match` capture and backreference fixtures
+  now assert exact captured bytes instead of only string-result classes.
 
 ## Remaining Gaps
 
@@ -1553,7 +1555,7 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 string.gsub exact table/function replacement coverage passed:
+Post-M20.4 string capture exact-value coverage passed:
 
 ```bash
 cargo test -p elara-test conformance_standard_library_fixtures

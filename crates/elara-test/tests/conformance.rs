@@ -368,23 +368,17 @@ fn conformance_standard_library_fixtures() {
         "stdlib/string_find_end_anchor.lua",
         vec![Value::integer(5), Value::integer(6)],
     );
-    assert_success_fixture_values("stdlib/string_find_captures.lua", |actual| {
-        assert_eq!(
-            actual.len(),
-            4,
-            "string.find capture fixture should return bounds and captures"
-        );
-        assert_eq!(actual[0], Value::integer(1));
-        assert_eq!(actual[1], Value::integer(6));
-        assert!(
-            actual[2].is_string(),
-            "string.find first capture should be a string: {actual:?}"
-        );
-        assert!(
-            actual[3].is_string(),
-            "string.find second capture should be a string: {actual:?}"
-        );
-    });
+    assert_success_fixture(
+        "stdlib/string_find_captures.lua",
+        vec![
+            Value::integer(1),
+            Value::integer(6),
+            Value::integer(3),
+            Value::integer(97),
+            Value::integer(3),
+            Value::integer(49),
+        ],
+    );
     assert_success_fixture(
         "stdlib/string_find_frontier.lua",
         vec![Value::integer(5), Value::integer(7)],
@@ -393,19 +387,16 @@ fn conformance_standard_library_fixtures() {
         "stdlib/string_find_balanced.lua",
         vec![Value::integer(2), Value::integer(8)],
     );
-    assert_success_fixture_values("stdlib/string_find_backreference.lua", |actual| {
-        assert_eq!(
-            actual.len(),
-            3,
-            "string.find backreference fixture should return bounds and capture"
-        );
-        assert_eq!(actual[0], Value::integer(1));
-        assert_eq!(actual[1], Value::integer(7));
-        assert!(
-            actual[2].is_string(),
-            "string.find backreference capture should be a string: {actual:?}"
-        );
-    });
+    assert_success_fixture(
+        "stdlib/string_find_backreference.lua",
+        vec![
+            Value::integer(1),
+            Value::integer(7),
+            Value::integer(3),
+            Value::integer(97),
+            Value::integer(111),
+        ],
+    );
     assert_success_fixture(
         "stdlib/string_find_position_captures.lua",
         vec![
@@ -467,21 +458,15 @@ fn conformance_standard_library_fixtures() {
         "stdlib/string_match_end_anchor.lua",
         vec![Value::integer(2), Value::integer(98), Value::integer(99)],
     );
-    assert_success_fixture_values("stdlib/string_match_captures.lua", |actual| {
-        assert_eq!(
-            actual.len(),
-            2,
-            "string.match capture fixture should return captures"
-        );
-        assert!(
-            actual[0].is_string(),
-            "string.match first capture should be a string: {actual:?}"
-        );
-        assert!(
-            actual[1].is_string(),
-            "string.match second capture should be a string: {actual:?}"
-        );
-    });
+    assert_success_fixture(
+        "stdlib/string_match_captures.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(97),
+            Value::integer(3),
+            Value::integer(49),
+        ],
+    );
     assert_success_fixture(
         "stdlib/string_match_balanced.lua",
         vec![Value::integer(7), Value::integer(40), Value::integer(41)],
@@ -490,17 +475,10 @@ fn conformance_standard_library_fixtures() {
         "stdlib/string_match_frontier.lua",
         vec![Value::integer(3), Value::integer(49), Value::integer(51)],
     );
-    assert_success_fixture_values("stdlib/string_match_backreference.lua", |actual| {
-        assert_eq!(
-            actual.len(),
-            1,
-            "string.match backreference fixture should return one capture"
-        );
-        assert!(
-            actual[0].is_string(),
-            "string.match backreference capture should be a string: {actual:?}"
-        );
-    });
+    assert_success_fixture(
+        "stdlib/string_match_backreference.lua",
+        vec![Value::integer(3), Value::integer(97), Value::integer(111)],
+    );
     assert_success_fixture(
         "stdlib/string_match_init.lua",
         vec![Value::integer(2), Value::integer(98)],
