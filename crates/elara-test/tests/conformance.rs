@@ -321,6 +321,10 @@ fn conformance_standard_library_fixtures() {
         "stdlib/string_gmatch_start_anchor.lua",
         vec![Value::integer(188)],
     );
+    assert_success_fixture(
+        "stdlib/string_gmatch_empty_matches.lua",
+        vec![Value::integer(3)],
+    );
     assert_success_fixture("stdlib/string_rep_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture("stdlib/string_reverse_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture(
