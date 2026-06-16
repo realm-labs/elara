@@ -536,6 +536,14 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(-12)],
     );
     assert_success_fixture(
+        "stdlib/math_tointeger_nil.lua",
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/math_minmax_float.lua",
         vec![Value::float(1.5), Value::integer(7)],
     );

@@ -89,6 +89,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/math_constants.lua",
     "stdlib/math_tointeger_float.lua",
     "stdlib/math_tointeger_integer.lua",
+    "stdlib/math_tointeger_nil.lua",
     "stdlib/math_minmax_float.lua",
     "stdlib/math_fmod_negative.lua",
     "stdlib/math_fmod_float.lua",
