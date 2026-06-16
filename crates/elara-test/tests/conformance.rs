@@ -1260,6 +1260,15 @@ fn conformance_standard_library_fixtures() {
         "stdlib/package_config.lua",
         vec![Value::integer(115), Value::integer(10)],
     );
+    assert_success_fixture(
+        "stdlib/package_default_paths.lua",
+        vec![
+            Value::integer(115),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::boolean(false),
+        ],
+    );
     assert_success_fixture_values("stdlib/package_loadlib.lua", |actual| {
         assert_eq!(
             actual.len(),
