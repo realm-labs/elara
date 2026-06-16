@@ -1172,6 +1172,7 @@ fn conformance_standard_library_fixtures() {
         "stdlib/utf8_len_invalid.lua",
         vec![Value::nil(), Value::integer(2)],
     );
+    assert_success_fixture("stdlib/utf8_len_lax.lua", vec![Value::integer(1)]);
     assert_success_fixture(
         "stdlib/os_package_debug.lua",
         vec![
