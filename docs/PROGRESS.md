@@ -1423,6 +1423,9 @@ Delivered:
   callback execution.
 - The debug-library conformance and differential smoke matrix now also covers
   `debug.getinfo` empty-option results and invalid-option `pcall` shape.
+- The debug-library conformance and differential smoke matrix now covers
+  absent and native-function upvalue result shapes plus bad `debug.setupvalue`
+  argument `pcall` results.
 - Named vararg tables now populate Lua 5.5's `n` count field, and the existing
   anonymous/named vararg conformance fixture asserts the count alongside the
   captured argument values.
@@ -1509,7 +1512,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains two hundred eighty-nine smoke fixtures across
+- `tests/conformance` currently contains two hundred ninety smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
