@@ -289,6 +289,22 @@ fn conformance_standard_library_fixtures() {
             "string.gsub table replacement count should be one"
         );
     });
+    assert_success_fixture_values("stdlib/string_gsub_function_replacement.lua", |actual| {
+        assert_eq!(
+            actual.len(),
+            2,
+            "string.gsub function replacement should return string and count"
+        );
+        assert!(
+            actual[0].is_string(),
+            "string.gsub function replacement result should be a string: {actual:?}"
+        );
+        assert_eq!(
+            actual[1],
+            Value::integer(1),
+            "string.gsub function replacement count should be one"
+        );
+    });
     assert_success_fixture(
         "stdlib/string_gmatch_positions.lua",
         vec![Value::integer(14)],
