@@ -1005,6 +1005,19 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(102), Value::integer(105), Value::integer(114)],
     );
     assert_success_fixture(
+        "stdlib/math_argument_errors.lua",
+        vec![
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_string_utf8.lua",
         vec![
             Value::integer(1),
