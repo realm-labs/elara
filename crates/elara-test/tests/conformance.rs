@@ -415,6 +415,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(4), Value::integer(120), Value::integer(120)],
     );
     assert_success_fixture(
+        "stdlib/string_gsub_dot_wildcard.lua",
+        vec![Value::integer(4), Value::integer(120), Value::integer(120)],
+    );
+    assert_success_fixture(
         "stdlib/string_gsub_limit.lua",
         vec![Value::integer(120), Value::integer(120), Value::integer(51)],
     );
