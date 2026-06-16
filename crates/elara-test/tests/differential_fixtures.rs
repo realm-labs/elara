@@ -42,6 +42,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_find_positions.lua",
     "stdlib/string_find_dot_wildcard.lua",
     "stdlib/string_find_bracket_class.lua",
+    "stdlib/string_find_negated_bracket_class.lua",
     "stdlib/string_find_quantifiers.lua",
     "stdlib/string_find_optional_quantifier.lua",
     "stdlib/string_find_plain.lua",
