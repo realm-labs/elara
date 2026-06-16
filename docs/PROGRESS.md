@@ -1476,6 +1476,9 @@ Delivered:
 - The existing unsupported pre-file-handle `io.open`, `io.tmpfile`,
   `io.write`, and `io.flush` result fixtures now assert exact nil-result and
   string-message type-byte results instead of only message string classes.
+- The existing `package.searchpath` miss and unsupported `package.loadlib`
+  fixtures now assert exact nil-result, string-message type-byte, and
+  deterministic load stage results.
 
 ## Remaining Gaps
 
@@ -1571,7 +1574,7 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 unsupported IO result type coverage passed:
+Post-M20.4 package miss/loadlib result coverage passed:
 
 ```bash
 cargo test -p elara-test conformance_standard_library_fixtures

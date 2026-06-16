@@ -1283,22 +1283,10 @@ fn conformance_standard_library_fixtures() {
         "stdlib/package_preload_searcher.lua",
         vec![Value::integer(42)],
     );
-    assert_success_fixture_values("stdlib/package_searchpath.lua", |actual| {
-        assert_eq!(
-            actual.len(),
-            2,
-            "package.searchpath should return nil plus message"
-        );
-        assert_eq!(
-            actual[0],
-            Value::nil(),
-            "package.searchpath path should be nil"
-        );
-        assert!(
-            actual[1].is_string(),
-            "package.searchpath miss message should be a string: {actual:?}"
-        );
-    });
+    assert_success_fixture(
+        "stdlib/package_searchpath.lua",
+        vec![Value::boolean(true), Value::integer(115)],
+    );
     assert_success_fixture(
         "stdlib/package_searchpath_found.lua",
         vec![Value::integer(12), Value::integer(46), Value::integer(67)],
@@ -1324,26 +1312,15 @@ fn conformance_standard_library_fixtures() {
             Value::boolean(false),
         ],
     );
-    assert_success_fixture_values("stdlib/package_loadlib.lua", |actual| {
-        assert_eq!(
-            actual.len(),
-            3,
-            "package.loadlib should return nil plus message plus stage"
-        );
-        assert_eq!(
-            actual[0],
-            Value::nil(),
-            "package.loadlib result should be nil"
-        );
-        assert!(
-            actual[1].is_string(),
-            "package.loadlib message should be a string: {actual:?}"
-        );
-        assert!(
-            actual[2].is_string(),
-            "package.loadlib stage should be a string: {actual:?}"
-        );
-    });
+    assert_success_fixture(
+        "stdlib/package_loadlib.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(115),
+            Value::integer(111),
+            Value::integer(4),
+        ],
+    );
     assert_success_fixture(
         "stdlib/package_c_searchers.lua",
         vec![
