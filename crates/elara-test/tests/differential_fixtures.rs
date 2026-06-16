@@ -129,6 +129,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_format_quote.lua",
     "stdlib/string_format_quote_scalars.lua",
     "stdlib/string_format_argument_errors.lua",
+    "stdlib/string_format_spec_errors.lua",
     "stdlib/string_format_percent.lua",
     "stdlib/string_format_pointer.lua",
     "stdlib/string_format_long_strings.lua",
