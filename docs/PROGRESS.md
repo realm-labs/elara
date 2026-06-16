@@ -1354,7 +1354,8 @@ Delivered:
   caching, nil-loader defaults, custom searcher loader-data propagation, plus
   direct preload searcher hits and Lua searcher misses, direct
   `package.searchpath` miss result classification,
-  direct `package.searchpath` readable-file hits,
+  direct `package.searchpath` readable-file hits and separator replacement in
+  miss diagnostics,
   C-searcher miss results, unsupported `package.loadlib` result
   classification, debug frame introspection,
   debug local inspection/mutation, debug uservalue nil classification, debug
@@ -1409,12 +1410,14 @@ Delivered:
   pre-file-handle `io` stubs for input/output/lines/popen/read result shapes.
 - The conformance and differential error smoke matrix now includes an
   unsupported string-pattern capture reference case.
+- The package conformance and differential smoke matrix now includes
+  `package.searchpath` module-separator replacement in path-miss diagnostics.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains two hundred seventy smoke fixtures across
+- `tests/conformance` currently contains two hundred seventy-one smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check returned primitive values and selected string-result classes
   through the public API.
@@ -1504,15 +1507,12 @@ M20.4 is complete.
 
 ## Last Verification
 
-Post-M20.4 unary `not` lowering passed:
+Post-M20.4 `package.searchpath` separator fixture passed:
 
 ```bash
-cargo test -p elara-bytecode op_
-cargo test -p elara-compiler simple_expr_compiles_unary_not
-cargo test -p elara-api eval_simple_returns_not_from_source
-cargo test -p elara-test conformance_language_fixtures
+cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures_match_official_lua_error_classes_when_configured
-cargo clippy -p elara-bytecode -p elara-compiler -p elara-interp -p elara-api -p elara-test --all-targets -- -D warnings
+cargo clippy -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 
