@@ -199,6 +199,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_unpack_default_bounds.lua",
     "stdlib/table_unpack_nil.lua",
     "stdlib/table_unpack_empty.lua",
+    "stdlib/table_unpack_errors.lua",
     "stdlib/table_sort.lua",
     "stdlib/table_sort_strings.lua",
     "stdlib/table_sort_long_strings.lua",
