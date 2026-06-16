@@ -1520,6 +1520,15 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(42)],
     );
     assert_success_fixture(
+        "stdlib/package_preload_searcher_errors.lua",
+        vec![
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/package_searchpath.lua",
         vec![Value::boolean(true), Value::integer(115)],
     );
