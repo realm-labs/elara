@@ -1008,6 +1008,17 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(3), Value::integer(0)],
     );
     assert_success_fixture(
+        "stdlib/string_char_range_errors.lua",
+        vec![
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_byte_out_of_range.lua",
         vec![Value::boolean(true)],
     );
