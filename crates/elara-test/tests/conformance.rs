@@ -238,6 +238,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(4), Value::integer(4)],
     );
     assert_success_fixture(
+        "stdlib/string_find_escaped_literal.lua",
+        vec![Value::integer(1), Value::integer(2)],
+    );
+    assert_success_fixture(
         "stdlib/string_find_start_anchor_init.lua",
         vec![Value::integer(2), Value::integer(3)],
     );
