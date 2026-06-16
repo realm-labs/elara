@@ -423,7 +423,7 @@ fn string_format_formats_quoted_scalar_literals() {
 
     assert_eq!(
         runtime.short_string_bytes(values[0]),
-        Some(b"nil:true:-7:1.5".as_slice())
+        Some(b"nil:true:-7:0x1.8p+0".as_slice())
     );
 }
 

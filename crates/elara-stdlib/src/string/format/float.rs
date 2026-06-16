@@ -143,6 +143,10 @@ fn format_hex_float_conversion(spec: FloatFormatSpec, value: LuaFloat) -> String
     formatted
 }
 
+pub(super) fn format_hex_float_literal(value: LuaFloat) -> String {
+    format_hex_float_lower(value, false, None)
+}
+
 fn format_hex_float_lower(
     value: LuaFloat,
     alternate_form: bool,

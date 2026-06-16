@@ -8,7 +8,7 @@ use super::string_arg;
 
 mod float;
 mod integer;
-use float::{format_float_conversion, parse_float_spec};
+use float::{format_float_conversion, format_hex_float_literal, parse_float_spec};
 use integer::{
     format_integer_conversion, format_integer_width_conversion, parse_integer_width_spec,
 };
@@ -381,7 +381,7 @@ fn format_float_literal(value: LuaFloat) -> String {
     } else if value.is_nan() {
         "(0/0)".to_owned()
     } else {
-        format!("{value:?}")
+        format_hex_float_literal(value)
     }
 }
 
