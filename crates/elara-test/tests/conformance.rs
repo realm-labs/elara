@@ -1770,6 +1770,35 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/debug_argument_errors.lua",
+        vec![
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(115),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/debug_metatable.lua",
         vec![
             Value::boolean(true),
