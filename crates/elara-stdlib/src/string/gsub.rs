@@ -105,6 +105,12 @@ fn replacement_arg(runtime: &dyn NativeRuntime, value: Value) -> Result<Replacem
     if let Some(bytes) = runtime.string_bytes(value) {
         return Ok(Replacement::String(bytes.to_vec()));
     }
+    if let Some(integer) = value.as_integer() {
+        return Ok(Replacement::String(integer.to_string().into_bytes()));
+    }
+    if let Some(float) = value.as_float() {
+        return Ok(Replacement::String(float.to_string().into_bytes()));
+    }
     if value.is_table() {
         return Ok(Replacement::Table(value));
     }
@@ -113,7 +119,7 @@ fn replacement_arg(runtime: &dyn NativeRuntime, value: Value) -> Result<Replacem
     }
     Err(NativeErrorKind::TypeError {
         index: 3,
-        expected: "string, table, or function",
+        expected: "string, number, table, or function",
     }
     .into())
 }
@@ -612,6 +618,29 @@ mod tests {
             Some(b"dup xyz".as_slice())
         );
         assert_eq!(values[1], Value::integer(1));
+    }
+
+    #[test]
+    fn string_gsub_accepts_numeric_replacement_arguments() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"a1b2");
+        let pattern = runtime.push_string(b"%d");
+
+        let integer_values = string_gsub(&mut runtime, &[subject, pattern, Value::integer(7)])
+            .expect("integer replacement should pass");
+        let float_values = string_gsub(&mut runtime, &[subject, pattern, Value::float(1.5)])
+            .expect("float replacement should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(integer_values[0]),
+            Some(b"a7b7".as_slice())
+        );
+        assert_eq!(integer_values[1], Value::integer(2));
+        assert_eq!(
+            runtime.short_string_bytes(float_values[0]),
+            Some(b"a1.5b1.5".as_slice())
+        );
+        assert_eq!(float_values[1], Value::integer(2));
     }
 
     #[test]

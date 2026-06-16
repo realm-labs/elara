@@ -565,6 +565,19 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_gsub_numeric_replacement.lua",
+        vec![
+            Value::integer(4),
+            Value::integer(55),
+            Value::integer(2),
+            Value::integer(8),
+            Value::integer(49),
+            Value::integer(46),
+            Value::integer(53),
+            Value::integer(2),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_gsub_position_captures.lua",
         vec![
             Value::integer(7),
