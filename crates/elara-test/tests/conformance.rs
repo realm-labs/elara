@@ -1578,6 +1578,7 @@ fn conformance_error_fixtures() {
     assert_error_fixture("errors/os_exit_unsupported.lua");
     assert_error_fixture("errors/coroutine_yield_outside.lua");
     assert_error_fixture("errors/debug_getinfo_invalid_option.lua");
+    assert_error_fixture("errors/coroutine_close_main.lua");
 }
 
 #[test]

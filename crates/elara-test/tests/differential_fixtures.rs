@@ -263,6 +263,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "errors/string_format_unsupported.lua",
     "errors/coroutine_yield_outside.lua",
     "errors/debug_getinfo_invalid_option.lua",
+    "errors/coroutine_close_main.lua",
 ];
 
 #[test]
