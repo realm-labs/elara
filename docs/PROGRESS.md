@@ -1585,6 +1585,9 @@ Delivered:
 - The `os.date` UTC formatter now supports C-locale composite `strftime`
   specifiers `%c`, `%x`, and `%X`, with matching conformance and official-Lua
   differential fixture coverage.
+- The `os.date` UTC formatter now recognizes Lua 5.5's C99 `E`/`O` modified
+  `strftime` specifiers for supported C-locale and numeric date/time forms,
+  with matching conformance and official-Lua differential fixture coverage.
 - The shared `os.time` date-table fixtures now avoid timezone-dependent exact
   timestamps while still checking portable number-result and normalized-field
   shapes; local-only companion fixtures retain exact UTC timestamp coverage for
@@ -1740,7 +1743,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains five hundred fourteen smoke fixtures across
+- `tests/conformance` currently contains five hundred fifteen smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,

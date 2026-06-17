@@ -602,6 +602,26 @@ mod tests {
     }
 
     #[test]
+    fn os_date_formats_modified_c99_specifiers() {
+        let function = function("date");
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(
+            b"!%Ec|%EC|%Ex|%EX|%Ey|%EY|%Od|%Oe|%OH|%OI|%Om|%OM|%OS|%Ou|%OU|%OV|%Ow|%OW|%Oy",
+        );
+
+        let result = function(&mut runtime, &[format, Value::integer(951868799)])
+            .expect("os.date should pass");
+
+        assert_eq!(
+            runtime.bytes(result[0]),
+            Some(
+                b"Tue Feb 29 23:59:59 2000|20|02/29/00|23:59:59|00|2000|29|29|23|11|02|59|59|2|09|09|2|09|00"
+                    .as_slice()
+            )
+        );
+    }
+
+    #[test]
     fn os_date_validates_supported_utc_table_subset() {
         let function = function("date");
         let mut runtime = TestRuntime::default();

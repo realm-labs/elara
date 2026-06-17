@@ -88,7 +88,7 @@ fn optional_time_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
 
 fn format_utc_date(format: &str, date: UtcDateTime) -> Result<String, NativeError> {
     let mut output = String::new();
-    let mut chars = format.chars();
+    let mut chars = format.chars().peekable();
     while let Some(ch) = chars.next() {
         if ch != '%' {
             output.push(ch);
@@ -97,9 +97,25 @@ fn format_utc_date(format: &str, date: UtcDateTime) -> Result<String, NativeErro
         let Some(specifier) = chars.next() else {
             return Err(invalid_conversion_error(""));
         };
-        push_date_specifier(&mut output, date, specifier)?;
+        if let Some(modified) = modified_date_specifier(specifier, chars.peek().copied()) {
+            chars.next();
+            push_date_specifier(&mut output, date, modified)?;
+        } else {
+            push_date_specifier(&mut output, date, specifier)?;
+        }
     }
     Ok(output)
+}
+
+fn modified_date_specifier(modifier: char, specifier: Option<char>) -> Option<char> {
+    let specifier = specifier?;
+    match (modifier, specifier) {
+        ('E', 'c' | 'C' | 'x' | 'X' | 'y' | 'Y') => Some(specifier),
+        ('O', 'd' | 'e' | 'H' | 'I' | 'm' | 'M' | 'S' | 'u' | 'U' | 'V' | 'w' | 'W' | 'y') => {
+            Some(specifier)
+        }
+        _ => None,
+    }
 }
 
 fn push_date_specifier(
