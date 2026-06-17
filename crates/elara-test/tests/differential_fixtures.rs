@@ -143,6 +143,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_sub_default_end.lua",
     "stdlib/string_sub_negative_end.lua",
     "stdlib/string_sub_negative_start.lua",
+    "stdlib/string_sub_zero_start.lua",
     "stdlib/string_sub_empty.lua",
     "stdlib/string_pattern_advanced.lua",
     "stdlib/string_format.lua",
