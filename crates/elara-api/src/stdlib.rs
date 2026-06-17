@@ -163,6 +163,7 @@ fn register_base_helpers(environment: &mut RuntimeEnvironment) -> NativeHelpers 
     NativeHelpers {
         base_next: Some(base_next),
         base_ipairs_aux: Some(base_ipairs_aux),
+        warnings_enabled: Some(Arc::new(Mutex::new(false))),
         ..NativeHelpers::default()
     }
 }
@@ -220,6 +221,7 @@ fn register_hidden_native(
 struct NativeHelpers {
     base_next: Option<u32>,
     base_ipairs_aux: Option<u32>,
+    warnings_enabled: Option<Arc<Mutex<bool>>>,
     coroutine_registry: Option<Arc<Mutex<CoroutineRegistry>>>,
     debug_registry: Option<Arc<Mutex<Option<u32>>>>,
     string_gmatch_aux: Option<u32>,
@@ -663,6 +665,37 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
 
     fn write_output(&mut self, bytes: &[u8]) -> Result<(), NativeError> {
         io::stdout().write_all(bytes).map_err(|error| {
+            NativeErrorKind::RuntimeError {
+                message: error.to_string().into(),
+            }
+            .into()
+        })
+    }
+
+    fn warnings_enabled(&self) -> bool {
+        self.helpers
+            .warnings_enabled
+            .as_ref()
+            .and_then(|enabled| enabled.lock().ok().map(|enabled| *enabled))
+            .unwrap_or(false)
+    }
+
+    fn set_warnings_enabled(&mut self, enabled: bool) -> Result<(), NativeError> {
+        let warnings_enabled = self.helpers.warnings_enabled.as_ref().ok_or_else(|| {
+            NativeErrorKind::RuntimeError {
+                message: "warning state is not registered".into(),
+            }
+        })?;
+        *warnings_enabled
+            .lock()
+            .map_err(|_| NativeErrorKind::RuntimeError {
+                message: "warning state lock poisoned".into(),
+            })? = enabled;
+        Ok(())
+    }
+
+    fn write_warning(&mut self, bytes: &[u8]) -> Result<(), NativeError> {
+        io::stderr().write_all(bytes).map_err(|error| {
             NativeErrorKind::RuntimeError {
                 message: error.to_string().into(),
             }

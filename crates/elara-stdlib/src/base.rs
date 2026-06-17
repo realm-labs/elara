@@ -426,17 +426,41 @@ fn base_type(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
 }
 
 fn base_warn(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    if args.is_empty() {
+        return Err(NativeErrorKind::MissingArgument { index: 1 }.into());
+    }
+    let mut parts = Vec::with_capacity(args.len());
     for index in 1..=args.len().max(1) {
         let value = args
             .get(index - 1)
             .ok_or(NativeErrorKind::MissingArgument { index })?;
-        if runtime.string_bytes(*value).is_none() {
-            return Err(NativeErrorKind::TypeError {
+        let bytes = runtime
+            .string_bytes(*value)
+            .ok_or(NativeErrorKind::TypeError {
                 index,
                 expected: "string",
-            }
-            .into());
+            })?
+            .to_vec();
+        parts.push(bytes);
+    }
+
+    if let [control] = parts.as_slice()
+        && control.first() == Some(&b'@')
+    {
+        match control.as_slice() {
+            b"@on" => runtime.set_warnings_enabled(true)?,
+            b"@off" => runtime.set_warnings_enabled(false)?,
+            _ => {}
         }
+        return Ok(Vec::new());
+    }
+
+    if runtime.warnings_enabled() {
+        runtime.write_warning(b"Lua warning: ")?;
+        for part in &parts {
+            runtime.write_warning(part)?;
+        }
+        runtime.write_warning(b"\n")?;
     }
     Ok(Vec::new())
 }

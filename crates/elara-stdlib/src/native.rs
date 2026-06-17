@@ -283,6 +283,21 @@ pub trait NativeRuntime {
         .into())
     }
 
+    /// Returns whether host warnings are currently enabled.
+    fn warnings_enabled(&self) -> bool {
+        false
+    }
+
+    /// Enables or disables host warning emission.
+    fn set_warnings_enabled(&mut self, _enabled: bool) -> Result<(), NativeError> {
+        Ok(())
+    }
+
+    /// Writes bytes to the host warning stream used by base `warn`.
+    fn write_warning(&mut self, _bytes: &[u8]) -> Result<(), NativeError> {
+        Ok(())
+    }
+
     /// Calls a Lua or native value behind a protected-call boundary.
     fn protected_call(
         &mut self,

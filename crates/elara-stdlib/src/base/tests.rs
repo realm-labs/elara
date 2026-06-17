@@ -14,6 +14,8 @@ struct TestRuntime {
     tables: Vec<Vec<(Value, Value)>>,
     metatables: Vec<Option<Value>>,
     output: Vec<u8>,
+    warnings: Vec<u8>,
+    warnings_enabled: bool,
     base_next: Value,
     base_ipairs_aux: Value,
     protected_results: Vec<Result<Vec<Value>, Box<str>>>,
@@ -27,6 +29,8 @@ impl Default for TestRuntime {
             tables: Vec::new(),
             metatables: Vec::new(),
             output: Vec::new(),
+            warnings: Vec::new(),
+            warnings_enabled: false,
             base_next: Value::nil(),
             base_ipairs_aux: Value::nil(),
             protected_results: Vec::new(),
@@ -158,6 +162,20 @@ impl NativeRuntime for TestRuntime {
 
     fn write_output(&mut self, bytes: &[u8]) -> Result<(), NativeError> {
         self.output.extend_from_slice(bytes);
+        Ok(())
+    }
+
+    fn warnings_enabled(&self) -> bool {
+        self.warnings_enabled
+    }
+
+    fn set_warnings_enabled(&mut self, enabled: bool) -> Result<(), NativeError> {
+        self.warnings_enabled = enabled;
+        Ok(())
+    }
+
+    fn write_warning(&mut self, bytes: &[u8]) -> Result<(), NativeError> {
+        self.warnings.extend_from_slice(bytes);
         Ok(())
     }
 
@@ -337,6 +355,31 @@ fn base_warn_validates_strings_and_returns_no_values() {
             expected: "string",
         }
     );
+}
+
+#[test]
+fn base_warn_emits_enabled_warning_and_honors_control_messages() {
+    let mut runtime = TestRuntime::default();
+    let on = runtime.push_string(b"@on");
+    let off = runtime.push_string(b"@off");
+    let unknown = runtime.push_string(b"@unknown");
+    let first = runtime.push_string(b"first");
+    let second = runtime.push_string(b"second");
+
+    base_warn(&mut runtime, &[first]).expect("warning should be ignored while off");
+    assert!(runtime.warnings.is_empty());
+
+    base_warn(&mut runtime, &[on]).expect("warn @on should pass");
+    assert!(runtime.warnings_enabled);
+    base_warn(&mut runtime, &[first, second]).expect("warning should emit");
+    assert_eq!(runtime.warnings, b"Lua warning: firstsecond\n");
+
+    base_warn(&mut runtime, &[unknown]).expect("unknown control should be ignored");
+    assert_eq!(runtime.warnings, b"Lua warning: firstsecond\n");
+    base_warn(&mut runtime, &[off]).expect("warn @off should pass");
+    assert!(!runtime.warnings_enabled);
+    base_warn(&mut runtime, &[first]).expect("warning should be ignored again");
+    assert_eq!(runtime.warnings, b"Lua warning: firstsecond\n");
 }
 
 #[test]

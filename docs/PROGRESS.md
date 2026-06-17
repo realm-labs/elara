@@ -112,10 +112,11 @@ Base stdlib natives `assert`, safe unsupported `collectgarbage`, safe
 unsupported `dofile`, `error`, `getmetatable`, `ipairs`, safe unsupported
 `load`, safe unsupported `loadfile`, `next`, metamethod-backed `pairs`,
 `pcall`, `print`, `rawequal`, `rawget`, `rawlen`, `rawset`, numeric and count
-forms of `select`, `setmetatable`, `tonumber`, `tostring`, `type`, validating
-no-op `warn`, and `xpcall` are executable, and API stdlib profile registration
-now installs base natives plus the `_G` global-table alias and `_VERSION` string
-as direct globals while keeping module libraries table-shaped. Native calls now
+forms of `select`, `setmetatable`, `tonumber`, `tostring`, `type`,
+`@on`/`@off` controlled host-warning `warn`, and `xpcall` are executable, and
+API stdlib profile registration now installs base natives plus the `_G`
+global-table alias and `_VERSION` string as direct globals while keeping module
+libraries table-shaped. Native calls now
 receive a `NativeContext` that can allocate and inspect runtime-owned short strings,
 allocate runtime-owned tables, read/write raw runtime table entries, get/set
 runtime table metatable links, traverse raw runtime table entries, write host
@@ -1425,7 +1426,7 @@ Delivered:
   identity and the current-version `_VERSION` string.
 - The base-library conformance smoke matrix now covers the registered
   unsupported dynamic-loading stubs, unsupported `collectgarbage`, and
-  validating no-op `warn`.
+  validating `warn`.
 - The base-library conformance and differential smoke matrix now covers
   portable `load`/`loadfile`/`dofile` error result shapes without depending on
   host-specific diagnostic text or `load` reader/type ambiguity.
@@ -1722,6 +1723,9 @@ Delivered:
 - The package conformance and differential matrix now covers loaders that
   return `false`, checking that `require` returns and stores `false` but reloads
   on a later call because `false` is not a loaded sentinel.
+- Base `warn` now emits host warnings when enabled, honors single-argument
+  `@on`/`@off` control messages, ignores unknown control messages, and keeps
+  warnings disabled by default.
 
 ## Remaining Gaps
 
@@ -1748,8 +1752,7 @@ Delivered:
   `load`, `loadfile`, `dofile`, `package.loadlib`, and C searchers report
   explicit unsupported-loader behavior until dynamic chunk and host file
   loading are implemented.
-- Base-library `collectgarbage` is registered as an explicit unsupported stub;
-  `warn` validates string arguments but does not emit host warnings yet.
+- Base-library `collectgarbage` is registered as an explicit unsupported stub.
 - `os.exit` validates arguments but does not terminate the host process.
 - C API source compatibility is tested for core stack/call usage, but binary
   compatibility with existing Lua modules is not promised.
@@ -1823,17 +1826,15 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
-/opt/homebrew/bin/lua5.5 -e 'print(dofile("tests/conformance/stdlib/package_require_false_loader.lua"))'
+cargo test -p elara-stdlib base_warn
 cargo test -p elara-test conformance_standard_library_fixtures
-cargo test -p elara-test differential_fixtures
-ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test differential_fixtures
-cargo clippy -p elara-stdlib -p elara-test --all-targets -- -D warnings
+cargo clippy -p elara-stdlib -p elara-api --all-targets -- -D warnings
 git diff --check
 ```
 
 `cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
 pre-existing formatting drift in committed Rust files outside this
-package fixture change.
+base `warn` behavior change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the current configured official-Lua exact
