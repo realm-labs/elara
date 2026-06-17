@@ -255,6 +255,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_byte_embedded_nul.lua",
     "stdlib/string_byte_empty_range.lua",
     "stdlib/string_byte_range.lua",
+    "stdlib/string_integer_argument_coercion.lua",
     "stdlib/math_numeric.lua",
     "stdlib/math_integer_rounding.lua",
     "stdlib/math_rounding_negative_fraction.lua",

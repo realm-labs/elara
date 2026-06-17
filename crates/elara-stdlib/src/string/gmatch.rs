@@ -30,7 +30,7 @@ pub(super) fn string_gmatch(
         .get(1)
         .ok_or(NativeErrorKind::MissingArgument { index: 2 })?;
     let pattern = string_arg(runtime, pattern_value, 2)?;
-    let init = relative_start(optional_integer_arg(args, 3, 1)?, subject.len());
+    let init = relative_start(optional_integer_arg(runtime, args, 3, 1)?, subject.len());
 
     if let Some(error) = unsupported_pattern_error_with_captures(&pattern) {
         return Err(error);

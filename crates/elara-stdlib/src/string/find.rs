@@ -28,7 +28,7 @@ pub(super) fn string_find(
             .ok_or(NativeErrorKind::MissingArgument { index: 2 })?,
         2,
     )?;
-    let init = relative_start(optional_integer_arg(args, 3, 1)?, subject.len());
+    let init = relative_start(optional_integer_arg(runtime, args, 3, 1)?, subject.len());
     if init > subject.len() {
         return Ok(vec![Value::nil()]);
     }

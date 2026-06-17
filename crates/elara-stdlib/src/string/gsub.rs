@@ -40,6 +40,7 @@ pub(super) fn string_gsub(
             .ok_or(NativeErrorKind::MissingArgument { index: 3 })?,
     )?;
     let max = optional_integer_arg(
+        runtime,
         args,
         4,
         i64::try_from(subject.len())

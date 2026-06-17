@@ -6,6 +6,7 @@ use elara_core::Value;
 
 use crate::{
     FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
+    number::parse_standard_number,
 };
 
 mod find;
@@ -67,9 +68,9 @@ fn string_byte(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
     let bytes = string_arg(runtime, value, 1)?;
     let len = bytes.len();
-    let start_arg = optional_integer_arg(args, 2, 1)?;
+    let start_arg = optional_integer_arg(runtime, args, 2, 1)?;
     let start = relative_start(start_arg, len);
-    let end = relative_end(optional_integer_arg(args, 3, start_arg)?, len);
+    let end = relative_end(optional_integer_arg(runtime, args, 3, start_arg)?, len);
 
     if start > end {
         return Ok(Vec::new());
@@ -89,7 +90,7 @@ fn string_byte(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
 fn string_char(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let mut bytes = Vec::with_capacity(args.len());
     for index in 1..=args.len() {
-        let value = integer_arg(args, index)?;
+        let value = integer_arg(runtime, args, index)?;
         let byte =
             u8::try_from(value).map_err(|_| NativeErrorKind::ArgumentOutOfRange { index })?;
         bytes.push(byte);
@@ -138,14 +139,7 @@ fn string_rep(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
         .first()
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
     let bytes = string_arg(runtime, value, 1)?.to_vec();
-    let count = args
-        .get(1)
-        .ok_or(NativeErrorKind::MissingArgument { index: 2 })?
-        .as_integer()
-        .ok_or(NativeErrorKind::TypeError {
-            index: 2,
-            expected: "integer",
-        })?;
+    let count = integer_arg(runtime, args, 2)?;
     let separator = match args.get(2) {
         Some(value) if value.is_nil() => Vec::new(),
         Some(value) => string_arg(runtime, *value, 3)?.to_vec(),
@@ -182,8 +176,8 @@ fn string_sub(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
     let bytes = string_arg(runtime, value, 1)?.to_vec();
     let len = bytes.len();
-    let start = relative_start(integer_arg(args, 2)?, len);
-    let end = relative_end(optional_integer_arg(args, 3, -1)?, len);
+    let start = relative_start(integer_arg(runtime, args, 2)?, len);
+    let end = relative_end(optional_integer_arg(runtime, args, 3, -1)?, len);
 
     if start > end {
         return Ok(vec![runtime.intern_string(b"")?]);
@@ -193,10 +187,38 @@ fn string_sub(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
     Ok(vec![runtime.intern_string(slice)?])
 }
 
-fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
-    args.get(index - 1)
-        .ok_or(NativeErrorKind::MissingArgument { index })?
-        .as_integer()
+fn integer_arg(
+    runtime: &dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<i64, NativeError> {
+    let value = *args
+        .get(index - 1)
+        .ok_or(NativeErrorKind::MissingArgument { index })?;
+    integer_value_arg(runtime, value, index)
+}
+
+fn optional_integer_arg(
+    runtime: &dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+    default: i64,
+) -> Result<i64, NativeError> {
+    match args.get(index - 1) {
+        Some(value) if value.is_nil() => Ok(default),
+        Some(value) => integer_value_arg(runtime, *value, index),
+        None => Ok(default),
+    }
+}
+
+fn integer_value_arg(
+    runtime: &dyn NativeRuntime,
+    value: Value,
+    index: usize,
+) -> Result<i64, NativeError> {
+    value
+        .to_integer_exact()
+        .or_else(|| string_to_integer_exact(runtime, value))
         .ok_or(
             NativeErrorKind::TypeError {
                 index,
@@ -206,18 +228,9 @@ fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
         )
 }
 
-fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i64, NativeError> {
-    match args.get(index - 1) {
-        Some(value) if value.is_nil() => Ok(default),
-        Some(value) => value.as_integer().ok_or(
-            NativeErrorKind::TypeError {
-                index,
-                expected: "integer",
-            }
-            .into(),
-        ),
-        None => Ok(default),
-    }
+fn string_to_integer_exact(runtime: &dyn NativeRuntime, value: Value) -> Option<i64> {
+    let bytes = runtime.string_bytes(value)?;
+    parse_standard_number(bytes)?.to_integer_exact()
 }
 
 fn relative_start(position: i64, len: usize) -> usize {
@@ -406,6 +419,42 @@ mod tests {
             string_byte(&mut runtime, &[value, Value::integer(1), Value::integer(3)])
                 .expect("byte should pass"),
             vec![Value::integer(65), Value::integer(0), Value::integer(67)]
+        );
+    }
+
+    #[test]
+    fn string_integer_arguments_coerce_exact_numbers_and_numeric_strings() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abcd");
+        let start = runtime.push_string(b"0x2");
+        let end = runtime.push_string(b"0x1p1");
+        let count = runtime.push_string(b"2.0");
+        let char_code = runtime.push_string(b"0x41");
+        let non_integral = runtime.push_string(b"1.5");
+
+        assert_eq!(
+            string_byte(&mut runtime, &[subject, start, end]).expect("byte should pass"),
+            vec![Value::integer(98)]
+        );
+        let repeated = string_rep(&mut runtime, &[subject, count]).expect("rep should pass");
+        assert_eq!(
+            runtime.short_string_bytes(repeated[0]),
+            Some(b"abcdabcd".as_slice())
+        );
+        let char_value =
+            string_char(&mut runtime, &[Value::float(65.0), char_code]).expect("char should pass");
+        assert_eq!(
+            runtime.short_string_bytes(char_value[0]),
+            Some(b"AA".as_slice())
+        );
+        assert_eq!(
+            string_byte(&mut runtime, &[subject, non_integral])
+                .expect_err("non-integral position should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "integer"
+            }
         );
     }
 

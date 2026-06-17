@@ -1729,6 +1729,25 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(66), Value::integer(67)],
     );
     assert_success_fixture(
+        "stdlib/string_integer_argument_coercion.lua",
+        vec![
+            Value::integer(2),
+            Value::integer(65),
+            Value::integer(66),
+            Value::integer(98),
+            Value::integer(3),
+            Value::integer(98),
+            Value::integer(100),
+            Value::integer(5),
+            Value::integer(46),
+            Value::integer(4),
+            Value::integer(6),
+            Value::integer(2),
+            Value::boolean(false),
+            Value::integer(115),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/math_numeric.lua",
         vec![
             Value::integer(3),
