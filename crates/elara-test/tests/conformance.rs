@@ -554,6 +554,15 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(true), Value::integer(42)],
     );
     assert_success_fixture(
+        "stdlib/base_pcall_arguments.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(10),
+            Value::nil(),
+            Value::integer(30),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_pcall_multi.lua",
         vec![
             Value::boolean(true),
