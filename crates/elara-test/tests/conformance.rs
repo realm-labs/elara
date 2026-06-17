@@ -1340,6 +1340,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(66)],
     );
     assert_success_fixture(
+        "stdlib/string_byte_negative_end.lua",
+        vec![Value::integer(65), Value::integer(66)],
+    );
+    assert_success_fixture(
         "stdlib/string_byte_embedded_nul.lua",
         vec![Value::integer(65), Value::integer(0), Value::integer(67)],
     );
