@@ -842,6 +842,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(2), Value::integer(98)],
     );
     assert_success_fixture(
+        "stdlib/string_match_zero_init.lua",
+        vec![Value::integer(1), Value::integer(97)],
+    );
+    assert_success_fixture(
         "stdlib/string_match_past_end.lua",
         vec![Value::boolean(true)],
     );
