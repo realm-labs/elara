@@ -7,6 +7,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "language/control_flow.lua",
     "language/conditional_branches.lua",
     "language/numeric_for_negative_step.lua",
+    "language/generic_for_custom_iterator.lua",
     "language/bitwise.lua",
     "language/comparisons.lua",
     "language/not_truthiness.lua",

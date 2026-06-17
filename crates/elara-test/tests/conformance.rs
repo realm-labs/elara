@@ -16,6 +16,10 @@ fn conformance_language_fixtures() {
         vec![Value::integer(9)],
     );
     assert_success_fixture(
+        "language/generic_for_custom_iterator.lua",
+        vec![Value::integer(66), Value::integer(3)],
+    );
+    assert_success_fixture(
         "language/bitwise.lua",
         vec![
             Value::integer(8),
