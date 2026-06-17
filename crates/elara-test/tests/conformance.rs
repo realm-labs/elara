@@ -1996,7 +1996,7 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/table_concat_long_strings.lua",
-        vec![Value::integer(251), Value::integer(33), Value::integer(124)],
+        vec![Value::integer(301), Value::integer(97), Value::integer(124)],
     );
     assert_success_fixture(
         "stdlib/table_concat_errors.lua",

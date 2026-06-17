@@ -1610,6 +1610,10 @@ Delivered:
 - The existing `package.searchpath` miss and unsupported `package.loadlib`
   fixtures now assert exact nil-result, string-message type-byte, and
   deterministic load stage results.
+- The existing long-string `table.concat` fixture now builds its long operands
+  from deterministic `string.rep` data instead of host/profile-dependent
+  `package.path`, keeping exact-value conformance and differential comparison
+  portable across Lua installations.
 - The existing `os.execute`, `os.tmpname`, `os.remove`, and `os.rename`
   result fixtures now assert exact status/type booleans and type bytes while
   keeping host-specific labels, names, and errno values out of the expectation.
@@ -1720,20 +1724,22 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
+cargo clippy -p elara-test --all-targets -- -D warnings
 cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures
-cargo clippy -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 
-No official Lua executable is currently on `PATH` or built under
-`~/Downloads/lua-lua-a5522f0`, so the `ELARA_LUA`-configured fixture comparison
-paths are compile/skip-tested locally rather than executed against a reference
-binary.
+`cargo fmt --all -- --check` currently reports pre-existing formatting drift in
+committed Rust files outside this fixture maintenance change.
 
-`cargo fmt --all -- --check` currently fails on this Windows checkout because
-the repository-wide Rust files are reported with non-Unix newline style while
-`.rustfmt.toml` requires `newline_style = "Unix"`.
+`ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
+differential_fixtures` currently exposes pre-existing reference mismatches for
+`language/varargs.lua` exact result count and
+`stdlib/package_require_nil_loader.lua` success/error class. The deterministic
+`table_concat_long_strings.lua` repair removes one host-dependent fixture input,
+but the full configured reference comparison still needs separate differential
+triage.
 
 ## Next Recommended Action
 
