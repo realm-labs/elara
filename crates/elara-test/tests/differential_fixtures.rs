@@ -50,6 +50,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_rawequal_metamethod.lua",
     "stdlib/base_iteration.lua",
     "stdlib/base_ipairs_stops_at_nil.lua",
+    "stdlib/base_ipairs_empty.lua",
     "stdlib/base_pairs_metamethod.lua",
     "stdlib/base_metatable.lua",
     "stdlib/base_metatable_protected_set.lua",
