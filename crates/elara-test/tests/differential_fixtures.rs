@@ -317,6 +317,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/os_time_date.lua",
     "stdlib/os_difftime_negative.lua",
     "stdlib/os_time_normalize.lua",
+    "stdlib/os_time_leap_day.lua",
     "stdlib/os_time_defaults.lua",
     "stdlib/os_date_format.lua",
     "stdlib/os_date_table_fields.lua",

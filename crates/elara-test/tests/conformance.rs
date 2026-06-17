@@ -2200,6 +2200,18 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/os_time_leap_day.lua",
+        vec![
+            Value::integer(1709251198),
+            Value::integer(2024),
+            Value::integer(2),
+            Value::integer(29),
+            Value::integer(23),
+            Value::integer(59),
+            Value::integer(58),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/os_time_defaults.lua",
         vec![
             Value::integer(0),
