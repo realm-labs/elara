@@ -320,16 +320,10 @@ fn math_randomseed(
     let (seed1, seed2) = match args.len() {
         0 => (runtime.random_seed()?, runtime.next_random_u64()?),
         1 => (integer_arg(args, 1)? as u64, 0),
-        2 => (
+        _ => (
             integer_arg(args, 1)? as u64,
             optional_integer_arg(args, 2, 0)? as u64,
         ),
-        _ => {
-            return Err(NativeErrorKind::RuntimeError {
-                message: "wrong number of arguments".into(),
-            }
-            .into());
-        }
     };
     runtime.set_random_seed(seed1, seed2)?;
     Ok(vec![
@@ -719,6 +713,31 @@ mod tests {
         assert_eq!(
             math_random(&mut runtime, &[Value::integer(0)]).expect("random should pass"),
             first
+        );
+    }
+
+    #[test]
+    fn math_randomseed_ignores_extra_arguments() {
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            math_randomseed(
+                &mut runtime,
+                &[Value::integer(7), Value::integer(9), Value::boolean(false)]
+            ),
+            Ok(vec![Value::integer(7), Value::integer(9)])
+        );
+        assert_eq!(
+            math_randomseed(
+                &mut runtime,
+                &[Value::integer(7), Value::boolean(false), Value::integer(9)]
+            )
+            .expect_err("bad second seed should still fail")
+            .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "integer"
+            }
         );
     }
 

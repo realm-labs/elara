@@ -1660,8 +1660,8 @@ fn conformance_standard_library_fixtures() {
             Value::integer(115),
             Value::boolean(false),
             Value::integer(115),
-            Value::boolean(false),
-            Value::integer(115),
+            Value::boolean(true),
+            Value::integer(110),
         ],
     );
     assert_success_fixture(

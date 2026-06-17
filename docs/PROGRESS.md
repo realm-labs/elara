@@ -1454,8 +1454,9 @@ Delivered:
   result shapes.
 - The math-library conformance and differential smoke matrix now covers
   `math.fmod`, `math.random`, and `math.ult` argument error result shapes.
-- The math-library conformance and differential smoke matrix now covers
-  `math.randomseed` argument type/count error result shapes.
+- `math.randomseed` now follows Lua 5.5 by validating only the first two seed
+  arguments and ignoring extras; the conformance/differential fixture covers
+  first/second type errors plus extra-argument success shape.
 - The math-library conformance and differential smoke matrix now covers
   generic number argument plus `math.min`/`math.max` error result shapes.
 - The math-library conformance and differential smoke matrix now covers
@@ -1740,23 +1741,27 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
-cargo clippy -p elara-test --all-targets -- -D warnings
+cargo clippy -p elara-stdlib -p elara-test --all-targets -- -D warnings
+cargo test -p elara-stdlib math_randomseed
 cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures
 git diff --check
 ```
 
-`cargo fmt --all -- --check` currently reports pre-existing formatting drift in
-committed Rust files outside this package-fixture portability change.
+`cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
+pre-existing formatting drift in committed Rust files outside this
+`math.randomseed` change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the
 `stdlib/base_loading_error_shapes.lua` and
 `stdlib/string_format_long_strings.lua` exact comparisons after those fixtures
-were limited to portable result shapes. The same configured run currently
-exposes a separate pre-existing exact-result mismatch for
-`stdlib/math_randomseed_errors.lua`: official Lua accepts three seed arguments
-while Elara reports an argument error.
+were limited to portable result shapes, and now also passes
+`stdlib/math_randomseed_errors.lua` after `math.randomseed` was aligned with
+Lua's extra-argument handling. The same configured run currently exposes a
+separate pre-existing exact-result mismatch for
+`stdlib/table_insert_remove_errors.lua`: official Lua accepts the extra
+`table.remove` argument while Elara reports an argument error.
 
 ## Next Recommended Action
 
