@@ -1427,7 +1427,7 @@ Delivered:
   validating no-op `warn`.
 - The base-library conformance and differential smoke matrix now covers
   portable `load`/`loadfile`/`dofile` error result shapes without depending on
-  host-specific diagnostic text.
+  host-specific diagnostic text or `load` reader/type ambiguity.
 - The base-library conformance and differential smoke matrix now covers
   portable raw access, `select`, `setmetatable`, `tonumber`, and `warn`
   argument error result shapes.
@@ -1747,13 +1747,12 @@ git diff --check
 committed Rust files outside this package-fixture portability change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
-differential_fixtures` currently exposes a pre-existing reference mismatch for
-`stdlib/base_loading_error_shapes.lua` exact results. The final-vararg return
-lowering fix removes the previous `language/varargs.lua` exact-result
-mismatch, `language/table_fields.lua` now avoids a host/reference-sensitive
-sparse-table `rawlen` boundary, and the nil-loader plus loaded-cache require
-fixtures now use the portable global `require` entry point, but the full
-configured reference comparison still needs separate differential triage.
+differential_fixtures` now passes the `stdlib/base_loading_error_shapes.lua`
+exact comparison after the fixture was limited to portable mode and missing-file
+error result shapes. The same configured run currently exposes a separate
+pre-existing exact-result mismatch for `stdlib/string_format_long_strings.lua`
+because the fixture compares `%p` formatted string length, which differs across
+the reference interpreter and Elara.
 
 ## Next Recommended Action
 
