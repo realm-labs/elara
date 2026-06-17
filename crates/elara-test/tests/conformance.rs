@@ -1301,7 +1301,16 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/string_format_long_strings.lua",
-        vec![Value::integer(50), Value::integer(107)],
+        vec![
+            Value::integer(50),
+            Value::integer(109),
+            Value::integer(97),
+            Value::integer(58),
+            Value::integer(34),
+            Value::integer(97),
+            Value::integer(58),
+            Value::integer(97),
+        ],
     );
     assert_success_fixture(
         "stdlib/string_format_string_modifiers.lua",

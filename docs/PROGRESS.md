@@ -1582,6 +1582,9 @@ Delivered:
   portable missing and wrong-type conversion argument error result shapes.
 - The `string.format` conformance and differential smoke matrix now covers
   invalid modifier and width conversion specification error result shapes.
+- The `string.format` long-string fixture now avoids implementation-specific
+  `%p` result lengths while still exact-checking long literal, `%s`, `%q`, and
+  precision-limited `%s` output shape.
 - `string.gsub` now accepts numeric replacement arguments, matching Lua's
   replacement argument type set.
 - The conformance and differential matrix now exactly covers table/function
@@ -1747,12 +1750,13 @@ git diff --check
 committed Rust files outside this package-fixture portability change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
-differential_fixtures` now passes the `stdlib/base_loading_error_shapes.lua`
-exact comparison after the fixture was limited to portable mode and missing-file
-error result shapes. The same configured run currently exposes a separate
-pre-existing exact-result mismatch for `stdlib/string_format_long_strings.lua`
-because the fixture compares `%p` formatted string length, which differs across
-the reference interpreter and Elara.
+differential_fixtures` now passes the
+`stdlib/base_loading_error_shapes.lua` and
+`stdlib/string_format_long_strings.lua` exact comparisons after those fixtures
+were limited to portable result shapes. The same configured run currently
+exposes a separate pre-existing exact-result mismatch for
+`stdlib/math_randomseed_errors.lua`: official Lua accepts three seed arguments
+while Elara reports an argument error.
 
 ## Next Recommended Action
 
