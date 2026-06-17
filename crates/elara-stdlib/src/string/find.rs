@@ -36,7 +36,7 @@ pub(super) fn string_find(
     }
 
     let plain = args.get(3).is_some_and(|value| is_truthy(*value));
-    if !plain && has_unsupported_pattern_special_with_captures(pattern) {
+    if !plain && has_unsupported_pattern_special_with_captures(&pattern) {
         return Err(NativeErrorKind::RuntimeError {
             message: "string pattern matching is not supported yet".into(),
         }
@@ -45,7 +45,7 @@ pub(super) fn string_find(
 
     let offset = init - 1;
     if plain {
-        return Ok(plain_find(&subject[offset..], pattern).map_or_else(
+        return Ok(plain_find(&subject[offset..], &pattern).map_or_else(
             || vec![Value::nil()],
             |start| {
                 let start = offset + start;
@@ -59,7 +59,7 @@ pub(super) fn string_find(
         ));
     }
 
-    let Some(match_) = simple_pattern_match_from(subject, pattern, offset) else {
+    let Some(match_) = simple_pattern_match_from(&subject, &pattern, offset) else {
         return Ok(vec![Value::nil()]);
     };
     let mut values = vec![

@@ -1679,12 +1679,16 @@ Delivered:
   custom message is omitted and Lua's `"<no error object>"` message when the
   custom message is explicit nil; the shared fixture matrix also covers
   `error()` and `error(nil)` nil-error-object messages.
+- String-library receiver arguments now coerce numeric values through Lua-style
+  string conversion for common byte-oriented operations, and the shared
+  conformance/differential matrix covers numeric receivers for `string.len`,
+  `string.byte`, `string.rep`, and `string.sub`.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains five hundred three smoke fixtures across
+- `tests/conformance` currently contains five hundred four smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
@@ -1780,7 +1784,7 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
-cargo test -p elara-stdlib base_
+cargo test -p elara-stdlib string_
 cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures
 ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test differential_fixtures
@@ -1789,8 +1793,8 @@ git diff --check
 ```
 
 `cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
-pre-existing formatting drift in committed Rust files outside this assert
-default-message behavior and fixture change.
+pre-existing formatting drift in committed Rust files outside this string
+numeric-receiver behavior and fixture change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the current configured official-Lua exact

@@ -32,7 +32,7 @@ pub(super) fn string_gmatch(
     let pattern = string_arg(runtime, pattern_value, 2)?;
     let init = relative_start(optional_integer_arg(args, 3, 1)?, subject.len());
 
-    if has_unsupported_pattern_special_with_captures(pattern) {
+    if has_unsupported_pattern_special_with_captures(&pattern) {
         return Err(NativeErrorKind::RuntimeError {
             message: "string pattern matching is not supported yet".into(),
         }

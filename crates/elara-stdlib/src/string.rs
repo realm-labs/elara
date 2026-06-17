@@ -1,5 +1,7 @@
 //! Executable string-library natives.
 
+use std::borrow::Cow;
+
 use elara_core::Value;
 
 use crate::{
@@ -252,14 +254,29 @@ fn string_arg(
     runtime: &dyn NativeRuntime,
     value: Value,
     index: usize,
-) -> Result<&[u8], NativeError> {
-    runtime.string_bytes(value).ok_or(
-        NativeErrorKind::TypeError {
-            index,
-            expected: "string",
-        }
-        .into(),
-    )
+) -> Result<Cow<'_, [u8]>, NativeError> {
+    if let Some(bytes) = runtime.string_bytes(value) {
+        return Ok(Cow::Borrowed(bytes));
+    }
+    if let Some(integer) = value.as_integer() {
+        return Ok(Cow::Owned(integer.to_string().into_bytes()));
+    }
+    if let Some(float) = value.as_float() {
+        return Ok(Cow::Owned(float_arg_bytes(float)));
+    }
+    Err(NativeErrorKind::TypeError {
+        index,
+        expected: "string",
+    }
+    .into())
+}
+
+fn float_arg_bytes(value: f64) -> Vec<u8> {
+    let mut text = value.to_string();
+    if value.is_finite() && !text.contains(['.', 'e', 'E']) {
+        text.push_str(".0");
+    }
+    text.into_bytes()
 }
 
 #[cfg(test)]
@@ -334,13 +351,34 @@ mod tests {
         let mut runtime = TestRuntime::default();
 
         assert_eq!(
-            string_len(&mut runtime, &[Value::integer(1)])
+            string_len(&mut runtime, &[Value::boolean(false)])
                 .expect_err("non-string should fail")
                 .kind(),
             &NativeErrorKind::TypeError {
                 index: 1,
                 expected: "string"
             }
+        );
+    }
+
+    #[test]
+    fn string_functions_coerce_numbers_to_strings() {
+        assert_eq!(
+            string_len(&mut TestRuntime::default(), &[Value::integer(123)])
+                .expect("number len should pass"),
+            vec![Value::integer(3)]
+        );
+
+        assert_eq!(
+            string_byte(&mut TestRuntime::default(), &[Value::integer(65)])
+                .expect("number byte should pass"),
+            vec![Value::integer(54)]
+        );
+
+        assert_eq!(
+            string_len(&mut TestRuntime::default(), &[Value::float(1.0)])
+                .expect("float len should pass"),
+            vec![Value::integer(3)]
         );
     }
 

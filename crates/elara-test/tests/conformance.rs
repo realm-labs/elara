@@ -1190,6 +1190,21 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_number_receivers.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(54),
+            Value::integer(3),
+            Value::integer(46),
+            Value::integer(4),
+            Value::integer(49),
+            Value::integer(50),
+            Value::integer(3),
+            Value::integer(50),
+            Value::integer(52),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_reverse_ascii.lua",
         vec![Value::integer(4), Value::integer(100), Value::integer(97)],
     );

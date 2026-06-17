@@ -34,7 +34,7 @@ pub(super) fn string_match(
     if init > subject.len() {
         return Ok(vec![Value::nil()]);
     }
-    if has_unsupported_pattern_special_with_captures(pattern) {
+    if has_unsupported_pattern_special_with_captures(&pattern) {
         return Err(NativeErrorKind::RuntimeError {
             message: "string pattern matching is not supported yet".into(),
         }
@@ -42,7 +42,7 @@ pub(super) fn string_match(
     }
 
     let offset = init - 1;
-    let Some(match_) = simple_pattern_match_from(subject, pattern, offset) else {
+    let Some(match_) = simple_pattern_match_from(&subject, &pattern, offset) else {
         return Ok(vec![Value::nil()]);
     };
     let subject = subject.to_vec();
