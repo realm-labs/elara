@@ -1667,12 +1667,15 @@ Delivered:
 - `table.unpack` now treats explicit nil start/end bounds like omitted bounds,
   and the shared conformance/differential matrix covers the Lua `luaL_opt`
   default-length path.
+- The table-library conformance and differential smoke matrix now covers
+  explicit nil optional defaults for `table.remove` positions and
+  `table.concat` bounds.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains four hundred ninety-seven smoke fixtures across
+- `tests/conformance` currently contains four hundred ninety-nine smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
@@ -1768,17 +1771,15 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
-cargo test -p elara-stdlib table_unpack
 cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures
 ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test differential_fixtures
-cargo clippy -p elara-stdlib -p elara-test --all-targets -- -D warnings
+cargo clippy -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 
-`cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
-pre-existing formatting drift in committed Rust files outside this table
-unpack nil-bounds behavior and fixture change.
+`cargo fmt -p elara-test -- --check` currently reports pre-existing formatting
+drift in committed Rust files outside this table optional-nil fixture change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the current configured official-Lua exact

@@ -1794,6 +1794,15 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(2), Value::integer(1), Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/table_remove_nil_position.lua",
+        vec![
+            Value::integer(30),
+            Value::integer(10),
+            Value::integer(20),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_remove_first.lua",
         vec![
             Value::integer(10),
@@ -2027,6 +2036,15 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture(
         "stdlib/table_concat_nil_separator.lua",
         vec![Value::integer(2), Value::integer(98), Value::integer(99)],
+    );
+    assert_success_fixture(
+        "stdlib/table_concat_nil_bounds.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(97),
+            Value::integer(98),
+            Value::integer(99),
+        ],
     );
     assert_success_fixture(
         "stdlib/table_concat_long_strings.lua",
