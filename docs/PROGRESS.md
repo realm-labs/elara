@@ -1707,6 +1707,9 @@ Delivered:
 - `string.format` now reports Lua-style invalid-conversion errors for
   unsupported alphabetic conversion items such as `%n` and `%F`, while still
   preserving Lua's missing-argument precedence for those invalid items.
+- `string.format` integer conversions now require exact integer values for
+  float and numeric-string arguments instead of flooring non-integral inputs;
+  the shared argument-error fixture covers non-integral `%d` values.
 - String pattern preflight now distinguishes malformed Lua patterns from
   valid-but-unsupported pattern gaps, reporting Lua-style errors for trailing
   `%`, missing bracket/frontier/balanced-pattern delimiters, empty

@@ -1,6 +1,8 @@
 local format_ok, format_message = pcall(string.format, false)
 local missing_string_ok, missing_string_message = pcall(string.format, "%s")
 local integer_ok, integer_message = pcall(string.format, "%d", false)
+local integer_float_ok, integer_float_message = pcall(string.format, "%d", 1.5)
+local integer_string_ok, integer_string_message = pcall(string.format, "%d", "12.9")
 local float_ok, float_message = pcall(string.format, "%f", false)
 local char_ok, char_message = pcall(string.format, "%c", false)
 local quote_ok, quote_message = pcall(string.format, "%q", {})
@@ -11,6 +13,10 @@ return format_ok,
   string.byte(type(missing_string_message), 1),
   integer_ok,
   string.byte(type(integer_message), 1),
+  integer_float_ok,
+  string.byte(type(integer_float_message), 1),
+  integer_string_ok,
+  string.byte(type(integer_string_message), 1),
   float_ok,
   string.byte(type(float_message), 1),
   char_ok,

@@ -408,11 +408,8 @@ fn integer_format_arg(
     value: Value,
     index: usize,
 ) -> Result<LuaInteger, NativeError> {
-    if let Some(integer) = value.as_integer() {
+    if let Some(integer) = value.to_integer_exact() {
         return Ok(integer);
-    }
-    if let Some(float) = value.as_float() {
-        return floor_to_integer(float).ok_or_else(|| integer_type_error(index));
     }
     if let Some(bytes) = runtime.string_bytes(value)
         && let Some(number) = parse_standard_number(bytes)
@@ -440,17 +437,6 @@ fn float_format_arg(
         expected: "number",
     }
     .into())
-}
-
-fn floor_to_integer(value: LuaFloat) -> Option<LuaInteger> {
-    if !value.is_finite() {
-        return None;
-    }
-    let value = value.floor();
-    if value < LuaInteger::MIN as LuaFloat || value >= (LuaInteger::MAX as LuaFloat + 1.0) {
-        return None;
-    }
-    Some(value as LuaInteger)
 }
 
 fn integer_type_error(index: usize) -> NativeError {

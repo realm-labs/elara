@@ -122,15 +122,15 @@ fn string_format_reports_invalid_string_conversion_specification() {
 fn string_format_formats_basic_integer_conversions() {
     let mut runtime = TestRuntime::default();
     let format = runtime.push_string(b"%d:%i:%d:%i:%u:%o:%x:%X");
-    let numeric_string = runtime.push_string(b"12.9");
-    let negative_string = runtime.push_string(b"-2.1");
+    let numeric_string = runtime.push_string(b"12.0");
+    let negative_string = runtime.push_string(b"-2.0");
 
     let values = string_format(
         &mut runtime,
         &[
             format,
             Value::integer(7),
-            Value::float(8.9),
+            Value::float(8.0),
             numeric_string,
             negative_string,
             Value::integer(7),
@@ -143,7 +143,7 @@ fn string_format_formats_basic_integer_conversions() {
 
     assert_eq!(
         runtime.short_string_bytes(values[0]),
-        Some(b"7:8:12:-3:7:10:ff:FF".as_slice())
+        Some(b"7:8:12:-2:7:10:ff:FF".as_slice())
     );
 }
 
@@ -575,10 +575,29 @@ fn string_format_reports_missing_integer_conversion_argument() {
 fn string_format_reports_non_integer_conversion_argument() {
     let mut runtime = TestRuntime::default();
     let format = runtime.push_string(b"%d");
+    let non_integral_string = runtime.push_string(b"12.9");
 
     assert_eq!(
         string_format(&mut runtime, &[format, Value::boolean(true)])
             .expect_err("non-integer conversion argument should fail")
+            .kind(),
+        &NativeErrorKind::TypeError {
+            index: 2,
+            expected: "integer",
+        }
+    );
+    assert_eq!(
+        string_format(&mut runtime, &[format, Value::float(1.5)])
+            .expect_err("non-integral float conversion argument should fail")
+            .kind(),
+        &NativeErrorKind::TypeError {
+            index: 2,
+            expected: "integer",
+        }
+    );
+    assert_eq!(
+        string_format(&mut runtime, &[format, non_integral_string])
+            .expect_err("non-integral string conversion argument should fail")
             .kind(),
         &NativeErrorKind::TypeError {
             index: 2,
