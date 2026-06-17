@@ -2182,6 +2182,24 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/table_integer_argument_coercion.lua",
+        vec![
+            Value::integer(10),
+            Value::integer(30),
+            Value::integer(20),
+            Value::integer(10),
+            Value::integer(30),
+            Value::integer(10),
+            Value::integer(30),
+            Value::integer(3),
+            Value::integer(98),
+            Value::integer(45),
+            Value::integer(99),
+            Value::boolean(false),
+            Value::integer(115),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_pack_nil.lua",
         vec![
             Value::integer(3),

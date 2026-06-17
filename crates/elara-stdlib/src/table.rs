@@ -4,6 +4,7 @@ use elara_core::Value;
 
 use crate::{
     FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
+    number::parse_standard_number,
 };
 
 mod concat;
@@ -40,7 +41,7 @@ fn table_insert(
     let (position, value) = match args.len() {
         2 => (end, args[1]),
         3 => {
-            let position = integer_arg(args, 2)?;
+            let position = integer_arg(runtime, args, 2)?;
             if position < 1 || position > end {
                 return Err(NativeErrorKind::ArgumentOutOfRange { index: 2 }.into());
             }
@@ -66,9 +67,9 @@ fn table_move(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
     let source = *args
         .first()
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
-    let first = integer_arg(args, 2)?;
-    let last = integer_arg(args, 3)?;
-    let target = integer_arg(args, 4)?;
+    let first = integer_arg(runtime, args, 2)?;
+    let last = integer_arg(runtime, args, 3)?;
+    let target = integer_arg(runtime, args, 4)?;
     let destination = args
         .get(4)
         .copied()
@@ -114,7 +115,7 @@ fn table_remove(
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
 
     let size = runtime.table_array_len(table)?;
-    let mut position = optional_integer_arg(args, 2, size)?;
+    let mut position = optional_integer_arg(runtime, args, 2, size)?;
     if position != size && (position < 1 || position > size + 1) {
         return Err(NativeErrorKind::ArgumentOutOfRange { index: 2 }.into());
     }
@@ -150,8 +151,8 @@ fn table_unpack(
     let table = *args
         .first()
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
-    let start = optional_integer_arg(args, 2, 1)?;
-    let end = optional_integer_arg(args, 3, runtime.table_array_len(table)?)?;
+    let start = optional_integer_arg(runtime, args, 2, 1)?;
+    let end = optional_integer_arg(runtime, args, 3, runtime.table_array_len(table)?)?;
 
     if start > end {
         return Ok(Vec::new());
@@ -176,10 +177,38 @@ fn table_unpack(
     Ok(values)
 }
 
-fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
-    args.get(index - 1)
-        .ok_or(NativeErrorKind::MissingArgument { index })?
-        .as_integer()
+fn integer_arg(
+    runtime: &dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<i64, NativeError> {
+    let value = *args
+        .get(index - 1)
+        .ok_or(NativeErrorKind::MissingArgument { index })?;
+    integer_value_arg(runtime, value, index)
+}
+
+pub(super) fn optional_integer_arg(
+    runtime: &dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+    default: i64,
+) -> Result<i64, NativeError> {
+    match args.get(index - 1) {
+        Some(value) if value.is_nil() => Ok(default),
+        Some(value) => integer_value_arg(runtime, *value, index),
+        None => Ok(default),
+    }
+}
+
+fn integer_value_arg(
+    runtime: &dyn NativeRuntime,
+    value: Value,
+    index: usize,
+) -> Result<i64, NativeError> {
+    value
+        .to_integer_exact()
+        .or_else(|| string_to_integer_exact(runtime, value))
         .ok_or(
             NativeErrorKind::TypeError {
                 index,
@@ -189,18 +218,9 @@ fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
         )
 }
 
-fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i64, NativeError> {
-    match args.get(index - 1) {
-        Some(value) if value.is_nil() => Ok(default),
-        Some(value) => value.as_integer().ok_or(
-            NativeErrorKind::TypeError {
-                index,
-                expected: "integer",
-            }
-            .into(),
-        ),
-        None => Ok(default),
-    }
+fn string_to_integer_exact(runtime: &dyn NativeRuntime, value: Value) -> Option<i64> {
+    let bytes = runtime.string_bytes(value)?;
+    parse_standard_number(bytes)?.to_integer_exact()
 }
 
 #[cfg(test)]
@@ -359,6 +379,54 @@ mod tests {
         assert_eq!(
             table_unpack(&mut runtime, &[packed[0]]).expect("unpack should pass"),
             vec![Value::integer(1), Value::integer(2), Value::integer(3)]
+        );
+    }
+
+    #[test]
+    fn table_integer_arguments_coerce_exact_numbers_and_numeric_strings() {
+        let mut runtime = TestRuntime::default();
+        let packed = table_pack(&mut runtime, &[Value::integer(1), Value::integer(3)])
+            .expect("pack should pass");
+        let position = runtime.intern_short_string(b"2.0").expect("string");
+        let remove_position = runtime.intern_short_string(b"0x2").expect("string");
+        let first = runtime.intern_short_string(b"1").expect("string");
+        let target = runtime.intern_short_string(b"0x2").expect("string");
+        let non_integral = runtime.intern_short_string(b"1.5").expect("string");
+
+        table_insert(&mut runtime, &[packed[0], position, Value::integer(2)])
+            .expect("insert should pass");
+        assert_eq!(
+            table_remove(&mut runtime, &[packed[0], remove_position]).expect("remove should pass"),
+            vec![Value::integer(2)]
+        );
+        assert_eq!(
+            table_unpack(&mut runtime, &[packed[0], Value::float(2.0), target])
+                .expect("unpack should pass"),
+            vec![Value::integer(3)]
+        );
+
+        let destination = table_pack(&mut runtime, &[]).expect("pack should pass");
+        table_move(
+            &mut runtime,
+            &[packed[0], first, Value::float(2.0), target, destination[0]],
+        )
+        .expect("move should pass");
+        assert_eq!(
+            table_unpack(
+                &mut runtime,
+                &[destination[0], Value::integer(2), Value::integer(3)],
+            )
+            .expect("unpack should pass"),
+            vec![Value::integer(1), Value::integer(3)]
+        );
+        assert_eq!(
+            table_remove(&mut runtime, &[packed[0], non_integral])
+                .expect_err("non-integral position should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "integer"
+            }
         );
     }
 

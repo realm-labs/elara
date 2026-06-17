@@ -6,6 +6,8 @@ use elara_core::Value;
 
 use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
+use super::optional_integer_arg;
+
 pub(super) fn table_concat(
     runtime: &mut dyn NativeRuntime,
     args: &[Value],
@@ -17,8 +19,8 @@ pub(super) fn table_concat(
         Some(value) if !value.is_nil() => string_or_number_arg(runtime, *value, 2)?,
         _ => Cow::Borrowed(&[] as &[u8]),
     };
-    let start = optional_integer_arg(args, 3, 1)?;
-    let end = optional_integer_arg(args, 4, runtime.table_array_len(table)?)?;
+    let start = optional_integer_arg(runtime, args, 3, 1)?;
+    let end = optional_integer_arg(runtime, args, 4, runtime.table_array_len(table)?)?;
 
     let mut output = Vec::new();
     for index in start..=end {
@@ -58,20 +60,6 @@ fn string_or_number_arg(
         expected: "string or number",
     }
     .into())
-}
-
-fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i64, NativeError> {
-    match args.get(index - 1) {
-        Some(value) if value.is_nil() => Ok(default),
-        Some(value) => value.as_integer().ok_or(
-            NativeErrorKind::TypeError {
-                index,
-                expected: "integer",
-            }
-            .into(),
-        ),
-        None => Ok(default),
-    }
 }
 
 fn concat_too_large() -> NativeError {
@@ -183,6 +171,29 @@ mod tests {
         .expect("concat should pass");
 
         assert_eq!(runtime.short_string_bytes(value[0]), Some(b"bc".as_slice()));
+    }
+
+    #[test]
+    fn table_concat_bounds_coerce_exact_numbers_and_numeric_strings() {
+        let mut runtime = TestRuntime::default();
+        let a = runtime.push_string(b"a");
+        let b = runtime.push_string(b"b");
+        let c = runtime.push_string(b"c");
+        let separator = runtime.push_string(b"-");
+        let start = runtime.push_string(b"2.0");
+        let table = runtime.push_table(&[
+            (Value::integer(1), a),
+            (Value::integer(2), b),
+            (Value::integer(3), c),
+        ]);
+
+        let value = table_concat(&mut runtime, &[table, separator, start, Value::float(3.0)])
+            .expect("concat should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(value[0]),
+            Some(b"b-c".as_slice())
+        );
     }
 
     #[test]
