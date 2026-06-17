@@ -1388,6 +1388,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::float(0.0), Value::integer(0)],
     );
     assert_success_fixture("stdlib/math_ldexp_positive.lua", vec![Value::float(12.0)]);
+    assert_success_fixture(
+        "stdlib/math_ldexp_negative_mantissa.lua",
+        vec![Value::float(-12.0)],
+    );
     assert_success_fixture("stdlib/math_ldexp_negative.lua", vec![Value::float(0.5)]);
     assert_success_fixture(
         "stdlib/math_modf.lua",
