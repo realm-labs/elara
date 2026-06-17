@@ -1,6 +1,6 @@
 use elara_core::Value;
 
-use super::{string_pack, string_packsize};
+use super::{string_pack, string_packsize, string_unpack};
 use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
 #[derive(Default)]
@@ -120,6 +120,104 @@ fn string_pack_reports_value_errors() {
             .kind(),
         &NativeErrorKind::RuntimeError {
             message: "strings contains zeros".into()
+        }
+    );
+}
+
+#[test]
+fn string_unpack_reads_integer_character_and_padding_formats() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"<bBI2i2c4xz");
+    let data = runtime.push_string(&[
+        255, 255, 0x34, 0x12, 0xfe, 0xff, b'h', b'i', 0, 0, 0, b'o', b'k', 0,
+    ]);
+
+    let values = string_unpack(&mut runtime, &[format, data]).expect("unpack should pass");
+
+    assert_eq!(values[0], Value::integer(-1));
+    assert_eq!(values[1], Value::integer(255));
+    assert_eq!(values[2], Value::integer(0x1234));
+    assert_eq!(values[3], Value::integer(-2));
+    assert_eq!(runtime.short_string_bytes(values[4]), Some(&b"hi\0\0"[..]));
+    assert_eq!(runtime.short_string_bytes(values[5]), Some(&b"ok"[..]));
+    assert_eq!(values[6], Value::integer(15));
+}
+
+#[test]
+fn string_unpack_honors_big_endian_alignment() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b">!4bI4Xdb");
+    let data = runtime.push_string(&[1, 0, 0, 0, 1, 2, 3, 4, 0]);
+
+    let values = string_unpack(&mut runtime, &[format, data]).expect("unpack should pass");
+
+    assert_eq!(
+        values,
+        vec![
+            Value::integer(1),
+            Value::integer(0x01020304),
+            Value::integer(0),
+            Value::integer(10)
+        ]
+    );
+}
+
+#[test]
+fn string_unpack_honors_initial_position() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"B");
+    let data = runtime.push_string(&[9, 42]);
+
+    let values = string_unpack(&mut runtime, &[format, data, Value::integer(2)])
+        .expect("unpack should pass");
+
+    assert_eq!(values, vec![Value::integer(42), Value::integer(3)]);
+}
+
+#[test]
+fn string_unpack_reads_length_prefixed_and_zero_strings() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"<s1z");
+    let data = runtime.push_string(&[3, b'a', b'b', b'c', b'o', b'k', 0]);
+
+    let values = string_unpack(&mut runtime, &[format, data]).expect("unpack should pass");
+
+    assert_eq!(runtime.short_string_bytes(values[0]), Some(&b"abc"[..]));
+    assert_eq!(runtime.short_string_bytes(values[1]), Some(&b"ok"[..]));
+    assert_eq!(values[2], Value::integer(8));
+}
+
+#[test]
+fn string_unpack_reports_data_errors() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"I4");
+    let short = runtime.push_string(&[1, 2]);
+    let z_format = runtime.push_string(b"z");
+    let unfinished = runtime.push_string(b"abc");
+    let valid = runtime.push_string(&[0, 0, 0, 0]);
+
+    assert_eq!(
+        string_unpack(&mut runtime, &[format, short])
+            .expect_err("short data should fail")
+            .kind(),
+        &NativeErrorKind::RuntimeError {
+            message: "data string too short".into()
+        }
+    );
+    assert_eq!(
+        string_unpack(&mut runtime, &[z_format, unfinished])
+            .expect_err("unfinished zero string should fail")
+            .kind(),
+        &NativeErrorKind::RuntimeError {
+            message: "unfinished string for format 'z'".into()
+        }
+    );
+    assert_eq!(
+        string_unpack(&mut runtime, &[format, valid, Value::integer(6)])
+            .expect_err("out-of-range position should fail")
+            .kind(),
+        &NativeErrorKind::RuntimeError {
+            message: "initial position out of string".into()
         }
     );
 }

@@ -22,7 +22,8 @@ pub(super) fn string_pack(
             .first()
             .ok_or(NativeErrorKind::MissingArgument { index: 1 })?,
         1,
-    )?;
+    )?
+    .to_vec();
     let mut parser = PackFormatParser::new(&format);
     let mut output = Vec::new();
     let mut arg_index = 2;
@@ -127,7 +128,8 @@ pub(super) fn string_packsize(
             .first()
             .ok_or(NativeErrorKind::MissingArgument { index: 1 })?,
         1,
-    )?;
+    )?
+    .to_vec();
     let mut parser = PackFormatParser::new(&format);
     let mut total_size = 0_usize;
 
@@ -154,6 +156,107 @@ pub(super) fn string_packsize(
     Ok(vec![Value::integer(
         i64::try_from(total_size).expect("packsize is bounded by LuaInteger::MAX"),
     )])
+}
+
+pub(super) fn string_unpack(
+    runtime: &mut dyn NativeRuntime,
+    args: &[Value],
+) -> Result<Vec<Value>, NativeError> {
+    let format = string_arg(
+        runtime,
+        *args
+            .first()
+            .ok_or(NativeErrorKind::MissingArgument { index: 1 })?,
+        1,
+    )?
+    .to_vec();
+    let data = string_arg(
+        runtime,
+        *args
+            .get(1)
+            .ok_or(NativeErrorKind::MissingArgument { index: 2 })?,
+        2,
+    )?
+    .to_vec();
+    let mut position = unpack_initial_position(args.get(2).copied(), data.len())?;
+    let mut parser = PackFormatParser::new(&format);
+    let mut values = Vec::new();
+
+    while parser.has_next() {
+        let details = parser.next_details(position)?;
+        let needed = details
+            .align_padding
+            .checked_add(details.size)
+            .ok_or_else(data_too_short)?;
+        if needed > data.len().saturating_sub(position) {
+            return Err(data_too_short());
+        }
+        position += details.align_padding;
+
+        match details.option {
+            PackOption::SignedInteger | PackOption::UnsignedInteger => {
+                let integer = unpack_integer(
+                    &data[position..position + details.size],
+                    parser.is_little,
+                    details.option == PackOption::SignedInteger,
+                )?;
+                values.push(Value::integer(integer));
+            }
+            PackOption::Float => {
+                let bytes = endian_adjusted_bytes::<4>(
+                    &data[position..position + details.size],
+                    parser.is_little,
+                );
+                values.push(Value::float(f32::from_ne_bytes(bytes) as LuaFloat));
+            }
+            PackOption::Number | PackOption::Double => {
+                let bytes = endian_adjusted_bytes::<8>(
+                    &data[position..position + details.size],
+                    parser.is_little,
+                );
+                values.push(Value::float(LuaFloat::from_ne_bytes(bytes)));
+            }
+            PackOption::Char => {
+                values.push(runtime.intern_string(&data[position..position + details.size])?);
+            }
+            PackOption::String => {
+                let len = unpack_integer(
+                    &data[position..position + details.size],
+                    parser.is_little,
+                    false,
+                )?;
+                let len = usize::try_from(len).map_err(|_| data_too_short())?;
+                let start = position + details.size;
+                let end = start.checked_add(len).ok_or_else(data_too_short)?;
+                if end > data.len() {
+                    return Err(data_too_short());
+                }
+                values.push(runtime.intern_string(&data[start..end])?);
+                position += len;
+            }
+            PackOption::ZeroString => {
+                let Some(relative_end) = data[position..].iter().position(|byte| *byte == 0) else {
+                    return Err(NativeErrorKind::RuntimeError {
+                        message: "unfinished string for format 'z'".into(),
+                    }
+                    .into());
+                };
+                let end = position + relative_end;
+                values.push(runtime.intern_string(&data[position..end])?);
+                position = end + 1;
+                continue;
+            }
+            PackOption::Padding | PackOption::PaddingAlign | PackOption::NoOp => {
+                position += details.size;
+                continue;
+            }
+        }
+        position += details.size;
+    }
+
+    let next_position = i64::try_from(position + 1).map_err(|_| data_too_short())?;
+    values.push(Value::integer(next_position));
+    Ok(values)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -446,6 +549,85 @@ fn pack_bytes(output: &mut Vec<u8>, bytes: &[u8], is_little: bool) {
     }
 }
 
+fn unpack_integer(data: &[u8], is_little: bool, signed: bool) -> Result<LuaInteger, NativeError> {
+    let limit = data.len().min(size_of::<LuaInteger>());
+    let mut bits = 0_u64;
+    for index in (0..limit).rev() {
+        bits = (bits << BITS_PER_BYTE) | u64::from(order_byte(data, index, is_little));
+    }
+
+    if data.len() < size_of::<LuaInteger>() && signed {
+        let sign_bit = 1_u64 << (data.len() * BITS_PER_BYTE - 1);
+        bits = (bits ^ sign_bit).wrapping_sub(sign_bit);
+    } else if data.len() > size_of::<LuaInteger>() {
+        let sign_extend = if signed && (bits as LuaInteger) < 0 {
+            u8::MAX
+        } else {
+            0
+        };
+        for index in limit..data.len() {
+            if order_byte(data, index, is_little) != sign_extend {
+                return Err(NativeErrorKind::RuntimeError {
+                    message: format!("{}-byte integer does not fit into Lua Integer", data.len())
+                        .into(),
+                }
+                .into());
+            }
+        }
+    }
+
+    Ok(bits as LuaInteger)
+}
+
+fn endian_adjusted_bytes<const N: usize>(data: &[u8], is_little: bool) -> [u8; N] {
+    let mut bytes = [0; N];
+    bytes.copy_from_slice(data);
+    if is_little != cfg!(target_endian = "little") {
+        bytes.reverse();
+    }
+    bytes
+}
+
+fn order_byte(data: &[u8], order_index: usize, is_little: bool) -> u8 {
+    if is_little {
+        data[order_index]
+    } else {
+        data[data.len() - 1 - order_index]
+    }
+}
+
+fn unpack_initial_position(value: Option<Value>, len: usize) -> Result<usize, NativeError> {
+    let position = match value {
+        Some(value) if value.is_nil() => 1,
+        Some(value) => value.as_integer().ok_or_else(|| {
+            NativeError::from(NativeErrorKind::TypeError {
+                index: 3,
+                expected: "integer",
+            })
+        })?,
+        None => 1,
+    };
+    let normalized = relative_unpack_position(position, len);
+    if normalized == 0 || normalized > len.saturating_add(1) {
+        return Err(NativeErrorKind::RuntimeError {
+            message: "initial position out of string".into(),
+        }
+        .into());
+    }
+    Ok(normalized - 1)
+}
+
+fn relative_unpack_position(position: LuaInteger, len: usize) -> usize {
+    let len = LuaInteger::try_from(len).expect("runtime string length fits LuaInteger");
+    if position > 0 {
+        usize::try_from(position).unwrap_or(usize::MAX)
+    } else if position == 0 || position < -len {
+        1
+    } else {
+        usize::try_from(len + position + 1).expect("relative position is positive")
+    }
+}
+
 fn integer_arg(args: &[Value], index: usize) -> Result<LuaInteger, NativeError> {
     args.get(index - 1)
         .ok_or(NativeErrorKind::MissingArgument { index })?
@@ -496,6 +678,13 @@ fn invalid_next_option() -> NativeError {
 fn packsize_too_large() -> NativeError {
     NativeErrorKind::RuntimeError {
         message: "format result too large".into(),
+    }
+    .into()
+}
+
+fn data_too_short() -> NativeError {
+    NativeErrorKind::RuntimeError {
+        message: "data string too short".into(),
     }
     .into()
 }
