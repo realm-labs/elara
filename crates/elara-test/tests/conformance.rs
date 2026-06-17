@@ -1706,6 +1706,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/table_pack_booleans.lua",
+        vec![Value::integer(2), Value::boolean(false), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/table_pack_empty.lua",
         vec![Value::integer(0), Value::boolean(true)],
     );
