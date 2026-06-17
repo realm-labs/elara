@@ -30,8 +30,9 @@ impl NativeRuntime for TestRuntime {
 #[test]
 fn string_format_formats_basic_float_conversion() {
     let mut runtime = TestRuntime::default();
-    let format = runtime.push_string(b"%f:%f:%f:%e:%E:%g:%g:%G");
+    let format = runtime.push_string(b"%f:%f:%f:%f:%e:%E:%g:%g:%G");
     let numeric_string = runtime.push_string(b"2.25");
+    let hex_float_string = runtime.push_string(b"0x1.8p1");
 
     let values = string_format(
         &mut runtime,
@@ -40,6 +41,7 @@ fn string_format_formats_basic_float_conversion() {
             Value::integer(7),
             Value::float(1.5),
             numeric_string,
+            hex_float_string,
             Value::float(12.5),
             Value::float(12.5),
             Value::float(12.5),
@@ -52,7 +54,7 @@ fn string_format_formats_basic_float_conversion() {
     assert_eq!(
         runtime.short_string_bytes(values[0]),
         Some(
-            b"7.000000:1.500000:2.250000:1.250000e+01:1.250000E+01:12.5:1.25e-05:1.2E+06"
+            b"7.000000:1.500000:2.250000:3.000000:1.250000e+01:1.250000E+01:12.5:1.25e-05:1.2E+06"
                 .as_slice()
         )
     );

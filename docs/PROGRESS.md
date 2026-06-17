@@ -1713,6 +1713,9 @@ Delivered:
 - Standard numeric string conversion now accepts signed hexadecimal integers
   such as `+0x10` and `-0x10`; shared `tonumber` and `string.format`
   fixtures cover that Lua-style parsing path.
+- Standard numeric string conversion now also accepts Lua-style hexadecimal
+  floats such as `0x1.8p1` and `0x10.8`, with shared `tonumber` and
+  `string.format` fixture coverage.
 - String pattern preflight now distinguishes malformed Lua patterns from
   valid-but-unsupported pattern gaps, reporting Lua-style errors for trailing
   `%`, missing bracket/frontier/balanced-pattern delimiters, empty

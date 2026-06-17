@@ -979,6 +979,8 @@ fn base_tonumber_parses_standard_string_numbers() {
     let hex = runtime.push_string(b"0x10");
     let positive_hex = runtime.push_string(b" +0X10 ");
     let negative_hex = runtime.push_string(b"-0x10");
+    let hex_float = runtime.push_string(b"0x1.8p1");
+    let fractional_hex = runtime.push_string(b"0x10.8");
 
     assert_eq!(
         call_with_runtime(&mut runtime, base_tonumber, &[integer]),
@@ -999,6 +1001,14 @@ fn base_tonumber_parses_standard_string_numbers() {
     assert_eq!(
         call_with_runtime(&mut runtime, base_tonumber, &[negative_hex]),
         vec![Value::integer(-16)]
+    );
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_tonumber, &[hex_float]),
+        vec![Value::float(3.0)]
+    );
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_tonumber, &[fractional_hex]),
+        vec![Value::float(16.5)]
     );
 }
 

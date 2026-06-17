@@ -507,6 +507,8 @@ fn conformance_standard_library_fixtures() {
             Value::float(3.5),
             Value::integer(16),
             Value::integer(-16),
+            Value::float(3.0),
+            Value::float(16.5),
         ],
     );
     assert_success_fixture(
@@ -1345,10 +1347,11 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture(
         "stdlib/string_format_float.lua",
         vec![
-            Value::integer(9),
+            Value::integer(18),
             Value::integer(46),
             Value::integer(58),
             Value::integer(43),
+            Value::integer(51),
         ],
     );
     assert_success_fixture(
