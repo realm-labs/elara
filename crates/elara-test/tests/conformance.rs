@@ -2053,6 +2053,17 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(true), Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/debug_getinfo_currentline.lua",
+        vec![
+            Value::integer(110),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::integer(110),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/debug_registry.lua",
         vec![Value::integer(42), Value::boolean(true)],
     );
