@@ -4,6 +4,7 @@ use elara_core::Value;
 
 use crate::{
     FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
+    number::parse_standard_number,
 };
 
 const MAX_UNICODE: u32 = 0x10_FFFF;
@@ -36,7 +37,7 @@ pub const UTF8_CODES_AUX_LAX_NATIVE: NativeFunctionSpec = NativeFunctionSpec::ne
 fn utf8_char(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let mut output = Vec::new();
     for index in 1..=args.len() {
-        let codepoint = integer_arg(args, index)?;
+        let codepoint = integer_arg(runtime, args, index)?;
         let codepoint =
             u32::try_from(codepoint).map_err(|_| NativeErrorKind::ArgumentOutOfRange { index })?;
         if codepoint > MAX_UTF {
@@ -57,8 +58,8 @@ fn utf8_codepoint(
     let bytes = string_arg(runtime, value, 1)?;
     let len = bytes.len();
     let len_integer = i64::try_from(len).expect("runtime string length must fit in LuaInteger");
-    let start = relative_position(optional_integer_arg(args, 2, 1)?, len);
-    let end = relative_position(optional_integer_arg(args, 3, start)?, len);
+    let start = relative_position(optional_integer_arg(runtime, args, 2, 1)?, len);
+    let end = relative_position(optional_integer_arg(runtime, args, 3, start)?, len);
     let lax = args.get(3).is_some_and(|value| is_truthy(*value));
 
     if start < 1 {
@@ -165,8 +166,8 @@ fn utf8_len(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value
     let bytes = string_arg(runtime, value, 1)?;
     let len = bytes.len();
     let len_integer = i64::try_from(len).expect("runtime string length must fit in LuaInteger");
-    let start = relative_position(optional_integer_arg(args, 2, 1)?, len);
-    let end = relative_position(optional_integer_arg(args, 3, -1)?, len);
+    let start = relative_position(optional_integer_arg(runtime, args, 2, 1)?, len);
+    let end = relative_position(optional_integer_arg(runtime, args, 3, -1)?, len);
     let lax = args.get(3).is_some_and(|value| is_truthy(*value));
 
     if !(1 <= start && start - 1 <= len_integer) {
@@ -199,13 +200,16 @@ fn utf8_offset(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
     let bytes = string_arg(runtime, value, 1)?;
     let len = bytes.len();
     let len_integer = i64::try_from(len).expect("runtime string length must fit in LuaInteger");
-    let mut character_count = integer_arg(args, 2)?;
+    let mut character_count = integer_arg(runtime, args, 2)?;
     let default_position = if character_count >= 0 {
         1
     } else {
         len_integer + 1
     };
-    let initial_position = relative_position(optional_integer_arg(args, 3, default_position)?, len);
+    let initial_position = relative_position(
+        optional_integer_arg(runtime, args, 3, default_position)?,
+        len,
+    );
 
     if !(1 <= initial_position && initial_position - 1 <= len_integer) {
         return Err(NativeErrorKind::ArgumentOutOfRange { index: 3 }.into());
@@ -347,24 +351,38 @@ fn is_continuation_at(bytes: &[u8], position: usize) -> bool {
         .is_some_and(|byte| is_continuation(*byte))
 }
 
-fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i64, NativeError> {
+fn optional_integer_arg(
+    runtime: &dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+    default: i64,
+) -> Result<i64, NativeError> {
     match args.get(index - 1) {
         Some(value) if value.is_nil() => Ok(default),
-        Some(value) => value.as_integer().ok_or(
-            NativeErrorKind::TypeError {
-                index,
-                expected: "integer",
-            }
-            .into(),
-        ),
+        Some(value) => integer_value_arg(runtime, *value, index),
         None => Ok(default),
     }
 }
 
-fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
-    args.get(index - 1)
-        .ok_or(NativeErrorKind::MissingArgument { index })?
-        .as_integer()
+fn integer_arg(
+    runtime: &dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<i64, NativeError> {
+    let value = *args
+        .get(index - 1)
+        .ok_or(NativeErrorKind::MissingArgument { index })?;
+    integer_value_arg(runtime, value, index)
+}
+
+fn integer_value_arg(
+    runtime: &dyn NativeRuntime,
+    value: Value,
+    index: usize,
+) -> Result<i64, NativeError> {
+    value
+        .to_integer_exact()
+        .or_else(|| string_to_integer_exact(runtime, value))
         .ok_or(
             NativeErrorKind::TypeError {
                 index,
@@ -372,6 +390,11 @@ fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
             }
             .into(),
         )
+}
+
+fn string_to_integer_exact(runtime: &dyn NativeRuntime, value: Value) -> Option<i64> {
+    let bytes = runtime.string_bytes(value)?;
+    parse_standard_number(bytes)?.to_integer_exact()
 }
 
 fn relative_position(position: i64, len: usize) -> i64 {
@@ -509,6 +532,44 @@ mod tests {
         assert_eq!(
             runtime.short_string_bytes(encoded[0]),
             Some(b"\xfd\xbf\xbf\xbf\xbf\xbf".as_slice())
+        );
+    }
+
+    #[test]
+    fn utf8_integer_arguments_coerce_exact_numbers_and_numeric_strings() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abc");
+        let one = runtime.push_string(b"1.0");
+        let two = runtime.push_string(b"0x1p1");
+        let codepoint = runtime.push_string(b"0x41");
+        let non_integral = runtime.push_string(b"1.5");
+
+        let encoded =
+            utf8_char(&mut runtime, &[Value::float(65.0), codepoint]).expect("char should pass");
+        assert_eq!(
+            runtime.short_string_bytes(encoded[0]),
+            Some(b"AA".as_slice())
+        );
+        assert_eq!(
+            utf8_codepoint(&mut runtime, &[subject, one, two]).expect("codepoint should pass"),
+            vec![Value::integer(97), Value::integer(98)]
+        );
+        assert_eq!(
+            utf8_len(&mut runtime, &[subject, Value::float(1.0), two]).expect("len should pass"),
+            vec![Value::integer(2)]
+        );
+        assert_eq!(
+            utf8_offset(&mut runtime, &[subject, two]).expect("offset should pass"),
+            vec![Value::integer(2), Value::integer(2)]
+        );
+        assert_eq!(
+            utf8_codepoint(&mut runtime, &[subject, non_integral])
+                .expect_err("non-integral position should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 2,
+                expected: "integer"
+            }
         );
     }
 

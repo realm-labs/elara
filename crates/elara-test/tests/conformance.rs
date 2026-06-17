@@ -2517,6 +2517,21 @@ fn conformance_standard_library_fixtures() {
             Value::integer(1114111),
         ],
     );
+    assert_success_fixture(
+        "stdlib/utf8_integer_argument_coercion.lua",
+        vec![
+            Value::integer(2),
+            Value::integer(65),
+            Value::integer(66),
+            Value::integer(2),
+            Value::integer(97),
+            Value::integer(98),
+            Value::integer(2),
+            Value::integer(2),
+            Value::boolean(false),
+            Value::integer(115),
+        ],
+    );
     assert_success_fixture("stdlib/utf8_codepoint_empty.lua", Vec::new());
     assert_success_fixture(
         "stdlib/utf8_codepoint_range.lua",
