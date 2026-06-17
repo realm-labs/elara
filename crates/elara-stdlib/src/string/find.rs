@@ -378,6 +378,8 @@ mod tests {
         let trailing_escape = runtime.push_string(b"%");
         let unfinished_capture = runtime.push_string(b"(a");
         let invalid_capture = runtime.push_string(b"%a+)");
+        let empty_bracket_class = runtime.push_string(b"[]");
+        let empty_frontier_class = runtime.push_string(b"%f[]");
         let too_many_capture_pattern = "()".repeat(33);
         let too_many_captures = runtime.push_string(too_many_capture_pattern.as_bytes());
 
@@ -405,6 +407,16 @@ mod tests {
                 message: "invalid pattern capture".into()
             }
         );
+        for pattern in [empty_bracket_class, empty_frontier_class] {
+            assert_eq!(
+                string_find(&mut runtime, &[subject, pattern])
+                    .expect_err("empty bracket class should fail")
+                    .kind(),
+                &NativeErrorKind::RuntimeError {
+                    message: "malformed pattern (missing ']')".into()
+                }
+            );
+        }
         assert_eq!(
             string_find(&mut runtime, &[subject, too_many_captures])
                 .expect_err("too many captures should fail")

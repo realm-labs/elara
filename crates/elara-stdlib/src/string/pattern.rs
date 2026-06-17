@@ -565,11 +565,12 @@ fn bracket_end(pattern: &[u8], start: usize) -> Option<usize> {
     if pattern.get(index) == Some(&b'^') {
         index += 1;
     }
+    let class_start = index;
     while index < pattern.len() {
         if pattern[index] == b'%' && index + 1 < pattern.len() {
             index += 2;
         } else if pattern[index] == b']' {
-            return Some(index);
+            return (index != class_start).then_some(index);
         } else {
             index += 1;
         }
@@ -769,10 +770,13 @@ mod tests {
         assert!(has_unsupported_pattern_special(b"a$b"));
         assert!(has_unsupported_pattern_special(b"%"));
         assert!(has_unsupported_pattern_special(b"[abc"));
+        assert!(has_unsupported_pattern_special(b"[]"));
+        assert!(has_unsupported_pattern_special(b"[^]"));
         assert!(!has_unsupported_pattern_special(b"%bxy"));
         assert!(has_unsupported_pattern_special(b"%bx"));
         assert!(!has_unsupported_pattern_special(b"%f[a]"));
         assert!(has_unsupported_pattern_special(b"%fa"));
+        assert!(has_unsupported_pattern_special(b"%f[]"));
         assert!(has_unsupported_pattern_special(b"%1"));
         assert!(has_unsupported_pattern_special_with_captures(b"%0"));
         assert!(!has_unsupported_pattern_special_with_captures(
