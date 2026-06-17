@@ -309,6 +309,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/debug_getinfo_vararg_function.lua",
     "stdlib/debug_registry.lua",
     "stdlib/debug_upvalues.lua",
+    "stdlib/debug_getupvalue_name_value.lua",
     "stdlib/debug_upvalue_absent.lua",
     "stdlib/debug_upvalueid_absent.lua",
     "stdlib/debug_locals.lua",

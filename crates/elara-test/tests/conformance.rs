@@ -2115,6 +2115,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/debug_getupvalue_name_value.lua",
+        vec![Value::integer(120), Value::integer(41), Value::integer(42)],
+    );
+    assert_success_fixture(
         "stdlib/debug_upvalue_absent.lua",
         vec![
             Value::boolean(true),
