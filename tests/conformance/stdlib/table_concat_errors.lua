@@ -1,4 +1,4 @@
-local bad_value_ok, bad_value_message = pcall(table.concat, { "a", 1 })
+local bad_value_ok, bad_value_message = pcall(table.concat, { "a", false })
 local bad_separator_ok, bad_separator_message = pcall(table.concat, { "a" }, false)
 local bad_start_ok, bad_start_message = pcall(table.concat, { "a" }, "", false)
 local bad_end_ok, bad_end_message = pcall(table.concat, { "a" }, "", 1, false)

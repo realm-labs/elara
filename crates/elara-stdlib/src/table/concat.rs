@@ -1,5 +1,7 @@
 //! `table.concat` native implementation.
 
+use std::borrow::Cow;
+
 use elara_core::Value;
 
 use crate::{NativeError, NativeErrorKind, NativeRuntime};
@@ -12,8 +14,8 @@ pub(super) fn table_concat(
         .first()
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
     let separator = match args.get(1) {
-        Some(value) if !value.is_nil() => string_arg(runtime, *value, 2)?.to_vec(),
-        _ => Vec::new(),
+        Some(value) if !value.is_nil() => string_or_number_arg(runtime, *value, 2)?,
+        _ => Cow::Borrowed(&[] as &[u8]),
     };
     let start = optional_integer_arg(args, 3, 1)?;
     let end = optional_integer_arg(args, 4, runtime.table_array_len(table)?)?;
@@ -22,33 +24,40 @@ pub(super) fn table_concat(
     for index in start..=end {
         if index > start {
             output
-                .try_reserve(separator.len())
+                .try_reserve(separator.as_ref().len())
                 .map_err(|_| concat_too_large())?;
-            output.extend_from_slice(&separator);
+            output.extend_from_slice(separator.as_ref());
         }
         let value = runtime.table_get_integer(table, index)?;
-        let bytes = string_arg(runtime, value, 1)?;
+        let bytes = string_or_number_arg(runtime, value, 1)?;
         output
-            .try_reserve(bytes.len())
+            .try_reserve(bytes.as_ref().len())
             .map_err(|_| concat_too_large())?;
-        output.extend_from_slice(bytes);
+        output.extend_from_slice(bytes.as_ref());
     }
 
     Ok(vec![runtime.intern_string(&output)?])
 }
 
-fn string_arg(
+fn string_or_number_arg(
     runtime: &dyn NativeRuntime,
     value: Value,
     index: usize,
-) -> Result<&[u8], NativeError> {
-    runtime.string_bytes(value).ok_or(
-        NativeErrorKind::TypeError {
-            index,
-            expected: "string",
-        }
-        .into(),
-    )
+) -> Result<Cow<'_, [u8]>, NativeError> {
+    if let Some(bytes) = runtime.string_bytes(value) {
+        return Ok(Cow::Borrowed(bytes));
+    }
+    if let Some(integer) = value.as_integer() {
+        return Ok(Cow::Owned(integer.to_string().into_bytes()));
+    }
+    if let Some(float) = value.as_float() {
+        return Ok(Cow::Owned(float.to_string().into_bytes()));
+    }
+    Err(NativeErrorKind::TypeError {
+        index,
+        expected: "string or number",
+    }
+    .into())
 }
 
 fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i64, NativeError> {
@@ -177,17 +186,34 @@ mod tests {
     }
 
     #[test]
-    fn table_concat_rejects_non_string_values() {
+    fn table_concat_concatenates_number_values() {
         let mut runtime = TestRuntime::default();
-        let table = runtime.push_table(&[(Value::integer(1), Value::integer(7))]);
+        let separator = runtime.push_string(b"-");
+        let table = runtime.push_table(&[
+            (Value::integer(1), Value::integer(7)),
+            (Value::integer(2), Value::integer(8)),
+        ]);
+
+        let value = table_concat(&mut runtime, &[table, separator]).expect("concat should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(value[0]),
+            Some(b"7-8".as_slice())
+        );
+    }
+
+    #[test]
+    fn table_concat_rejects_non_string_or_number_values() {
+        let mut runtime = TestRuntime::default();
+        let table = runtime.push_table(&[(Value::integer(1), Value::boolean(false))]);
 
         assert_eq!(
             table_concat(&mut runtime, &[table])
-                .expect_err("non-string value should fail")
+                .expect_err("non-string/non-number value should fail")
                 .kind(),
             &NativeErrorKind::TypeError {
                 index: 1,
-                expected: "string"
+                expected: "string or number"
             }
         );
     }
