@@ -551,6 +551,21 @@ mod tests {
     }
 
     #[test]
+    fn os_date_formats_portable_utc_strftime_specifiers() {
+        let function = function("date");
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"!%C %D %e %I %p %r %R %n%t");
+
+        let result = function(&mut runtime, &[format, Value::integer(951868799)])
+            .expect("os.date should pass");
+
+        assert_eq!(
+            runtime.bytes(result[0]),
+            Some(b"20 02/29/00 29 11 PM 11:59:59 PM 23:59 \n\t".as_slice())
+        );
+    }
+
+    #[test]
     fn os_date_validates_supported_utc_table_subset() {
         let function = function("date");
         let mut runtime = TestRuntime::default();

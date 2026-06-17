@@ -1576,6 +1576,9 @@ Delivered:
   paths.
 - The `os` conformance and differential smoke matrix now covers `os.date`
   argument and `os.time` date-table field error result shapes.
+- The `os.date` UTC formatter now supports portable `strftime` specifiers
+  `%C`, `%D`, `%e`, `%I`, `%n`, `%p`, `%r`, `%R`, and `%t`, with matching
+  conformance and official-Lua differential fixture coverage.
 - The shared `os.time` date-table fixtures now avoid timezone-dependent exact
   timestamps while still checking portable number-result and normalized-field
   shapes; local-only companion fixtures retain exact UTC timestamp coverage for
@@ -1731,7 +1734,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains five hundred eleven smoke fixtures across
+- `tests/conformance` currently contains five hundred twelve smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
@@ -1826,15 +1829,16 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
-cargo test -p elara-stdlib base_warn
+cargo test -p elara-stdlib os_date
 cargo test -p elara-test conformance_standard_library_fixtures
-cargo clippy -p elara-stdlib -p elara-api --all-targets -- -D warnings
+ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test differential_fixtures
+cargo clippy -p elara-stdlib -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 
 `cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
 pre-existing formatting drift in committed Rust files outside this
-base `warn` behavior change.
+`os.date` behavior change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the current configured official-Lua exact

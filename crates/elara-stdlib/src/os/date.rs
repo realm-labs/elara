@@ -109,15 +109,42 @@ fn push_date_specifier(
 ) -> Result<(), NativeError> {
     match specifier {
         '%' => output.push('%'),
+        'C' => output.push_str(&format!("{:02}", date.year.div_euclid(100))),
+        'D' => {
+            push_date_specifier(output, date, 'm')?;
+            output.push('/');
+            push_date_specifier(output, date, 'd')?;
+            output.push('/');
+            push_date_specifier(output, date, 'y')?;
+        }
         'Y' => output.push_str(&format!("{:04}", date.year)),
         'y' => output.push_str(&format!("{:02}", date.year.rem_euclid(100))),
         'm' => output.push_str(&format!("{:02}", date.month)),
         'd' => output.push_str(&format!("{:02}", date.day)),
+        'e' => output.push_str(&format!("{:2}", date.day)),
         'H' => output.push_str(&format!("{:02}", date.hour)),
+        'I' => output.push_str(&format!("{:02}", hour_12(date.hour))),
         'M' => output.push_str(&format!("{:02}", date.min)),
         'S' => output.push_str(&format!("{:02}", date.sec)),
         'j' => output.push_str(&format!("{:03}", date.yday)),
         'w' => output.push_str(&(date.wday - 1).to_string()),
+        'n' => output.push('\n'),
+        'p' => output.push_str(if date.hour < 12 { "AM" } else { "PM" }),
+        'r' => {
+            push_date_specifier(output, date, 'I')?;
+            output.push(':');
+            push_date_specifier(output, date, 'M')?;
+            output.push(':');
+            push_date_specifier(output, date, 'S')?;
+            output.push(' ');
+            push_date_specifier(output, date, 'p')?;
+        }
+        'R' => {
+            push_date_specifier(output, date, 'H')?;
+            output.push(':');
+            push_date_specifier(output, date, 'M')?;
+        }
+        't' => output.push('\t'),
         'a' => output.push_str(WEEKDAY_ABBR[(date.wday - 1) as usize]),
         'A' => output.push_str(WEEKDAY_NAME[(date.wday - 1) as usize]),
         'b' | 'h' => output.push_str(MONTH_ABBR[(date.month - 1) as usize]),
@@ -139,6 +166,13 @@ fn push_date_specifier(
         _ => return Err(invalid_conversion_error(&specifier.to_string())),
     }
     Ok(())
+}
+
+fn hour_12(hour: i64) -> i64 {
+    match hour.rem_euclid(12) {
+        0 => 12,
+        hour => hour,
+    }
 }
 
 const WEEKDAY_ABBR: [&str; 7] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
