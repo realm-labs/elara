@@ -1598,6 +1598,12 @@ Delivered:
 - The simple compiler now preserves return-prefix locals when lowering a final
   open call whose call frame would otherwise overwrite registers still needed
   by nested call arguments.
+- The simple compiler now lowers a final `...` in return position as an open
+  vararg return, so vararg-forwarding functions preserve all returned values
+  instead of truncating to the first.
+- The language conformance table-field fixture now avoids a non-portable
+  `rawlen` boundary on sparse array contents by using a contiguous array
+  segment before checking exact table length.
 - The existing base protected-error fixtures for `setmetatable`, `assert`, and
   `pcall` now assert exact string type-byte results instead of only string
   value classes.
@@ -1724,22 +1730,26 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
-cargo clippy -p elara-test --all-targets -- -D warnings
-cargo test -p elara-test conformance_standard_library_fixtures
+cargo clippy -p elara-compiler -p elara-interp -p elara-test --all-targets -- -D warnings
+cargo test -p elara-compiler varargs_compile_anonymous_vararg_call
+cargo test -p elara-interp varargs_return_open_call_results
+cargo test -p elara-test conformance_language_fixtures
 cargo test -p elara-test differential_fixtures
 git diff --check
 ```
 
-`cargo fmt --all -- --check` currently reports pre-existing formatting drift in
-committed Rust files outside this fixture maintenance change.
+`rustfmt --check` on the touched Rust files currently reports pre-existing
+formatting drift in committed code outside this focused vararg change, so this
+unit avoids a broad mechanical formatting rewrite.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` currently exposes pre-existing reference mismatches for
-`language/varargs.lua` exact result count and
-`stdlib/package_require_nil_loader.lua` success/error class. The deterministic
-`table_concat_long_strings.lua` repair removes one host-dependent fixture input,
-but the full configured reference comparison still needs separate differential
-triage.
+`stdlib/base_loading_error_shapes.lua` exact results and
+`stdlib/package_require_nil_loader.lua` success/error class. The final-vararg
+return lowering fix removes the previous `language/varargs.lua` exact-result
+mismatch, and the `language/table_fields.lua` fixture now avoids a
+host/reference-sensitive sparse-table `rawlen` boundary, but the full
+configured reference comparison still needs separate differential triage.
 
 ## Next Recommended Action
 

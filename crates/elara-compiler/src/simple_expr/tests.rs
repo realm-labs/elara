@@ -714,7 +714,7 @@ fn varargs_compile_anonymous_vararg_call() {
     assert!(proto.children[0].is_vararg);
     assert_snapshot_eq(
         disassemble(&proto.children[0]),
-        "0000 VARARG        A=0 B=1 C=0\n0001 RETURN        A=0 B=1 C=0\n",
+        "0000 VARARG        A=0 B=0 C=0\n0001 RETURN        A=0 B=0 C=0\n",
     );
     assert_snapshot_eq(
         disassemble(&proto),

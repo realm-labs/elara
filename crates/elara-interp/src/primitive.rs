@@ -1946,6 +1946,17 @@ fn execute_vararg(
         instr.b() as usize
     };
 
+    if instr.b() == 0 {
+        let required = base
+            .checked_add(count)
+            .ok_or(RuntimeErrorKind::RegisterOutOfBounds {
+                register: usize::MAX,
+            })?;
+        if required > thread.stack_len() {
+            thread.resize_stack_with_nil(required);
+        }
+    }
+
     for index in 0..count {
         let value = varargs.get(index).copied().unwrap_or_else(Value::nil);
         set_register(thread, base + index, value)?;
