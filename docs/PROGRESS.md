@@ -1467,9 +1467,9 @@ Delivered:
 - The table-library conformance and differential smoke matrix now covers
   `table.sort` non-function comparator and incomparable-value error result
   shapes.
-- The table-library conformance and differential smoke matrix now covers
-  `table.insert` and `table.remove` out-of-range/wrong-arity error result
-  shapes.
+- `table.remove` now follows Lua 5.5 by validating only the optional position
+  argument and ignoring extras; the table insert/remove fixture covers insert
+  wrong-arity plus remove extra-argument success shape.
 - The table-library conformance and differential smoke matrix now covers
   `table.insert` and `table.remove` table/position type-error result shapes.
 - The table-library conformance and differential smoke matrix now covers
@@ -1742,7 +1742,7 @@ Latest focused product-gap verification passed:
 
 ```bash
 cargo clippy -p elara-stdlib -p elara-test --all-targets -- -D warnings
-cargo test -p elara-stdlib math_randomseed
+cargo test -p elara-stdlib table_remove
 cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures
 git diff --check
@@ -1750,7 +1750,7 @@ git diff --check
 
 `cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
 pre-existing formatting drift in committed Rust files outside this
-`math.randomseed` change.
+`table.remove` change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the
@@ -1758,10 +1758,12 @@ differential_fixtures` now passes the
 `stdlib/string_format_long_strings.lua` exact comparisons after those fixtures
 were limited to portable result shapes, and now also passes
 `stdlib/math_randomseed_errors.lua` after `math.randomseed` was aligned with
+Lua's extra-argument handling, and
+`stdlib/table_insert_remove_errors.lua` after `table.remove` was aligned with
 Lua's extra-argument handling. The same configured run currently exposes a
-separate pre-existing exact-result mismatch for
-`stdlib/table_insert_remove_errors.lua`: official Lua accepts the extra
-`table.remove` argument while Elara reports an argument error.
+separate pre-existing exact-result mismatch for `stdlib/io_stubs.lua`: official
+Lua returns a non-nil temporary file handle while Elara's current IO profile
+returns nil.
 
 ## Next Recommended Action
 

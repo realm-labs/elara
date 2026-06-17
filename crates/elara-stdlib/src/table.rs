@@ -112,12 +112,6 @@ fn table_remove(
     let table = *args
         .first()
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
-    if args.len() > 2 {
-        return Err(NativeErrorKind::RuntimeError {
-            message: "wrong number of arguments to 'remove'".into(),
-        }
-        .into());
-    }
 
     let size = runtime.table_array_len(table)?;
     let mut position = optional_integer_arg(args, 2, size)?;
@@ -473,6 +467,29 @@ mod tests {
         assert_eq!(
             table_remove(&mut runtime, &[packed[0], Value::integer(2)])
                 .expect("remove should pass"),
+            vec![Value::integer(2)]
+        );
+        assert_eq!(
+            table_unpack(&mut runtime, &[packed[0]]).expect("unpack should pass"),
+            vec![Value::integer(1), Value::integer(3)]
+        );
+    }
+
+    #[test]
+    fn table_remove_ignores_extra_arguments() {
+        let mut runtime = TestRuntime::default();
+        let packed = table_pack(
+            &mut runtime,
+            &[Value::integer(1), Value::integer(2), Value::integer(3)],
+        )
+        .expect("pack should pass");
+
+        assert_eq!(
+            table_remove(
+                &mut runtime,
+                &[packed[0], Value::integer(2), Value::boolean(false)]
+            )
+            .expect("remove should pass"),
             vec![Value::integer(2)]
         );
         assert_eq!(
