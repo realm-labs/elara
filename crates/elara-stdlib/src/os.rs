@@ -566,6 +566,27 @@ mod tests {
     }
 
     #[test]
+    fn os_date_formats_utc_week_specifiers() {
+        let function = function("date");
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"!%Y-%m-%d %u %U %W %V %G %g");
+
+        let leap_day = function(&mut runtime, &[format, Value::integer(1709251198)])
+            .expect("os.date should pass");
+        let iso_rollover = function(&mut runtime, &[format, Value::integer(1609459200)])
+            .expect("os.date should pass");
+
+        assert_eq!(
+            runtime.bytes(leap_day[0]),
+            Some(b"2024-02-29 4 08 09 09 2024 24".as_slice())
+        );
+        assert_eq!(
+            runtime.bytes(iso_rollover[0]),
+            Some(b"2021-01-01 5 00 00 53 2020 20".as_slice())
+        );
+    }
+
+    #[test]
     fn os_date_validates_supported_utc_table_subset() {
         let function = function("date");
         let mut runtime = TestRuntime::default();

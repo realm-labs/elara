@@ -53,7 +53,7 @@ pub(super) fn utc_date_time(seconds: i64) -> UtcDateTime {
     }
 }
 
-fn days_from_civil(mut year: i64, month: i64, day: i64) -> i64 {
+pub(super) fn days_from_civil(mut year: i64, month: i64, day: i64) -> i64 {
     year -= i64::from(month <= 2);
     let era = year.div_euclid(400);
     let year_of_era = year - era * 400;

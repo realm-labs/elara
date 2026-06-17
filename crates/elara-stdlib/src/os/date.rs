@@ -4,7 +4,7 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
 use super::{
     current_unix_seconds, optional_utf8_string_arg,
-    time::{UtcDateTime, utc_date_time},
+    time::{UtcDateTime, days_from_civil, utc_date_time},
 };
 
 pub(super) fn os_date(
@@ -126,7 +126,13 @@ fn push_date_specifier(
         'I' => output.push_str(&format!("{:02}", hour_12(date.hour))),
         'M' => output.push_str(&format!("{:02}", date.min)),
         'S' => output.push_str(&format!("{:02}", date.sec)),
+        'U' => output.push_str(&format!("{:02}", week_number_sunday(date))),
+        'W' => output.push_str(&format!("{:02}", week_number_monday(date))),
+        'V' => output.push_str(&format!("{:02}", iso_week_year(date).1)),
+        'G' => output.push_str(&format!("{:04}", iso_week_year(date).0)),
+        'g' => output.push_str(&format!("{:02}", iso_week_year(date).0.rem_euclid(100))),
         'j' => output.push_str(&format!("{:03}", date.yday)),
+        'u' => output.push_str(&iso_weekday(date).to_string()),
         'w' => output.push_str(&(date.wday - 1).to_string()),
         'n' => output.push('\n'),
         'p' => output.push_str(if date.hour < 12 { "AM" } else { "PM" }),
@@ -173,6 +179,51 @@ fn hour_12(hour: i64) -> i64 {
         0 => 12,
         hour => hour,
     }
+}
+
+fn week_number_sunday(date: UtcDateTime) -> i64 {
+    let yday = date.yday - 1;
+    let weekday = date.wday - 1;
+    (yday + 7 - weekday) / 7
+}
+
+fn week_number_monday(date: UtcDateTime) -> i64 {
+    let yday = date.yday - 1;
+    let weekday = (date.wday + 5) % 7;
+    (yday + 7 - weekday) / 7
+}
+
+fn iso_weekday(date: UtcDateTime) -> i64 {
+    if date.wday == 1 { 7 } else { date.wday - 1 }
+}
+
+fn iso_week_year(date: UtcDateTime) -> (i64, i64) {
+    let week = (date.yday - iso_weekday(date) + 10) / 7;
+    if week < 1 {
+        let year = date.year - 1;
+        (year, weeks_in_iso_year(year))
+    } else if week > weeks_in_iso_year(date.year) {
+        (date.year + 1, 1)
+    } else {
+        (date.year, week)
+    }
+}
+
+fn weeks_in_iso_year(year: i64) -> i64 {
+    let jan_1_weekday = weekday_for_civil(year, 1, 1);
+    if jan_1_weekday == 5 || (jan_1_weekday == 4 && is_leap_year(year)) {
+        53
+    } else {
+        52
+    }
+}
+
+fn weekday_for_civil(year: i64, month: i64, day: i64) -> i64 {
+    (days_from_civil(year, month, day) + 4).rem_euclid(7) + 1
+}
+
+fn is_leap_year(year: i64) -> bool {
+    year.rem_euclid(4) == 0 && (year.rem_euclid(100) != 0 || year.rem_euclid(400) == 0)
 }
 
 const WEEKDAY_ABBR: [&str; 7] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
