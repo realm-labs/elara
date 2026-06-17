@@ -5,6 +5,7 @@ use elara_test::{DifferentialRunner, LuaRunner};
 const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "language/return_42.lua",
     "language/control_flow.lua",
+    "language/numeric_for_negative_step.lua",
     "language/bitwise.lua",
     "language/comparisons.lua",
     "language/not_truthiness.lua",
