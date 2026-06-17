@@ -153,7 +153,7 @@ fn string_format_formats_basic_integer_conversions() {
 fn string_format_formats_integer_width() {
     let mut runtime = TestRuntime::default();
     let format = runtime.push_string(b"%5d:%3i:%2d:%3u:%4o:%4x:%4X:%-5d:%-4x:%05d:%05i:%04x:%-04d");
-    let numeric_string = runtime.push_string(b"12.9");
+    let numeric_string = runtime.push_string(b"12.0");
 
     let values = string_format(
         &mut runtime,

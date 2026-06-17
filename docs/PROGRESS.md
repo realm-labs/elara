@@ -1855,19 +1855,19 @@ M20.4 is complete.
 
 ## Last Verification
 
-Latest focused product-gap verification passed:
+Latest focused verification passed:
 
 ```bash
-cargo test -p elara-stdlib os_date
-cargo test -p elara-test conformance_standard_library_fixtures
-ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test differential_fixtures
+cargo test -p elara-stdlib string_format_formats_integer_width
+cargo test -p elara-stdlib string_
+cargo test -p elara-stdlib
 cargo clippy -p elara-stdlib -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 
 `cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
-pre-existing formatting drift in committed Rust files outside this
-`os.date` behavior change.
+pre-existing formatting drift in committed Rust files outside the current
+string-format unit-test repair.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the current configured official-Lua exact
