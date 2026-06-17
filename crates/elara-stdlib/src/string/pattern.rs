@@ -27,6 +27,8 @@ enum PatternIssue {
     Error(Box<str>),
 }
 
+const MAX_PATTERN_CAPTURES: u8 = 32;
+
 fn pattern_issue(pattern: &[u8], allow_captures: bool) -> Option<PatternIssue> {
     let mut index = 0;
     let mut capture_depth = 0_u32;
@@ -81,8 +83,11 @@ fn pattern_issue(pattern: &[u8], allow_captures: bool) -> Option<PatternIssue> {
                 index = end + 1;
             }
             b'(' if allow_captures => {
+                if capture_count == MAX_PATTERN_CAPTURES {
+                    return Some(PatternIssue::Error("too many captures".into()));
+                }
                 capture_depth += 1;
-                capture_count = capture_count.saturating_add(1);
+                capture_count += 1;
                 index += 1;
             }
             b')' if allow_captures => {
@@ -778,5 +783,11 @@ mod tests {
         assert!(has_unsupported_pattern_special_with_captures(b"(%a+)%2"));
         assert!(has_unsupported_pattern_special_with_captures(b"(%a+"));
         assert!(has_unsupported_pattern_special_with_captures(b"%a+)"));
+        assert!(!has_unsupported_pattern_special_with_captures(
+            b"()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()"
+        ));
+        assert!(has_unsupported_pattern_special_with_captures(
+            b"()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()()"
+        ));
     }
 }

@@ -378,6 +378,8 @@ mod tests {
         let trailing_escape = runtime.push_string(b"%");
         let unfinished_capture = runtime.push_string(b"(a");
         let invalid_capture = runtime.push_string(b"%a+)");
+        let too_many_capture_pattern = "()".repeat(33);
+        let too_many_captures = runtime.push_string(too_many_capture_pattern.as_bytes());
 
         assert_eq!(
             string_find(&mut runtime, &[subject, trailing_escape])
@@ -401,6 +403,14 @@ mod tests {
                 .kind(),
             &NativeErrorKind::RuntimeError {
                 message: "invalid pattern capture".into()
+            }
+        );
+        assert_eq!(
+            string_find(&mut runtime, &[subject, too_many_captures])
+                .expect_err("too many captures should fail")
+                .kind(),
+            &NativeErrorKind::RuntimeError {
+                message: "too many captures".into()
             }
         );
     }
