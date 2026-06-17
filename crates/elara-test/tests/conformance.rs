@@ -370,6 +370,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(20), Value::integer(30)],
     );
     assert_success_fixture(
+        "stdlib/base_select_negative.lua",
+        vec![Value::integer(30)],
+    );
+    assert_success_fixture(
         "stdlib/base_select_count_empty.lua",
         vec![Value::integer(0)],
     );
