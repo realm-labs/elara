@@ -30,6 +30,7 @@ enum PatternIssue {
 fn pattern_issue(pattern: &[u8], allow_captures: bool) -> Option<PatternIssue> {
     let mut index = 0;
     let mut capture_depth = 0_u32;
+    let mut capture_count = 0_u8;
     while let Some(byte) = pattern.get(index).copied() {
         match byte {
             b'%' => {
@@ -39,7 +40,8 @@ fn pattern_issue(pattern: &[u8], allow_captures: bool) -> Option<PatternIssue> {
                     ));
                 };
                 if class.is_ascii_digit() {
-                    if !allow_captures || class == b'0' {
+                    let capture_index = class - b'0';
+                    if !allow_captures || capture_index == 0 || capture_index > capture_count {
                         return Some(PatternIssue::Error(
                             format!("invalid capture index %{}", char::from(class)).into(),
                         ));
@@ -80,6 +82,7 @@ fn pattern_issue(pattern: &[u8], allow_captures: bool) -> Option<PatternIssue> {
             }
             b'(' if allow_captures => {
                 capture_depth += 1;
+                capture_count = capture_count.saturating_add(1);
                 index += 1;
             }
             b')' if allow_captures => {
@@ -771,6 +774,8 @@ mod tests {
             b"(%a+)(%d+)"
         ));
         assert!(!has_unsupported_pattern_special_with_captures(b"(%a+) %1"));
+        assert!(has_unsupported_pattern_special_with_captures(b"%1(%a+)"));
+        assert!(has_unsupported_pattern_special_with_captures(b"(%a+)%2"));
         assert!(has_unsupported_pattern_special_with_captures(b"(%a+"));
         assert!(has_unsupported_pattern_special_with_captures(b"%a+)"));
     }

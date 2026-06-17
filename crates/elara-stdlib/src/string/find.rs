@@ -351,6 +351,7 @@ mod tests {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
         let pattern = runtime.push_string(b"%0");
+        let out_of_range = runtime.push_string(b"(%a+)%2");
 
         assert_eq!(
             string_find(&mut runtime, &[subject, pattern])
@@ -358,6 +359,14 @@ mod tests {
                 .kind(),
             &NativeErrorKind::RuntimeError {
                 message: "invalid capture index %0".into()
+            }
+        );
+        assert_eq!(
+            string_find(&mut runtime, &[subject, out_of_range])
+                .expect_err("out-of-range capture should fail")
+                .kind(),
+            &NativeErrorKind::RuntimeError {
+                message: "invalid capture index %2".into()
             }
         );
     }
