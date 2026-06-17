@@ -1901,6 +1901,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(1), Value::integer(2), Value::integer(3)],
     );
     assert_success_fixture(
+        "stdlib/table_unpack_single_bound.lua",
+        vec![Value::integer(6)],
+    );
+    assert_success_fixture(
         "stdlib/table_unpack_nil.lua",
         vec![Value::integer(1), Value::nil(), Value::integer(3)],
     );
