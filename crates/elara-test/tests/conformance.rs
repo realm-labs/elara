@@ -1211,6 +1211,10 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture("stdlib/math_tointeger_float.lua", vec![Value::integer(7)]);
     assert_success_fixture(
+        "stdlib/math_tointeger_negative_float.lua",
+        vec![Value::integer(-7)],
+    );
+    assert_success_fixture(
         "stdlib/math_tointeger_integer.lua",
         vec![Value::integer(-12)],
     );
