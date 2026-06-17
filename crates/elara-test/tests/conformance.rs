@@ -1055,6 +1055,7 @@ fn conformance_standard_library_fixtures() {
         "stdlib/string_sub_overlong_end.lua",
         vec![Value::integer(2), Value::integer(98), Value::integer(99)],
     );
+    assert_success_fixture("stdlib/string_sub_past_end.lua", vec![Value::integer(0)]);
     assert_success_fixture(
         "stdlib/string_sub_negative_end.lua",
         vec![Value::integer(4), Value::integer(98), Value::integer(101)],
