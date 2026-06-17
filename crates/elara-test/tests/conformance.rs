@@ -2073,6 +2073,17 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/debug_getinfo_name_transfer.lua",
+        vec![
+            Value::integer(0),
+            Value::boolean(true),
+            Value::integer(0),
+            Value::integer(0),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/debug_registry.lua",
         vec![Value::integer(42), Value::boolean(true)],
     );
