@@ -378,6 +378,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(0)],
     );
     assert_success_fixture(
+        "stdlib/base_select_count_values.lua",
+        vec![Value::integer(3)],
+    );
+    assert_success_fixture(
         "stdlib/base_pcall.lua",
         vec![Value::boolean(true), Value::integer(42)],
     );
