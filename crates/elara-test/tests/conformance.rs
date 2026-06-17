@@ -453,6 +453,15 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(12), Value::float(12.5)],
     );
     assert_success_fixture(
+        "stdlib/base_tonumber_nil_base.lua",
+        vec![
+            Value::integer(12),
+            Value::integer(12),
+            Value::integer(16),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_tonumber_invalid.lua",
         vec![
             Value::boolean(true),

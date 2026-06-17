@@ -1670,12 +1670,14 @@ Delivered:
 - The table-library conformance and differential smoke matrix now covers
   explicit nil optional defaults for `table.remove` positions and
   `table.concat` bounds.
+- The base-library conformance and differential smoke matrix now covers
+  `tonumber` with an explicit nil base, matching the standard conversion path.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains four hundred ninety-nine smoke fixtures across
+- `tests/conformance` currently contains five hundred smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
@@ -1779,7 +1781,8 @@ git diff --check
 ```
 
 `cargo fmt -p elara-test -- --check` currently reports pre-existing formatting
-drift in committed Rust files outside this table optional-nil fixture change.
+drift in committed Rust files outside this base tonumber nil-base fixture
+change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the current configured official-Lua exact
