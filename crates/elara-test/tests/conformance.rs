@@ -1876,6 +1876,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(80), Value::integer(70), Value::integer(80)],
     );
     assert_success_fixture(
+        "stdlib/package_require_loaded_cache.lua",
+        vec![Value::integer(123), Value::integer(123), Value::integer(0)],
+    );
+    assert_success_fixture(
         "stdlib/package_require_errors.lua",
         vec![
             Value::boolean(false),
