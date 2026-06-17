@@ -1661,12 +1661,15 @@ Delivered:
 - `string.rep` now treats an explicit nil separator like the missing separator
   default, matching Lua's `luaL_optlstring` behavior, and the shared conformance
   and differential fixture matrix covers that optional-argument path.
+- The string-library conformance and differential smoke matrix now covers
+  explicit nil optional-position defaults for `string.sub` and `string.byte`,
+  matching Lua's `luaL_optinteger` paths.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains four hundred eighty-nine smoke fixtures across
+- `tests/conformance` currently contains four hundred ninety-six smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
@@ -1762,17 +1765,16 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
-cargo test -p elara-stdlib string_rep
 cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures
 ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test differential_fixtures
-cargo clippy -p elara-stdlib -p elara-test --all-targets -- -D warnings
+cargo clippy -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 
-`cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
-pre-existing formatting drift in committed Rust files outside this string
-nil-separator behavior and fixture change.
+`cargo fmt -p elara-test -- --check` currently reports pre-existing formatting
+drift in committed Rust files outside this string optional-position fixture
+change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the current configured official-Lua exact

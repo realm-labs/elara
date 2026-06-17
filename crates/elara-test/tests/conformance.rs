@@ -1164,6 +1164,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(2), Value::integer(99), Value::integer(100)],
     );
     assert_success_fixture(
+        "stdlib/string_sub_nil_end.lua",
+        vec![Value::integer(2), Value::integer(66), Value::integer(67)],
+    );
+    assert_success_fixture(
         "stdlib/string_sub_full_range.lua",
         vec![Value::integer(3), Value::integer(97), Value::integer(99)],
     );
@@ -1468,6 +1472,10 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture(
         "stdlib/string_byte_default_start.lua",
         vec![Value::integer(65)],
+    );
+    assert_success_fixture(
+        "stdlib/string_byte_nil_positions.lua",
+        vec![Value::integer(65), Value::boolean(true)],
     );
     assert_success_fixture(
         "stdlib/string_byte_overlong_end.lua",
