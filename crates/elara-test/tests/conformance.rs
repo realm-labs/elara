@@ -757,6 +757,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_gmatch_percent_class.lua",
+        vec![
+            Value::integer(1),
+            Value::integer(49),
+            Value::integer(2),
+            Value::integer(50),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_gmatch_callable.lua",
         vec![
             Value::integer(1),
