@@ -338,6 +338,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(false), Value::integer(115)],
     );
     assert_success_fixture(
+        "stdlib/base_metatable_protected_marker.lua",
+        vec![Value::integer(42), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/base_assert.lua",
         vec![Value::boolean(true), Value::integer(42)],
     );
