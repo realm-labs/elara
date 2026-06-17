@@ -8,6 +8,10 @@ fn conformance_language_fixtures() {
     assert_success_fixture("language/return_42.lua", vec![Value::integer(42)]);
     assert_success_fixture("language/control_flow.lua", vec![Value::integer(17)]);
     assert_success_fixture(
+        "language/conditional_branches.lua",
+        vec![Value::integer(2), Value::integer(5), Value::integer(6)],
+    );
+    assert_success_fixture(
         "language/numeric_for_negative_step.lua",
         vec![Value::integer(9)],
     );
