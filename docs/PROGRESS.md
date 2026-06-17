@@ -1658,6 +1658,9 @@ Delivered:
 - The configurable official-Lua differential runner now has an exact primitive
   success-value comparison path for portable conformance fixtures, while
   keeping error fixtures on success/error class comparison.
+- `string.rep` now treats an explicit nil separator like the missing separator
+  default, matching Lua's `luaL_optlstring` behavior, and the shared conformance
+  and differential fixture matrix covers that optional-argument path.
 
 ## Remaining Gaps
 
@@ -1759,16 +1762,17 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
-cargo clippy -p elara-test --all-targets -- -D warnings
+cargo test -p elara-stdlib string_rep
 cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures
 ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test differential_fixtures
+cargo clippy -p elara-stdlib -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 
-`cargo fmt -p elara-interp -p elara-api -p elara-test -- --check` currently reports
-pre-existing formatting drift in committed Rust files outside this
-math custom-log fixture change.
+`cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
+pre-existing formatting drift in committed Rust files outside this string
+nil-separator behavior and fixture change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the current configured official-Lua exact

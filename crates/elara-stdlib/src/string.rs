@@ -137,6 +137,7 @@ fn string_rep(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
             expected: "integer",
         })?;
     let separator = match args.get(2) {
+        Some(value) if value.is_nil() => Vec::new(),
         Some(value) => string_arg(runtime, *value, 3)?.to_vec(),
         None => Vec::new(),
     };
@@ -454,6 +455,19 @@ mod tests {
         assert_eq!(
             runtime.short_string_bytes(repeated[0]),
             Some(b"ab,ab,ab".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_rep_treats_nil_separator_as_default() {
+        let mut runtime = TestRuntime::default();
+        let value = runtime.push_string(b"ab");
+        let repeated = string_rep(&mut runtime, &[value, Value::integer(2), Value::nil()])
+            .expect("rep should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(repeated[0]),
+            Some(b"abab".as_slice())
         );
     }
 

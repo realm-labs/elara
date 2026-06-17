@@ -1138,6 +1138,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_rep_nil_separator.lua",
+        vec![
+            Value::integer(4),
+            Value::integer(97),
+            Value::integer(97),
+            Value::integer(98),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_reverse_ascii.lua",
         vec![Value::integer(4), Value::integer(100), Value::integer(97)],
     );
