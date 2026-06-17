@@ -1570,6 +1570,10 @@ Delivered:
   paths.
 - The `os` conformance and differential smoke matrix now covers `os.date`
   argument and `os.time` date-table field error result shapes.
+- The shared `os.time` date-table fixtures now avoid timezone-dependent exact
+  timestamps while still checking portable number-result and normalized-field
+  shapes; local-only companion fixtures retain exact UTC timestamp coverage for
+  Elara's current UTC-normalized `os.time` subset.
 - `string.format` now supports Lua-style width and left-adjust modifiers for
   `%c` and `%p`, and the conformance/differential matrix covers portable nil
   pointer formatting.
@@ -1754,30 +1758,19 @@ Latest focused product-gap verification passed:
 cargo clippy -p elara-test --all-targets -- -D warnings
 cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures
+ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test differential_fixtures
 git diff --check
 ```
 
 `cargo fmt -p elara-interp -p elara-api -p elara-test -- --check` currently reports
 pre-existing formatting drift in committed Rust files outside this
-debug name-transfer fixture change.
+`os.time` fixture portability change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
-differential_fixtures` now passes the
-`stdlib/base_loading_error_shapes.lua` and
-`stdlib/string_format_long_strings.lua` exact comparisons after those fixtures
-were limited to portable result shapes, and now also passes
-`stdlib/math_randomseed_errors.lua` after `math.randomseed` was aligned with
-Lua's extra-argument handling, and
-`stdlib/table_insert_remove_errors.lua` after `table.remove` was aligned with
-Lua's extra-argument handling. It now also passes the portable IO smoke and
-keeps explicit unsupported pre-file-handle stub result fixtures in local
-conformance only, and now passes `stdlib/debug_introspection.lua` after main
-stack frames were aligned with Lua's vararg debug metadata. It also now passes
-`stdlib/debug_getinfo_name_transfer.lua` after the fixture stopped comparing
-context-sensitive `name`/`namewhat` call-site metadata. The same configured run
-currently exposes a separate pre-existing exact-result mismatch for
-`stdlib/os_time_normalize.lua`: official Lua normalizes `os.time` table input
-through local time while Elara currently computes UTC-normalized seconds.
+differential_fixtures` now passes the current configured official-Lua exact
+comparison set. The timezone-sensitive `os.time` date-table fixtures now keep
+exact UTC timestamp assertions in local conformance only and compare portable
+number-result plus normalized-field shapes against official Lua.
 
 ## Next Recommended Action
 

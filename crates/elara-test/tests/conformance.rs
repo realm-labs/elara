@@ -2864,6 +2864,18 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture(
         "stdlib/os_time_normalize.lua",
         vec![
+            Value::integer(110),
+            Value::integer(1971),
+            Value::integer(1),
+            Value::integer(1),
+            Value::integer(12),
+            Value::integer(0),
+            Value::integer(0),
+        ],
+    );
+    assert_success_fixture(
+        "stdlib/os_time_normalize_utc.lua",
+        vec![
             Value::integer(31579200),
             Value::integer(1971),
             Value::integer(1),
@@ -2876,6 +2888,18 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture(
         "stdlib/os_time_leap_day.lua",
         vec![
+            Value::integer(110),
+            Value::integer(2024),
+            Value::integer(2),
+            Value::integer(29),
+            Value::integer(23),
+            Value::integer(59),
+            Value::integer(58),
+        ],
+    );
+    assert_success_fixture(
+        "stdlib/os_time_leap_day_utc.lua",
+        vec![
             Value::integer(1709251198),
             Value::integer(2024),
             Value::integer(2),
@@ -2887,6 +2911,15 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/os_time_defaults.lua",
+        vec![
+            Value::integer(110),
+            Value::integer(0),
+            Value::integer(0),
+            Value::integer(0),
+        ],
+    );
+    assert_success_fixture(
+        "stdlib/os_time_defaults_utc.lua",
         vec![
             Value::integer(0),
             Value::integer(0),
