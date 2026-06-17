@@ -1176,6 +1176,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(90)],
     );
     assert_success_fixture(
+        "stdlib/string_byte_overlong_end.lua",
+        vec![Value::integer(66)],
+    );
+    assert_success_fixture(
         "stdlib/string_byte_zero_start.lua",
         Vec::new(),
     );
