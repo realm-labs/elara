@@ -2186,6 +2186,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/debug_hook_count_only.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(0),
+            Value::integer(3),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/os_time_date.lua",
         vec![
             Value::integer(1970),
