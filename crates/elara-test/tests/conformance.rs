@@ -398,6 +398,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(2), Value::integer(20)],
     );
     assert_success_fixture("stdlib/base_next_end.lua", vec![Value::boolean(true)]);
+    assert_success_fixture(
+        "stdlib/base_next_string_key.lua",
+        vec![Value::integer(110), Value::integer(4), Value::integer(41)],
+    );
     assert_success_fixture("stdlib/base_next_empty.lua", vec![Value::boolean(true)]);
     assert_success_fixture(
         "stdlib/base_conversion.lua",
