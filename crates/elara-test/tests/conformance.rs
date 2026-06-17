@@ -3324,6 +3324,14 @@ fn conformance_error_fixtures() {
 #[test]
 fn conformance_coroutine_fixtures() {
     assert_success_fixture("coroutine/wrap.lua", vec![Value::integer(42)]);
+    assert_success_fixture(
+        "coroutine/wrap_dead.lua",
+        vec![
+            Value::integer(5),
+            Value::boolean(false),
+            Value::integer(115),
+        ],
+    );
     assert_success_fixture("coroutine/resume_status.lua", vec![Value::boolean(true)]);
     assert_success_fixture(
         "coroutine/resume_values.lua",
