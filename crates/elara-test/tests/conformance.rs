@@ -1362,6 +1362,7 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture("stdlib/math_log_base2.lua", vec![Value::float(3.0)]);
     assert_success_fixture("stdlib/math_log_base10.lua", vec![Value::float(2.0)]);
     assert_success_fixture("stdlib/math_sqrt_zero.lua", vec![Value::float(0.0)]);
+    assert_success_fixture("stdlib/math_sqrt_perfect_square.lua", vec![Value::float(9.0)]);
     assert_success_fixture(
         "stdlib/math_trig.lua",
         vec![
