@@ -2222,6 +2222,19 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(5), Value::integer(1), Value::boolean(false)],
     );
     assert_success_fixture(
+        "stdlib/os_date_leap_day_table.lua",
+        vec![
+            Value::integer(2024),
+            Value::integer(2),
+            Value::integer(29),
+            Value::integer(60),
+            Value::integer(5),
+            Value::integer(23),
+            Value::integer(59),
+            Value::integer(58),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/os_date_names.lua",
         vec![
             Value::integer(44),
