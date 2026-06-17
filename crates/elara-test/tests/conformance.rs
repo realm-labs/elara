@@ -1805,6 +1805,22 @@ fn conformance_standard_library_fixtures() {
         "stdlib/math_frexp_zero.lua",
         vec![Value::float(0.0), Value::integer(0)],
     );
+    assert_success_fixture(
+        "stdlib/math_argument_coercion.lua",
+        vec![
+            Value::integer(102),
+            Value::integer(3),
+            Value::integer(102),
+            Value::float(3.0),
+            Value::float(12.0),
+            Value::integer(123),
+            Value::integer(4),
+            Value::integer(1),
+            Value::boolean(true),
+            Value::boolean(false),
+            Value::boolean(false),
+        ],
+    );
     assert_success_fixture("stdlib/math_ldexp_positive.lua", vec![Value::float(12.0)]);
     assert_success_fixture(
         "stdlib/math_ldexp_negative_mantissa.lua",

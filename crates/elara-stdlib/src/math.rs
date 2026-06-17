@@ -88,8 +88,8 @@ impl Default for LuaRandomState {
     }
 }
 
-fn math_abs(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    let value = number_arg(args, 1)?;
+fn math_abs(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = number_arg(runtime, args, 1)?;
     let result = if let Some(integer) = value.as_integer() {
         if integer < 0 {
             Value::integer(integer.wrapping_neg())
@@ -107,8 +107,8 @@ fn math_abs(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
     Ok(vec![result])
 }
 
-fn math_floor(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    let value = number_arg(args, 1)?;
+fn math_floor(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = number_arg(runtime, args, 1)?;
     let result = if value.as_integer().is_some() {
         value
     } else {
@@ -122,8 +122,8 @@ fn math_floor(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
     Ok(vec![result])
 }
 
-fn math_ceil(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    let value = number_arg(args, 1)?;
+fn math_ceil(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = number_arg(runtime, args, 1)?;
     let result = if value.as_integer().is_some() {
         value
     } else {
@@ -137,8 +137,8 @@ fn math_ceil(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
     Ok(vec![result])
 }
 
-fn math_sqrt(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    let value = number_arg(args, 1)?;
+fn math_sqrt(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = number_arg(runtime, args, 1)?;
     Ok(vec![Value::float(
         value
             .to_float()
@@ -147,61 +147,73 @@ fn math_sqrt(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
     )])
 }
 
-fn math_asin(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    Ok(vec![Value::float(number_float_arg(args, 1)?.asin())])
+fn math_asin(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::float(
+        number_float_arg(runtime, args, 1)?.asin(),
+    )])
 }
 
-fn math_acos(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    Ok(vec![Value::float(number_float_arg(args, 1)?.acos())])
+fn math_acos(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::float(
+        number_float_arg(runtime, args, 1)?.acos(),
+    )])
 }
 
-fn math_atan(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    let y = number_float_arg(args, 1)?;
+fn math_atan(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let y = number_float_arg(runtime, args, 1)?;
     let x = args.get(1).map_or(Ok(1.0), |value| {
         if value.is_nil() {
             Ok(1.0)
         } else {
-            number_value_to_float(*value, 2)
+            number_value_to_float(runtime, *value, 2)
         }
     })?;
     Ok(vec![Value::float(y.atan2(x))])
 }
 
-fn math_sin(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    Ok(vec![Value::float(number_float_arg(args, 1)?.sin())])
-}
-
-fn math_cos(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    Ok(vec![Value::float(number_float_arg(args, 1)?.cos())])
-}
-
-fn math_tan(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    Ok(vec![Value::float(number_float_arg(args, 1)?.tan())])
-}
-
-fn math_deg(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+fn math_sin(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     Ok(vec![Value::float(
-        number_float_arg(args, 1)? * (180.0 / PI),
+        number_float_arg(runtime, args, 1)?.sin(),
     )])
 }
 
-fn math_rad(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+fn math_cos(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     Ok(vec![Value::float(
-        number_float_arg(args, 1)? * (PI / 180.0),
+        number_float_arg(runtime, args, 1)?.cos(),
     )])
 }
 
-fn math_exp(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    Ok(vec![Value::float(number_float_arg(args, 1)?.exp())])
+fn math_tan(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::float(
+        number_float_arg(runtime, args, 1)?.tan(),
+    )])
 }
 
-fn math_log(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    let value = number_float_arg(args, 1)?;
+fn math_deg(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::float(
+        number_float_arg(runtime, args, 1)? * (180.0 / PI),
+    )])
+}
+
+fn math_rad(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::float(
+        number_float_arg(runtime, args, 1)? * (PI / 180.0),
+    )])
+}
+
+fn math_exp(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    Ok(vec![Value::float(
+        number_float_arg(runtime, args, 1)?.exp(),
+    )])
+}
+
+fn math_log(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = number_float_arg(runtime, args, 1)?;
     let result = match args.get(1) {
         None => value.ln(),
         Some(base) if base.is_nil() => value.ln(),
         Some(base) => {
-            let base = number_value_to_float(*base, 2)?;
+            let base = number_value_to_float(runtime, *base, 2)?;
             if base == 2.0 {
                 value.log2()
             } else if base == 10.0 {
@@ -214,9 +226,9 @@ fn math_log(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Valu
     Ok(vec![Value::float(result)])
 }
 
-fn math_fmod(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    let left = number_arg(args, 1)?;
-    let right = number_arg(args, 2)?;
+fn math_fmod(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let left = number_arg(runtime, args, 1)?;
+    let right = number_arg(runtime, args, 2)?;
     if let (Some(left), Some(right)) = (left.as_integer(), right.as_integer()) {
         if right == 0 {
             return Err(NativeErrorKind::ArgumentOutOfRange { index: 2 }.into());
@@ -227,12 +239,12 @@ fn math_fmod(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
         return Ok(vec![Value::integer(left % right)]);
     }
     Ok(vec![Value::float(
-        number_value_to_float(left, 1)? % number_value_to_float(right, 2)?,
+        number_value_to_float(runtime, left, 1)? % number_value_to_float(runtime, right, 2)?,
     )])
 }
 
-fn math_frexp(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    let value = number_float_arg(args, 1)?;
+fn math_frexp(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = number_float_arg(runtime, args, 1)?;
     if value == 0.0 || !value.is_finite() {
         return Ok(vec![Value::float(value), Value::integer(0)]);
     }
@@ -241,20 +253,20 @@ fn math_frexp(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
     Ok(vec![Value::float(mantissa), Value::integer(exponent)])
 }
 
-fn math_ldexp(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    let value = number_float_arg(args, 1)?;
-    let exponent = integer_arg(args, 2)?;
+fn math_ldexp(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = number_float_arg(runtime, args, 1)?;
+    let exponent = integer_arg(runtime, args, 2)?;
     let exponent =
         i32::try_from(exponent).map_err(|_| NativeErrorKind::ArgumentOutOfRange { index: 2 })?;
     Ok(vec![Value::float(value * 2.0_f64.powi(exponent))])
 }
 
-fn math_modf(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    let value = number_arg(args, 1)?;
+fn math_modf(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let value = number_arg(runtime, args, 1)?;
     if value.as_integer().is_some() {
         return Ok(vec![value, Value::float(0.0)]);
     }
-    let value = number_value_to_float(value, 1)?;
+    let value = number_value_to_float(runtime, value, 1)?;
     let integer = if value < 0.0 {
         value.ceil()
     } else {
@@ -268,9 +280,9 @@ fn math_modf(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
     Ok(vec![number_result(integer), Value::float(fraction)])
 }
 
-fn math_ult(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+fn math_ult(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     Ok(vec![Value::boolean(
-        (integer_arg(args, 1)? as u64) < (integer_arg(args, 2)? as u64),
+        (integer_arg(runtime, args, 1)? as u64) < (integer_arg(runtime, args, 2)? as u64),
     )])
 }
 
@@ -287,13 +299,16 @@ fn math_random(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
     let (low, high) = match args.len() {
         0 => return Ok(vec![Value::float(random_float(random))]),
         1 => {
-            let high = integer_arg(args, 1)?;
+            let high = integer_arg(runtime, args, 1)?;
             if high == 0 {
                 return Ok(vec![Value::integer(random as i64)]);
             }
             (1, high)
         }
-        2 => (integer_arg(args, 1)?, integer_arg(args, 2)?),
+        2 => (
+            integer_arg(runtime, args, 1)?,
+            integer_arg(runtime, args, 2)?,
+        ),
         _ => {
             return Err(NativeErrorKind::RuntimeError {
                 message: "wrong number of arguments".into(),
@@ -319,10 +334,10 @@ fn math_randomseed(
 ) -> Result<Vec<Value>, NativeError> {
     let (seed1, seed2) = match args.len() {
         0 => (runtime.random_seed()?, runtime.next_random_u64()?),
-        1 => (integer_arg(args, 1)? as u64, 0),
+        1 => (integer_arg(runtime, args, 1)? as u64, 0),
         _ => (
-            integer_arg(args, 1)? as u64,
-            optional_integer_arg(args, 2, 0)? as u64,
+            integer_arg(runtime, args, 1)? as u64,
+            optional_integer_arg(runtime, args, 2, 0)? as u64,
         ),
     };
     runtime.set_random_seed(seed1, seed2)?;
@@ -360,23 +375,32 @@ fn math_tointeger(
     }
 }
 
-fn integer_arg(args: &[Value], index: usize) -> Result<i64, NativeError> {
-    args.get(index - 1)
-        .ok_or(NativeErrorKind::MissingArgument { index })?
-        .as_integer()
-        .ok_or(
-            NativeErrorKind::TypeError {
-                index,
-                expected: "integer",
-            }
-            .into(),
-        )
+fn integer_arg(
+    runtime: &dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<i64, NativeError> {
+    let value = *args
+        .get(index - 1)
+        .ok_or(NativeErrorKind::MissingArgument { index })?;
+    integer_value(runtime, value).ok_or(
+        NativeErrorKind::TypeError {
+            index,
+            expected: "integer",
+        }
+        .into(),
+    )
 }
 
-fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i64, NativeError> {
+fn optional_integer_arg(
+    runtime: &dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+    default: i64,
+) -> Result<i64, NativeError> {
     match args.get(index - 1) {
         Some(value) if value.is_nil() => Ok(default),
-        Some(value) => value.as_integer().ok_or(
+        Some(value) => integer_value(runtime, *value).ok_or(
             NativeErrorKind::TypeError {
                 index,
                 expected: "integer",
@@ -387,7 +411,24 @@ fn optional_integer_arg(args: &[Value], index: usize, default: i64) -> Result<i6
     }
 }
 
-fn number_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {
+fn number_arg(
+    runtime: &dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<Value, NativeError> {
+    let value = *args
+        .get(index - 1)
+        .ok_or(NativeErrorKind::MissingArgument { index })?;
+    number_value(runtime, value).ok_or(
+        NativeErrorKind::TypeError {
+            index,
+            expected: "number",
+        }
+        .into(),
+    )
+}
+
+fn raw_number_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {
     let value = *args
         .get(index - 1)
         .ok_or(NativeErrorKind::MissingArgument { index })?;
@@ -402,19 +443,32 @@ fn number_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {
     }
 }
 
-fn number_float_arg(args: &[Value], index: usize) -> Result<LuaFloat, NativeError> {
-    number_arg(args, index)
-        .map(|value| number_value_to_float(value, index).expect("number_arg accepted only numbers"))
+fn number_float_arg(
+    runtime: &dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<LuaFloat, NativeError> {
+    number_arg(runtime, args, index).map(|value| {
+        value
+            .to_float()
+            .expect("number_arg accepted only number values")
+    })
 }
 
-fn number_value_to_float(value: Value, index: usize) -> Result<LuaFloat, NativeError> {
-    value.to_float().ok_or(
-        NativeErrorKind::TypeError {
-            index,
-            expected: "number",
-        }
-        .into(),
-    )
+fn number_value_to_float(
+    runtime: &dyn NativeRuntime,
+    value: Value,
+    index: usize,
+) -> Result<LuaFloat, NativeError> {
+    number_value(runtime, value)
+        .and_then(Value::to_float)
+        .ok_or(
+            NativeErrorKind::TypeError {
+                index,
+                expected: "number",
+            }
+            .into(),
+        )
 }
 
 fn number_result(value: LuaFloat) -> Value {
@@ -422,12 +476,26 @@ fn number_result(value: LuaFloat) -> Value {
 }
 
 fn to_integer(runtime: &dyn NativeRuntime, value: Value) -> Option<i64> {
+    integer_value(runtime, value)
+}
+
+fn integer_value(runtime: &dyn NativeRuntime, value: Value) -> Option<i64> {
     value.to_integer_exact().or_else(|| {
         runtime
             .string_bytes(value)
             .and_then(parse_standard_number)
             .and_then(Value::to_integer_exact)
     })
+}
+
+fn number_value(runtime: &dyn NativeRuntime, value: Value) -> Option<Value> {
+    if value.is_number() {
+        return Some(value);
+    }
+    runtime
+        .string_bytes(value)
+        .and_then(parse_standard_number)
+        .and_then(|number| number.to_float().map(Value::float))
 }
 
 fn random_float(value: u64) -> LuaFloat {
@@ -466,9 +534,9 @@ fn extrema_arg(args: &[Value], extrema: Extrema) -> Result<Value, NativeError> {
         return Err(NativeErrorKind::MissingArgument { index: 1 }.into());
     }
 
-    let mut selected = number_arg(args, 1)?;
+    let mut selected = raw_number_arg(args, 1)?;
     for index in 2..=args.len() {
-        let candidate = number_arg(args, index)?;
+        let candidate = raw_number_arg(args, index)?;
         let candidate_float = candidate
             .to_float()
             .expect("number_arg accepted only numbers");
@@ -495,8 +563,8 @@ mod tests {
 
     use super::{
         LuaRandomState, MATH_CONSTANTS, MATH_NATIVE_FUNCTIONS, PI, math_abs, math_ceil, math_floor,
-        math_frexp, math_ldexp, math_max, math_min, math_random, math_randomseed, math_sqrt,
-        math_tointeger, math_type,
+        math_fmod, math_frexp, math_ldexp, math_max, math_min, math_random, math_randomseed,
+        math_sqrt, math_tointeger, math_type, math_ult,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -623,6 +691,36 @@ mod tests {
     }
 
     #[test]
+    fn math_number_arguments_coerce_numeric_strings_as_floats() {
+        let mut runtime = TestRuntime::default();
+        let three = runtime
+            .intern_short_string(b"3")
+            .expect("test string should intern");
+        let seven = runtime
+            .intern_short_string(b"7")
+            .expect("test string should intern");
+        let two = runtime
+            .intern_short_string(b"2")
+            .expect("test string should intern");
+        let nine = runtime
+            .intern_short_string(b"9")
+            .expect("test string should intern");
+
+        assert_eq!(
+            math_abs(&mut runtime, &[three]),
+            Ok(vec![Value::float(3.0)])
+        );
+        assert_eq!(
+            math_fmod(&mut runtime, &[seven, two]),
+            Ok(vec![Value::float(1.0)])
+        );
+        assert_eq!(
+            math_sqrt(&mut runtime, &[nine]),
+            Ok(vec![Value::float(3.0)])
+        );
+    }
+
+    #[test]
     fn math_min_and_max_return_selected_original_value() {
         assert_eq!(
             call(
@@ -690,6 +788,49 @@ mod tests {
         assert_eq!(
             math_random(&mut runtime, &[Value::nil()])
                 .expect_err("non-integer argument should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "integer"
+            }
+        );
+    }
+
+    #[test]
+    fn math_integer_arguments_coerce_exact_numeric_strings() {
+        let mut runtime = TestRuntime::default();
+        let one = runtime
+            .intern_short_string(b"1")
+            .expect("test string should intern");
+        let three = runtime
+            .intern_short_string(b"3")
+            .expect("test string should intern");
+        let seed = runtime
+            .intern_short_string(b"123")
+            .expect("test string should intern");
+        let hex_seed = runtime
+            .intern_short_string(b"0x4")
+            .expect("test string should intern");
+        let fraction = runtime
+            .intern_short_string(b"1.5")
+            .expect("test string should intern");
+
+        let random = math_random(&mut runtime, &[one, three]).expect("random should pass");
+        let random = random[0]
+            .as_integer()
+            .expect("random should return integer");
+        assert!((1..=3).contains(&random));
+        assert_eq!(
+            math_randomseed(&mut runtime, &[seed, hex_seed]),
+            Ok(vec![Value::integer(123), Value::integer(4)])
+        );
+        assert_eq!(
+            math_ult(&mut runtime, &[one, hex_seed]),
+            Ok(vec![Value::boolean(true)])
+        );
+        assert_eq!(
+            math_random(&mut runtime, &[fraction])
+                .expect_err("non-integral string should fail")
                 .kind(),
             &NativeErrorKind::TypeError {
                 index: 1,
