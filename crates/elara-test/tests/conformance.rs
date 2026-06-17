@@ -707,6 +707,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(5), Value::integer(6)],
     );
     assert_success_fixture(
+        "stdlib/string_find_plain_zero_init.lua",
+        vec![Value::integer(1), Value::integer(1)],
+    );
+    assert_success_fixture(
         "stdlib/string_find_plain_past_end.lua",
         vec![Value::boolean(true)],
     );
