@@ -2186,6 +2186,7 @@ fn conformance_standard_library_fixtures() {
             Value::integer(115),
         ],
     );
+    assert_success_fixture("stdlib/os_difftime_negative.lua", vec![Value::float(-6.0)]);
     assert_success_fixture(
         "stdlib/os_time_normalize.lua",
         vec![
