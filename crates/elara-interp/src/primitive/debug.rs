@@ -486,7 +486,8 @@ impl RuntimeDebugFrame {
     }
 
     fn is_vararg(&self) -> bool {
-        self.proto.as_ref().is_none_or(|proto| proto.is_vararg)
+        matches!(self.kind, RuntimeDebugFrameKind::Main)
+            || self.proto.as_ref().is_none_or(|proto| proto.is_vararg)
     }
 }
 

@@ -1452,6 +1452,9 @@ Delivered:
 - The debug-library conformance and differential smoke matrix now covers
   portable `getinfo`, local/upvalue helper, hook, and traceback argument error
   result shapes.
+- `debug.getinfo` now reports main chunk stack frames as vararg, matching Lua
+  5.5 debug metadata while leaving ordinary Lua function and native function
+  `isvararg` reporting unchanged.
 - The math-library conformance and differential smoke matrix now covers
   `math.fmod`, `math.random`, and `math.ult` argument error result shapes.
 - `math.randomseed` now follows Lua 5.5 by validating only the first two seed
@@ -1745,15 +1748,16 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
-cargo clippy -p elara-test --all-targets -- -D warnings
+cargo clippy -p elara-interp -p elara-api -p elara-test --all-targets -- -D warnings
+cargo test -p elara-api debug_getinfo
 cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures
 git diff --check
 ```
 
-`cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
+`cargo fmt -p elara-interp -p elara-api -p elara-test -- --check` currently reports
 pre-existing formatting drift in committed Rust files outside this
-IO differential portability change.
+debug metadata change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the
@@ -1765,10 +1769,11 @@ Lua's extra-argument handling, and
 `stdlib/table_insert_remove_errors.lua` after `table.remove` was aligned with
 Lua's extra-argument handling. It now also passes the portable IO smoke and
 keeps explicit unsupported pre-file-handle stub result fixtures in local
-conformance only. The same configured run currently exposes a separate
-pre-existing exact-result mismatch for `stdlib/debug_introspection.lua`:
-official Lua marks the current stack frame as vararg while Elara reports it as
-non-vararg.
+conformance only, and now passes `stdlib/debug_introspection.lua` after main
+stack frames were aligned with Lua's vararg debug metadata. The same configured
+run currently exposes a separate pre-existing exact-result mismatch for
+`stdlib/debug_getinfo_name_transfer.lua`: official Lua reports non-empty
+`namewhat` metadata for the current stack frame while Elara leaves it empty.
 
 ## Next Recommended Action
 

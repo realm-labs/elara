@@ -2547,7 +2547,7 @@ fn conformance_standard_library_fixtures() {
             Value::boolean(false),
             Value::integer(109),
             Value::integer(0),
-            Value::boolean(false),
+            Value::boolean(true),
             Value::boolean(false),
             Value::integer(0),
             Value::boolean(true),
