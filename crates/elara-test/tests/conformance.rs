@@ -438,6 +438,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_tonumber_upper_radix.lua",
+        vec![Value::integer(255), Value::integer(35)],
+    );
+    assert_success_fixture(
         "stdlib/base_tonumber_signed_radix.lua",
         vec![Value::integer(-255), Value::integer(5), Value::integer(-35)],
     );
