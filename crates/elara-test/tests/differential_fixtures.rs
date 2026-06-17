@@ -85,6 +85,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_find_quantifiers.lua",
     "stdlib/string_find_optional_quantifier.lua",
     "stdlib/string_find_plain.lua",
+    "stdlib/string_find_plain_negative_init.lua",
     "stdlib/string_find_escaped_literal.lua",
     "stdlib/string_find_start_anchor_init.lua",
     "stdlib/string_find_end_anchor.lua",
