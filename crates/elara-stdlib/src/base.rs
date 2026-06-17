@@ -312,8 +312,8 @@ fn base_rawset(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
 fn base_select(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     if args
         .first()
-        .and_then(|value| runtime.short_string_bytes(*value))
-        == Some(b"#")
+        .and_then(|value| runtime.string_bytes(*value))
+        .is_some_and(|bytes| bytes.first() == Some(&b'#'))
     {
         let count = i64::try_from(args.len().saturating_sub(1)).map_err(|_| {
             NativeErrorKind::RuntimeError {

@@ -1672,12 +1672,15 @@ Delivered:
   `table.concat` bounds.
 - The base-library conformance and differential smoke matrix now covers
   `tonumber` with an explicit nil base, matching the standard conversion path.
+- `select` now treats any string beginning with `#` as the count form, matching
+  Lua's base-library prefix check, and the conformance/differential matrix
+  covers that path.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains five hundred smoke fixtures across
+- `tests/conformance` currently contains five hundred one smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
@@ -1773,16 +1776,17 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
+cargo test -p elara-stdlib base_select
 cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures
 ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test differential_fixtures
-cargo clippy -p elara-test --all-targets -- -D warnings
+cargo clippy -p elara-stdlib -p elara-test --all-targets -- -D warnings
 git diff --check
 ```
 
-`cargo fmt -p elara-test -- --check` currently reports pre-existing formatting
-drift in committed Rust files outside this base tonumber nil-base fixture
-change.
+`cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
+pre-existing formatting drift in committed Rust files outside this select
+hash-prefix behavior and fixture change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the current configured official-Lua exact

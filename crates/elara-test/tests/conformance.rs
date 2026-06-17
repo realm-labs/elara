@@ -633,6 +633,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(3)],
     );
     assert_success_fixture(
+        "stdlib/base_select_hash_prefix.lua",
+        vec![Value::integer(3)],
+    );
+    assert_success_fixture(
         "stdlib/base_select_count_nil_values.lua",
         vec![Value::integer(2)],
     );

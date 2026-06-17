@@ -873,12 +873,21 @@ fn base_select_returns_positioned_arguments() {
 fn base_select_hash_returns_argument_count() {
     let mut runtime = TestRuntime::default();
     let hash = runtime.push_string(b"#");
+    let prefixed = runtime.push_string(b"#not-exact");
 
     assert_eq!(
         call_with_runtime(
             &mut runtime,
             base_select,
             &[hash, Value::integer(1), Value::nil(), Value::integer(3)]
+        ),
+        vec![Value::integer(3)]
+    );
+    assert_eq!(
+        call_with_runtime(
+            &mut runtime,
+            base_select,
+            &[prefixed, Value::integer(1), Value::nil(), Value::integer(3)]
         ),
         vec![Value::integer(3)]
     );

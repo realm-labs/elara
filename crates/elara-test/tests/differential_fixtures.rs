@@ -109,6 +109,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_select_past_end.lua",
     "stdlib/base_select_count_empty.lua",
     "stdlib/base_select_count_values.lua",
+    "stdlib/base_select_hash_prefix.lua",
     "stdlib/base_select_count_nil_values.lua",
     "stdlib/base_pcall.lua",
     "stdlib/base_pcall_arguments.lua",
