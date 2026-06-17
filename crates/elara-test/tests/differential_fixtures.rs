@@ -162,6 +162,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_ops.lua",
     "stdlib/string_case_empty.lua",
     "stdlib/string_case_mapping.lua",
+    "stdlib/string_case_punctuation.lua",
     "stdlib/string_byte_char.lua",
     "stdlib/string_char_empty.lua",
     "stdlib/string_char_embedded_nul.lua",
