@@ -1,41 +1,69 @@
 //! Small Lua pattern helpers shared by string-library functions.
 
+use crate::{NativeError, NativeErrorKind};
+
 #[cfg(test)]
 pub(super) fn has_unsupported_pattern_special(pattern: &[u8]) -> bool {
-    has_unsupported_pattern_special_inner(pattern, false)
+    pattern_issue(pattern, false).is_some()
 }
 
+#[cfg(test)]
 pub(super) fn has_unsupported_pattern_special_with_captures(pattern: &[u8]) -> bool {
-    has_unsupported_pattern_special_inner(pattern, true)
+    pattern_issue(pattern, true).is_some()
 }
 
-fn has_unsupported_pattern_special_inner(pattern: &[u8], allow_captures: bool) -> bool {
+pub(super) fn unsupported_pattern_error_with_captures(pattern: &[u8]) -> Option<NativeError> {
+    pattern_issue(pattern, true).map(|issue| match issue {
+        PatternIssue::Unsupported => NativeErrorKind::RuntimeError {
+            message: "string pattern matching is not supported yet".into(),
+        }
+        .into(),
+        PatternIssue::Error(message) => NativeErrorKind::RuntimeError { message }.into(),
+    })
+}
+
+enum PatternIssue {
+    Unsupported,
+    Error(Box<str>),
+}
+
+fn pattern_issue(pattern: &[u8], allow_captures: bool) -> Option<PatternIssue> {
     let mut index = 0;
     let mut capture_depth = 0_u32;
     while let Some(byte) = pattern.get(index).copied() {
         match byte {
             b'%' => {
                 let Some(class) = pattern.get(index + 1).copied() else {
-                    return true;
+                    return Some(PatternIssue::Error(
+                        "malformed pattern (ends with '%')".into(),
+                    ));
                 };
                 if class.is_ascii_digit() {
                     if !allow_captures || class == b'0' {
-                        return true;
+                        return Some(PatternIssue::Error(
+                            format!("invalid capture index %{}", char::from(class)).into(),
+                        ));
                     }
                     index += 2;
                     continue;
                 }
                 if class == b'b' {
                     if pattern.get(index + 2).is_none() || pattern.get(index + 3).is_none() {
-                        return true;
+                        return Some(PatternIssue::Error(
+                            "malformed pattern (missing arguments to '%b')".into(),
+                        ));
                     }
                     index += 4;
                 } else if class == b'f' {
                     if pattern.get(index + 2) != Some(&b'[') {
-                        return true;
+                        return Some(PatternIssue::Error(
+                            "missing '[' after '%f' in pattern".into(),
+                        ));
                     }
                     let Some(end) = bracket_end(pattern, index + 2) else {
-                        return true;
+                        return Some(PatternIssue::Error(
+                            "malformed pattern (missing ']')".into(),
+                        ));
                     };
                     index = end + 1;
                 } else {
@@ -44,7 +72,9 @@ fn has_unsupported_pattern_special_inner(pattern: &[u8], allow_captures: bool) -
             }
             b'[' => {
                 let Some(end) = bracket_end(pattern, index) else {
-                    return true;
+                    return Some(PatternIssue::Error(
+                        "malformed pattern (missing ']')".into(),
+                    ));
                 };
                 index = end + 1;
             }
@@ -54,18 +84,22 @@ fn has_unsupported_pattern_special_inner(pattern: &[u8], allow_captures: bool) -
             }
             b')' if allow_captures => {
                 let Some(depth) = capture_depth.checked_sub(1) else {
-                    return true;
+                    return Some(PatternIssue::Unsupported);
                 };
                 capture_depth = depth;
                 index += 1;
             }
-            b'(' | b')' => return true,
-            b'^' if index != 0 => return true,
-            b'$' if index + 1 != pattern.len() => return true,
+            b'(' | b')' => return Some(PatternIssue::Unsupported),
+            b'^' if index != 0 => return Some(PatternIssue::Unsupported),
+            b'$' if index + 1 != pattern.len() => return Some(PatternIssue::Unsupported),
             _ => index += 1,
         }
     }
-    capture_depth != 0
+    if capture_depth != 0 {
+        Some(PatternIssue::Error("unfinished capture".into()))
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]

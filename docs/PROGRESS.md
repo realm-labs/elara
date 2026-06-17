@@ -1693,12 +1693,17 @@ Delivered:
 - `string.format` now reports Lua-style invalid-conversion errors for
   unsupported alphabetic conversion items such as `%n` and `%F`, while still
   preserving Lua's missing-argument precedence for those invalid items.
+- String pattern preflight now distinguishes malformed Lua patterns from
+  valid-but-unsupported pattern gaps, reporting Lua-style errors for trailing
+  `%`, missing bracket/frontier/balanced-pattern delimiters, invalid capture
+  indexes, and unfinished captures; a shared conformance/differential fixture
+  covers those malformed-pattern error classes.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains five hundred four smoke fixtures across
+- `tests/conformance` currently contains five hundred five smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
@@ -1804,7 +1809,7 @@ git diff --check
 
 `cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
 pre-existing formatting drift in committed Rust files outside this
-invalid-conversion `string.format` behavior and fixture change.
+malformed string-pattern behavior and fixture change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the current configured official-Lua exact

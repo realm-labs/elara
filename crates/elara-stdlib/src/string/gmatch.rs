@@ -7,8 +7,8 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime, StdLib};
 use super::{
     optional_integer_arg,
     pattern::{
-        PatternCapture, has_unsupported_pattern_special_with_captures,
-        simple_pattern_match_from_without_start_anchor,
+        PatternCapture, simple_pattern_match_from_without_start_anchor,
+        unsupported_pattern_error_with_captures,
     },
     relative_start, string_arg,
 };
@@ -32,11 +32,8 @@ pub(super) fn string_gmatch(
     let pattern = string_arg(runtime, pattern_value, 2)?;
     let init = relative_start(optional_integer_arg(args, 3, 1)?, subject.len());
 
-    if has_unsupported_pattern_special_with_captures(&pattern) {
-        return Err(NativeErrorKind::RuntimeError {
-            message: "string pattern matching is not supported yet".into(),
-        }
-        .into());
+    if let Some(error) = unsupported_pattern_error_with_captures(&pattern) {
+        return Err(error);
     }
 
     let cursor = if init > subject.len() {

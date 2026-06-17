@@ -6,9 +6,7 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
 use super::{
     optional_integer_arg,
-    pattern::{
-        PatternCapture, has_unsupported_pattern_special_with_captures, simple_pattern_match_from,
-    },
+    pattern::{PatternCapture, simple_pattern_match_from, unsupported_pattern_error_with_captures},
     relative_start, string_arg,
 };
 
@@ -34,11 +32,8 @@ pub(super) fn string_match(
     if init > subject.len() {
         return Ok(vec![Value::nil()]);
     }
-    if has_unsupported_pattern_special_with_captures(&pattern) {
-        return Err(NativeErrorKind::RuntimeError {
-            message: "string pattern matching is not supported yet".into(),
-        }
-        .into());
+    if let Some(error) = unsupported_pattern_error_with_captures(&pattern) {
+        return Err(error);
     }
 
     let offset = init - 1;
@@ -330,17 +325,17 @@ mod tests {
     }
 
     #[test]
-    fn string_match_reports_pattern_gap_for_magic_patterns() {
+    fn string_match_reports_invalid_capture_patterns() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
         let pattern = runtime.push_string(b"%0");
 
         assert_eq!(
             string_match(&mut runtime, &[subject, pattern])
-                .expect_err("pattern matching should be explicit gap")
+                .expect_err("invalid capture should fail")
                 .kind(),
             &NativeErrorKind::RuntimeError {
-                message: "string pattern matching is not supported yet".into()
+                message: "invalid capture index %0".into()
             }
         );
     }

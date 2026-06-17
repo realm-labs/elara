@@ -7,8 +7,8 @@ use crate::{NativeError, NativeErrorKind, NativeRuntime};
 use super::{
     number_arg_bytes, optional_integer_arg,
     pattern::{
-        PatternCapture, PatternMatch, has_unsupported_pattern_special_with_captures,
-        is_start_anchored, simple_pattern_match_from,
+        PatternCapture, PatternMatch, is_start_anchored, simple_pattern_match_from,
+        unsupported_pattern_error_with_captures,
     },
     string_arg,
 };
@@ -47,11 +47,8 @@ pub(super) fn string_gsub(
             .saturating_add(1),
     )?;
 
-    if has_unsupported_pattern_special_with_captures(&pattern) {
-        return Err(NativeErrorKind::RuntimeError {
-            message: "string pattern matching is not supported yet".into(),
-        }
-        .into());
+    if let Some(error) = unsupported_pattern_error_with_captures(&pattern) {
+        return Err(error);
     }
     let anchored = is_start_anchored(&pattern);
     if max <= 0 {
@@ -703,7 +700,7 @@ mod tests {
     }
 
     #[test]
-    fn string_gsub_reports_pattern_gap_for_magic_patterns() {
+    fn string_gsub_reports_invalid_capture_patterns() {
         let mut runtime = TestRuntime::default();
         let subject = runtime.push_string(b"abc");
         let pattern = runtime.push_string(b"%0");
@@ -711,10 +708,10 @@ mod tests {
 
         assert_eq!(
             string_gsub(&mut runtime, &[subject, pattern, replacement])
-                .expect_err("pattern matching should be explicit gap")
+                .expect_err("invalid capture should fail")
                 .kind(),
             &NativeErrorKind::RuntimeError {
-                message: "string pattern matching is not supported yet".into()
+                message: "invalid capture index %0".into()
             }
         );
     }
