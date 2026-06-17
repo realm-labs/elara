@@ -84,7 +84,7 @@ fn pattern_issue(pattern: &[u8], allow_captures: bool) -> Option<PatternIssue> {
             }
             b')' if allow_captures => {
                 let Some(depth) = capture_depth.checked_sub(1) else {
-                    return Some(PatternIssue::Unsupported);
+                    return Some(PatternIssue::Error("invalid pattern capture".into()));
                 };
                 capture_depth = depth;
                 index += 1;
@@ -772,5 +772,6 @@ mod tests {
         ));
         assert!(!has_unsupported_pattern_special_with_captures(b"(%a+) %1"));
         assert!(has_unsupported_pattern_special_with_captures(b"(%a+"));
+        assert!(has_unsupported_pattern_special_with_captures(b"%a+)"));
     }
 }

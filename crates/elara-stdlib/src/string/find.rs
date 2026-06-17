@@ -368,6 +368,7 @@ mod tests {
         let subject = runtime.push_string(b"abc");
         let trailing_escape = runtime.push_string(b"%");
         let unfinished_capture = runtime.push_string(b"(a");
+        let invalid_capture = runtime.push_string(b"%a+)");
 
         assert_eq!(
             string_find(&mut runtime, &[subject, trailing_escape])
@@ -383,6 +384,14 @@ mod tests {
                 .kind(),
             &NativeErrorKind::RuntimeError {
                 message: "unfinished capture".into()
+            }
+        );
+        assert_eq!(
+            string_find(&mut runtime, &[subject, invalid_capture])
+                .expect_err("invalid capture should fail")
+                .kind(),
+            &NativeErrorKind::RuntimeError {
+                message: "invalid pattern capture".into()
             }
         );
     }

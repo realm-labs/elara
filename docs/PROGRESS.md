@@ -1710,8 +1710,9 @@ Delivered:
 - String pattern preflight now distinguishes malformed Lua patterns from
   valid-but-unsupported pattern gaps, reporting Lua-style errors for trailing
   `%`, missing bracket/frontier/balanced-pattern delimiters, invalid capture
-  indexes, and unfinished captures; a shared conformance/differential fixture
-  covers those malformed-pattern error classes.
+  indexes, unmatched close captures, and unfinished captures; shared
+  conformance/differential fixtures cover those malformed-pattern error
+  classes.
 - The string library now exposes executable `string.packsize` for fixed-size
   binary packing formats, including Lua-style alignment and variable-length
   format rejection; a shared conformance/differential fixture covers portable
@@ -1743,7 +1744,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains five hundred fifteen smoke fixtures across
+- `tests/conformance` currently contains five hundred sixteen smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
