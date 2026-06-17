@@ -98,8 +98,6 @@ fn pattern_issue(pattern: &[u8], allow_captures: bool) -> Option<PatternIssue> {
                 index += 1;
             }
             b'(' | b')' => return Some(PatternIssue::Unsupported),
-            b'^' if index != 0 => return Some(PatternIssue::Unsupported),
-            b'$' if index + 1 != pattern.len() => return Some(PatternIssue::Unsupported),
             _ => index += 1,
         }
     }
@@ -654,6 +652,9 @@ mod tests {
         assert_eq!(simple_pattern_find(b"abc", b"$"), Some((3, 3)));
         assert_eq!(simple_pattern_find(b"abc", b"^$"), None);
         assert_eq!(simple_pattern_find(b"", b"^$"), Some((0, 0)));
+        assert_eq!(simple_pattern_find(b"a^b $a a$b", b"a^b"), Some((0, 3)));
+        assert_eq!(simple_pattern_find(b"a^b $a a$b", b"$a"), Some((4, 6)));
+        assert_eq!(simple_pattern_find(b"a^b $a a$b", b"a$b"), Some((7, 10)));
     }
 
     #[test]
@@ -766,8 +767,9 @@ mod tests {
         assert!(!has_unsupported_pattern_special(b"a+"));
         assert!(!has_unsupported_pattern_special(b"a*b?c-"));
         assert!(has_unsupported_pattern_special(b"(a)"));
-        assert!(has_unsupported_pattern_special(b"a^"));
-        assert!(has_unsupported_pattern_special(b"a$b"));
+        assert!(!has_unsupported_pattern_special(b"a^"));
+        assert!(!has_unsupported_pattern_special(b"a$b"));
+        assert!(!has_unsupported_pattern_special(b"$a"));
         assert!(has_unsupported_pattern_special(b"%"));
         assert!(has_unsupported_pattern_special(b"[abc"));
         assert!(has_unsupported_pattern_special(b"[]"));

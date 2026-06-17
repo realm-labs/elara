@@ -1714,6 +1714,9 @@ Delivered:
   references, too many captures, unmatched close captures, and unfinished
   captures; shared conformance/differential fixtures cover those
   malformed-pattern error classes.
+- String pattern preflight now accepts literal `^` and `$` outside their anchor
+  positions, and the shared conformance/differential matrix covers those
+  literal-anchor byte matches while preserving true terminal anchoring.
 - The string library now exposes executable `string.packsize` for fixed-size
   binary packing formats, including Lua-style alignment and variable-length
   format rejection; a shared conformance/differential fixture covers portable
@@ -1745,7 +1748,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains five hundred sixteen smoke fixtures across
+- `tests/conformance` currently contains five hundred seventeen smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
