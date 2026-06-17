@@ -49,6 +49,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_assert.lua",
     "stdlib/base_assert_pcall.lua",
     "stdlib/base_next.lua",
+    "stdlib/base_next_after_key.lua",
     "stdlib/base_next_empty.lua",
     "stdlib/base_conversion.lua",
     "stdlib/base_tonumber_radix.lua",
