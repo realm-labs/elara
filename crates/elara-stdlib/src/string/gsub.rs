@@ -5,7 +5,7 @@ use elara_core::Value;
 use crate::{NativeError, NativeErrorKind, NativeRuntime};
 
 use super::{
-    optional_integer_arg,
+    number_arg_bytes, optional_integer_arg,
     pattern::{
         PatternCapture, PatternMatch, has_unsupported_pattern_special_with_captures,
         is_start_anchored, simple_pattern_match_from,
@@ -105,11 +105,8 @@ fn replacement_arg(runtime: &dyn NativeRuntime, value: Value) -> Result<Replacem
     if let Some(bytes) = runtime.string_bytes(value) {
         return Ok(Replacement::String(bytes.to_vec()));
     }
-    if let Some(integer) = value.as_integer() {
-        return Ok(Replacement::String(integer.to_string().into_bytes()));
-    }
-    if let Some(float) = value.as_float() {
-        return Ok(Replacement::String(float.to_string().into_bytes()));
+    if let Some(bytes) = number_arg_bytes(value) {
+        return Ok(Replacement::String(bytes));
     }
     if value.is_table() {
         return Ok(Replacement::Table(value));
@@ -630,6 +627,9 @@ mod tests {
             .expect("integer replacement should pass");
         let float_values = string_gsub(&mut runtime, &[subject, pattern, Value::float(1.5)])
             .expect("float replacement should pass");
+        let integral_float_values =
+            string_gsub(&mut runtime, &[subject, pattern, Value::float(1.0)])
+                .expect("integral float replacement should pass");
 
         assert_eq!(
             runtime.short_string_bytes(integer_values[0]),
@@ -641,6 +641,11 @@ mod tests {
             Some(b"a1.5b1.5".as_slice())
         );
         assert_eq!(float_values[1], Value::integer(2));
+        assert_eq!(
+            runtime.short_string_bytes(integral_float_values[0]),
+            Some(b"a1.0b1.0".as_slice())
+        );
+        assert_eq!(integral_float_values[1], Value::integer(2));
     }
 
     #[test]

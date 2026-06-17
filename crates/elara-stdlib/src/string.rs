@@ -258,17 +258,21 @@ fn string_arg(
     if let Some(bytes) = runtime.string_bytes(value) {
         return Ok(Cow::Borrowed(bytes));
     }
-    if let Some(integer) = value.as_integer() {
-        return Ok(Cow::Owned(integer.to_string().into_bytes()));
-    }
-    if let Some(float) = value.as_float() {
-        return Ok(Cow::Owned(float_arg_bytes(float)));
+    if let Some(bytes) = number_arg_bytes(value) {
+        return Ok(Cow::Owned(bytes));
     }
     Err(NativeErrorKind::TypeError {
         index,
         expected: "string",
     }
     .into())
+}
+
+pub(super) fn number_arg_bytes(value: Value) -> Option<Vec<u8>> {
+    if let Some(integer) = value.as_integer() {
+        return Some(integer.to_string().into_bytes());
+    }
+    value.as_float().map(float_arg_bytes)
 }
 
 fn float_arg_bytes(value: f64) -> Vec<u8> {

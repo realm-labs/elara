@@ -1040,6 +1040,11 @@ fn conformance_standard_library_fixtures() {
             Value::integer(46),
             Value::integer(53),
             Value::integer(2),
+            Value::integer(8),
+            Value::integer(49),
+            Value::integer(46),
+            Value::integer(48),
+            Value::integer(2),
         ],
     );
     assert_success_fixture(
