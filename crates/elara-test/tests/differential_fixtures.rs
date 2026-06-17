@@ -123,6 +123,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/math_string_patterns.lua",
     "stdlib/string_pattern_captures.lua",
     "stdlib/string_pattern_anchor_literals.lua",
+    "stdlib/string_pattern_bracket_literals.lua",
     "stdlib/string_pattern_errors.lua",
     "stdlib/string_argument_errors.lua",
     "stdlib/string_more_argument_errors.lua",

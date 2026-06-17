@@ -756,6 +756,23 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_pattern_bracket_literals.lua",
+        vec![
+            Value::integer(2),
+            Value::integer(2),
+            Value::integer(1),
+            Value::integer(1),
+            Value::boolean(true),
+            Value::integer(1),
+            Value::integer(1),
+            Value::integer(4),
+            Value::integer(97),
+            Value::integer(120),
+            Value::integer(98),
+            Value::integer(120),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_pattern_errors.lua",
         vec![
             Value::boolean(false),

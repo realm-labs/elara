@@ -564,6 +564,9 @@ fn bracket_end(pattern: &[u8], start: usize) -> Option<usize> {
         index += 1;
     }
     let class_start = index;
+    if pattern.get(index) == Some(&b']') {
+        index += 1;
+    }
     while index < pattern.len() {
         if pattern[index] == b'%' && index + 1 < pattern.len() {
             index += 2;
@@ -681,6 +684,10 @@ mod tests {
         assert_eq!(simple_pattern_find(b"abc123", b"[^a-c][0-9]"), Some((3, 5)));
         assert_eq!(simple_pattern_find(b"abc123", b"[%a][%d]"), Some((2, 4)));
         assert_eq!(simple_pattern_find(b"a]b", b"[%]]"), Some((1, 2)));
+        assert_eq!(simple_pattern_find(b"a]b", b"[]]"), Some((1, 2)));
+        assert_eq!(simple_pattern_find(b"a]b", b"[]a]"), Some((0, 1)));
+        assert_eq!(simple_pattern_find(b"]", b"[^]]"), None);
+        assert_eq!(simple_pattern_find(b"a", b"[^]]"), Some((0, 1)));
         assert_eq!(simple_pattern_find(b"abc", b"[x-z]"), None);
     }
 
@@ -773,6 +780,8 @@ mod tests {
         assert!(has_unsupported_pattern_special(b"%"));
         assert!(has_unsupported_pattern_special(b"[abc"));
         assert!(has_unsupported_pattern_special(b"[]"));
+        assert!(!has_unsupported_pattern_special(b"[]]"));
+        assert!(!has_unsupported_pattern_special(b"[^]]"));
         assert!(has_unsupported_pattern_special(b"[^]"));
         assert!(!has_unsupported_pattern_special(b"%bxy"));
         assert!(has_unsupported_pattern_special(b"%bx"));
