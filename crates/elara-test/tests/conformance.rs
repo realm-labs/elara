@@ -330,6 +330,10 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture("stdlib/base_ipairs_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture("stdlib/base_pairs_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture(
+        "stdlib/base_pairs_multiple.lua",
+        vec![Value::integer(2), Value::integer(33)],
+    );
+    assert_success_fixture(
         "stdlib/base_pairs_metamethod.lua",
         vec![Value::integer(42), Value::boolean(true), Value::boolean(true)],
     );
