@@ -2260,6 +2260,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/debug_metatable_clear.lua",
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/debug_uservalue.lua",
         vec![Value::boolean(true), Value::boolean(true)],
     );
