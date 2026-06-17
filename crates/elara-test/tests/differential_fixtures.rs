@@ -56,6 +56,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_pairs_multiple.lua",
     "stdlib/base_pairs_string_key.lua",
     "stdlib/base_pairs_boolean_key.lua",
+    "stdlib/base_pairs_sparse_integer_key.lua",
     "stdlib/base_pairs_metamethod.lua",
     "stdlib/base_metatable.lua",
     "stdlib/base_metatable_protected_set.lua",
