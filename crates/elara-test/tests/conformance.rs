@@ -401,6 +401,36 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(false), Value::integer(115)],
     );
     assert_success_fixture(
+        "stdlib/base_assert_default_message.lua",
+        vec![
+            Value::boolean(false),
+            Value::integer(17),
+            Value::integer(97),
+            Value::integer(32),
+            Value::integer(33),
+            Value::boolean(false),
+            Value::integer(17),
+            Value::integer(60),
+            Value::integer(32),
+            Value::integer(62),
+        ],
+    );
+    assert_success_fixture(
+        "stdlib/base_error_nil_message.lua",
+        vec![
+            Value::boolean(false),
+            Value::integer(17),
+            Value::integer(60),
+            Value::integer(32),
+            Value::integer(62),
+            Value::boolean(false),
+            Value::integer(17),
+            Value::integer(60),
+            Value::integer(32),
+            Value::integer(62),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_next.lua",
         vec![Value::integer(1), Value::integer(10)],
     );

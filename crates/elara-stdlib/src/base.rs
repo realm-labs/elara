@@ -56,17 +56,18 @@ pub const BASE_IPAIRS_AUX_NATIVE: NativeFunctionSpec = NativeFunctionSpec::new(
 pub const BASE_NEXT_NATIVE: NativeFunctionSpec =
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::Base, "next"), base_next);
 
-fn base_assert(
-    _runtime: &mut dyn NativeRuntime,
-    args: &[Value],
-) -> Result<Vec<Value>, NativeError> {
+fn base_assert(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let condition = *args
         .first()
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
     if is_truthy(condition) {
         Ok(args.to_vec())
     } else {
-        Err(NativeErrorKind::LuaError.into())
+        let message = match args.get(1) {
+            Some(value) => error_message(runtime, *value),
+            None => "assertion failed!".into(),
+        };
+        Err(NativeError::lua_error(message))
     }
 }
 
@@ -545,6 +546,9 @@ fn validate_optional_mode(
 }
 
 fn error_message(runtime: &dyn NativeRuntime, value: Value) -> String {
+    if value.is_nil() {
+        return "<no error object>".to_owned();
+    }
     runtime.string_bytes(value).map_or_else(
         || tostring_bytes(value),
         |bytes| String::from_utf8_lossy(bytes).into_owned(),

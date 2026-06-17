@@ -482,18 +482,31 @@ fn base_assert_returns_all_arguments_when_truthy() {
 
 #[test]
 fn base_assert_errors_when_false_or_nil() {
-    assert_eq!(
-        base_assert(&mut TestRuntime::default(), &[Value::boolean(false)])
-            .expect_err("false assert should fail")
-            .kind(),
-        &NativeErrorKind::LuaError
-    );
-    assert_eq!(
-        base_assert(&mut TestRuntime::default(), &[Value::nil()])
-            .expect_err("nil assert should fail")
-            .kind(),
-        &NativeErrorKind::LuaError
-    );
+    let false_error = base_assert(&mut TestRuntime::default(), &[Value::boolean(false)])
+        .expect_err("false assert should fail");
+    assert_eq!(false_error.kind(), &NativeErrorKind::LuaError);
+    assert_eq!(false_error.message(), "assertion failed!");
+
+    let nil_error = base_assert(&mut TestRuntime::default(), &[Value::nil()])
+        .expect_err("nil assert should fail");
+    assert_eq!(nil_error.kind(), &NativeErrorKind::LuaError);
+    assert_eq!(nil_error.message(), "assertion failed!");
+}
+
+#[test]
+fn base_assert_uses_custom_or_default_message() {
+    let mut runtime = TestRuntime::default();
+    let message = runtime.push_string(b"bad");
+
+    let custom_error = base_assert(&mut runtime, &[Value::boolean(false), message])
+        .expect_err("custom assert should fail");
+    assert_eq!(custom_error.kind(), &NativeErrorKind::LuaError);
+    assert_eq!(custom_error.message(), "bad");
+
+    let nil_message_error = base_assert(&mut runtime, &[Value::boolean(false), Value::nil()])
+        .expect_err("nil-message assert should fail");
+    assert_eq!(nil_message_error.kind(), &NativeErrorKind::LuaError);
+    assert_eq!(nil_message_error.message(), "<no error object>");
 }
 
 #[test]
@@ -542,12 +555,12 @@ fn base_print_without_arguments_writes_newline() {
 fn base_error_accepts_absent_or_nil_message() {
     let error = base_error(&mut TestRuntime::default(), &[]).expect_err("error should raise");
     assert_eq!(error.kind(), &NativeErrorKind::LuaError);
-    assert_eq!(error.message(), "nil");
+    assert_eq!(error.message(), "<no error object>");
 
     let error =
         base_error(&mut TestRuntime::default(), &[Value::nil()]).expect_err("error should raise");
     assert_eq!(error.kind(), &NativeErrorKind::LuaError);
-    assert_eq!(error.message(), "nil");
+    assert_eq!(error.message(), "<no error object>");
 }
 
 #[test]
