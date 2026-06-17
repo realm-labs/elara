@@ -578,6 +578,17 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_tostring_negative_float.lua",
+        vec![
+            Value::integer(5),
+            Value::integer(45),
+            Value::integer(49),
+            Value::integer(50),
+            Value::integer(46),
+            Value::integer(53),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_select_multi.lua",
         vec![Value::integer(20), Value::integer(30)],
     );
