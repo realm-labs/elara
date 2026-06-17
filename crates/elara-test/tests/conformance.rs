@@ -3340,6 +3340,16 @@ fn conformance_coroutine_fixtures() {
         ],
     );
     assert_success_fixture(
+        "coroutine/resume_dead.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(7),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::integer(100),
+        ],
+    );
+    assert_success_fixture(
         "coroutine/lifecycle.lua",
         vec![
             Value::integer(115),
