@@ -260,6 +260,16 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(42), Value::boolean(true), Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/base_raw_access_metamethod.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(99),
+            Value::boolean(true),
+            Value::integer(42),
+            Value::integer(42),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_rawset_nil.lua",
         vec![Value::boolean(true), Value::boolean(true)],
     );
