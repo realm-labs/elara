@@ -7,8 +7,18 @@ pub(crate) fn parse_standard_number(bytes: &[u8]) -> Option<Value> {
     if text.is_empty() {
         return None;
     }
-    if let Some(hex) = text.strip_prefix("0x").or_else(|| text.strip_prefix("0X")) {
-        return i64::from_str_radix(hex, 16).ok().map(Value::integer);
+    let (negative, unsigned) = match text.as_bytes().first() {
+        Some(b'-') => (true, &text[1..]),
+        Some(b'+') => (false, &text[1..]),
+        _ => (false, text),
+    };
+    if let Some(hex) = unsigned
+        .strip_prefix("0x")
+        .or_else(|| unsigned.strip_prefix("0X"))
+    {
+        return i64::from_str_radix(hex, 16)
+            .ok()
+            .map(|value| Value::integer(if negative { -value } else { value }));
     }
     text.parse::<i64>()
         .map(Value::integer)

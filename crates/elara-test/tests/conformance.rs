@@ -501,7 +501,13 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/base_tonumber_standard.lua",
-        vec![Value::integer(-12), Value::integer(16), Value::float(3.5)],
+        vec![
+            Value::integer(-12),
+            Value::integer(16),
+            Value::float(3.5),
+            Value::integer(16),
+            Value::integer(-16),
+        ],
     );
     assert_success_fixture(
         "stdlib/base_type_values.lua",
@@ -1304,11 +1310,12 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture(
         "stdlib/string_format.lua",
         vec![
-            Value::integer(7),
+            Value::integer(10),
             Value::integer(48),
             Value::integer(102),
             Value::integer(58),
             Value::integer(43),
+            Value::integer(49),
         ],
     );
     assert_success_fixture(

@@ -121,9 +121,10 @@ fn string_format_reports_invalid_string_conversion_specification() {
 #[test]
 fn string_format_formats_basic_integer_conversions() {
     let mut runtime = TestRuntime::default();
-    let format = runtime.push_string(b"%d:%i:%d:%i:%u:%o:%x:%X");
+    let format = runtime.push_string(b"%d:%i:%d:%i:%u:%o:%x:%X:%d");
     let numeric_string = runtime.push_string(b"12.0");
     let negative_string = runtime.push_string(b"-2.0");
+    let signed_hex_string = runtime.push_string(b"+0x10");
 
     let values = string_format(
         &mut runtime,
@@ -137,13 +138,14 @@ fn string_format_formats_basic_integer_conversions() {
             Value::integer(8),
             Value::integer(255),
             Value::integer(255),
+            signed_hex_string,
         ],
     )
     .expect("format should pass");
 
     assert_eq!(
         runtime.short_string_bytes(values[0]),
-        Some(b"7:8:12:-2:7:10:ff:FF".as_slice())
+        Some(b"7:8:12:-2:7:10:ff:FF:16".as_slice())
     );
 }
 
