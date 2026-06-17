@@ -2144,6 +2144,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/debug_getlocal_stack_absent.lua",
+        vec![Value::integer(42), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/debug_function_params.lua",
         vec![Value::integer(97), Value::integer(98), Value::boolean(true)],
     );
