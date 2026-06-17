@@ -1687,6 +1687,9 @@ Delivered:
   numeric conversion path, preserving Lua-style integral-float replacement text
   such as `1.0`; the existing numeric-replacement fixture now covers that
   exact byte shape.
+- `string.format` now reports Lua-style modified-`%q` errors instead of the
+  generic unsupported-conversion gap, and the shared format-spec error fixture
+  covers the `%10q` rejection shape.
 
 ## Remaining Gaps
 
@@ -1798,7 +1801,7 @@ git diff --check
 
 `cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
 pre-existing formatting drift in committed Rust files outside this
-`string.gsub` numeric-replacement behavior and fixture change.
+modified-`%q` `string.format` behavior and fixture change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the current configured official-Lua exact

@@ -601,3 +601,19 @@ fn string_format_reports_conversion_gap() {
         }
     );
 }
+
+#[test]
+fn string_format_rejects_modified_quote_conversion() {
+    let mut runtime = TestRuntime::default();
+    let format = runtime.push_string(b"%10q");
+    let text = runtime.push_string(b"ab");
+
+    assert_eq!(
+        string_format(&mut runtime, &[format, text])
+            .expect_err("modified quote conversion should fail")
+            .kind(),
+        &NativeErrorKind::RuntimeError {
+            message: "specifier '%q' cannot have modifiers".into()
+        }
+    );
+}

@@ -45,6 +45,11 @@ pub(super) fn string_format(
             output.extend_from_slice(&format_quoted_arg(runtime, value, arg_index + 1)?);
             arg_index += 1;
             index += 2;
+        } else if has_modified_quote_spec(&format, index + 1) {
+            return Err(NativeErrorKind::RuntimeError {
+                message: "specifier '%q' cannot have modifiers".into(),
+            }
+            .into());
         } else if format.get(index + 1) == Some(&b'p') {
             let value = next_format_arg(args, arg_index)?;
             output.extend_from_slice(format_pointer_arg(runtime, value).as_bytes());
@@ -217,6 +222,11 @@ fn conversion_index(format: &[u8], start: usize) -> Option<usize> {
         cursor += 1;
     }
     None
+}
+
+fn has_modified_quote_spec(format: &[u8], start: usize) -> bool {
+    conversion_index(format, start)
+        .is_some_and(|conversion| conversion != start && format.get(conversion) == Some(&b'q'))
 }
 
 fn parse_two_digit_field(format: &[u8], cursor: &mut usize) -> Result<Option<usize>, NativeError> {
