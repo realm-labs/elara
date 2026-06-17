@@ -1707,6 +1707,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/table_move_self.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(4),
+            Value::integer(5),
+            Value::integer(6),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_move_destination.lua",
         vec![
             Value::boolean(true),
