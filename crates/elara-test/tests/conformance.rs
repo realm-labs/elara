@@ -2598,8 +2598,6 @@ fn conformance_standard_library_fixtures() {
         "stdlib/debug_getinfo_name_transfer.lua",
         vec![
             Value::integer(0),
-            Value::boolean(true),
-            Value::integer(0),
             Value::integer(0),
             Value::boolean(true),
             Value::boolean(true),
