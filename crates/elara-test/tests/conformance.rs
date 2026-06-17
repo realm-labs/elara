@@ -2105,6 +2105,15 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(98), Value::integer(115)],
     );
     assert_success_fixture(
+        "stdlib/debug_traceback_number.lua",
+        vec![
+            Value::integer(49),
+            Value::integer(50),
+            Value::integer(51),
+            Value::integer(115),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/debug_traceback_message.lua",
         vec![Value::boolean(true)],
     );

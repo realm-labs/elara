@@ -307,6 +307,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/debug_locals.lua",
     "stdlib/debug_setlocal_absent.lua",
     "stdlib/debug_traceback.lua",
+    "stdlib/debug_traceback_number.lua",
     "stdlib/debug_traceback_message.lua",
     "stdlib/debug_argument_errors.lua",
     "stdlib/debug_metatable.lua",
