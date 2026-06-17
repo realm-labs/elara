@@ -1690,6 +1690,9 @@ Delivered:
 - `string.format` now reports Lua-style modified-`%q` errors instead of the
   generic unsupported-conversion gap, and the shared format-spec error fixture
   covers the `%10q` rejection shape.
+- `string.format` now reports Lua-style invalid-conversion errors for
+  unsupported alphabetic conversion items such as `%n` and `%F`, while still
+  preserving Lua's missing-argument precedence for those invalid items.
 
 ## Remaining Gaps
 
@@ -1801,7 +1804,7 @@ git diff --check
 
 `cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
 pre-existing formatting drift in committed Rust files outside this
-modified-`%q` `string.format` behavior and fixture change.
+invalid-conversion `string.format` behavior and fixture change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the current configured official-Lua exact

@@ -92,10 +92,8 @@ pub(super) fn string_format(
             arg_index += 1;
             index += 2;
         } else {
-            return Err(NativeErrorKind::RuntimeError {
-                message: "string.format conversions are not supported yet".into(),
-            }
-            .into());
+            next_format_arg(args, arg_index)?;
+            return Err(invalid_conversion_error(&format, index));
         }
     }
 
@@ -251,6 +249,16 @@ fn parse_two_digit_field(format: &[u8], cursor: &mut usize) -> Result<Option<usi
 fn invalid_format_spec() -> NativeError {
     NativeErrorKind::RuntimeError {
         message: "invalid conversion specification".into(),
+    }
+    .into()
+}
+
+fn invalid_conversion_error(format: &[u8], percent_index: usize) -> NativeError {
+    let end = conversion_index(format, percent_index + 1)
+        .map_or(format.len(), |conversion| conversion + 1);
+    let conversion = String::from_utf8_lossy(&format[percent_index..end]);
+    NativeErrorKind::RuntimeError {
+        message: format!("invalid conversion '{conversion}' to 'format'").into(),
     }
     .into()
 }

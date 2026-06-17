@@ -588,17 +588,41 @@ fn string_format_reports_non_integer_conversion_argument() {
 }
 
 #[test]
-fn string_format_reports_conversion_gap() {
+fn string_format_reports_invalid_conversion() {
     let mut runtime = TestRuntime::default();
-    let format = runtime.push_string(b"%F");
+    let upper_float = runtime.push_string(b"%F");
+    let unsupported = runtime.push_string(b"%n");
+    let trailing_percent = runtime.push_string(b"%");
 
     assert_eq!(
-        string_format(&mut runtime, &[format])
-            .expect_err("conversion should be explicit gap")
+        string_format(&mut runtime, &[upper_float, Value::float(1.5)])
+            .expect_err("upper float conversion should fail")
             .kind(),
         &NativeErrorKind::RuntimeError {
-            message: "string.format conversions are not supported yet".into()
+            message: "invalid conversion '%F' to 'format'".into()
         }
+    );
+    assert_eq!(
+        string_format(&mut runtime, &[unsupported, Value::integer(1)])
+            .expect_err("unsupported conversion should fail")
+            .kind(),
+        &NativeErrorKind::RuntimeError {
+            message: "invalid conversion '%n' to 'format'".into()
+        }
+    );
+    assert_eq!(
+        string_format(&mut runtime, &[trailing_percent, Value::integer(1)])
+            .expect_err("trailing percent should fail")
+            .kind(),
+        &NativeErrorKind::RuntimeError {
+            message: "invalid conversion '%' to 'format'".into()
+        }
+    );
+    assert_eq!(
+        string_format(&mut runtime, &[unsupported])
+            .expect_err("missing invalid conversion argument should fail")
+            .kind(),
+        &NativeErrorKind::MissingArgument { index: 2 }
     );
 }
 
