@@ -877,6 +877,10 @@ fn conformance_standard_library_fixtures() {
         "stdlib/string_sub_negative_end.lua",
         vec![Value::integer(4), Value::integer(98), Value::integer(101)],
     );
+    assert_success_fixture(
+        "stdlib/string_sub_negative_start.lua",
+        vec![Value::integer(3), Value::integer(100), Value::integer(102)],
+    );
     assert_success_fixture("stdlib/string_sub_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture(
         "stdlib/string_pattern_advanced.lua",
