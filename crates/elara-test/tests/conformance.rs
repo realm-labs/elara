@@ -226,6 +226,7 @@ fn conformance_standard_library_fixtures() {
             Value::integer(115),
         ],
     );
+    assert_success_fixture("stdlib/base_warn.lua", Vec::new());
     assert_success_fixture(
         "stdlib/base_more_argument_errors.lua",
         vec![
