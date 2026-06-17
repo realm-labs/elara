@@ -2174,6 +2174,18 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/debug_hook_mask_normalized.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(3),
+            Value::integer(99),
+            Value::integer(114),
+            Value::integer(108),
+            Value::integer(5),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/os_time_date.lua",
         vec![
             Value::integer(1970),
