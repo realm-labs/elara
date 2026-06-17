@@ -1758,6 +1758,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/utf8_offset_forward_multibyte.lua",
+        vec![Value::integer(1), Value::integer(2)],
+    );
+    assert_success_fixture(
         "stdlib/utf8_offset_backward_multibyte.lua",
         vec![Value::integer(3), Value::integer(3)],
     );
