@@ -500,6 +500,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_tostring_nil.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(110),
+            Value::integer(105),
+            Value::integer(108),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_tostring_true.lua",
         vec![
             Value::integer(4),
