@@ -580,6 +580,15 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(false), Value::integer(9)],
     );
     assert_success_fixture(
+        "stdlib/base_xpcall_arguments.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(10),
+            Value::nil(),
+            Value::integer(30),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_xpcall_multi.lua",
         vec![
             Value::boolean(true),
