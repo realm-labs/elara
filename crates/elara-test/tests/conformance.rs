@@ -1820,6 +1820,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(65), Value::integer(233)],
     );
     assert_success_fixture(
+        "stdlib/utf8_codepoint_negative_index.lua",
+        vec![Value::integer(233), Value::integer(67)],
+    );
+    assert_success_fixture(
         "stdlib/utf8_codepoint_lax.lua",
         vec![Value::integer(55296)],
     );
