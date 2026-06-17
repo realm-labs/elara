@@ -255,6 +255,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_insert_append.lua",
     "stdlib/table_insert_first.lua",
     "stdlib/table_insert_position.lua",
+    "stdlib/table_insert_nil.lua",
     "stdlib/table_remove_empty.lua",
     "stdlib/table_remove_default.lua",
     "stdlib/table_remove_first.lua",
