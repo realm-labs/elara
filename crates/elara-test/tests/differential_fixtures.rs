@@ -176,6 +176,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_char_range_errors.lua",
     "stdlib/string_byte_out_of_range.lua",
     "stdlib/string_byte_default_end.lua",
+    "stdlib/string_byte_zero_start.lua",
     "stdlib/string_byte_negative_start.lua",
     "stdlib/string_byte_embedded_nul.lua",
     "stdlib/string_byte_empty_range.lua",
