@@ -252,6 +252,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/math_fmod_negative_divisor.lua",
     "stdlib/math_fmod_float.lua",
     "stdlib/math_ult_false.lua",
+    "stdlib/math_ult_equal.lua",
     "stdlib/math_ult_true.lua",
     "stdlib/math_random.lua",
     "stdlib/math_random_modes.lua",
