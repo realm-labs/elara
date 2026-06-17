@@ -1141,6 +1141,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(3), Value::integer(0)],
     );
     assert_success_fixture(
+        "stdlib/string_char_max.lua",
+        vec![Value::integer(1), Value::integer(255)],
+    );
+    assert_success_fixture(
         "stdlib/string_char_range_errors.lua",
         vec![
             Value::boolean(false),
