@@ -14,6 +14,6 @@ end
 package.searchers[1] = searcher
 
 local first = require("cached")
-local second = package.require("cached")
+local second = require("cached")
 
 return first, second, calls

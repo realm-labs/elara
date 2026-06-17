@@ -4,4 +4,4 @@ end
 
 package.preload.nilmod = loader
 
-return package.require("nilmod"), package.loaded.nilmod
+return require("nilmod"), package.loaded.nilmod

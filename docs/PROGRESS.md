@@ -1620,6 +1620,13 @@ Delivered:
   from deterministic `string.rep` data instead of host/profile-dependent
   `package.path`, keeping exact-value conformance and differential comparison
   portable across Lua installations.
+- The existing nil-loader `require` fixture now uses the portable global
+  `require` entry point instead of Elara's exposed `package.require` helper,
+  preserving nil-result cache behavior while matching official Lua's package
+  surface.
+- The existing loaded-cache `require` fixture now also uses the portable
+  global `require` entry point for repeated cache reads instead of Elara's
+  exposed `package.require` helper.
 - The existing `os.execute`, `os.tmpname`, `os.remove`, and `os.rename`
   result fixtures now assert exact status/type booleans and type bytes while
   keeping host-specific labels, names, and errno values out of the expectation.
@@ -1730,25 +1737,22 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
-cargo clippy -p elara-compiler -p elara-interp -p elara-test --all-targets -- -D warnings
-cargo test -p elara-compiler varargs_compile_anonymous_vararg_call
-cargo test -p elara-interp varargs_return_open_call_results
-cargo test -p elara-test conformance_language_fixtures
+cargo clippy -p elara-test --all-targets -- -D warnings
+cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures
 git diff --check
 ```
 
-`rustfmt --check` on the touched Rust files currently reports pre-existing
-formatting drift in committed code outside this focused vararg change, so this
-unit avoids a broad mechanical formatting rewrite.
+`cargo fmt --all -- --check` currently reports pre-existing formatting drift in
+committed Rust files outside this package-fixture portability change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
-differential_fixtures` currently exposes pre-existing reference mismatches for
-`stdlib/base_loading_error_shapes.lua` exact results and
-`stdlib/package_require_nil_loader.lua` success/error class. The final-vararg
-return lowering fix removes the previous `language/varargs.lua` exact-result
-mismatch, and the `language/table_fields.lua` fixture now avoids a
-host/reference-sensitive sparse-table `rawlen` boundary, but the full
+differential_fixtures` currently exposes a pre-existing reference mismatch for
+`stdlib/base_loading_error_shapes.lua` exact results. The final-vararg return
+lowering fix removes the previous `language/varargs.lua` exact-result
+mismatch, `language/table_fields.lua` now avoids a host/reference-sensitive
+sparse-table `rawlen` boundary, and the nil-loader plus loaded-cache require
+fixtures now use the portable global `require` entry point, but the full
 configured reference comparison still needs separate differential triage.
 
 ## Next Recommended Action
