@@ -1052,6 +1052,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(2), Value::integer(99), Value::integer(100)],
     );
     assert_success_fixture(
+        "stdlib/string_sub_full_range.lua",
+        vec![Value::integer(3), Value::integer(97), Value::integer(99)],
+    );
+    assert_success_fixture(
         "stdlib/string_sub_middle.lua",
         vec![Value::integer(3), Value::integer(98), Value::integer(100)],
     );
