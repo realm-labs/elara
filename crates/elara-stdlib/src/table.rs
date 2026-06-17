@@ -151,10 +151,7 @@ fn table_unpack(
         .first()
         .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
     let start = optional_integer_arg(args, 2, 1)?;
-    let end = match args.get(2) {
-        Some(_) => optional_integer_arg(args, 3, 0)?,
-        None => runtime.table_array_len(table)?,
-    };
+    let end = optional_integer_arg(args, 3, runtime.table_array_len(table)?)?;
 
     if start > end {
         return Ok(Vec::new());
@@ -567,6 +564,22 @@ mod tests {
             )
             .expect("unpack should pass"),
             vec![Value::integer(2), Value::integer(3)]
+        );
+    }
+
+    #[test]
+    fn table_unpack_treats_nil_bounds_as_defaults() {
+        let mut runtime = TestRuntime::default();
+        let packed = table_pack(
+            &mut runtime,
+            &[Value::integer(1), Value::integer(2), Value::integer(3)],
+        )
+        .expect("pack should pass");
+
+        assert_eq!(
+            table_unpack(&mut runtime, &[packed[0], Value::nil(), Value::nil()])
+                .expect("unpack should pass"),
+            vec![Value::integer(1), Value::integer(2), Value::integer(3)]
         );
     }
 
