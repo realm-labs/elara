@@ -483,6 +483,10 @@ fn conformance_standard_library_fixtures() {
             Value::integer(8),
         ],
     );
+    assert_success_fixture(
+        "stdlib/base_type_thread_name_length.lua",
+        vec![Value::integer(6)],
+    );
     assert_success_fixture("stdlib/base_type_thread.lua", vec![Value::integer(116)]);
     assert_success_fixture(
         "stdlib/base_tostring.lua",
