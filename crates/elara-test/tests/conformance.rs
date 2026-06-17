@@ -1406,6 +1406,15 @@ fn conformance_standard_library_fixtures() {
         "stdlib/table_pack_empty.lua",
         vec![Value::integer(0), Value::boolean(true)],
     );
+    assert_success_fixture(
+        "stdlib/table_pack_trailing_nil.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(1),
+            Value::integer(2),
+            Value::boolean(true),
+        ],
+    );
     assert_success_fixture("stdlib/table_concat_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture(
         "stdlib/table_concat_default_separator.lua",

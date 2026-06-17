@@ -208,6 +208,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_move_errors.lua",
     "stdlib/table_pack_nil.lua",
     "stdlib/table_pack_empty.lua",
+    "stdlib/table_pack_trailing_nil.lua",
     "stdlib/table_concat_empty.lua",
     "stdlib/table_concat_default_separator.lua",
     "stdlib/table_concat_default.lua",
