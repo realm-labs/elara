@@ -895,6 +895,10 @@ fn conformance_standard_library_fixtures() {
         "stdlib/string_rep_separator.lua",
         vec![Value::integer(8), Value::integer(44), Value::integer(44)],
     );
+    assert_success_fixture(
+        "stdlib/string_reverse_ascii.lua",
+        vec![Value::integer(4), Value::integer(100), Value::integer(97)],
+    );
     assert_success_fixture("stdlib/string_reverse_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture(
         "stdlib/string_reverse_embedded_nul.lua",
