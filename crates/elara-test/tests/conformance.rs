@@ -2241,6 +2241,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/debug_hook_clear_nil.lua",
+        vec![Value::boolean(true), Value::boolean(true), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/debug_hook_mask_normalized.lua",
         vec![
             Value::boolean(true),
