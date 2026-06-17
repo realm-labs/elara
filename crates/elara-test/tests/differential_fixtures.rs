@@ -68,6 +68,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_tostring_string.lua",
     "stdlib/base_tostring_table.lua",
     "stdlib/base_tostring_thread.lua",
+    "stdlib/base_tostring_function.lua",
     "stdlib/base_tostring_float.lua",
     "stdlib/base_select_multi.lua",
     "stdlib/base_select_negative.lua",
