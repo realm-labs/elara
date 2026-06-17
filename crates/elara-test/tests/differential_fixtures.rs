@@ -294,6 +294,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_concat_default.lua",
     "stdlib/table_concat_explicit_bounds.lua",
     "stdlib/table_concat_single_bound.lua",
+    "stdlib/table_concat_past_end.lua",
     "stdlib/table_concat_non_positive_bounds.lua",
     "stdlib/table_concat_numbers.lua",
     "stdlib/table_concat_numeric_separator.lua",

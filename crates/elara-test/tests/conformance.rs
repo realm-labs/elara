@@ -1811,6 +1811,7 @@ fn conformance_standard_library_fixtures() {
         "stdlib/table_concat_single_bound.lua",
         vec![Value::integer(1), Value::integer(98)],
     );
+    assert_success_fixture("stdlib/table_concat_past_end.lua", vec![Value::integer(0)]);
     assert_success_fixture(
         "stdlib/table_concat_non_positive_bounds.lua",
         vec![
