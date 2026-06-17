@@ -1701,6 +1701,14 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/utf8_codes_lax.lua",
+        vec![
+            Value::integer(1),
+            Value::integer(1),
+            Value::integer(55296),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/utf8_char.lua",
         vec![Value::integer(1), Value::integer(65)],
     );
