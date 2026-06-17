@@ -328,6 +328,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(1), Value::integer(11)],
     );
     assert_success_fixture("stdlib/base_ipairs_missing_first.lua", vec![Value::integer(0)]);
+    assert_success_fixture(
+        "stdlib/base_ipairs_false_value.lua",
+        vec![Value::integer(2), Value::boolean(true), Value::integer(22)],
+    );
     assert_success_fixture("stdlib/base_ipairs_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture("stdlib/base_pairs_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture(
