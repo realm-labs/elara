@@ -1617,6 +1617,10 @@ Delivered:
 - The existing unsupported pre-file-handle `io.open`, `io.tmpfile`,
   `io.write`, and `io.flush` result fixtures now assert exact nil-result and
   string-message type-byte results instead of only message string classes.
+- The configured official-Lua differential list now excludes explicitly
+  unsupported pre-file-handle `io.tmpfile`, `io.write`, and `io.flush` stub
+  result fixtures, while the shared `io_stubs` smoke fixture only covers
+  portable missing-file `io.open` and non-file `io.type` nil classifications.
 - The existing `package.searchpath` miss and unsupported `package.loadlib`
   fixtures now assert exact nil-result, string-message type-byte, and
   deterministic load stage results.
@@ -1741,8 +1745,7 @@ M20.4 is complete.
 Latest focused product-gap verification passed:
 
 ```bash
-cargo clippy -p elara-stdlib -p elara-test --all-targets -- -D warnings
-cargo test -p elara-stdlib table_remove
+cargo clippy -p elara-test --all-targets -- -D warnings
 cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test differential_fixtures
 git diff --check
@@ -1750,7 +1753,7 @@ git diff --check
 
 `cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
 pre-existing formatting drift in committed Rust files outside this
-`table.remove` change.
+IO differential portability change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the
@@ -1760,10 +1763,12 @@ were limited to portable result shapes, and now also passes
 `stdlib/math_randomseed_errors.lua` after `math.randomseed` was aligned with
 Lua's extra-argument handling, and
 `stdlib/table_insert_remove_errors.lua` after `table.remove` was aligned with
-Lua's extra-argument handling. The same configured run currently exposes a
-separate pre-existing exact-result mismatch for `stdlib/io_stubs.lua`: official
-Lua returns a non-nil temporary file handle while Elara's current IO profile
-returns nil.
+Lua's extra-argument handling. It now also passes the portable IO smoke and
+keeps explicit unsupported pre-file-handle stub result fixtures in local
+conformance only. The same configured run currently exposes a separate
+pre-existing exact-result mismatch for `stdlib/debug_introspection.lua`:
+official Lua marks the current stack frame as vararg while Elara reports it as
+non-vararg.
 
 ## Next Recommended Action
 
