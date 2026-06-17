@@ -62,6 +62,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_tonumber_invalid.lua",
     "stdlib/base_tonumber_standard.lua",
     "stdlib/base_type_values.lua",
+    "stdlib/base_type_thread.lua",
     "stdlib/base_tostring.lua",
     "stdlib/base_tostring_true.lua",
     "stdlib/base_tostring_string.lua",
