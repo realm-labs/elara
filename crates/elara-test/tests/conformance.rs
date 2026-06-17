@@ -1791,6 +1791,16 @@ fn conformance_standard_library_fixtures() {
         "stdlib/utf8_char.lua",
         vec![Value::integer(1), Value::integer(65)],
     );
+    assert_success_fixture(
+        "stdlib/utf8_char_multiple_ascii.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(3),
+            Value::integer(65),
+            Value::integer(66),
+            Value::integer(67),
+        ],
+    );
     assert_success_fixture("stdlib/utf8_char_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture(
         "stdlib/utf8_char_max.lua",

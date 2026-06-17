@@ -266,6 +266,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/utf8_iteration.lua",
     "stdlib/utf8_codes_lax.lua",
     "stdlib/utf8_char.lua",
+    "stdlib/utf8_char_multiple_ascii.lua",
     "stdlib/utf8_char_empty.lua",
     "stdlib/utf8_char_max.lua",
     "stdlib/utf8_codepoint_empty.lua",
