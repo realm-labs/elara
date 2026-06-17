@@ -1622,6 +1622,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(97), Value::integer(98), Value::integer(99)],
     );
     assert_success_fixture(
+        "stdlib/table_insert_end_position.lua",
+        vec![Value::integer(97), Value::integer(98), Value::integer(99)],
+    );
+    assert_success_fixture(
         "stdlib/table_insert_nil.lua",
         vec![Value::integer(1), Value::boolean(true), Value::integer(3)],
     );
