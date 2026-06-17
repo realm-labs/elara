@@ -1073,6 +1073,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(3), Value::integer(100), Value::integer(102)],
     );
     assert_success_fixture(
+        "stdlib/string_sub_negative_full.lua",
+        vec![Value::integer(6), Value::integer(97), Value::integer(102)],
+    );
+    assert_success_fixture(
         "stdlib/string_sub_zero_start.lua",
         vec![Value::integer(2), Value::integer(97), Value::integer(98)],
     );
