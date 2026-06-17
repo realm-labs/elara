@@ -1287,6 +1287,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/table_remove_after_end.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(1),
+            Value::integer(2),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_insert_remove_errors.lua",
         vec![
             Value::boolean(false),
