@@ -2622,6 +2622,16 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(42), Value::integer(42), Value::integer(1)],
     );
     assert_success_fixture(
+        "stdlib/package_require_false_loader.lua",
+        vec![
+            Value::boolean(false),
+            Value::boolean(false),
+            Value::integer(88),
+            Value::integer(88),
+            Value::integer(2),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/package_require_errors.lua",
         vec![
             Value::boolean(false),
