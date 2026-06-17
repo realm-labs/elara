@@ -2143,6 +2143,14 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/debug_upvalueid_distinct.lua",
+        vec![
+            Value::boolean(false),
+            Value::integer(1),
+            Value::integer(2),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/debug_upvalueid_absent.lua",
         vec![
             Value::boolean(true),
