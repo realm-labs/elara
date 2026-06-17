@@ -155,6 +155,17 @@ fn push_date_specifier(
         'A' => output.push_str(WEEKDAY_NAME[(date.wday - 1) as usize]),
         'b' | 'h' => output.push_str(MONTH_ABBR[(date.month - 1) as usize]),
         'B' => output.push_str(MONTH_NAME[(date.month - 1) as usize]),
+        'c' => {
+            push_date_specifier(output, date, 'a')?;
+            output.push(' ');
+            push_date_specifier(output, date, 'b')?;
+            output.push(' ');
+            push_date_specifier(output, date, 'e')?;
+            output.push(' ');
+            push_date_specifier(output, date, 'T')?;
+            output.push(' ');
+            push_date_specifier(output, date, 'Y')?;
+        }
         'F' => {
             push_date_specifier(output, date, 'Y')?;
             output.push('-');
@@ -169,6 +180,14 @@ fn push_date_specifier(
             output.push(':');
             push_date_specifier(output, date, 'S')?;
         }
+        'x' => {
+            push_date_specifier(output, date, 'm')?;
+            output.push('/');
+            push_date_specifier(output, date, 'd')?;
+            output.push('/');
+            push_date_specifier(output, date, 'y')?;
+        }
+        'X' => push_date_specifier(output, date, 'T')?,
         _ => return Err(invalid_conversion_error(&specifier.to_string())),
     }
     Ok(())

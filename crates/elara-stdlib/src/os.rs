@@ -587,6 +587,21 @@ mod tests {
     }
 
     #[test]
+    fn os_date_formats_c_locale_composites() {
+        let function = function("date");
+        let mut runtime = TestRuntime::default();
+        let format = runtime.push_string(b"!%c|%x|%X");
+
+        let result =
+            function(&mut runtime, &[format, Value::integer(0)]).expect("os.date should pass");
+
+        assert_eq!(
+            runtime.bytes(result[0]),
+            Some(b"Thu Jan  1 00:00:00 1970|01/01/70|00:00:00".as_slice())
+        );
+    }
+
+    #[test]
     fn os_date_validates_supported_utc_table_subset() {
         let function = function("date");
         let mut runtime = TestRuntime::default();

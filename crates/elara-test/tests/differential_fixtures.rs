@@ -470,6 +470,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/os_date_composites.lua",
     "stdlib/os_date_portable_specifiers.lua",
     "stdlib/os_date_week_specifiers.lua",
+    "stdlib/os_date_c_locale_composites.lua",
     "stdlib/os_date_argument_errors.lua",
     "stdlib/os_locale.lua",
     "stdlib/os_locale_categories.lua",
