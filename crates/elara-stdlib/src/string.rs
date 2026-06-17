@@ -13,6 +13,7 @@ mod format;
 mod gmatch;
 mod gsub;
 mod match_;
+mod packsize;
 mod pattern;
 
 use find::string_find;
@@ -20,6 +21,7 @@ use format::string_format;
 use gmatch::string_gmatch;
 use gsub::string_gsub;
 use match_::string_match;
+use packsize::string_packsize;
 
 /// Executable string-library functions currently implemented.
 pub const STRING_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
@@ -32,6 +34,10 @@ pub const STRING_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "len"), string_len),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "lower"), string_lower),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "match"), string_match),
+    NativeFunctionSpec::new(
+        FunctionSpec::new(StdLib::String, "packsize"),
+        string_packsize,
+    ),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "rep"), string_rep),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "reverse"), string_reverse),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "sub"), string_sub),
@@ -333,6 +339,7 @@ mod tests {
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "len")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "lower")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "match")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "packsize")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "rep")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "reverse")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "sub")));
