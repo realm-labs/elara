@@ -223,6 +223,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/math_log_base10.lua",
     "stdlib/math_sqrt_zero.lua",
     "stdlib/math_sqrt_perfect_square.lua",
+    "stdlib/math_exp_identity.lua",
     "stdlib/math_trig.lua",
     "stdlib/math_atan_two_arg.lua",
     "stdlib/math_angle_zero.lua",
