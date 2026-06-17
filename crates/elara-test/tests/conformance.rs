@@ -1526,6 +1526,10 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture("stdlib/math_atan_two_arg.lua", vec![Value::integer(1570)]);
     assert_success_fixture(
+        "stdlib/math_optional_nil_args.lua",
+        vec![Value::integer(0), Value::integer(0)],
+    );
+    assert_success_fixture(
         "stdlib/math_angle_zero.lua",
         vec![Value::float(0.0), Value::float(0.0)],
     );

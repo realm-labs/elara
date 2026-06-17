@@ -1468,6 +1468,8 @@ Delivered:
 - The math-library conformance and differential smoke matrix now covers
   common numeric function and `math.ldexp` exponent error result shapes.
 - The math-library conformance and differential smoke matrix now covers
+  optional nil argument defaults for `math.atan` and `math.log`.
+- The math-library conformance and differential smoke matrix now covers
   inverse-trig, angle-conversion, decomposition, and `math.modf` numeric
   function error result shapes.
 - The table-library conformance and differential smoke matrix now covers
@@ -1764,7 +1766,7 @@ git diff --check
 
 `cargo fmt -p elara-interp -p elara-api -p elara-test -- --check` currently reports
 pre-existing formatting drift in committed Rust files outside this
-`os.time` fixture portability change.
+math optional-argument fixture change.
 
 `ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
 differential_fixtures` now passes the current configured official-Lua exact
