@@ -2654,6 +2654,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/utf8_codes_extra_args.lua",
+        vec![Value::integer(1), Value::integer(65)],
+    );
+    assert_success_fixture(
         "stdlib/utf8_char.lua",
         vec![Value::integer(1), Value::integer(65)],
     );
