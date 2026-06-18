@@ -506,6 +506,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/debug_hooks.lua",
     "stdlib/debug_gethook_extra_args.lua",
     "stdlib/debug_hook_metadata.lua",
+    "stdlib/debug_sethook_extra_args.lua",
     "stdlib/debug_hook_clear_nil.lua",
     "stdlib/debug_hook_mask_normalized.lua",
     "stdlib/debug_hook_count_only.lua",
