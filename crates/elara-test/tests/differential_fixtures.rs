@@ -33,6 +33,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "language/closures.lua",
     "language/closure_upvalue_assignment.lua",
     "language/call_statement.lua",
+    "language/call_metamethod_self.lua",
     "language/global_declarations.lua",
     "language/metamethods.lua",
     "language/multiple_return_assignment.lua",
