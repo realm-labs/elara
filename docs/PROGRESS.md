@@ -2221,12 +2221,14 @@ Delivered:
   `table.unpack` ignoring hash fields while returning the array range.
 - The base-library conformance and differential matrix now covers `ipairs`
   ignoring negative integer keys while iterating the positive array prefix.
+- The base-library conformance and differential matrix now covers `pairs`
+  traversing a negative integer key.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains seven hundred nineteen smoke fixtures across
+- `tests/conformance` currently contains seven hundred twenty smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
