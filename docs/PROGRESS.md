@@ -1842,6 +1842,9 @@ Delivered:
   `table.sort` ignoring trailing arguments beyond the optional comparator.
 - The package conformance and differential matrix now covers the portable
   newline-delimited shape of `package.config`.
+- The package conformance and differential matrix now covers explicit nil
+  required string argument errors for `package.searchpath`, global and package
+  `require`, and `package.loadlib`.
 - The math-library conformance and differential matrix now covers `math.abs`
   ignoring trailing arguments after the numeric operand.
 - The math-library conformance and differential matrix now covers `math.type`
@@ -2112,7 +2115,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred seventy-three smoke fixtures across
+- `tests/conformance` currently contains six hundred seventy-four smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
