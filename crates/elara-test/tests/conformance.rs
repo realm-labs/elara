@@ -3299,6 +3299,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/table_concat_nil_hole_error.lua",
+        vec![Value::boolean(false), Value::integer(115)],
+    );
+    assert_success_fixture(
         "stdlib/table_concat_long_strings.lua",
         vec![Value::integer(301), Value::integer(97), Value::integer(124)],
     );
