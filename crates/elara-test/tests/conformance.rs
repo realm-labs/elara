@@ -2262,6 +2262,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/table_move_extra_args.lua",
+        vec![Value::boolean(true), Value::integer(1), Value::integer(2)],
+    );
+    assert_success_fixture(
         "stdlib/table_move_nil_slot.lua",
         vec![
             Value::boolean(true),
