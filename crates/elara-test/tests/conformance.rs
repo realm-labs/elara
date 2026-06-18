@@ -1828,6 +1828,7 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture("stdlib/math_log_base10.lua", vec![Value::float(2.0)]);
     assert_success_fixture("stdlib/math_log_custom_base.lua", vec![Value::integer(3000)]);
     assert_success_fixture("stdlib/math_sqrt_zero.lua", vec![Value::float(0.0)]);
+    assert_success_fixture("stdlib/math_sqrt_extra_args.lua", vec![Value::float(9.0)]);
     assert_success_fixture("stdlib/math_sqrt_perfect_square.lua", vec![Value::float(9.0)]);
     assert_success_fixture("stdlib/math_exp_identity.lua", vec![Value::float(1.0)]);
     assert_success_fixture(
