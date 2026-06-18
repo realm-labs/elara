@@ -523,6 +523,9 @@ fn tostring_output_bytes(
     if let Some(bytes) = runtime.string_bytes(value) {
         return Ok(bytes.to_vec());
     }
+    if let Some(metamethod) = tostring_metamethod(runtime, value)? {
+        return call_tostring_metamethod(runtime, metamethod, value);
+    }
     if let Some(kind) = metatable_name(runtime, value)? {
         if let Some(index) = value.as_table_index() {
             return Ok(format!("{kind}: 0x{index:x}").into_bytes());
@@ -599,6 +602,10 @@ fn metatable_name_key(runtime: &mut dyn NativeRuntime) -> Result<Value, NativeEr
     runtime.intern_short_string(b"__name")
 }
 
+fn tostring_metamethod_key(runtime: &mut dyn NativeRuntime) -> Result<Value, NativeError> {
+    runtime.intern_short_string(b"__tostring")
+}
+
 fn metatable_name(
     runtime: &mut dyn NativeRuntime,
     value: Value,
@@ -616,6 +623,42 @@ fn metatable_name(
         return Ok(None);
     };
     Ok(Some(String::from_utf8_lossy(bytes).into_owned()))
+}
+
+fn tostring_metamethod(
+    runtime: &mut dyn NativeRuntime,
+    value: Value,
+) -> Result<Option<Value>, NativeError> {
+    if !value.is_table() {
+        return Ok(None);
+    }
+    let metatable = runtime.table_metatable(value)?;
+    if metatable.is_nil() {
+        return Ok(None);
+    }
+    let key = tostring_metamethod_key(runtime)?;
+    let metamethod = runtime.table_get(metatable, key)?;
+    Ok((!metamethod.is_nil()).then_some(metamethod))
+}
+
+fn call_tostring_metamethod(
+    runtime: &mut dyn NativeRuntime,
+    metamethod: Value,
+    value: Value,
+) -> Result<Vec<u8>, NativeError> {
+    let results = runtime
+        .protected_call(metamethod, &[value])?
+        .map_err(|error| {
+            NativeError::lua_error_object(error, protected_error_message(runtime, error))
+        })?;
+    let result = results.first().copied().unwrap_or_else(Value::nil);
+    if let Some(bytes) = runtime.string_bytes(result) {
+        Ok(bytes.to_vec())
+    } else if result.is_number() {
+        Ok(tostring_bytes(result).into_bytes())
+    } else {
+        Err(NativeError::lua_error("'__tostring' must return a string"))
+    }
 }
 
 fn pairs_key(runtime: &mut dyn NativeRuntime) -> Result<Value, NativeError> {

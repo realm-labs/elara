@@ -801,6 +801,18 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_tostring_metamethod.lua",
+        vec![
+            Value::integer(99),
+            Value::integer(6),
+            Value::integer(42),
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(false),
+            Value::integer(99),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_tostring_thread.lua",
         vec![Value::integer(116), Value::integer(58)],
     );

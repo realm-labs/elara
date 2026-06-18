@@ -1150,6 +1150,68 @@ fn base_tostring_uses_table_metatable_name() {
 }
 
 #[test]
+fn base_tostring_calls_table_tostring_metamethod() {
+    let mut runtime = TestRuntime::default();
+    let tostring_key = runtime.push_string(b"__tostring");
+    let metamethod = Value::native_function_index(7);
+    let metatable = runtime.push_table(vec![(tostring_key, metamethod)]);
+    let table = runtime.push_table(Vec::new());
+    runtime
+        .table_set_metatable(table, metatable)
+        .expect("test table metatable should be installed");
+    let result = runtime.push_string(b"custom");
+    runtime.protected_results.push(Ok(vec![result]));
+
+    let values = call_with_runtime(&mut runtime, base_tostring, &[table]);
+
+    assert_eq!(runtime.protected_calls, vec![(metamethod, vec![table])]);
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"custom".as_slice())
+    );
+}
+
+#[test]
+fn base_tostring_coerces_numeric_tostring_metamethod_result() {
+    let mut runtime = TestRuntime::default();
+    let tostring_key = runtime.push_string(b"__tostring");
+    let metamethod = Value::native_function_index(7);
+    let metatable = runtime.push_table(vec![(tostring_key, metamethod)]);
+    let table = runtime.push_table(Vec::new());
+    runtime
+        .table_set_metatable(table, metatable)
+        .expect("test table metatable should be installed");
+    runtime.protected_results.push(Ok(vec![Value::integer(42)]));
+
+    let values = call_with_runtime(&mut runtime, base_tostring, &[table]);
+
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"42".as_slice())
+    );
+}
+
+#[test]
+fn base_tostring_rejects_non_string_tostring_metamethod_result() {
+    let mut runtime = TestRuntime::default();
+    let tostring_key = runtime.push_string(b"__tostring");
+    let metamethod = Value::native_function_index(7);
+    let metatable = runtime.push_table(vec![(tostring_key, metamethod)]);
+    let table = runtime.push_table(Vec::new());
+    runtime
+        .table_set_metatable(table, metatable)
+        .expect("test table metatable should be installed");
+    runtime
+        .protected_results
+        .push(Ok(vec![Value::boolean(false)]));
+
+    let error = base_tostring(&mut runtime, &[table]).expect_err("boolean result must fail");
+
+    assert_eq!(error.kind(), &NativeErrorKind::LuaError);
+    assert_eq!(error.message(), "'__tostring' must return a string");
+}
+
+#[test]
 fn base_type_returns_lua_type_name() {
     let mut runtime = TestRuntime::default();
     let values = call_with_runtime(&mut runtime, base_type, &[Value::integer(7)]);
