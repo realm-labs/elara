@@ -1131,6 +1131,25 @@ fn base_tostring_formats_table_and_function_identities() {
 }
 
 #[test]
+fn base_tostring_uses_table_metatable_name() {
+    let mut runtime = TestRuntime::default();
+    let name_key = runtime.push_string(b"__name");
+    let name = runtime.push_string(b"Widget");
+    let metatable = runtime.push_table(vec![(name_key, name)]);
+    let table = runtime.push_table(Vec::new());
+    runtime
+        .table_set_metatable(table, metatable)
+        .expect("test table metatable should be installed");
+
+    let values = call_with_runtime(&mut runtime, base_tostring, &[table]);
+
+    assert_eq!(
+        runtime.short_string_bytes(values[0]),
+        Some(b"Widget: 0x1".as_slice())
+    );
+}
+
+#[test]
 fn base_type_returns_lua_type_name() {
     let mut runtime = TestRuntime::default();
     let values = call_with_runtime(&mut runtime, base_type, &[Value::integer(7)]);

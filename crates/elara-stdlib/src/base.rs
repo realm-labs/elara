@@ -249,7 +249,7 @@ fn base_print(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
         if index > 0 {
             runtime.write_output(b"\t")?;
         }
-        let bytes = printable_bytes(runtime, value);
+        let bytes = printable_bytes(runtime, value)?;
         runtime.write_output(&bytes)?;
     }
     runtime.write_output(b"\n")?;
@@ -409,8 +409,8 @@ fn base_tostring(
     if runtime.string_bytes(value).is_some() {
         return Ok(vec![value]);
     }
-    let text = tostring_bytes(value);
-    Ok(vec![runtime.intern_string(text.as_bytes())?])
+    let bytes = tostring_output_bytes(runtime, value)?;
+    Ok(vec![runtime.intern_string(&bytes)?])
 }
 
 fn base_type(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -516,10 +516,23 @@ fn tostring_bytes(value: Value) -> String {
     }
 }
 
-fn printable_bytes(runtime: &dyn NativeRuntime, value: Value) -> Vec<u8> {
-    runtime
-        .string_bytes(value)
-        .map_or_else(|| tostring_bytes(value).into_bytes(), <[u8]>::to_vec)
+fn tostring_output_bytes(
+    runtime: &mut dyn NativeRuntime,
+    value: Value,
+) -> Result<Vec<u8>, NativeError> {
+    if let Some(bytes) = runtime.string_bytes(value) {
+        return Ok(bytes.to_vec());
+    }
+    if let Some(kind) = metatable_name(runtime, value)? {
+        if let Some(index) = value.as_table_index() {
+            return Ok(format!("{kind}: 0x{index:x}").into_bytes());
+        }
+    }
+    Ok(tostring_bytes(value).into_bytes())
+}
+
+fn printable_bytes(runtime: &mut dyn NativeRuntime, value: Value) -> Result<Vec<u8>, NativeError> {
+    tostring_output_bytes(runtime, value)
 }
 
 fn unsupported_loading_result(runtime: &mut dyn NativeRuntime) -> Result<Vec<Value>, NativeError> {
@@ -580,6 +593,29 @@ fn error_message(runtime: &dyn NativeRuntime, value: Value) -> String {
 
 fn metatable_field_key(runtime: &mut dyn NativeRuntime) -> Result<Value, NativeError> {
     runtime.intern_short_string(b"__metatable")
+}
+
+fn metatable_name_key(runtime: &mut dyn NativeRuntime) -> Result<Value, NativeError> {
+    runtime.intern_short_string(b"__name")
+}
+
+fn metatable_name(
+    runtime: &mut dyn NativeRuntime,
+    value: Value,
+) -> Result<Option<String>, NativeError> {
+    if !value.is_table() {
+        return Ok(None);
+    }
+    let metatable = runtime.table_metatable(value)?;
+    if metatable.is_nil() {
+        return Ok(None);
+    }
+    let name_key = metatable_name_key(runtime)?;
+    let name = runtime.table_get(metatable, name_key)?;
+    let Some(bytes) = runtime.string_bytes(name) else {
+        return Ok(None);
+    };
+    Ok(Some(String::from_utf8_lossy(bytes).into_owned()))
 }
 
 fn pairs_key(runtime: &mut dyn NativeRuntime) -> Result<Value, NativeError> {
