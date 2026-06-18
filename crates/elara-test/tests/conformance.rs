@@ -526,6 +526,7 @@ fn conformance_standard_library_fixtures() {
             Value::integer(102),
         ],
     );
+    assert_success_fixture("stdlib/base_type_extra_args.lua", vec![Value::integer(110)]);
     assert_success_fixture(
         "stdlib/base_type_name_lengths.lua",
         vec![
