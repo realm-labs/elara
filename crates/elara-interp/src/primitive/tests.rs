@@ -1369,6 +1369,29 @@ fn closures_capture_parent_stack_values() {
 }
 
 #[test]
+fn closures_observe_parent_stack_writes_after_capture() {
+    let mut child_builder = ProtoBuilder::new().with_signature(1, 0, false);
+    child_builder.add_upvalue(elara_bytecode::UpvalueDesc::new(Some("x"), true, 0));
+    child_builder.emit_abc(Op::GetUpvalue, 0, 0, 0);
+    child_builder.emit_abc(Op::Return, 0, 1, 0);
+    let child = child_builder.finish();
+
+    let mut parent = ProtoBuilder::new().with_signature(2, 0, false);
+    let value = parent.add_constant(Value::integer(42));
+    let child_index = parent.add_child(child);
+    parent.emit_abc(Op::LoadNil, 0, 0, 0);
+    parent.emit_abx(Op::Closure, 1, u64::from(child_index));
+    parent.emit_abx(Op::LoadK, 0, u64::from(value));
+    parent.emit_abc(Op::Call, 1, 1, 1);
+    parent.emit_abc(Op::Return, 1, 1, 0);
+
+    assert_eq!(
+        execute_proto(&parent.finish()),
+        Ok(vec![Value::integer(42)])
+    );
+}
+
+#[test]
 fn closures_assign_shared_upvalue_cells() {
     let mut writer_builder = ProtoBuilder::new().with_signature(2, 0, false);
     writer_builder.add_upvalue(elara_bytecode::UpvalueDesc::new(Some("x"), true, 0));

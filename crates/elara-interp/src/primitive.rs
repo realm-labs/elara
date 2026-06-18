@@ -852,7 +852,9 @@ impl PrimitiveCoroutine {
                 instr,
                 ExecutionMode::Coroutine,
             )? {
-                InstructionFlow::Continue => {}
+                InstructionFlow::Continue => {
+                    sync_stack_to_open_upvalues(&self.thread, &frame.open_upvalues)?;
+                }
                 InstructionFlow::Return(values) => {
                     if let Some(values) = self.finish_frame(values)? {
                         return Ok(CoroutinePause::Return(values));
@@ -946,6 +948,7 @@ impl PrimitiveCoroutine {
         };
         sync_open_upvalues(&mut self.thread, &parent.open_upvalues)?;
         let top = write_values(&mut self.thread, slot.base, &values, slot.result_count)?;
+        sync_stack_to_open_upvalues(&self.thread, &parent.open_upvalues)?;
         if slot.result_count == 0 {
             parent.dynamic_top = top;
         }
@@ -1433,7 +1436,9 @@ fn execute_proto_with_upvalues(
         );
         match flow {
             Err(error) => break Err(error),
-            Ok(InstructionFlow::Continue) => {}
+            Ok(InstructionFlow::Continue) => {
+                sync_stack_to_open_upvalues(&thread, &open_upvalues)?;
+            }
             Ok(InstructionFlow::Return(values)) => break Ok(values),
             Ok(InstructionFlow::Call { .. }) => {
                 unreachable!("one-shot execution handles calls inline")
@@ -1938,6 +1943,16 @@ fn sync_open_upvalues(
 ) -> RuntimeResult<()> {
     for (slot, upvalue) in open_upvalues {
         set_register(thread, *slot, upvalue.get())?;
+    }
+    Ok(())
+}
+
+fn sync_stack_to_open_upvalues(
+    thread: &LuaThread,
+    open_upvalues: &HashMap<usize, RuntimeUpvalue>,
+) -> RuntimeResult<()> {
+    for (slot, upvalue) in open_upvalues {
+        upvalue.set(register(thread, *slot)?);
     }
     Ok(())
 }
