@@ -827,6 +827,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::nil(), Value::integer(30)],
     );
     assert_success_fixture(
+        "stdlib/base_select_negative_out_of_range.lua",
+        vec![Value::boolean(false), Value::integer(115)],
+    );
+    assert_success_fixture(
         "stdlib/base_select_past_end.lua",
         vec![Value::boolean(true), Value::boolean(true)],
     );

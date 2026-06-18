@@ -2233,12 +2233,14 @@ Delivered:
   metatable errors when clearing a locked metatable with nil.
 - The base-library conformance and differential matrix now covers `tonumber`
   rejecting non-string values when an explicit base is provided.
+- The base-library conformance and differential matrix now covers `select`
+  rejecting negative indexes outside the available argument range.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains seven hundred twenty-five smoke fixtures across
+- `tests/conformance` currently contains seven hundred twenty-six smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
