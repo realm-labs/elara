@@ -1707,6 +1707,9 @@ Delivered:
   string conversion for common byte-oriented operations, and the shared
   conformance/differential matrix covers numeric receivers for `string.len`,
   `string.byte`, `string.rep`, and `string.sub`.
+- The string conformance and differential matrix now covers explicit nil
+  required argument errors for core string receivers, `string.char`, and
+  `string.rep`.
 - `string.gsub` numeric replacement arguments now share the string-library
   numeric conversion path, preserving Lua-style integral-float replacement text
   such as `1.0`; the existing numeric-replacement fixture now covers that
@@ -2138,7 +2141,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred eighty-three smoke fixtures across
+- `tests/conformance` currently contains six hundred eighty-four smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
