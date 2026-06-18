@@ -271,6 +271,10 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture("stdlib/math_abs_extra_args.lua", vec![Value::integer(42)]);
     assert_success_fixture("stdlib/math_abs_float.lua", vec![Value::float(2.5)]);
     assert_success_fixture(
+        "stdlib/math_abs_mininteger.lua",
+        vec![Value::boolean(true), Value::integer(105)],
+    );
+    assert_success_fixture(
         "stdlib/base_table.lua",
         vec![
             Value::integer(110),

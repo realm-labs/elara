@@ -45,6 +45,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/math_abs.lua",
     "stdlib/math_abs_extra_args.lua",
     "stdlib/math_abs_float.lua",
+    "stdlib/math_abs_mininteger.lua",
     "stdlib/base_table.lua",
     "stdlib/base_globals.lua",
     "stdlib/base_loading_error_shapes.lua",
