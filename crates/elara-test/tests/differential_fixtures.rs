@@ -174,6 +174,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_xpcall.lua",
     "stdlib/base_xpcall_arguments.lua",
     "stdlib/base_xpcall_call_metamethod.lua",
+    "stdlib/base_xpcall_call_metamethod_chain.lua",
     "stdlib/base_xpcall_multi.lua",
     "stdlib/base_xpcall_handler_values.lua",
     "stdlib/base_xpcall_handler_nil.lua",
