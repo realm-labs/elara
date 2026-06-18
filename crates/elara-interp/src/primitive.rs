@@ -7,7 +7,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use elara_bytecode::{Instr, Op, Proto, VerifyError, verify_proto};
+use elara_bytecode::{Instr, Op, Proto, VerifyError, dump_proto, verify_proto};
 use elara_core::{
     CallFrame, GcArena, LongString, LuaError, LuaFloat, LuaInteger, LuaThread, ResultCount,
     SHORT_STRING_MAX_BYTES, StringInterner, Table, ThreadStatus, TraceFrame, Value,
@@ -108,6 +108,26 @@ impl<'a> NativeContext<'a> {
     #[must_use]
     pub fn string_bytes(&self, value: Value) -> Option<&[u8]> {
         self.strings.string_bytes(value)
+    }
+
+    /// Serializes a Lua closure value to Elara's internal bytecode dump format.
+    pub fn dump_lua_function(&self, function: Value) -> RuntimeResult<Option<Vec<u8>>> {
+        let Some(index) = function.as_closure_index() else {
+            return Ok(None);
+        };
+        let closure = self.closures.get(index as usize).ok_or_else(|| {
+            RuntimeErrorKind::NativeFunctionError {
+                message: "Lua function does not exist".into(),
+                error_object: None,
+            }
+        })?;
+        dump_proto(&closure.proto).map(Some).map_err(|error| {
+            RuntimeErrorKind::NativeFunctionError {
+                message: format!("function dump failed: {error:?}").into(),
+                error_object: None,
+            }
+            .into()
+        })
     }
 
     /// Allocates a runtime-owned Lua table from raw key/value entries.

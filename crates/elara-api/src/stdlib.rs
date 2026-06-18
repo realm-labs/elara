@@ -371,6 +371,15 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
         self.context.string_bytes(value)
     }
 
+    fn dump_lua_function(&self, function: Value) -> Result<Option<Vec<u8>>, NativeError> {
+        self.context.dump_lua_function(function).map_err(|error| {
+            NativeErrorKind::RuntimeError {
+                message: error.to_string().into(),
+            }
+            .into()
+        })
+    }
+
     fn create_table(&mut self, entries: &[(Value, Value)]) -> Result<Value, NativeError> {
         self.context
             .create_table(entries.iter().copied())

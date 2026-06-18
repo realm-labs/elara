@@ -512,6 +512,7 @@ pub const MATH_FUNCTIONS: &[FunctionSpec] = &[
 pub const STRING_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::String, "byte"),
     FunctionSpec::new(StdLib::String, "char"),
+    FunctionSpec::new(StdLib::String, "dump"),
     FunctionSpec::new(StdLib::String, "find"),
     FunctionSpec::new(StdLib::String, "format"),
     FunctionSpec::new(StdLib::String, "gmatch"),

@@ -45,6 +45,14 @@ pub trait NativeRuntime {
         self.short_string_bytes(value)
     }
 
+    /// Serializes a Lua closure value into this runtime's dump format.
+    fn dump_lua_function(&self, _function: Value) -> Result<Option<Vec<u8>>, NativeError> {
+        Err(NativeErrorKind::RuntimeError {
+            message: "native runtime does not support function dumping".into(),
+        }
+        .into())
+    }
+
     /// Allocates a runtime-owned Lua table from raw key/value entries.
     fn create_table(&mut self, _entries: &[(Value, Value)]) -> Result<Value, NativeError> {
         Err(NativeErrorKind::RuntimeError {

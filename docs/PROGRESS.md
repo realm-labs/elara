@@ -148,8 +148,8 @@ literal string-replacement `string.gsub`, capture-returning `string.find` and
 `string.match`, replacement captures for string-replacement `string.gsub`,
 table/function replacement values for `string.gsub`, callable and generic-for
 `string.gmatch` with Lua-style leading-caret behavior and empty-match advancement, `string.len`,
-`string.lower`, `string.upper`, `string.reverse`, `string.rep`, `string.pack`,
-`string.packsize`, `string.unpack`, and `string.sub` are executable and
+`string.lower`, `string.upper`, `string.reverse`, `string.rep`, `string.dump`,
+`string.pack`, `string.packsize`, `string.unpack`, and `string.sub` are executable and
 covered through stdlib-backed API evaluation.
 Table natives `table.concat`, `table.insert`, `table.move`, `table.pack`,
 `table.remove`, default and custom-comparator `table.sort`, and
@@ -1976,6 +1976,10 @@ Delivered:
   including equal-value tie behavior.
 - `math.min` and `math.max` now compare string operands lexicographically like
   Lua 5.5's generic comparison path, and reject mixed number/string extrema.
+- The string library now exposes executable `string.dump` for Lua closures
+  using Elara's internal bytecode dump format, while preserving native-function
+  rejection; a portable conformance/differential fixture covers the function
+  surface and string result shape.
 - The string library now exposes executable `string.packsize` for fixed-size
   binary packing formats, including Lua-style alignment and variable-length
   format rejection; a shared conformance/differential fixture covers portable
@@ -2423,8 +2427,8 @@ M20.4 is complete.
 Latest focused verification passed:
 
 ```bash
-cargo fmt -p elara-stdlib -- --check
-cargo test -p elara-stdlib math_min
+cargo fmt -p elara-stdlib -p elara-api -p elara-interp -- --check
+cargo test -p elara-stdlib string_dump
 cargo test -p elara-test conformance_standard_library_fixtures
 cargo test -p elara-test --test differential_fixtures
 git diff --check
@@ -2489,7 +2493,7 @@ fixture set beyond the current smoke matrix.
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/bitwise/comparison metamethods, `__len`, chained `__call`, `__concat`, global declarations, and default `_ENV` execute. |
 | Standard library | M18.2 complete | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path searchers in `package.searchers[3]` and `[4]`, `package.searchpath`, `debug.gethook`/`debug.sethook` hook metadata installation and clearing plus call/return/line/count hook callback dispatch, `debug.getinfo` runtime-hook validation and current-thread frame materialization, read-only stack-level `debug.getlocal`, function-target `debug.getlocal` parameter names, stack-level `debug.setlocal` for current-thread Lua frames, and primitive coroutine debug frames for native debug calls, read-only `debug.getupvalue`, `debug.setupvalue` over shared runtime upvalue cells, `debug.upvalueid`, `debug.upvaluejoin`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, pre-userdata `debug.setuservalue`, and `debug.traceback` message handling plus stack-frame formatting are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format` including `%c`/`%p` width and left-adjust modifiers plus `%q` finite float hex literals, `string.pack` binary packing, `string.packsize` fixed-format sizing, `string.unpack` binary unpacking, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | M20.3 audited | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings; facade docs and `basic_embed` example compile against the safe public surface. |
-| Conformance | Expanded post-M20.4 | Seven hundred sixty-two smoke fixtures run through the public API with exact portable primitive return-value checks and error-class checks for failure cases; broader API/unit coverage exists, but release-sized conformance remains a product gap. |
+| Conformance | Expanded post-M20.4 | Seven hundred sixty-three smoke fixtures run through the public API with exact portable primitive return-value checks and error-class checks for failure cases; broader API/unit coverage exists, but release-sized conformance remains a product gap. |
 | Differential testing | Expanded post-M20.4 | Configurable official-Lua runner compares exact primitive success values and success/error classes with Elara, including the portable conformance smoke fixture set when `ELARA_LUA` is configured. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | M17 complete; M18.2 debug interaction complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, debug-hook forced interpretation, API JIT selection for environment-independent chunks with debug/runtime-environment chunks kept on the interpreter, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |

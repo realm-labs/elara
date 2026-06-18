@@ -28,6 +28,7 @@ use pack::{string_pack, string_packsize, string_unpack};
 pub const STRING_NATIVE_FUNCTIONS: &[NativeFunctionSpec] = &[
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "byte"), string_byte),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "char"), string_char),
+    NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "dump"), string_dump),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "find"), string_find),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "format"), string_format),
     NativeFunctionSpec::new(FunctionSpec::new(StdLib::String, "gmatch"), string_gmatch),
@@ -95,6 +96,26 @@ fn string_char(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
             u8::try_from(value).map_err(|_| NativeErrorKind::ArgumentOutOfRange { index })?;
         bytes.push(byte);
     }
+    Ok(vec![runtime.intern_string(&bytes)?])
+}
+
+fn string_dump(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    let function = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    if function.as_closure_index().is_none() {
+        return Err(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "Lua function",
+        }
+        .into());
+    }
+    let bytes = runtime
+        .dump_lua_function(function)?
+        .ok_or(NativeErrorKind::TypeError {
+            index: 1,
+            expected: "Lua function",
+        })?;
     Ok(vec![runtime.intern_string(&bytes)?])
 }
 
@@ -309,8 +330,8 @@ mod tests {
     use elara_core::Value;
 
     use super::{
-        STRING_NATIVE_FUNCTIONS, string_byte, string_char, string_len, string_lower, string_rep,
-        string_reverse, string_sub, string_upper,
+        STRING_NATIVE_FUNCTIONS, string_byte, string_char, string_dump, string_len, string_lower,
+        string_rep, string_reverse, string_sub, string_upper,
     };
     use crate::{FunctionSpec, NativeError, NativeErrorKind, NativeRuntime, StdLib};
 
@@ -336,6 +357,12 @@ mod tests {
             let index = value.as_table_index()? as usize;
             self.strings.get(index).map(Box::as_ref)
         }
+
+        fn dump_lua_function(&self, function: Value) -> Result<Option<Vec<u8>>, NativeError> {
+            Ok(function
+                .as_closure_index()
+                .map(|index| format!("dump:{index}").into_bytes()))
+        }
     }
 
     #[test]
@@ -347,6 +374,7 @@ mod tests {
 
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "byte")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "char")));
+        assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "dump")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "find")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "format")));
         assert!(descriptors.contains(&FunctionSpec::new(StdLib::String, "gmatch")));
@@ -502,6 +530,34 @@ mod tests {
         let value = string_char(&mut runtime, &[]).expect("char should pass");
 
         assert_eq!(runtime.short_string_bytes(value[0]), Some(b"".as_slice()));
+    }
+
+    #[test]
+    fn string_dump_uses_runtime_lua_function_dump() {
+        let mut runtime = TestRuntime::default();
+
+        let result =
+            string_dump(&mut runtime, &[Value::closure_index(7)]).expect("dump should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(result[0]),
+            Some(b"dump:7".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_dump_rejects_non_lua_functions() {
+        let mut runtime = TestRuntime::default();
+
+        assert_eq!(
+            string_dump(&mut runtime, &[Value::native_function_index(1)])
+                .expect_err("native function should fail")
+                .kind(),
+            &NativeErrorKind::TypeError {
+                index: 1,
+                expected: "Lua function"
+            }
+        );
     }
 
     #[test]

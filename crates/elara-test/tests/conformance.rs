@@ -2775,6 +2775,10 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture("stdlib/string_char_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture(
+        "stdlib/string_dump.lua",
+        vec![Value::integer(102), Value::integer(115), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/string_char_embedded_nul.lua",
         vec![Value::integer(3), Value::integer(0)],
     );
