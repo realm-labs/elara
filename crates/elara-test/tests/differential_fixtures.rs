@@ -273,6 +273,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/math_numeric.lua",
     "stdlib/math_integer_rounding.lua",
     "stdlib/math_rounding_negative_fraction.lua",
+    "stdlib/math_rounding_extra_args.lua",
     "stdlib/math_log_identity.lua",
     "stdlib/math_log_base2.lua",
     "stdlib/math_log_base10.lua",
