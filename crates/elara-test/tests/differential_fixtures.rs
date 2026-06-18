@@ -506,6 +506,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/debug_hook_count_only.lua",
     "stdlib/os_time_date.lua",
     "stdlib/os_difftime_negative.lua",
+    "stdlib/os_difftime_extra_args.lua",
     "stdlib/os_time_normalize.lua",
     "stdlib/os_time_leap_day.lua",
     "stdlib/os_time_defaults.lua",
