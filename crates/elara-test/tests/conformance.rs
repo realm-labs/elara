@@ -2213,6 +2213,19 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_case_embedded_nul.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(97),
+            Value::integer(0),
+            Value::integer(122),
+            Value::integer(3),
+            Value::integer(65),
+            Value::integer(0),
+            Value::integer(90),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_byte_char.lua",
         vec![
             Value::integer(3),
