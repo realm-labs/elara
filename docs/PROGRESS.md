@@ -1859,6 +1859,9 @@ Delivered:
 - The math-library conformance and differential matrix now covers
   `math.randomseed` treating an explicit nil second seed like the default zero
   seed.
+- The math-library conformance and differential matrix now covers
+  `math.random` and `math.randomseed` rejecting explicit nil required
+  operands rather than treating them like omitted arguments.
 - The math-library conformance and differential matrix now covers `math.modf`
   ignoring trailing arguments after the numeric operand.
 - The math-library conformance and differential matrix now covers `math.modf`
@@ -2106,7 +2109,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred seventy-one smoke fixtures across
+- `tests/conformance` currently contains six hundred seventy-two smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
