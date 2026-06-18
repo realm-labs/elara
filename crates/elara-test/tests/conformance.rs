@@ -97,6 +97,10 @@ fn conformance_language_fixtures() {
         vec![Value::integer(10), Value::integer(20)],
     );
     assert_success_fixture(
+        "language/vararg_select_count.lua",
+        vec![Value::integer(3), Value::boolean(true), Value::integer(30)],
+    );
+    assert_success_fixture(
         "language/table_fields.lua",
         vec![
             Value::integer(10),

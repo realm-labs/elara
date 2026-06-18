@@ -1720,7 +1720,8 @@ fn execute_instruction(
             execute_vararg_table(thread, instr, varargs, context.tables, context.strings)?
         }
         Op::Call => {
-            let callee = callable_function(thread, context.tables, context.strings, instr)?;
+            let callee =
+                callable_function(thread, context.tables, context.strings, instr, *dynamic_top)?;
             match callee {
                 CallableFunction::Lua {
                     closure_index,
@@ -2074,9 +2075,15 @@ fn callable_function(
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
     instr: Instr,
+    dynamic_top: usize,
 ) -> RuntimeResult<CallableFunction> {
     let callee = register(thread, instr.a().into())?;
-    callable_from_value(callee, collect_call_args(thread, instr)?, tables, strings)
+    callable_from_value(
+        callee,
+        collect_call_args(thread, instr, dynamic_top)?,
+        tables,
+        strings,
+    )
 }
 
 fn callable_from_value(
@@ -2258,7 +2265,7 @@ fn execute_call(
     natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<Option<usize>> {
-    let callable = callable_function(thread, tables, strings, instr)?;
+    let callable = callable_function(thread, tables, strings, instr, 0)?;
     let mut to_be_closed = Vec::new();
     let mut debug_frames = Vec::new();
     let debug_hooks = RuntimeDebugHooks::new();
@@ -2389,12 +2396,20 @@ fn trace_frame(proto: &Proto) -> TraceFrame {
     )
 }
 
-fn collect_call_args(thread: &LuaThread, instr: Instr) -> RuntimeResult<Vec<Value>> {
-    let count = instr.b().saturating_sub(1);
-    let mut args = Vec::with_capacity(count as usize);
+fn collect_call_args(
+    thread: &LuaThread,
+    instr: Instr,
+    dynamic_top: usize,
+) -> RuntimeResult<Vec<Value>> {
     let base = usize::from(instr.a()) + 1;
+    let count = if instr.b() == 0 {
+        dynamic_top.saturating_sub(base)
+    } else {
+        instr.b().saturating_sub(1) as usize
+    };
+    let mut args = Vec::with_capacity(count);
     for index in 0..count {
-        args.push(register(thread, base + index as usize)?);
+        args.push(register(thread, base + index)?);
     }
     Ok(args)
 }

@@ -603,6 +603,57 @@ impl SimpleCompiler {
         args: &[Expr<'_>],
         result_count: u32,
     ) {
+        if let Some((last, prefix)) = args.split_last()
+            && matches!(last.kind(), ExprKind::Call { .. } | ExprKind::Vararg)
+        {
+            for (index, arg) in prefix.iter().enumerate() {
+                let value = self.compile_expr(arg);
+                let Some(target) = u16::try_from(index + 1)
+                    .ok()
+                    .and_then(|offset| register.checked_add(offset))
+                else {
+                    self.diagnostics.push(
+                        Diagnostic::error("too many function arguments")
+                            .with_primary_span(expr.span()),
+                    );
+                    return;
+                };
+                self.ensure_register_slot(target);
+                self.emit_move(target, value);
+            }
+
+            let Some(target) = u16::try_from(prefix.len() + 1)
+                .ok()
+                .and_then(|offset| register.checked_add(offset))
+            else {
+                self.diagnostics.push(
+                    Diagnostic::error("too many function arguments").with_primary_span(expr.span()),
+                );
+                return;
+            };
+            self.ensure_register_slot(target);
+            match last.kind() {
+                ExprKind::Call { callee, args, .. } => {
+                    self.compile_call_into_register(last, callee, args, target, 0);
+                }
+                ExprKind::Vararg => self.compile_vararg_into_register(last, target, 0),
+                _ => unreachable!("checked final open argument kind"),
+            }
+
+            if result_count > 0 {
+                let last_result = register
+                    .checked_add(
+                        u16::try_from(result_count - 1)
+                            .expect("call result count must fit in register range"),
+                    )
+                    .expect("call result range must fit in register range");
+                self.ensure_register_slot(last_result);
+            }
+
+            self.builder.emit_abc(Op::Call, register, 0, result_count);
+            return;
+        }
+
         let arg_count = match u32::try_from(args.len() + 1) {
             Ok(count) => count,
             Err(_) => {
