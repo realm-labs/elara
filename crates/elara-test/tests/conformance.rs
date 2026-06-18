@@ -116,6 +116,15 @@ fn conformance_language_fixtures() {
         ],
     );
     assert_success_fixture(
+        "language/table_open_field_truncation.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(20),
+            Value::integer(50),
+            Value::integer(40),
+        ],
+    );
+    assert_success_fixture(
         "language/table_computed_keys.lua",
         vec![Value::integer(11), Value::integer(20), Value::integer(30)],
     );
