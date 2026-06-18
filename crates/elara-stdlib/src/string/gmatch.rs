@@ -36,7 +36,7 @@ pub(super) fn string_gmatch(
         return Err(error);
     }
 
-    let cursor = if init > subject.len() {
+    let cursor = if init > subject.len().saturating_add(1) {
         subject.len().saturating_add(1)
     } else {
         init - 1
@@ -388,5 +388,37 @@ mod tests {
         assert_eq!(runtime.short_string_bytes(second[0]), Some(b"".as_slice()));
         assert_eq!(runtime.short_string_bytes(third[0]), Some(b"".as_slice()));
         assert_eq!(end, Vec::<Value>::new());
+    }
+
+    #[test]
+    fn string_gmatch_allows_empty_match_after_subject_end() {
+        let mut runtime = TestRuntime {
+            gmatch_aux: Value::native_function_index(7),
+            ..TestRuntime::default()
+        };
+        let subject = runtime.push_string(b"abc");
+        let pattern = runtime.push_string(b"");
+        let values = string_gmatch(&mut runtime, &[subject, pattern, Value::integer(4)])
+            .expect("gmatch should pass");
+        let state = values[0];
+
+        let final_match = string_gmatch_aux(&mut runtime, &[state, Value::nil()])
+            .expect("final gmatch aux should pass");
+        let end = string_gmatch_aux(&mut runtime, &[state, final_match[0]])
+            .expect("past-end gmatch aux should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(final_match[0]),
+            Some(b"".as_slice())
+        );
+        assert_eq!(end, Vec::<Value>::new());
+
+        let past_values = string_gmatch(&mut runtime, &[subject, pattern, Value::integer(5)])
+            .expect("past-end gmatch should pass");
+        assert_eq!(
+            string_gmatch_aux(&mut runtime, &[past_values[0], Value::nil()])
+                .expect("past-end gmatch aux should pass"),
+            Vec::<Value>::new()
+        );
     }
 }

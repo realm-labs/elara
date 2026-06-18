@@ -2173,12 +2173,14 @@ Delivered:
   patterns across `string.find`, `string.match`, and `string.gsub`.
 - `string.find` and `string.match` now allow empty matches at `#s + 1`;
   shared conformance and differential fixtures cover the final-init boundary.
+- `string.gmatch` now also allows a final empty match at `#s + 1` while still
+  stopping for larger init positions.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred ninety-six smoke fixtures across
+- `tests/conformance` currently contains six hundred ninety-seven smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
