@@ -2183,12 +2183,15 @@ Delivered:
   `string.gsub` empty-pattern replacements with explicit limits.
 - The string-library conformance and differential matrix now covers
   `string.gsub` table and function replacements for empty-pattern matches.
+- The string-library conformance and differential matrix now covers
+  `string.gsub` empty-pattern replacement fallbacks for missing table entries
+  and false or nil function results.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains seven hundred one smoke fixtures across
+- `tests/conformance` currently contains seven hundred two smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,

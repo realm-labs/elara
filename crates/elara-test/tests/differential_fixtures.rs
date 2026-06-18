@@ -220,6 +220,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_gsub_function_replacement.lua",
     "stdlib/string_gsub_nil_false_replacements.lua",
     "stdlib/string_gsub_empty_pattern_replacements.lua",
+    "stdlib/string_gsub_empty_pattern_fallbacks.lua",
     "stdlib/string_gmatch_positions.lua",
     "stdlib/string_gmatch_captures.lua",
     "stdlib/string_gmatch_percent_class.lua",
