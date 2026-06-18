@@ -2779,6 +2779,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(102), Value::integer(115), Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/string_dump_native_error.lua",
+        vec![Value::boolean(false), Value::integer(115)],
+    );
+    assert_success_fixture(
         "stdlib/string_char_embedded_nul.lua",
         vec![Value::integer(3), Value::integer(0)],
     );
