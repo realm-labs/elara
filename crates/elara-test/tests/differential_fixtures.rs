@@ -266,6 +266,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_pack_argument_errors.lua",
     "stdlib/string_pack_format_errors.lua",
     "stdlib/string_pack_value_errors.lua",
+    "stdlib/string_pack_integer_values.lua",
     "stdlib/string_pack_float_values.lua",
     "stdlib/string_pack_number_value.lua",
     "stdlib/string_packsize.lua",
