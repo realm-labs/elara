@@ -1032,6 +1032,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_xpcall_call_metamethod.lua",
+        vec![Value::boolean(true), Value::boolean(true), Value::integer(42)],
+    );
+    assert_success_fixture(
         "stdlib/base_xpcall_multi.lua",
         vec![
             Value::boolean(true),
