@@ -252,6 +252,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_format_string_modifiers.lua",
     "stdlib/string_format_integer_modifiers.lua",
     "stdlib/string_format_integer_width.lua",
+    "stdlib/string_format_integer_spec_errors.lua",
     "stdlib/string_format_integer_alternate.lua",
     "stdlib/string_format_signed_flags.lua",
     "stdlib/string_format_unsigned_bits.lua",
