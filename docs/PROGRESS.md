@@ -2077,6 +2077,9 @@ Delivered:
 - The io conformance and differential matrix now covers pre-file-handle
   `io.popen` treating an explicit nil mode like the default read mode before
   returning the safe result shape.
+- The io conformance and differential matrix now covers `io.open` and
+  `io.popen` rejecting explicit nil required filename/command arguments before
+  returning pre-file-handle stub results.
 - The io conformance and differential matrix now covers non-file `io.type`
   ignoring trailing arguments after the inspected value.
 - The os conformance and differential matrix now covers `os.difftime`
@@ -2117,7 +2120,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred seventy-five smoke fixtures across
+- `tests/conformance` currently contains six hundred seventy-six smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
