@@ -1890,7 +1890,7 @@ cargo test -p elara-test --test differential_fixtures
 ```
 
 `cargo fmt -p elara-test -- --check` currently reports pre-existing formatting
-drift in committed Rust files outside the current package fixture expansion.
+drift in committed Rust files outside the current conformance fixture expansion.
 
 `cargo test -p elara-test --test differential_fixtures` passed in this
 environment with no `ELARA_LUA` configured, so the optional official-Lua
