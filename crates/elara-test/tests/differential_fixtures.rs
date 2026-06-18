@@ -285,6 +285,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/math_exp_identity.lua",
     "stdlib/math_trig.lua",
     "stdlib/math_trig_extra_args.lua",
+    "stdlib/math_inverse_trig_extra_args.lua",
     "stdlib/math_atan_two_arg.lua",
     "stdlib/math_optional_nil_args.lua",
     "stdlib/math_angle_zero.lua",
