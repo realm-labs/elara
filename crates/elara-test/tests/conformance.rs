@@ -3380,6 +3380,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(66)],
     );
     assert_success_fixture(
+        "stdlib/utf8_codepoint_nil_bounds.lua",
+        vec![Value::integer(65)],
+    );
+    assert_success_fixture(
         "stdlib/utf8_codepoint_extra_args.lua",
         vec![Value::integer(65), Value::integer(66)],
     );
