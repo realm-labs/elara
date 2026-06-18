@@ -1989,6 +1989,21 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_pack_integer_boundaries.lua",
+        vec![
+            Value::integer(4),
+            Value::integer(128),
+            Value::integer(255),
+            Value::integer(127),
+            Value::integer(0),
+            Value::integer(-128),
+            Value::integer(255),
+            Value::integer(127),
+            Value::integer(0),
+            Value::integer(5),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_pack_float_values.lua",
         vec![
             Value::integer(12),
