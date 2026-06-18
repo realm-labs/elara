@@ -2089,6 +2089,9 @@ Delivered:
   ignoring trailing arguments.
 - The os conformance and differential matrix now covers `os.date` ignoring
   trailing arguments after the optional time.
+- The os conformance and differential matrix now covers UTC string
+  `os.date` treating an explicit nil time argument like the current-time
+  default while ignoring trailing arguments.
 - The package conformance and differential matrix now covers loaders that set
   `package.loaded` while returning nil, plus `require` searchers that return
   non-string, non-loader miss values before a later searcher succeeds.
@@ -2100,7 +2103,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred sixty-nine smoke fixtures across
+- `tests/conformance` currently contains six hundred seventy smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
