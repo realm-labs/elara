@@ -1858,6 +1858,25 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_pack_alignment.lua",
+        vec![
+            Value::integer(9),
+            Value::integer(1),
+            Value::integer(0),
+            Value::integer(0),
+            Value::integer(0),
+            Value::integer(1),
+            Value::integer(2),
+            Value::integer(3),
+            Value::integer(4),
+            Value::integer(0),
+            Value::integer(1),
+            Value::integer(16909060),
+            Value::integer(0),
+            Value::integer(10),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_pack_argument_errors.lua",
         vec![
             Value::boolean(false),
