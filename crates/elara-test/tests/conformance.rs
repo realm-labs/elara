@@ -1464,6 +1464,24 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_format_float_precision.lua",
+        vec![
+            Value::integer(42),
+            Value::integer(46),
+            Value::integer(46),
+            Value::integer(101),
+            Value::integer(46),
+            Value::integer(69),
+            Value::integer(46),
+            Value::integer(46),
+            Value::integer(69),
+            Value::integer(54),
+            Value::integer(101),
+            Value::integer(48),
+            Value::integer(50),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_format_float_alternate.lua",
         vec![
             Value::integer(42),
