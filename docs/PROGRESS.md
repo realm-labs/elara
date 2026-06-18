@@ -2084,6 +2084,9 @@ Delivered:
   ignoring trailing arguments after the inspected value.
 - The os conformance and differential matrix now covers `os.difftime`
   ignoring trailing arguments after the two time operands.
+- The os conformance and differential matrix now covers `os.execute` treating
+  an explicit nil command like the no-argument shell-availability query while
+  ignoring trailing arguments.
 - The os conformance and differential matrix now covers `os.getenv` ignoring
   trailing arguments after the variable name.
 - The os conformance and differential matrix now covers `os.clock` ignoring
@@ -2120,7 +2123,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred seventy-six smoke fixtures across
+- `tests/conformance` currently contains six hundred seventy-seven smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
