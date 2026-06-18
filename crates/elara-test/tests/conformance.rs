@@ -3427,6 +3427,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(1), Value::integer(2)],
     );
     assert_success_fixture(
+        "stdlib/utf8_offset_nil_position.lua",
+        vec![Value::integer(2), Value::integer(4)],
+    );
+    assert_success_fixture(
         "stdlib/utf8_offset_extra_args.lua",
         vec![Value::integer(2), Value::integer(2)],
     );
