@@ -681,6 +681,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_tostring_embedded_nul.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(97),
+            Value::integer(0),
+            Value::integer(98),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_tostring_table.lua",
         vec![Value::integer(116), Value::integer(58)],
     );
