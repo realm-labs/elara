@@ -2153,12 +2153,16 @@ Delivered:
 - The simple compiler now lowers long-bracket string literals in expression
   positions, including Lua's skipped-initial-newline rule, with matching
   language conformance and differential coverage.
+- The simple compiler now decodes quoted string literal escapes for named
+  control escapes, escaped quotes/backslashes, hexadecimal and decimal byte
+  escapes, UTF-8 codepoint escapes, escaped newlines, and `\z` whitespace
+  skipping, with matching language conformance and differential coverage.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred eighty-nine smoke fixtures across
+- `tests/conformance` currently contains six hundred ninety smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,

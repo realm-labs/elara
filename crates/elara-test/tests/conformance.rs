@@ -95,6 +95,28 @@ fn conformance_language_fixtures() {
         ],
     );
     assert_success_fixture(
+        "language/string_escapes.lua",
+        vec![
+            Value::integer(12),
+            Value::integer(97),
+            Value::integer(10),
+            Value::integer(9),
+            Value::integer(92),
+            Value::integer(34),
+            Value::integer(39),
+            Value::integer(65),
+            Value::integer(65),
+            Value::integer(98),
+            Value::integer(226),
+            Value::integer(130),
+            Value::integer(172),
+            Value::integer(3),
+            Value::integer(120),
+            Value::integer(10),
+            Value::integer(121),
+        ],
+    );
+    assert_success_fixture(
         "language/numeric_concat.lua",
         vec![
             Value::integer(4),

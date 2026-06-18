@@ -217,7 +217,18 @@ impl<'src> Lexer<'src> {
         };
 
         match escaped {
-            b'a' | b'b' | b'f' | b'n' | b'r' | b't' | b'v' | b'\\' | b'"' | b'\'' | b'z' => {}
+            b'a' | b'b' | b'f' | b'n' | b'r' | b't' | b'v' | b'\\' | b'"' | b'\'' => {}
+            b'z' => {
+                while let Some(byte) = self.peek()
+                    && matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | b'\x0c' | b'\x0b')
+                {
+                    if matches!(byte, b'\n' | b'\r') {
+                        self.consume_newline();
+                    } else {
+                        self.advance();
+                    }
+                }
+            }
             b'\n' | b'\r' => {}
             b'x' => {
                 if !self.consume_exact_digits(2, is_hex_digit) {

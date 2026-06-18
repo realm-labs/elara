@@ -122,10 +122,7 @@ fn string_literal_bytes(text: &str) -> Option<Vec<u8>> {
             return None;
         }
         let inner = &bytes[1..bytes.len().checked_sub(1)?];
-        if inner.contains(&b'\\') {
-            return None;
-        }
-        return Some(inner.to_vec());
+        return decode_short_string(inner);
     }
 
     if quote != b'[' {
@@ -158,4 +155,152 @@ fn string_literal_bytes(text: &str) -> Option<Vec<u8>> {
         inner = &inner[1..];
     }
     Some(inner.to_vec())
+}
+
+fn decode_short_string(bytes: &[u8]) -> Option<Vec<u8>> {
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if byte != b'\\' {
+            decoded.push(byte);
+            index += 1;
+            continue;
+        }
+
+        index += 1;
+        let escaped = *bytes.get(index)?;
+        match escaped {
+            b'a' => decoded.push(b'\x07'),
+            b'b' => decoded.push(b'\x08'),
+            b'f' => decoded.push(b'\x0c'),
+            b'n' => decoded.push(b'\n'),
+            b'r' => decoded.push(b'\r'),
+            b't' => decoded.push(b'\t'),
+            b'v' => decoded.push(b'\x0b'),
+            b'\\' | b'"' | b'\'' => decoded.push(escaped),
+            b'\n' | b'\r' => {
+                decoded.push(b'\n');
+                index = consume_newline(bytes, index);
+                continue;
+            }
+            b'x' => {
+                let high = hex_value(*bytes.get(index + 1)?)?;
+                let low = hex_value(*bytes.get(index + 2)?)?;
+                decoded.push((high << 4) | low);
+                index += 3;
+                continue;
+            }
+            b'u' => {
+                if bytes.get(index + 1).copied() != Some(b'{') {
+                    return None;
+                }
+                let mut cursor = index + 2;
+                let mut codepoint = 0_u32;
+                let mut digit_count = 0;
+                while let Some(value) = bytes.get(cursor).and_then(|byte| hex_value(*byte)) {
+                    codepoint = codepoint.checked_mul(16)?.checked_add(u32::from(value))?;
+                    digit_count += 1;
+                    cursor += 1;
+                }
+                if digit_count == 0
+                    || bytes.get(cursor).copied() != Some(b'}')
+                    || codepoint > 0x7fff_ffff
+                {
+                    return None;
+                }
+                push_lua_utf8(&mut decoded, codepoint)?;
+                index = cursor + 1;
+                continue;
+            }
+            b'z' => {
+                index += 1;
+                while bytes.get(index).is_some_and(|byte| is_lua_space(*byte)) {
+                    if matches!(bytes[index], b'\n' | b'\r') {
+                        index = consume_newline(bytes, index);
+                    } else {
+                        index += 1;
+                    }
+                }
+                continue;
+            }
+            b'0'..=b'9' => {
+                let mut value = 0_u16;
+                let mut digits = 0;
+                while digits < 3 {
+                    let Some(byte @ b'0'..=b'9') = bytes.get(index).copied() else {
+                        break;
+                    };
+                    value = value * 10 + u16::from(byte - b'0');
+                    index += 1;
+                    digits += 1;
+                }
+                if value > u16::from(u8::MAX) {
+                    return None;
+                }
+                decoded.push(value as u8);
+                continue;
+            }
+            _ => return None,
+        }
+        index += 1;
+    }
+    Some(decoded)
+}
+
+fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn consume_newline(bytes: &[u8], index: usize) -> usize {
+    let first = bytes[index];
+    if (first == b'\r' && bytes.get(index + 1).copied() == Some(b'\n'))
+        || (first == b'\n' && bytes.get(index + 1).copied() == Some(b'\r'))
+    {
+        index + 2
+    } else {
+        index + 1
+    }
+}
+
+fn is_lua_space(byte: u8) -> bool {
+    matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | b'\x0c' | b'\x0b')
+}
+
+fn push_lua_utf8(output: &mut Vec<u8>, codepoint: u32) -> Option<()> {
+    let bytes = if codepoint <= 0x7f {
+        1
+    } else if codepoint <= 0x7ff {
+        2
+    } else if codepoint <= 0xffff {
+        3
+    } else if codepoint <= 0x1f_ffff {
+        4
+    } else if codepoint <= 0x3ff_ffff {
+        5
+    } else {
+        6
+    };
+    let mut buffer = [0_u8; 6];
+    let mut value = codepoint;
+    for slot in (1..bytes).rev() {
+        buffer[slot] = 0x80 | u8::try_from(value & 0x3f).ok()?;
+        value >>= 6;
+    }
+    buffer[0] = match bytes {
+        1 => u8::try_from(value).ok()?,
+        2 => 0xc0 | u8::try_from(value).ok()?,
+        3 => 0xe0 | u8::try_from(value).ok()?,
+        4 => 0xf0 | u8::try_from(value).ok()?,
+        5 => 0xf8 | u8::try_from(value).ok()?,
+        6 => 0xfc | u8::try_from(value).ok()?,
+        _ => return None,
+    };
+    output.extend_from_slice(&buffer[..bytes]);
+    Some(())
 }

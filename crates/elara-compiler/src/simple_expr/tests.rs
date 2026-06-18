@@ -110,6 +110,21 @@ fn simple_expr_compiles_long_bracket_string_literal() {
 }
 
 #[test]
+fn simple_expr_decodes_quoted_string_escapes() {
+    let source = "return \"a\\n\\t\\\\\\\"\\'\\x41\\65\\z\n        b\\u{20ac}\", \"x\\\ny\"";
+    let compiled = compile_simple_chunk(SourceId::new(0), source);
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_eq!(proto.string_constants.len(), 2);
+    assert_eq!(
+        proto.string_constants[0].as_ref(),
+        b"a\n\t\\\"'AAb\xe2\x82\xac"
+    );
+    assert_eq!(proto.string_constants[1].as_ref(), b"x\ny");
+}
+
+#[test]
 fn simple_expr_compiles_logical_short_circuit() {
     let compiled = compile_simple_chunk(SourceId::new(0), "return false and 1, true or 2");
     assert_eq!(compiled.diagnostics, Vec::new());
