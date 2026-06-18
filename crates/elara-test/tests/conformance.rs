@@ -1439,6 +1439,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_format_char_embedded_nul.lua",
+        vec![Value::integer(2), Value::integer(65), Value::integer(0)],
+    );
+    assert_success_fixture(
         "stdlib/string_format_char_pointer_modifiers.lua",
         vec![
             Value::integer(7),
