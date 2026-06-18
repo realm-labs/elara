@@ -62,6 +62,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_raw_access_long_string_key.lua",
     "stdlib/base_raw_access_metamethod.lua",
     "stdlib/base_rawset_nil.lua",
+    "stdlib/base_rawset_extra_args.lua",
     "stdlib/base_rawset_nil_key.lua",
     "stdlib/base_rawset_metamethod.lua",
     "stdlib/base_rawequal_values.lua",

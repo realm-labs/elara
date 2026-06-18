@@ -411,6 +411,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(true), Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/base_rawset_extra_args.lua",
+        vec![Value::boolean(true), Value::integer(42), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/base_rawset_nil_key.lua",
         vec![Value::boolean(false), Value::integer(115)],
     );
