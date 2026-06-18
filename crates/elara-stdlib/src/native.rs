@@ -46,7 +46,11 @@ pub trait NativeRuntime {
     }
 
     /// Serializes a Lua closure value into this runtime's dump format.
-    fn dump_lua_function(&self, _function: Value) -> Result<Option<Vec<u8>>, NativeError> {
+    fn dump_lua_function(
+        &self,
+        _function: Value,
+        _strip_debug: bool,
+    ) -> Result<Option<Vec<u8>>, NativeError> {
         Err(NativeErrorKind::RuntimeError {
             message: "native runtime does not support function dumping".into(),
         }

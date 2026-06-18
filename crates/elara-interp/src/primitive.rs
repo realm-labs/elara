@@ -7,7 +7,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use elara_bytecode::{Instr, Op, Proto, VerifyError, dump_proto, verify_proto};
+use elara_bytecode::{
+    Instr, Op, Proto, VerifyError, dump_proto, dump_proto_stripped, verify_proto,
+};
 use elara_core::{
     CallFrame, GcArena, LongString, LuaError, LuaFloat, LuaInteger, LuaThread, ResultCount,
     SHORT_STRING_MAX_BYTES, StringInterner, Table, ThreadStatus, TraceFrame, Value,
@@ -111,7 +113,11 @@ impl<'a> NativeContext<'a> {
     }
 
     /// Serializes a Lua closure value to Elara's internal bytecode dump format.
-    pub fn dump_lua_function(&self, function: Value) -> RuntimeResult<Option<Vec<u8>>> {
+    pub fn dump_lua_function(
+        &self,
+        function: Value,
+        strip_debug: bool,
+    ) -> RuntimeResult<Option<Vec<u8>>> {
         let Some(index) = function.as_closure_index() else {
             return Ok(None);
         };
@@ -121,7 +127,12 @@ impl<'a> NativeContext<'a> {
                 error_object: None,
             }
         })?;
-        dump_proto(&closure.proto).map(Some).map_err(|error| {
+        let dumped = if strip_debug {
+            dump_proto_stripped(&closure.proto)
+        } else {
+            dump_proto(&closure.proto)
+        };
+        dumped.map(Some).map_err(|error| {
             RuntimeErrorKind::NativeFunctionError {
                 message: format!("function dump failed: {error:?}").into(),
                 error_object: None,

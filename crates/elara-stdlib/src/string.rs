@@ -110,12 +110,16 @@ fn string_dump(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
         }
         .into());
     }
-    let bytes = runtime
-        .dump_lua_function(function)?
-        .ok_or(NativeErrorKind::TypeError {
-            index: 1,
-            expected: "Lua function",
-        })?;
+    let strip_debug = args
+        .get(1)
+        .is_some_and(|value| !value.is_nil() && value.as_bool() != Some(false));
+    let bytes =
+        runtime
+            .dump_lua_function(function, strip_debug)?
+            .ok_or(NativeErrorKind::TypeError {
+                index: 1,
+                expected: "Lua function",
+            })?;
     Ok(vec![runtime.intern_string(&bytes)?])
 }
 
@@ -358,10 +362,14 @@ mod tests {
             self.strings.get(index).map(Box::as_ref)
         }
 
-        fn dump_lua_function(&self, function: Value) -> Result<Option<Vec<u8>>, NativeError> {
+        fn dump_lua_function(
+            &self,
+            function: Value,
+            strip_debug: bool,
+        ) -> Result<Option<Vec<u8>>, NativeError> {
             Ok(function
                 .as_closure_index()
-                .map(|index| format!("dump:{index}").into_bytes()))
+                .map(|index| format!("dump:{index}:{strip_debug}").into_bytes()))
         }
     }
 
@@ -541,7 +549,35 @@ mod tests {
 
         assert_eq!(
             runtime.short_string_bytes(result[0]),
-            Some(b"dump:7".as_slice())
+            Some(b"dump:7:false".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_dump_uses_lua_truthiness_for_strip_flag() {
+        let mut runtime = TestRuntime::default();
+
+        let nil_result = string_dump(&mut runtime, &[Value::closure_index(7), Value::nil()])
+            .expect("dump should pass");
+        let false_result = string_dump(
+            &mut runtime,
+            &[Value::closure_index(7), Value::boolean(false)],
+        )
+        .expect("dump should pass");
+        let true_result = string_dump(&mut runtime, &[Value::closure_index(7), Value::integer(0)])
+            .expect("dump should pass");
+
+        assert_eq!(
+            runtime.short_string_bytes(nil_result[0]),
+            Some(b"dump:7:false".as_slice())
+        );
+        assert_eq!(
+            runtime.short_string_bytes(false_result[0]),
+            Some(b"dump:7:false".as_slice())
+        );
+        assert_eq!(
+            runtime.short_string_bytes(true_result[0]),
+            Some(b"dump:7:true".as_slice())
         );
     }
 

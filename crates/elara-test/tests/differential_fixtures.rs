@@ -384,6 +384,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_byte_extra_args.lua",
     "stdlib/string_dump.lua",
     "stdlib/string_dump_native_error.lua",
+    "stdlib/string_dump_strip.lua",
     "stdlib/string_integer_argument_coercion.lua",
     "stdlib/math_numeric.lua",
     "stdlib/math_integer_rounding.lua",

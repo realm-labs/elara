@@ -17,8 +17,8 @@ pub mod verifier;
 pub use builder::ProtoBuilder;
 pub use disasm::disassemble;
 pub use dump_load::{
-    DumpError, LoadError, dump_proto, is_current_official_lua_chunk, is_official_lua_chunk,
-    load_proto,
+    DumpError, LoadError, dump_proto, dump_proto_stripped, is_current_official_lua_chunk,
+    is_official_lua_chunk, load_proto,
 };
 pub use op::{A_BITS, B_BITS, C_BITS, Instr, MAX_A, MAX_B, MAX_C, OP_BITS, Op};
 pub use proto::{

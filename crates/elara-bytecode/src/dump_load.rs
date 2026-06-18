@@ -25,6 +25,11 @@ pub fn dump_proto(proto: &Proto) -> Result<Vec<u8>, DumpError> {
     Ok(writer.bytes)
 }
 
+/// Serializes a prototype tree with source-level debug metadata stripped.
+pub fn dump_proto_stripped(proto: &Proto) -> Result<Vec<u8>, DumpError> {
+    dump_proto(&strip_debug_proto(proto))
+}
+
 /// Loads a prototype tree from Elara's internal bytecode format.
 pub fn load_proto(bytes: &[u8]) -> Result<Proto, LoadError> {
     if bytes.starts_with(LUA_SIGNATURE) {
@@ -124,6 +129,24 @@ fn write_proto(writer: &mut Writer, proto: &Proto) -> Result<(), DumpError> {
     writer.upvalues(&proto.upvalues)?;
     writer.protos(&proto.children)?;
     writer.debug_info(&proto.debug)
+}
+
+fn strip_debug_proto(proto: &Proto) -> Proto {
+    let mut stripped = proto.clone();
+    stripped.debug = DebugInfo::default();
+    stripped.upvalues = proto
+        .upvalues
+        .iter()
+        .map(|upvalue| UpvalueDesc::new(None::<Box<str>>, upvalue.in_stack, upvalue.index))
+        .collect::<Vec<_>>()
+        .into_boxed_slice();
+    stripped.children = proto
+        .children
+        .iter()
+        .map(strip_debug_proto)
+        .collect::<Vec<_>>()
+        .into_boxed_slice();
+    stripped
 }
 
 fn read_proto(reader: &mut Reader<'_>) -> Result<Proto, LoadError> {
@@ -473,7 +496,7 @@ mod tests {
 
     use crate::{
         DebugInfo, DumpError, Instr, LoadError, Op, Proto, ProtoBuilder, UpvalueDesc, dump_proto,
-        is_current_official_lua_chunk, is_official_lua_chunk, load_proto,
+        dump_proto_stripped, is_current_official_lua_chunk, is_official_lua_chunk, load_proto,
     };
 
     #[test]
@@ -484,6 +507,20 @@ mod tests {
         let loaded = load_proto(&dumped).expect("proto should load");
 
         assert_eq!(loaded, proto);
+    }
+
+    #[test]
+    fn dump_stripped_proto_omits_debug_metadata() {
+        let proto = sample_proto();
+
+        let dumped = dump_proto_stripped(&proto).expect("proto should dump");
+        let loaded = load_proto(&dumped).expect("proto should load");
+
+        assert_eq!(loaded.debug, DebugInfo::default());
+        assert_eq!(loaded.children[0].debug, DebugInfo::default());
+        assert!(loaded.children[0].upvalues[0].name.is_none());
+        assert_eq!(loaded.code, proto.code);
+        assert_eq!(loaded.children[0].code, proto.children[0].code);
     }
 
     #[test]
