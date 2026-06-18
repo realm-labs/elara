@@ -79,6 +79,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_next.lua",
     "stdlib/base_next_after_key.lua",
     "stdlib/base_next_end.lua",
+    "stdlib/base_next_extra_args.lua",
     "stdlib/base_next_string_key.lua",
     "stdlib/base_next_boolean_key.lua",
     "stdlib/base_next_sparse_integer_key.lua",
