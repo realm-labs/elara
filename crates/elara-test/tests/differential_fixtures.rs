@@ -616,6 +616,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/os_date_modified_specifiers.lua",
     "stdlib/os_date_argument_errors.lua",
     "stdlib/os_locale.lua",
+    "stdlib/os_locale_nil_args.lua",
     "stdlib/os_locale_extra_args.lua",
     "stdlib/os_locale_categories.lua",
     "stdlib/os_execute.lua",
