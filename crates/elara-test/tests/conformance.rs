@@ -1985,6 +1985,7 @@ fn conformance_standard_library_fixtures() {
         "stdlib/math_fmod_negative_divisor.lua",
         vec![Value::integer(2)],
     );
+    assert_success_fixture("stdlib/math_fmod_extra_args.lua", vec![Value::integer(2)]);
     assert_success_fixture("stdlib/math_fmod_float.lua", vec![Value::float(1.5)]);
     assert_success_fixture("stdlib/math_ult_false.lua", vec![Value::boolean(false)]);
     assert_success_fixture("stdlib/math_ult_equal.lua", vec![Value::boolean(false)]);
