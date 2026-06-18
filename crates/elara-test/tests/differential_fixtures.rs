@@ -239,6 +239,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_format_float_precision.lua",
     "stdlib/string_format_float_alternate.lua",
     "stdlib/string_format_float_flags.lua",
+    "stdlib/string_format_float_spec_errors.lua",
     "stdlib/string_format_hex_float.lua",
     "stdlib/string_format_hex_float_flags.lua",
     "stdlib/string_format_quote.lua",
