@@ -1,7 +1,7 @@
 # Elara Progress
 
 Status: Rolling current-state document  
-Last updated: 2026-06-16
+Last updated: 2026-06-18
 Current target: latest stable Lua, currently Lua 5.5 / Lua 5.5.0  
 Current milestone: M20 Release Hardening and 1.0 Candidate
 Current step: Product gap work after M20.4
@@ -1766,6 +1766,9 @@ Delivered:
 - The package conformance and differential matrix now covers loaders that
   return `false`, checking that `require` returns and stores `false` but reloads
   on a later call because `false` is not a loaded sentinel.
+- The package conformance and differential matrix now covers loaders that set
+  `package.loaded` while returning nil, plus `require` searchers that return
+  non-string, non-loader miss values before a later searcher succeeds.
 - Base `warn` now emits host warnings when enabled, honors single-argument
   `@on`/`@off` control messages, ignores unknown control messages, and keeps
   warnings disabled by default.
@@ -1774,7 +1777,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains five hundred twenty-two smoke fixtures across
+- `tests/conformance` currently contains five hundred twenty-four smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
@@ -1869,23 +1872,16 @@ M20.4 is complete.
 Latest focused verification passed:
 
 ```bash
-cargo test -p elara-stdlib math_
-cargo test -p elara-stdlib coerce
 cargo test -p elara-test conformance_standard_library_fixtures
-ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test differential_fixtures
-cargo clippy -p elara-stdlib -p elara-test --all-targets -- -D warnings
-git diff --check
+cargo test -p elara-test --test differential_fixtures
 ```
 
-`cargo fmt -p elara-stdlib -p elara-test -- --check` currently reports
-pre-existing formatting drift in committed Rust files outside the current
-math argument coercion change.
+`cargo fmt -p elara-test -- --check` currently reports pre-existing formatting
+drift in committed Rust files outside the current package fixture expansion.
 
-`ELARA_LUA=/opt/homebrew/bin/lua5.5 cargo test -p elara-test --test
-differential_fixtures` now passes the current configured official-Lua exact
-comparison set. The timezone-sensitive `os.time` date-table fixtures now keep
-exact UTC timestamp assertions in local conformance only and compare portable
-number-result plus normalized-field shapes against official Lua.
+`cargo test -p elara-test --test differential_fixtures` passed in this
+environment with no `ELARA_LUA` configured, so the optional official-Lua
+comparison paths skipped after building the fixture matrix successfully.
 
 ## Next Recommended Action
 
@@ -1939,7 +1935,7 @@ fixture set beyond the current smoke matrix.
 | Tables/globals/metamethods | Complete for M9 | Table constructors, raw table access, table/function-valued `__index`/`__newindex`, arithmetic/bitwise/comparison metamethods, `__len`, `__call`, `__concat`, global declarations, and default `_ENV` execute. |
 | Standard library | M18.2 complete | Base, coroutine, table, math, string, utf8, safe unsupported pre-file-handle `io.close`, `io.flush`, `io.input`, `io.lines`, `io.open`, `io.output`, `io.popen`, `io.read`, `io.tmpfile`, and `io.write`, pre-file-handle `io.type`, `os.clock`, UTC table and string-format `os.date`, `os.difftime`, `os.execute`, safe unsupported `os.exit`, `os.getenv`, `os.remove`, `os.rename`, C-locale subset `os.setlocale`, `os.tmpname`, no-argument and UTC date-table `os.time`, global `require`, `package.config`, `package.cpath`, `package.loadlib` unsupported-C-loader behavior, `package.loaded`, `package.path`, `package.preload`, preloaded-module `package.require`, `package.require` searcher miss aggregation, custom `package.searchers` entries for `require`, default preload `package.searchers[1]`, default Lua path `package.searchers[2]`, default C path searchers in `package.searchers[3]` and `[4]`, `package.searchpath`, `debug.gethook`/`debug.sethook` hook metadata installation and clearing plus call/return/line/count hook callback dispatch, `debug.getinfo` runtime-hook validation and current-thread frame materialization, read-only stack-level `debug.getlocal`, function-target `debug.getlocal` parameter names, stack-level `debug.setlocal` for current-thread Lua frames, and primitive coroutine debug frames for native debug calls, read-only `debug.getupvalue`, `debug.setupvalue` over shared runtime upvalue cells, `debug.upvalueid`, `debug.upvaluejoin`, raw `debug.getmetatable`, `debug.getregistry`, pre-userdata `debug.getuservalue`, raw `debug.setmetatable`, pre-userdata `debug.setuservalue`, and `debug.traceback` message handling plus stack-frame formatting are implemented; base string-facing paths, `math.tointeger`, common byte-oriented `string` primitives, `string.format` including `%c`/`%p` width and left-adjust modifiers plus `%q` finite float hex literals, `string.pack` binary packing, `string.packsize` fixed-format sizing, `string.unpack` binary unpacking, string pattern results and replacements, `table.concat`, `table.sort` default string comparisons, executable `utf8` primitives, and executable `os` string paths handle runtime long strings; full-profile descriptors include `io`, `os`, `package`, and `debug` while host-sensitive executable registration remains gated. |
 | Rust API | M20.3 audited | Builder/chunk evaluation, conversions, native functions, tables, registry keys, and userdata handles are implemented; native Rust callback string arguments and results handle runtime long strings; facade docs and `basic_embed` example compile against the safe public surface. |
-| Conformance | Expanded post-M20.4 | Five hundred twenty-two smoke fixtures run through the public API with exact portable primitive return-value checks and error-class checks for failure cases; broader API/unit coverage exists, but release-sized conformance remains a product gap. |
+| Conformance | Expanded post-M20.4 | Five hundred twenty-four smoke fixtures run through the public API with exact portable primitive return-value checks and error-class checks for failure cases; broader API/unit coverage exists, but release-sized conformance remains a product gap. |
 | Differential testing | Expanded post-M20.4 | Configurable official-Lua runner compares exact primitive success values and success/error classes with Elara, including the portable conformance smoke fixture set when `ELARA_LUA` is configured. |
 | Fuzz targets | Initial M13 targets complete | Parser, bytecode verifier, and table-operation target entry points are test-covered. |
 | JIT | M17 complete; M18.2 debug interaction complete | Optional Cranelift dependencies, feature plumbing, baseline ABI, helper registry, arithmetic lowering, hot counters, cached JIT entries, interpreter fallback, debug-hook forced interpretation, API JIT selection for environment-independent chunks with debug/runtime-environment chunks kept on the interpreter, deopt metadata/stack sync, table array fast-path guards, call trampoline statuses, and interpreter equivalence tests are implemented. |

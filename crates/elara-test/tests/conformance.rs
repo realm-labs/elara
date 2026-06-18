@@ -2733,6 +2733,15 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(80), Value::integer(70), Value::integer(80)],
     );
     assert_success_fixture(
+        "stdlib/package_require_loader_sets_loaded.lua",
+        vec![
+            Value::integer(75),
+            Value::integer(70),
+            Value::integer(75),
+            Value::integer(1),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/package_require_loaded_cache.lua",
         vec![Value::integer(123), Value::integer(123), Value::integer(0)],
     );
@@ -2760,6 +2769,10 @@ fn conformance_standard_library_fixtures() {
             Value::boolean(false),
             Value::integer(115),
         ],
+    );
+    assert_success_fixture(
+        "stdlib/package_searchers_skip_non_string.lua",
+        vec![Value::integer(99), Value::integer(44), Value::integer(3)],
     );
     assert_success_fixture(
         "stdlib/package_preload_searcher.lua",
