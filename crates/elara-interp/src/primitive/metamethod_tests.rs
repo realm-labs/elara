@@ -251,6 +251,62 @@ fn metamethods_comparison_executes_raw_less_than() {
 }
 
 #[test]
+fn metamethods_comparison_executes_raw_string_less_than() {
+    let mut closures = Vec::new();
+    let mut tables = RuntimeTables::new();
+    let mut strings = RuntimeStrings::new();
+    let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
+    let left = strings.intern_value("alpha");
+    let right = strings.intern_value("beta");
+    let mut thread = LuaThread::new();
+    thread.push_value(left);
+    thread.push_value(right);
+    thread.push_value(Value::nil());
+
+    execute_comparison(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Lt, 2, 0, 1),
+        &mut tables,
+        &mut strings,
+        &natives,
+        &mut globals,
+    )
+    .expect("raw string less-than should execute");
+
+    assert_eq!(thread.stack_value(2), Some(Value::boolean(true)));
+}
+
+#[test]
+fn metamethods_comparison_executes_raw_string_less_equal() {
+    let mut closures = Vec::new();
+    let mut tables = RuntimeTables::new();
+    let mut strings = RuntimeStrings::new();
+    let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
+    let left = strings.intern_value("same");
+    let right = strings.intern_value("same");
+    let mut thread = LuaThread::new();
+    thread.push_value(left);
+    thread.push_value(right);
+    thread.push_value(Value::nil());
+
+    execute_comparison(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Le, 2, 0, 1),
+        &mut tables,
+        &mut strings,
+        &natives,
+        &mut globals,
+    )
+    .expect("raw string less-or-equal should execute");
+
+    assert_eq!(thread.stack_value(2), Some(Value::boolean(true)));
+}
+
+#[test]
 fn metamethods_comparison_calls_eq_for_distinct_tables() {
     let mut strings = RuntimeStrings::new();
     let mut tables = RuntimeTables::new();

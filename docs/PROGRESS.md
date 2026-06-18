@@ -50,7 +50,7 @@ metamethod dispatch. Table-valued and function-valued `__index` and
 `__newindex` chains work in the primitive runtime table slow path. Function
 metamethods for the primitive interpreter's currently executed arithmetic
 opcodes work for table operands. Comparison opcodes execute with raw numeric
-comparison and table metamethod fallback. The simple compiler now lowers
+and string comparison plus table metamethod fallback. The simple compiler now lowers
 equality, inequality, and relational comparison expressions to those comparison
 opcodes. The bytecode and interpreter now support boolean `NOT`, and the simple
 compiler lowers unary operators without clobbering operand registers, including
@@ -2144,6 +2144,10 @@ Delivered:
 - Base `warn` now emits host warnings when enabled, honors single-argument
   `@on`/`@off` control messages, ignores unknown control messages, and keeps
   warnings disabled by default.
+- The explicit conformance harness now registers every Lua smoke fixture in
+  `tests/conformance`, and the optional official-Lua differential list includes
+  the portable recent stdlib additions while leaving intentionally divergent
+  host/unsupported cases out of the comparison set.
 
 ## Remaining Gaps
 

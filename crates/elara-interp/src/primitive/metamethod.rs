@@ -430,7 +430,7 @@ fn order_comparison(
     natives: &RuntimeNatives,
     globals: &mut RuntimeGlobals,
 ) -> RuntimeResult<bool> {
-    if let Some(result) = raw_order_comparison(op, left, right) {
+    if let Some(result) = raw_order_comparison(op, left, right, strings) {
         return Ok(result);
     }
 
@@ -448,8 +448,21 @@ fn order_comparison(
     Ok(is_truthy(result))
 }
 
-fn raw_order_comparison(op: Op, left: Value, right: Value) -> Option<bool> {
+fn raw_order_comparison(
+    op: Op,
+    left: Value,
+    right: Value,
+    strings: &RuntimeStrings,
+) -> Option<bool> {
     if let (Some(left), Some(right)) = (left.as_integer(), right.as_integer()) {
+        return match op {
+            Op::Lt => Some(left < right),
+            Op::Le => Some(left <= right),
+            _ => None,
+        };
+    }
+
+    if let (Some(left), Some(right)) = (strings.string_bytes(left), strings.string_bytes(right)) {
         return match op {
             Op::Lt => Some(left < right),
             Op::Le => Some(left <= right),
