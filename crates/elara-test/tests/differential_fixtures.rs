@@ -437,6 +437,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_move_backward_overlap.lua",
     "stdlib/table_move_self.lua",
     "stdlib/table_move_destination.lua",
+    "stdlib/table_move_preserves_destination_hash_fields.lua",
     "stdlib/table_move_extra_args.lua",
     "stdlib/table_move_nil_slot.lua",
     "stdlib/table_move_empty.lua",

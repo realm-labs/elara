@@ -3148,6 +3148,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/table_move_preserves_destination_hash_fields.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(1),
+            Value::integer(2),
+            Value::integer(4),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_move_extra_args.lua",
         vec![Value::boolean(true), Value::integer(1), Value::integer(2)],
     );
