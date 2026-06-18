@@ -475,6 +475,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/utf8_offset_four_byte.lua",
     "stdlib/utf8_offset_backward_multibyte.lua",
     "stdlib/utf8_offset_containing.lua",
+    "stdlib/utf8_offset_zero_start.lua",
     "stdlib/utf8_len_empty.lua",
     "stdlib/utf8_len_bounds.lua",
     "stdlib/utf8_len_extra_args.lua",
