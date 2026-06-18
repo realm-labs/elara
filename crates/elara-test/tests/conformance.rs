@@ -1435,6 +1435,25 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_gsub_empty_pattern_replacements.lua",
+        vec![
+            Value::integer(5),
+            Value::integer(46),
+            Value::integer(97),
+            Value::integer(46),
+            Value::integer(98),
+            Value::integer(46),
+            Value::integer(3),
+            Value::integer(5),
+            Value::integer(120),
+            Value::integer(97),
+            Value::integer(120),
+            Value::integer(98),
+            Value::integer(120),
+            Value::integer(3),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_gmatch_positions.lua",
         vec![
             Value::integer(1),
