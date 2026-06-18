@@ -2757,6 +2757,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/table_remove_zero_position.lua",
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(false),
+            Value::integer(115),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_insert_remove_errors.lua",
         vec![
             Value::boolean(false),
