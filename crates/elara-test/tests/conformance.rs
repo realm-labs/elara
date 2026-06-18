@@ -397,6 +397,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_metatable_extra_args.lua",
+        vec![Value::boolean(true), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/base_metatable_protected_set.lua",
         vec![Value::boolean(false), Value::integer(115)],
     );
