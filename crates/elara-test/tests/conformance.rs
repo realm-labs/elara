@@ -2392,6 +2392,14 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture("stdlib/math_atan_two_arg.lua", vec![Value::integer(1570)]);
     assert_success_fixture(
+        "stdlib/math_atan_quadrants.lua",
+        vec![
+            Value::integer(2356),
+            Value::integer(-1570),
+            Value::integer(-2357),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/math_optional_nil_args.lua",
         vec![Value::integer(0), Value::integer(0)],
     );
