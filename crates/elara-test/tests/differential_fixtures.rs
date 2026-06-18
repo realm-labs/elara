@@ -470,6 +470,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/debug_introspection.lua",
     "stdlib/debug_getinfo_options.lua",
     "stdlib/debug_getinfo_function.lua",
+    "stdlib/debug_getinfo_extra_args.lua",
     "stdlib/debug_getinfo_stack_function.lua",
     "stdlib/debug_getinfo_currentline.lua",
     "stdlib/debug_getinfo_active_lines.lua",
