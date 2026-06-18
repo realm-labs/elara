@@ -560,6 +560,14 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_error_level_zero.lua",
+        vec![
+            Value::boolean(false),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_next.lua",
         vec![Value::integer(1), Value::integer(10)],
     );
