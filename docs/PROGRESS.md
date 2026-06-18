@@ -2166,12 +2166,15 @@ Delivered:
   differential fixtures cover long-string key lookup.
 - The base-library conformance and differential matrix now covers `rawset` and
   `rawget` with independently allocated long-string keys.
+- The string-library conformance and differential matrix now covers
+  `string.match` with negative init positions, including clamping before the
+  start of the subject.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred ninety-three smoke fixtures across
+- `tests/conformance` currently contains six hundred ninety-four smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,

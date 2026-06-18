@@ -189,6 +189,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_match_frontier.lua",
     "stdlib/string_match_backreference.lua",
     "stdlib/string_match_init.lua",
+    "stdlib/string_match_negative_init.lua",
     "stdlib/string_match_zero_init.lua",
     "stdlib/string_match_nil_init.lua",
     "stdlib/string_match_extra_args.lua",
