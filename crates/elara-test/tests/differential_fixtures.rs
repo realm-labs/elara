@@ -213,6 +213,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_rep_negative.lua",
     "stdlib/string_rep_single_separator.lua",
     "stdlib/string_rep_separator.lua",
+    "stdlib/string_rep_numeric_separator.lua",
     "stdlib/string_rep_extra_args.lua",
     "stdlib/string_rep_default.lua",
     "stdlib/string_rep_nil_separator.lua",

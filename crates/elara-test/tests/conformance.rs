@@ -1345,6 +1345,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(8), Value::integer(44), Value::integer(44)],
     );
     assert_success_fixture(
+        "stdlib/string_rep_numeric_separator.lua",
+        vec![Value::integer(5), Value::integer(57), Value::integer(120)],
+    );
+    assert_success_fixture(
         "stdlib/string_rep_extra_args.lua",
         vec![Value::integer(5), Value::integer(46), Value::integer(98)],
     );
