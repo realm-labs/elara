@@ -387,6 +387,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/math_ult_true.lua",
     "stdlib/math_random.lua",
     "stdlib/math_random_modes.lua",
+    "stdlib/math_randomseed_extra_args.lua",
     "stdlib/math_argument_errors.lua",
     "stdlib/math_randomseed_errors.lua",
     "stdlib/math_number_argument_errors.lua",
