@@ -1722,6 +1722,9 @@ Delivered:
   ignoring trailing arguments after the table and key.
 - The base-library conformance and differential matrix now covers `rawlen`
   ignoring trailing arguments after the table or string operand.
+- The base-library conformance and differential matrix now covers explicit nil
+  required argument errors for raw table helpers, `next`, `setmetatable`, and
+  `select`.
 - The base-library conformance and differential matrix now covers
   `getmetatable` and `setmetatable` ignoring trailing arguments.
 - The base-library conformance and differential matrix now covers `next`
@@ -2133,7 +2136,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred eighty-one smoke fixtures across
+- `tests/conformance` currently contains six hundred eighty-two smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
