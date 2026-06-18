@@ -2079,6 +2079,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/table_remove_extra_args.lua",
+        vec![
+            Value::integer(20),
+            Value::integer(10),
+            Value::integer(30),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_remove_last.lua",
         vec![
             Value::integer(30),

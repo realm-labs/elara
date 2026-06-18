@@ -317,6 +317,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_remove_nil_position.lua",
     "stdlib/table_remove_first.lua",
     "stdlib/table_remove_position.lua",
+    "stdlib/table_remove_extra_args.lua",
     "stdlib/table_remove_last.lua",
     "stdlib/table_remove_after_end.lua",
     "stdlib/table_insert_remove_errors.lua",
