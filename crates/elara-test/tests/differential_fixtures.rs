@@ -68,6 +68,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_iteration.lua",
     "stdlib/base_ipairs_stops_at_nil.lua",
     "stdlib/base_ipairs_ignores_zero.lua",
+    "stdlib/base_ipairs_ignores_negative_key.lua",
     "stdlib/base_ipairs_ignores_string_key.lua",
     "stdlib/base_ipairs_float_key.lua",
     "stdlib/base_ipairs_missing_first.lua",

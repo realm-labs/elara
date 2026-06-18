@@ -2219,12 +2219,14 @@ Delivered:
   `table.concat` ignoring hash fields while joining the array range.
 - The table-library conformance and differential matrix now covers
   `table.unpack` ignoring hash fields while returning the array range.
+- The base-library conformance and differential matrix now covers `ipairs`
+  ignoring negative integer keys while iterating the positive array prefix.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains seven hundred eighteen smoke fixtures across
+- `tests/conformance` currently contains seven hundred nineteen smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,

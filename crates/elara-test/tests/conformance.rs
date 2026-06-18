@@ -449,6 +449,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(1), Value::integer(11)],
     );
     assert_success_fixture(
+        "stdlib/base_ipairs_ignores_negative_key.lua",
+        vec![Value::integer(2), Value::integer(33)],
+    );
+    assert_success_fixture(
         "stdlib/base_ipairs_ignores_string_key.lua",
         vec![Value::integer(2), Value::integer(33)],
     );
