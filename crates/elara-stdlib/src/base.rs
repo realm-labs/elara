@@ -321,13 +321,7 @@ fn base_select(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
         return Ok(vec![Value::integer(count)]);
     }
 
-    let index =
-        args.first()
-            .and_then(|value| value.as_integer())
-            .ok_or(NativeErrorKind::TypeError {
-                index: 1,
-                expected: "integer",
-            })?;
+    let index = select_index(runtime, args.first().copied())?;
     let value_count = args.len().saturating_sub(1);
     let start = select_start(index, value_count)?;
     Ok(args[start..].to_vec())
@@ -724,6 +718,43 @@ fn select_start(index: i64, value_count: usize) -> Result<usize, NativeError> {
         return Err(NativeErrorKind::ArgumentOutOfRange { index: 1 }.into());
     }
     usize::try_from(normalized).map_err(|_| NativeErrorKind::ArgumentOutOfRange { index: 1 }.into())
+}
+
+fn select_index(runtime: &dyn NativeRuntime, value: Option<Value>) -> Result<i64, NativeError> {
+    let value = value.ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    if let Some(integer) = value.as_integer() {
+        return Ok(integer);
+    }
+    if let Some(float) = value.as_float() {
+        return float_to_integer_floor(float).ok_or_else(|| {
+            NativeErrorKind::TypeError {
+                index: 1,
+                expected: "integer",
+            }
+            .into()
+        });
+    }
+    if let Some(bytes) = runtime.string_bytes(value)
+        && let Some(number) = parse_standard_number(bytes)
+    {
+        return select_index(runtime, Some(number));
+    }
+    Err(NativeErrorKind::TypeError {
+        index: 1,
+        expected: "integer",
+    }
+    .into())
+}
+
+fn float_to_integer_floor(value: f64) -> Option<i64> {
+    if !value.is_finite() {
+        return None;
+    }
+    let value = value.floor();
+    if value < i64::MIN as f64 || value > i64::MAX as f64 {
+        return None;
+    }
+    Some(value as i64)
 }
 
 #[cfg(test)]

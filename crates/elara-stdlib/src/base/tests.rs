@@ -940,6 +940,53 @@ fn base_select_hash_returns_argument_count() {
 }
 
 #[test]
+fn base_select_accepts_convertible_numeric_positions() {
+    let mut runtime = TestRuntime::default();
+    let decimal = runtime.push_string(b"2");
+    let hexadecimal = runtime.push_string(b"0x2");
+
+    assert_eq!(
+        call_with_runtime(
+            &mut runtime,
+            base_select,
+            &[
+                decimal,
+                Value::integer(10),
+                Value::integer(20),
+                Value::integer(30),
+            ],
+        ),
+        vec![Value::integer(20), Value::integer(30)]
+    );
+    assert_eq!(
+        call_with_runtime(
+            &mut runtime,
+            base_select,
+            &[
+                hexadecimal,
+                Value::integer(10),
+                Value::integer(20),
+                Value::integer(30),
+            ],
+        ),
+        vec![Value::integer(20), Value::integer(30)]
+    );
+    assert_eq!(
+        call_with_runtime(
+            &mut runtime,
+            base_select,
+            &[
+                Value::float(1.9),
+                Value::integer(10),
+                Value::integer(20),
+                Value::integer(30),
+            ],
+        ),
+        vec![Value::integer(10), Value::integer(20), Value::integer(30)]
+    );
+}
+
+#[test]
 fn base_select_reports_bad_position() {
     assert_eq!(
         base_select(&mut TestRuntime::default(), &[Value::integer(0)])
