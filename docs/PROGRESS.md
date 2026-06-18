@@ -1883,6 +1883,9 @@ Delivered:
   inverse-trig and optional-`math.atan` trailing arguments.
 - The math-library conformance and differential matrix now covers
   two-argument `math.atan` quadrant handling beyond the positive-axis case.
+- The math-library conformance and differential matrix now covers `math.min`
+  and `math.max` preserving the numeric subtype of the selected operand,
+  including equal-value tie behavior.
 - The string library now exposes executable `string.packsize` for fixed-size
   binary packing formats, including Lua-style alignment and variable-length
   format rejection; a shared conformance/differential fixture covers portable
@@ -2103,7 +2106,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred seventy smoke fixtures across
+- `tests/conformance` currently contains six hundred seventy-one smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
