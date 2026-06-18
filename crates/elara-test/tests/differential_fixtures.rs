@@ -271,6 +271,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_unpack.lua",
     "stdlib/string_unpack_argument_errors.lua",
     "stdlib/string_unpack_format_errors.lua",
+    "stdlib/string_unpack_data_errors.lua",
     "stdlib/string_len_embedded_nul.lua",
     "stdlib/string_len_empty.lua",
     "stdlib/string_ops.lua",
