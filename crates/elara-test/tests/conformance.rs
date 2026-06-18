@@ -3005,6 +3005,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/package_loadlib_extra_args.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(115),
+            Value::integer(111),
+            Value::integer(4),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/package_loadlib_errors.lua",
         vec![
             Value::boolean(false),
