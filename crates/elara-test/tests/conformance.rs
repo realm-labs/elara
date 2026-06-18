@@ -581,6 +581,10 @@ fn conformance_standard_library_fixtures() {
         "stdlib/base_next_sparse_integer_key.lua",
         vec![Value::integer(3), Value::integer(30)],
     );
+    assert_success_fixture(
+        "stdlib/base_next_negative_integer_key.lua",
+        vec![Value::integer(-3), Value::integer(30)],
+    );
     assert_success_fixture("stdlib/base_next_empty.lua", vec![Value::boolean(true)]);
     assert_success_fixture(
         "stdlib/base_conversion.lua",
