@@ -289,6 +289,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/math_angle_zero.lua",
     "stdlib/math_decompose.lua",
     "stdlib/math_frexp_negative.lua",
+    "stdlib/math_frexp_extra_args.lua",
     "stdlib/math_frexp_zero.lua",
     "stdlib/math_argument_coercion.lua",
     "stdlib/math_ldexp_positive.lua",
