@@ -568,6 +568,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_warn_controls.lua",
+        vec![Value::integer(0), Value::integer(0)],
+    );
+    assert_success_fixture(
         "stdlib/base_next.lua",
         vec![Value::integer(1), Value::integer(10)],
     );
