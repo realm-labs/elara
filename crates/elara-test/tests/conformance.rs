@@ -927,6 +927,14 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_xpcall_handler_nil_error.lua",
+        vec![
+            Value::boolean(false),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/math_string_patterns.lua",
         vec![
             Value::integer(7),
