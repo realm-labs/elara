@@ -2102,6 +2102,8 @@ Delivered:
   ignoring trailing arguments.
 - The os conformance and differential matrix now covers `os.getenv` ignoring
   trailing arguments after the variable name.
+- The os conformance and differential matrix now covers explicit nil required
+  string argument errors for `os.getenv`, `os.remove`, and `os.rename`.
 - The os conformance and differential matrix now covers `os.clock` ignoring
   trailing arguments while returning a numeric elapsed-time value.
 - The os conformance and differential matrix now covers `os.tmpname` ignoring
@@ -2136,7 +2138,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred eighty-two smoke fixtures across
+- `tests/conformance` currently contains six hundred eighty-three smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
