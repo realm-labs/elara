@@ -211,6 +211,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_gsub_numeric_replacement.lua",
     "stdlib/string_gsub_position_captures.lua",
     "stdlib/string_gsub_limit.lua",
+    "stdlib/string_gsub_empty_pattern_limit.lua",
     "stdlib/string_gsub_extra_args.lua",
     "stdlib/string_gsub_nil_limit.lua",
     "stdlib/string_gsub_zero_limit.lua",
