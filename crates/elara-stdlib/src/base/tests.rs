@@ -18,7 +18,7 @@ struct TestRuntime {
     warnings_enabled: bool,
     base_next: Value,
     base_ipairs_aux: Value,
-    protected_results: Vec<Result<Vec<Value>, Box<str>>>,
+    protected_results: Vec<Result<Vec<Value>, Value>>,
     protected_calls: Vec<(Value, Vec<Value>)>,
 }
 
@@ -183,10 +183,10 @@ impl NativeRuntime for TestRuntime {
         &mut self,
         function: Value,
         args: &[Value],
-    ) -> Result<Result<Vec<Value>, Box<str>>, NativeError> {
+    ) -> Result<Result<Vec<Value>, Value>, NativeError> {
         self.protected_calls.push((function, args.to_vec()));
         if self.protected_results.is_empty() {
-            return Ok(Err("missing protected result".into()));
+            return Ok(Err(self.push_string(b"missing protected result")));
         }
         Ok(self.protected_results.remove(0))
     }
@@ -300,12 +300,9 @@ fn base_load_validates_chunk_and_mode_arguments() {
     let mut runtime = TestRuntime::default();
     let chunk = runtime.push_string(b"return 42");
     assert_eq!(
-        base_load(
-            &mut runtime,
-            &[chunk, Value::nil(), Value::boolean(false)]
-        )
-        .expect_err("mode should be string")
-        .kind(),
+        base_load(&mut runtime, &[chunk, Value::nil(), Value::boolean(false)])
+            .expect_err("mode should be string")
+            .kind(),
         &NativeErrorKind::TypeError {
             index: 3,
             expected: "string",
@@ -405,18 +402,14 @@ fn base_pcall_returns_true_and_values_for_successful_call() {
 
 #[test]
 fn base_pcall_returns_false_and_error_message_for_caught_error() {
-    let mut runtime = TestRuntime {
-        protected_results: vec![Err("boom".into())],
-        ..TestRuntime::default()
-    };
+    let mut runtime = TestRuntime::default();
+    let message = runtime.push_string(b"boom");
+    runtime.protected_results.push(Err(message));
 
     let values = call_with_runtime(&mut runtime, base_pcall, &[Value::native_function_index(3)]);
 
     assert_eq!(values[0], Value::boolean(false));
-    assert_eq!(
-        runtime.short_string_bytes(values[1]),
-        Some(b"boom".as_slice())
-    );
+    assert_eq!(values[1], message);
 }
 
 #[test]
@@ -446,10 +439,10 @@ fn base_xpcall_returns_true_and_values_for_successful_call() {
 
 #[test]
 fn base_xpcall_calls_handler_for_caught_error() {
-    let mut runtime = TestRuntime {
-        protected_results: vec![Err("boom".into()), Ok(vec![Value::integer(99)])],
-        ..TestRuntime::default()
-    };
+    let mut runtime = TestRuntime::default();
+    let message = runtime.push_string(b"boom");
+    runtime.protected_results.push(Err(message));
+    runtime.protected_results.push(Ok(vec![Value::integer(99)]));
 
     let values = call_with_runtime(
         &mut runtime,
@@ -470,10 +463,7 @@ fn base_xpcall_calls_handler_for_caught_error() {
         runtime.protected_calls[1].0,
         Value::native_function_index(4)
     );
-    assert_eq!(
-        runtime.short_string_bytes(runtime.protected_calls[1].1[0]),
-        Some(b"boom".as_slice())
-    );
+    assert_eq!(runtime.protected_calls[1].1[0], message);
 }
 
 #[test]

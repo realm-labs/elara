@@ -1,13 +1,4 @@
 local ok, message = pcall(error)
 local nil_ok, nil_message = pcall(error, nil)
 
-return ok,
-  string.len(message),
-  string.byte(message, 1),
-  string.byte(message, 10),
-  string.byte(message, 17),
-  nil_ok,
-  string.len(nil_message),
-  string.byte(nil_message, 1),
-  string.byte(nil_message, 10),
-  string.byte(nil_message, 17)
+return ok, message == nil, nil_ok, nil_message == nil

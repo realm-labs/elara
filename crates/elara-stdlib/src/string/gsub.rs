@@ -2,7 +2,7 @@
 
 use elara_core::Value;
 
-use crate::{NativeError, NativeErrorKind, NativeRuntime};
+use crate::{NativeError, NativeErrorKind, NativeRuntime, native::protected_error_message};
 
 use super::{
     number_arg_bytes, optional_integer_arg,
@@ -204,7 +204,7 @@ fn append_function_replacement(
     let args = replacement_args(runtime, subject, match_)?;
     let values = runtime
         .protected_call(function, &args)?
-        .map_err(NativeError::lua_error)?;
+        .map_err(|error| NativeError::lua_error(protected_error_message(runtime, error)))?;
     let value = values.first().copied().unwrap_or_else(Value::nil);
     append_replacement_value(runtime, output, subject, match_, value)
 }
@@ -293,7 +293,7 @@ mod tests {
     struct TestRuntime {
         strings: Vec<Box<[u8]>>,
         tables: Vec<Vec<(Value, Value)>>,
-        protected_results: Vec<Result<Vec<Value>, Box<str>>>,
+        protected_results: Vec<Result<Vec<Value>, Value>>,
     }
 
     impl TestRuntime {
@@ -342,9 +342,9 @@ mod tests {
             &mut self,
             _function: Value,
             _args: &[Value],
-        ) -> Result<Result<Vec<Value>, Box<str>>, NativeError> {
+        ) -> Result<Result<Vec<Value>, Value>, NativeError> {
             if self.protected_results.is_empty() {
-                return Ok(Err("missing protected result".into()));
+                return Ok(Err(self.push_string(b"missing protected result")));
             }
             Ok(self.protected_results.remove(0))
         }

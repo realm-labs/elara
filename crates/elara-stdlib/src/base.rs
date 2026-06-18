@@ -4,6 +4,7 @@ use elara_core::Value;
 
 use crate::{
     FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
+    native::protected_error_message,
     number::{parse_base_integer, parse_standard_number},
 };
 
@@ -63,11 +64,13 @@ fn base_assert(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
     if is_truthy(condition) {
         Ok(args.to_vec())
     } else {
-        let message = match args.get(1) {
-            Some(value) => error_message(runtime, *value),
-            None => "assertion failed!".into(),
-        };
-        Err(NativeError::lua_error(message))
+        match args.get(1).copied() {
+            Some(value) => Err(NativeError::lua_error_object(
+                value,
+                error_message(runtime, value),
+            )),
+            None => Err(NativeError::lua_error("assertion failed!")),
+        }
     }
 }
 
@@ -92,7 +95,10 @@ fn base_error(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
         })?;
     }
     let value = args.first().copied().unwrap_or_else(Value::nil);
-    Err(NativeError::lua_error(error_message(runtime, value)))
+    Err(NativeError::lua_error_object(
+        value,
+        error_message(runtime, value),
+    ))
 }
 
 fn base_getmetatable(
@@ -211,10 +217,7 @@ fn base_pcall(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
             results.extend(values);
             Ok(results)
         }
-        Err(message) => Ok(vec![
-            Value::boolean(false),
-            runtime.intern_string(message.as_bytes())?,
-        ]),
+        Err(error) => Ok(vec![Value::boolean(false), error]),
     }
 }
 
@@ -229,21 +232,15 @@ fn base_xpcall(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
             results.extend(values);
             Ok(results)
         }
-        Err(message) => {
-            let message = runtime.intern_string(message.as_bytes())?;
-            match runtime.protected_call(handler, &[message])? {
-                Ok(values) => {
-                    let mut results = Vec::with_capacity(values.len() + 1);
-                    results.push(Value::boolean(false));
-                    results.extend(values);
-                    Ok(results)
-                }
-                Err(handler_message) => Ok(vec![
-                    Value::boolean(false),
-                    runtime.intern_string(handler_message.as_bytes())?,
-                ]),
+        Err(error) => match runtime.protected_call(handler, &[error])? {
+            Ok(values) => {
+                let mut results = Vec::with_capacity(values.len() + 1);
+                results.push(Value::boolean(false));
+                results.extend(values);
+                Ok(results)
             }
-        }
+            Err(handler_error) => Ok(vec![Value::boolean(false), handler_error]),
+        },
     }
 }
 
@@ -559,10 +556,12 @@ fn validate_optional_mode(
     let Some(value) = args.get(index - 1).filter(|value| !value.is_nil()) else {
         return Ok(());
     };
-    let mode = runtime.string_bytes(*value).ok_or(NativeErrorKind::TypeError {
-        index,
-        expected: "string",
-    })?;
+    let mode = runtime
+        .string_bytes(*value)
+        .ok_or(NativeErrorKind::TypeError {
+            index,
+            expected: "string",
+        })?;
     if mode.contains(&b'B') {
         return Err(NativeError::lua_error("invalid mode"));
     }
@@ -610,7 +609,7 @@ fn call_pairs_metamethod(
 ) -> Result<Vec<Value>, NativeError> {
     let mut results = runtime
         .protected_call(metamethod, &[value])?
-        .map_err(NativeError::lua_error)?;
+        .map_err(|error| NativeError::lua_error(protected_error_message(runtime, error)))?;
     results.truncate(4);
     while results.len() < 4 {
         results.push(Value::nil());

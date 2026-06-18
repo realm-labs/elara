@@ -7,7 +7,4 @@ return ok,
   string.byte(message, 10),
   string.byte(message, 17),
   nil_ok,
-  string.len(nil_message),
-  string.byte(nil_message, 1),
-  string.byte(nil_message, 10),
-  string.byte(nil_message, 17)
+  nil_message == nil

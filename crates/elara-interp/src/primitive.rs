@@ -1050,7 +1050,7 @@ impl RuntimeStrings {
 }
 
 /// Primitive interpreter runtime error kind.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum RuntimeErrorKind {
     /// Bytecode verifier rejected the prototype.
     Verification(Vec<VerifyError>),
@@ -1109,7 +1109,10 @@ pub enum RuntimeErrorKind {
     /// Native function index was not registered in this runtime.
     NativeFunctionOutOfBounds { index: usize },
     /// Native function raised a host/runtime error.
-    NativeFunctionError { message: Box<str> },
+    NativeFunctionError {
+        message: Box<str>,
+        error_object: Option<Value>,
+    },
     /// Opcode is not supported by the primitive interpreter.
     UnsupportedOpcode { op: Op },
 }
@@ -1172,7 +1175,7 @@ impl RuntimeErrorKind {
             Self::NativeFunctionOutOfBounds { index } => {
                 format!("native function index {index} is out of bounds")
             }
-            Self::NativeFunctionError { message } => message.to_string(),
+            Self::NativeFunctionError { message, .. } => message.to_string(),
             Self::UnsupportedOpcode { op } => format!("unsupported opcode '{}'", op.mnemonic()),
         }
     }

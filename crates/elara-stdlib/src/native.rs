@@ -303,7 +303,7 @@ pub trait NativeRuntime {
         &mut self,
         _function: Value,
         _args: &[Value],
-    ) -> Result<Result<Vec<Value>, Box<str>>, NativeError> {
+    ) -> Result<Result<Vec<Value>, Value>, NativeError> {
         Err(NativeErrorKind::RuntimeError {
             message: "native runtime does not support protected calls".into(),
         }
@@ -429,10 +429,11 @@ impl PartialEq for NativeFunctionSpec {
 impl Eq for NativeFunctionSpec {}
 
 /// Error raised by an executable standard-library native.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct NativeError {
     kind: NativeErrorKind,
     message: Box<str>,
+    lua_error_object: Option<Value>,
 }
 
 impl NativeError {
@@ -440,7 +441,11 @@ impl NativeError {
     #[must_use]
     pub fn new(kind: NativeErrorKind) -> Self {
         let message = kind.message().into_boxed_str();
-        Self { kind, message }
+        Self {
+            kind,
+            message,
+            lua_error_object: None,
+        }
     }
 
     /// Creates a Lua-level error with a custom message payload.
@@ -449,6 +454,17 @@ impl NativeError {
         Self {
             kind: NativeErrorKind::LuaError,
             message: message.into(),
+            lua_error_object: None,
+        }
+    }
+
+    /// Creates a Lua-level error while preserving the original Lua error object.
+    #[must_use]
+    pub fn lua_error_object(value: Value, message: impl Into<Box<str>>) -> Self {
+        Self {
+            kind: NativeErrorKind::LuaError,
+            message: message.into(),
+            lua_error_object: Some(value),
         }
     }
 
@@ -463,12 +479,40 @@ impl NativeError {
     pub const fn message(&self) -> &str {
         &self.message
     }
+
+    /// Original Lua error object, when the native was raised from `error(value)`.
+    #[must_use]
+    pub const fn lua_error_value(&self) -> Option<Value> {
+        self.lua_error_object
+    }
 }
 
 impl From<NativeErrorKind> for NativeError {
     fn from(kind: NativeErrorKind) -> Self {
         Self::new(kind)
     }
+}
+
+/// Converts a protected-call error object into a displayable message.
+#[must_use]
+pub(crate) fn protected_error_message(runtime: &dyn NativeRuntime, value: Value) -> String {
+    if value.is_nil() {
+        return "<no error object>".to_owned();
+    }
+    runtime.string_bytes(value).map_or_else(
+        || {
+            if let Some(boolean) = value.as_bool() {
+                boolean.to_string()
+            } else if let Some(integer) = value.as_integer() {
+                integer.to_string()
+            } else if let Some(float) = value.as_float() {
+                float.to_string()
+            } else {
+                "runtime error".to_owned()
+            }
+        },
+        |bytes| String::from_utf8_lossy(bytes).into_owned(),
+    )
 }
 
 /// Stable native standard-library error kind.

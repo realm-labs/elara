@@ -6,6 +6,7 @@ use elara_core::Value;
 
 use crate::{
     FunctionSpec, NativeError, NativeErrorKind, NativeFunctionSpec, NativeRuntime, StdLib,
+    native::protected_error_message,
 };
 
 mod loadlib;
@@ -193,7 +194,11 @@ fn searcher_loader(
         }
         let results = match runtime.protected_call(searcher, &[name])? {
             Ok(results) => results,
-            Err(message) => return Err(NativeError::lua_error(message)),
+            Err(error) => {
+                return Err(NativeError::lua_error(protected_error_message(
+                    runtime, error,
+                )));
+            }
         };
         if let Some(message) = results
             .first()
@@ -223,7 +228,11 @@ fn run_loader(
 ) -> Result<Vec<Value>, NativeError> {
     let loaded_value = match runtime.protected_call(loader, &[name, loader_data])? {
         Ok(results) => results.first().copied().unwrap_or_else(Value::nil),
-        Err(message) => return Err(NativeError::lua_error(message)),
+        Err(error) => {
+            return Err(NativeError::lua_error(protected_error_message(
+                runtime, error,
+            )));
+        }
     };
     if !loaded_value.is_nil() {
         runtime.table_set(loaded, name, loaded_value)?;
@@ -345,7 +354,7 @@ mod tests {
         tables: Vec<Vec<(Value, Value)>>,
         globals: Vec<(Box<[u8]>, Value)>,
         protected_calls: Vec<(Value, Vec<Value>)>,
-        protected_results: Vec<Result<Vec<Value>, Box<str>>>,
+        protected_results: Vec<Result<Vec<Value>, Value>>,
     }
 
     impl TestRuntime {
@@ -433,7 +442,7 @@ mod tests {
             &mut self,
             function: Value,
             args: &[Value],
-        ) -> Result<Result<Vec<Value>, Box<str>>, crate::NativeError> {
+        ) -> Result<Result<Vec<Value>, Value>, crate::NativeError> {
             self.protected_calls.push((function, args.to_vec()));
             Ok(self.protected_results.remove(0))
         }

@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 
 use elara_core::Value;
 
-use crate::{NativeError, NativeErrorKind, NativeRuntime};
+use crate::{NativeError, NativeErrorKind, NativeRuntime, native::protected_error_message};
 
 pub(super) fn table_sort(
     runtime: &mut dyn NativeRuntime,
@@ -73,7 +73,7 @@ fn compare_values(
     if let Some(comparator) = comparator {
         let values = runtime
             .protected_call(comparator, &[left, right])?
-            .map_err(NativeError::lua_error)?;
+            .map_err(|error| NativeError::lua_error(protected_error_message(runtime, error)))?;
         let before = values
             .first()
             .copied()
@@ -108,7 +108,7 @@ mod tests {
     struct TestRuntime {
         strings: Vec<Box<[u8]>>,
         tables: Vec<Vec<(Value, Value)>>,
-        protected_results: Vec<Result<Vec<Value>, Box<str>>>,
+        protected_results: Vec<Result<Vec<Value>, Value>>,
         protected_calls: Vec<(Value, Vec<Value>)>,
     }
 
@@ -182,10 +182,10 @@ mod tests {
             &mut self,
             function: Value,
             args: &[Value],
-        ) -> Result<Result<Vec<Value>, Box<str>>, NativeError> {
+        ) -> Result<Result<Vec<Value>, Value>, NativeError> {
             self.protected_calls.push((function, args.to_vec()));
             if self.protected_results.is_empty() {
-                return Ok(Err("missing protected result".into()));
+                return Ok(Err(self.push_string(b"missing protected result")));
             }
             Ok(self.protected_results.remove(0))
         }
@@ -292,9 +292,11 @@ mod tests {
     #[test]
     fn table_sort_propagates_comparator_errors() {
         let mut runtime = TestRuntime {
-            protected_results: vec![Err("boom".into())],
+            protected_results: Vec::new(),
             ..TestRuntime::default()
         };
+        let message = runtime.push_string(b"boom");
+        runtime.protected_results.push(Err(message));
         let table = runtime.push_table(&[
             (Value::integer(1), Value::integer(2)),
             (Value::integer(2), Value::integer(1)),

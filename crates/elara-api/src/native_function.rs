@@ -143,6 +143,7 @@ fn lua_value_to_runtime(
 fn native_error_to_runtime_error(error: NativeFunctionError) -> RuntimeError {
     RuntimeErrorKind::NativeFunctionError {
         message: error.message,
+        error_object: None,
     }
     .into()
 }

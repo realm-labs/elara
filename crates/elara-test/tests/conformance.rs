@@ -547,25 +547,16 @@ fn conformance_standard_library_fixtures() {
             Value::integer(32),
             Value::integer(33),
             Value::boolean(false),
-            Value::integer(17),
-            Value::integer(60),
-            Value::integer(32),
-            Value::integer(62),
+            Value::boolean(true),
         ],
     );
     assert_success_fixture(
         "stdlib/base_error_nil_message.lua",
         vec![
             Value::boolean(false),
-            Value::integer(17),
-            Value::integer(60),
-            Value::integer(32),
-            Value::integer(62),
+            Value::boolean(true),
             Value::boolean(false),
-            Value::integer(17),
-            Value::integer(60),
-            Value::integer(32),
-            Value::integer(62),
+            Value::boolean(true),
         ],
     );
     assert_success_fixture(
@@ -875,6 +866,14 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture(
         "stdlib/base_pcall_error.lua",
         vec![Value::boolean(false), Value::integer(115)],
+    );
+    assert_success_fixture(
+        "stdlib/base_pcall_nil_error.lua",
+        vec![
+            Value::boolean(false),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/base_pcall_non_callable.lua",

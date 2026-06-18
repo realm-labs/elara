@@ -707,11 +707,11 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
         &mut self,
         function: Value,
         args: &[Value],
-    ) -> Result<Result<Vec<Value>, Box<str>>, NativeError> {
+    ) -> Result<Result<Vec<Value>, Value>, NativeError> {
         Ok(self
             .context
             .protected_call(function, args)
-            .map_err(|error| error.message().into()))
+            .map_err(|error| runtime_error_object(self.context, &error)))
     }
 
     fn native_function(&self, library: StdLib, name: &str) -> Result<Value, NativeError> {
@@ -791,7 +791,11 @@ impl NativeRuntime for InterpNativeRuntime<'_, '_> {
                 .map_err(native_error_to_runtime_error)?
             {
                 Ok(values) => Ok(values),
-                Err(message) => Err(RuntimeErrorKind::NativeFunctionError { message }.into()),
+                Err(message) => Err(RuntimeErrorKind::NativeFunctionError {
+                    message,
+                    error_object: None,
+                }
+                .into()),
             }
         }))
     }
@@ -909,9 +913,23 @@ fn runtime_error_to_native_error(error: elara_interp::RuntimeError) -> NativeErr
     .into()
 }
 
+fn runtime_error_object(
+    context: &mut NativeContext<'_>,
+    error: &elara_interp::RuntimeError,
+) -> Value {
+    match error.kind() {
+        RuntimeErrorKind::NativeFunctionError {
+            error_object: Some(value),
+            ..
+        } => *value,
+        _ => context.intern_string(error.message().as_bytes()),
+    }
+}
+
 fn native_error_to_runtime_error(error: NativeError) -> elara_interp::RuntimeError {
     RuntimeErrorKind::NativeFunctionError {
         message: error.message().into(),
+        error_object: error.lua_error_value(),
     }
     .into()
 }

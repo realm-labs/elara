@@ -218,12 +218,14 @@ fn frame_index_for_level(level: i64, debug_frames: &[RuntimeDebugFrame]) -> Runt
     let Some(level) = usize::try_from(level).ok() else {
         return Err(RuntimeErrorKind::NativeFunctionError {
             message: "level out of range".into(),
+            error_object: None,
         }
         .into());
     };
     debug_frames.len().checked_sub(level + 1).ok_or_else(|| {
         RuntimeErrorKind::NativeFunctionError {
             message: "level out of range".into(),
+            error_object: None,
         }
         .into()
     })
@@ -405,6 +407,7 @@ fn validate_options(options: &[u8]) -> RuntimeResult<()> {
                 let display = char::from(option);
                 return Err(RuntimeErrorKind::NativeFunctionError {
                     message: format!("invalid option '{display}'").into_boxed_str(),
+                    error_object: None,
                 }
                 .into());
             }
