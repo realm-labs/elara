@@ -3093,6 +3093,10 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture("stdlib/table_sort_single.lua", vec![Value::integer(42)]);
     assert_success_fixture(
+        "stdlib/table_sort_empty.lua",
+        vec![Value::integer(0), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/table_sort_comparator.lua",
         vec![Value::integer(2), Value::integer(1)],
     );

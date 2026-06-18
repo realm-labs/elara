@@ -442,6 +442,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_sort_strings.lua",
     "stdlib/table_sort_long_strings.lua",
     "stdlib/table_sort_single.lua",
+    "stdlib/table_sort_empty.lua",
     "stdlib/table_sort_comparator.lua",
     "stdlib/table_sort_descending.lua",
     "stdlib/table_sort_comparator_truthy.lua",
