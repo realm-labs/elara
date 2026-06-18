@@ -212,6 +212,10 @@ fn conformance_language_fixtures() {
         "language/closure_upvalue_assignment.lua",
         vec![Value::integer(41), Value::integer(41)],
     );
+    assert_success_fixture(
+        "language/closure_late_assignment.lua",
+        vec![Value::integer(42)],
+    );
     assert_success_fixture("language/call_statement.lua", vec![Value::integer(42)]);
     assert_success_fixture(
         "language/call_metamethod_self.lua",
