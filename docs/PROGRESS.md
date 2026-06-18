@@ -1823,6 +1823,9 @@ Delivered:
   at an exact character-start position.
 - The UTF-8 conformance and differential matrix now covers `utf8.codes`
   ignoring trailing arguments beyond the optional lax flag.
+- The UTF-8 conformance and differential matrix now covers explicit nil
+  required argument errors for character construction, subject strings, and
+  offset counts.
 - Table-library integer arguments now accept exact floats and numeric strings,
   including hexadecimal numeric strings, across insertion, removal, move,
   unpack, and concat bounds while rejecting non-integral values.
@@ -2141,7 +2144,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred eighty-four smoke fixtures across
+- `tests/conformance` currently contains six hundred eighty-five smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
