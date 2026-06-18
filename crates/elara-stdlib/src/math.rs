@@ -286,12 +286,12 @@ fn math_ult(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value
     )])
 }
 
-fn math_min(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    extrema_arg(args, Extrema::Min).map(|value| vec![value])
+fn math_min(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    extrema_arg(runtime, args, Extrema::Min).map(|value| vec![value])
 }
 
-fn math_max(_runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    extrema_arg(args, Extrema::Max).map(|value| vec![value])
+fn math_max(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
+    extrema_arg(runtime, args, Extrema::Max).map(|value| vec![value])
 }
 
 fn math_random(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
@@ -428,21 +428,6 @@ fn number_arg(
     )
 }
 
-fn raw_number_arg(args: &[Value], index: usize) -> Result<Value, NativeError> {
-    let value = *args
-        .get(index - 1)
-        .ok_or(NativeErrorKind::MissingArgument { index })?;
-    if value.is_number() {
-        Ok(value)
-    } else {
-        Err(NativeErrorKind::TypeError {
-            index,
-            expected: "number",
-        }
-        .into())
-    }
-}
-
 fn number_float_arg(
     runtime: &dyn NativeRuntime,
     args: &[Value],
@@ -529,29 +514,101 @@ enum Extrema {
     Max,
 }
 
-fn extrema_arg(args: &[Value], extrema: Extrema) -> Result<Value, NativeError> {
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum ExtremaKind {
+    Number,
+    String,
+}
+
+fn extrema_arg(
+    runtime: &dyn NativeRuntime,
+    args: &[Value],
+    extrema: Extrema,
+) -> Result<Value, NativeError> {
     if args.is_empty() {
         return Err(NativeErrorKind::MissingArgument { index: 1 }.into());
     }
 
-    let mut selected = raw_number_arg(args, 1)?;
+    let mut selected = comparable_arg(runtime, args, 1)?;
     for index in 2..=args.len() {
-        let candidate = raw_number_arg(args, index)?;
-        let candidate_float = candidate
-            .to_float()
-            .expect("number_arg accepted only numbers");
-        let selected_float = selected
-            .to_float()
-            .expect("number_arg accepted only numbers");
+        let candidate = comparable_arg(runtime, args, index)?;
         let replace = match extrema {
-            Extrema::Min => candidate_float < selected_float,
-            Extrema::Max => selected_float < candidate_float,
+            Extrema::Min => extrema_less(runtime, candidate, index, selected, 1)?,
+            Extrema::Max => extrema_less(runtime, selected, 1, candidate, index)?,
         };
         if replace {
             selected = candidate;
         }
     }
     Ok(selected)
+}
+
+fn comparable_arg(
+    runtime: &dyn NativeRuntime,
+    args: &[Value],
+    index: usize,
+) -> Result<Value, NativeError> {
+    let value = *args
+        .get(index - 1)
+        .ok_or(NativeErrorKind::MissingArgument { index })?;
+    if extrema_kind(runtime, value).is_some() {
+        Ok(value)
+    } else {
+        Err(NativeErrorKind::TypeError {
+            index,
+            expected: "number or string",
+        }
+        .into())
+    }
+}
+
+fn extrema_kind(runtime: &dyn NativeRuntime, value: Value) -> Option<ExtremaKind> {
+    if value.is_number() {
+        Some(ExtremaKind::Number)
+    } else if runtime.string_bytes(value).is_some() {
+        Some(ExtremaKind::String)
+    } else {
+        None
+    }
+}
+
+fn extrema_less(
+    runtime: &dyn NativeRuntime,
+    left: Value,
+    left_index: usize,
+    right: Value,
+    right_index: usize,
+) -> Result<bool, NativeError> {
+    match (extrema_kind(runtime, left), extrema_kind(runtime, right)) {
+        (Some(ExtremaKind::Number), Some(ExtremaKind::Number)) => {
+            let left_float = left.to_float().expect("number values convert to float");
+            let right_float = right.to_float().expect("number values convert to float");
+            Ok(left_float < right_float)
+        }
+        (Some(ExtremaKind::String), Some(ExtremaKind::String)) => {
+            let left_bytes = runtime
+                .string_bytes(left)
+                .expect("string kind has runtime bytes");
+            let right_bytes = runtime
+                .string_bytes(right)
+                .expect("string kind has runtime bytes");
+            Ok(left_bytes < right_bytes)
+        }
+        (Some(_), Some(_)) => Err(NativeErrorKind::RuntimeError {
+            message: "attempt to compare values of different types".into(),
+        }
+        .into()),
+        (None, _) => Err(NativeErrorKind::TypeError {
+            index: left_index,
+            expected: "number or string",
+        }
+        .into()),
+        (_, None) => Err(NativeErrorKind::TypeError {
+            index: right_index,
+            expected: "number or string",
+        }
+        .into()),
+    }
 }
 
 #[cfg(test)]
@@ -739,6 +796,40 @@ mod tests {
     }
 
     #[test]
+    fn math_min_and_max_compare_string_values() {
+        let mut runtime = TestRuntime::default();
+        let b = runtime
+            .intern_short_string(b"b")
+            .expect("test string should intern");
+        let a = runtime
+            .intern_short_string(b"a")
+            .expect("test string should intern");
+        let c = runtime
+            .intern_short_string(b"c")
+            .expect("test string should intern");
+
+        assert_eq!(math_min(&mut runtime, &[b, a, c]), Ok(vec![a]));
+        assert_eq!(math_max(&mut runtime, &[b, a, c]), Ok(vec![c]));
+    }
+
+    #[test]
+    fn math_min_and_max_reject_mixed_number_and_string_values() {
+        let mut runtime = TestRuntime::default();
+        let text = runtime
+            .intern_short_string(b"7")
+            .expect("test string should intern");
+
+        assert_eq!(
+            math_min(&mut runtime, &[Value::integer(1), text])
+                .expect_err("mixed comparison should fail")
+                .kind(),
+            &NativeErrorKind::RuntimeError {
+                message: "attempt to compare values of different types".into()
+            }
+        );
+    }
+
+    #[test]
     fn math_frexp_and_ldexp_split_and_recombine_float() {
         assert_eq!(
             call(math_frexp, &[Value::float(12.0)]),
@@ -917,7 +1008,7 @@ mod tests {
             error.kind(),
             &NativeErrorKind::TypeError {
                 index: 2,
-                expected: "number"
+                expected: "number or string"
             }
         );
     }

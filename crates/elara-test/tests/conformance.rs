@@ -3081,6 +3081,10 @@ fn conformance_standard_library_fixtures() {
         "stdlib/math_minmax_single.lua",
         vec![Value::integer(42), Value::float(-7.5)],
     );
+    assert_success_fixture(
+        "stdlib/math_minmax_strings.lua",
+        vec![Value::integer(97), Value::integer(99)],
+    );
     assert_success_fixture("stdlib/math_fmod_negative.lua", vec![Value::integer(-2)]);
     assert_success_fixture(
         "stdlib/math_fmod_negative_divisor.lua",
