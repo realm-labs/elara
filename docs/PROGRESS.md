@@ -1979,6 +1979,8 @@ Delivered:
   oversize integers, invalid options, and invalid `X` next options.
 - The string conformance and differential matrix now covers `string.packsize`
   missing-format and non-string-format argument errors.
+- The string conformance and differential matrix now covers `string.packsize`
+  ignoring trailing arguments after the format string.
 - The string conformance and differential matrix now covers `string.unpack`
   missing-format, non-string-format, missing-data, and non-string-data
   argument errors.
@@ -2128,7 +2130,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred seventy-nine smoke fixtures across
+- `tests/conformance` currently contains six hundred eighty smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
