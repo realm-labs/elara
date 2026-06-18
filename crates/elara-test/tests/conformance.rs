@@ -2012,6 +2012,19 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_unpack_strings.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(97),
+            Value::integer(98),
+            Value::integer(99),
+            Value::integer(2),
+            Value::integer(111),
+            Value::integer(107),
+            Value::integer(8),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_len_embedded_nul.lua",
         vec![Value::integer(4), Value::integer(0)],
     );
