@@ -2175,12 +2175,14 @@ Delivered:
   shared conformance and differential fixtures cover the final-init boundary.
 - `string.gmatch` now also allows a final empty match at `#s + 1` while still
   stopping for larger init positions.
+- The string-library conformance and differential matrix now covers empty
+  subject handling across `find`, `match`, `gsub`, and `gmatch`.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred ninety-seven smoke fixtures across
+- `tests/conformance` currently contains six hundred ninety-eight smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
