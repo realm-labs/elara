@@ -2067,6 +2067,8 @@ Delivered:
   default index.
 - The debug conformance and differential matrix now covers `debug.sethook`
   treating an explicit nil count like the default zero count.
+- The debug conformance and differential matrix now covers explicit nil
+  required argument errors for local/upvalue helpers and hook mask validation.
 - The io conformance and differential matrix now covers absent-file `io.open`
   ignoring trailing arguments after the optional mode.
 - The io conformance and differential matrix now covers absent-file `io.open`
@@ -2115,7 +2117,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred seventy-four smoke fixtures across
+- `tests/conformance` currently contains six hundred seventy-five smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
