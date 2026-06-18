@@ -33,8 +33,8 @@ use metamethod::{
 };
 pub use table::RuntimeTables;
 use table::{
-    execute_get_index, execute_get_table, execute_new_table, execute_set_index, execute_set_table,
-    execute_vararg_table,
+    execute_get_index, execute_get_table, execute_new_table, execute_set_index, execute_set_list,
+    execute_set_table, execute_vararg_table,
 };
 
 /// Result of executing one prototype.
@@ -1555,6 +1555,10 @@ fn execute_instruction(
             context.natives,
             context.globals,
         )?,
+        Op::SetList => {
+            execute_set_list(thread, instr, context.tables, *dynamic_top)?;
+            *dynamic_top = 0;
+        }
         Op::GetIndex => execute_get_index(
             thread,
             context.closures,

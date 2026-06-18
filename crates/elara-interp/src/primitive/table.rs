@@ -422,6 +422,33 @@ pub(super) fn execute_set_table(
     tables.set_with_newindex(table_index, key, value, closures, strings, natives, globals)
 }
 
+pub(super) fn execute_set_list(
+    thread: &LuaThread,
+    instr: Instr,
+    tables: &mut RuntimeTables,
+    dynamic_top: usize,
+) -> RuntimeResult<()> {
+    let table_index = register(thread, instr.a().into())?
+        .as_table_index()
+        .ok_or(RuntimeErrorKind::NonTableValue)? as usize;
+    let start_index = LuaInteger::from(instr.b());
+    let value_base = instr.c() as usize;
+    let count = dynamic_top.saturating_sub(value_base);
+
+    for offset in 0..count {
+        let Ok(index_offset) = LuaInteger::try_from(offset) else {
+            return Err(RuntimeErrorKind::InvalidTableKey.into());
+        };
+        let key = start_index
+            .checked_add(index_offset)
+            .ok_or(RuntimeErrorKind::InvalidTableKey)?;
+        let value = register(thread, value_base + offset)?;
+        tables.raw_set_integer(table_index, key, value)?;
+    }
+
+    Ok(())
+}
+
 pub(super) fn execute_get_table(
     thread: &mut LuaThread,
     closures: &mut Vec<RuntimeClosure>,

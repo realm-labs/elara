@@ -125,6 +125,20 @@ fn conformance_language_fixtures() {
         ],
     );
     assert_success_fixture(
+        "language/table_final_open_field_expansion.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(10),
+            Value::integer(20),
+            Value::integer(30),
+            Value::integer(3),
+            Value::integer(40),
+            Value::integer(60),
+            Value::integer(1),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "language/table_computed_keys.lua",
         vec![Value::integer(11), Value::integer(20), Value::integer(30)],
     );

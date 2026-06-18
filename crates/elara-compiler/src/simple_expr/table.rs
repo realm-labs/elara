@@ -33,7 +33,30 @@ impl SimpleCompiler {
             .emit_abc(Op::NewTable, table, array_count as u32, hash_count as u32);
 
         let mut array_index = 1_i64;
-        for field in fields {
+        for (field_index, field) in fields.iter().enumerate() {
+            let is_last = field_index + 1 == fields.len();
+            if let TableFieldKind::Array(value) = field.kind()
+                && is_last
+                && matches!(value.kind(), ExprKind::Call { .. } | ExprKind::Vararg)
+            {
+                let value_base = self.next_register;
+                self.ensure_register_slot(value_base);
+                match value.kind() {
+                    ExprKind::Call { callee, args, .. } => {
+                        self.compile_call_into_register(value, callee, args, value_base, 0);
+                    }
+                    ExprKind::Vararg => self.compile_vararg_into_register(value, value_base, 0),
+                    _ => unreachable!("checked final open table field kind"),
+                }
+                self.builder.emit_abc(
+                    Op::SetList,
+                    table,
+                    array_index as u32,
+                    u32::from(value_base),
+                );
+                continue;
+            }
+
             let (key, value) = match field.kind() {
                 TableFieldKind::Array(value) => {
                     let key = self.emit_constant(Value::integer(array_index));

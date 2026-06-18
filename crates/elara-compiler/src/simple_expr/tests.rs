@@ -294,6 +294,23 @@ fn table_constructor_compiles_array_record_and_keyed_fields() {
 }
 
 #[test]
+fn table_constructor_compiles_final_open_array_field_with_set_list() {
+    let compiled = compile_simple_chunk(
+        SourceId::new(0),
+        "local function f() return 2, 3 end\nreturn { 1, f() }",
+    );
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert!(
+        proto
+            .code
+            .iter()
+            .any(|instr| instr.op() == Op::SetList && instr.b() == 2)
+    );
+}
+
+#[test]
 fn table_access_compiles_index_read_and_write() {
     let compiled = compile_simple_chunk(SourceId::new(0), "local t = {}\nt[1] = 42\nreturn t[1]");
     assert_eq!(compiled.diagnostics, Vec::new());

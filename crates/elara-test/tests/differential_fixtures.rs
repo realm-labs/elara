@@ -22,6 +22,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "language/open_call_argument_count.lua",
     "language/table_fields.lua",
     "language/table_open_field_truncation.lua",
+    "language/table_final_open_field_expansion.lua",
     "language/table_computed_keys.lua",
     "language/closures.lua",
     "language/closure_upvalue_assignment.lua",

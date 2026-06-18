@@ -141,6 +141,10 @@ impl Verifier<'_> {
                 self.check_register(offset, instr.a());
                 self.check_register(offset, instr.c());
             }
+            Op::SetList => {
+                self.check_register(offset, instr.a());
+                self.check_register(offset, instr.c());
+            }
             Op::GetTable
             | Op::SetTable
             | Op::Add

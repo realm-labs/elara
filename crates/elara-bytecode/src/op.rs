@@ -138,6 +138,8 @@ pub enum Op {
     AddInt,
     /// Boolean negation.
     Not,
+    /// Write a contiguous open list of array fields.
+    SetList,
 }
 
 impl Op {
@@ -200,6 +202,7 @@ impl Op {
             52 => Some(Self::Yield),
             53 => Some(Self::AddInt),
             54 => Some(Self::Not),
+            55 => Some(Self::SetList),
             _ => None,
         }
     }
@@ -222,6 +225,7 @@ impl Op {
             Self::NewTable => "NEW_TABLE",
             Self::GetTable => "GET_TABLE",
             Self::SetTable => "SET_TABLE",
+            Self::SetList => "SET_LIST",
             Self::GetIndex => "GET_INDEX",
             Self::SetIndex => "SET_INDEX",
             Self::Len => "LEN",
@@ -385,13 +389,15 @@ mod tests {
         assert_eq!(Op::from_byte(52), Some(Op::Yield));
         assert_eq!(Op::from_byte(53), Some(Op::AddInt));
         assert_eq!(Op::from_byte(54), Some(Op::Not));
-        assert_eq!(Op::from_byte(55), None);
+        assert_eq!(Op::from_byte(55), Some(Op::SetList));
+        assert_eq!(Op::from_byte(56), None);
     }
 
     #[test]
     fn op_exposes_stable_mnemonics() {
         assert_eq!(Op::Move.mnemonic(), "MOVE");
         assert_eq!(Op::LoadK.mnemonic(), "LOAD_K");
+        assert_eq!(Op::SetList.mnemonic(), "SET_LIST");
         assert_eq!(Op::Yield.mnemonic(), "YIELD");
         assert_eq!(Op::VarargTable.mnemonic(), "VARARG_TABLE");
         assert_eq!(Op::AddInt.mnemonic(), "ADD_INT");
