@@ -3217,6 +3217,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/debug_upvaluejoin_extra_args.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(2),
+            Value::integer(2),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/debug_upvalueid_absent.lua",
         vec![
             Value::boolean(true),

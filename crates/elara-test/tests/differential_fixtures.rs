@@ -489,6 +489,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/debug_upvalueid_extra_args.lua",
     "stdlib/debug_upvalueid_distinct.lua",
     "stdlib/debug_upvaluejoin_return.lua",
+    "stdlib/debug_upvaluejoin_extra_args.lua",
     "stdlib/debug_upvalueid_absent.lua",
     "stdlib/debug_locals.lua",
     "stdlib/debug_getlocal_stack_absent.lua",
