@@ -157,6 +157,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_xpcall_handler_nil.lua",
     "stdlib/base_xpcall_handler_message.lua",
     "stdlib/base_xpcall_handler_nil_error.lua",
+    "stdlib/base_xpcall_handler_scalar_error.lua",
     "stdlib/math_string_patterns.lua",
     "stdlib/string_pattern_captures.lua",
     "stdlib/string_pattern_anchor_literals.lua",
