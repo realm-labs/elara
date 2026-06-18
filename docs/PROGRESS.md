@@ -2209,12 +2209,14 @@ Delivered:
   `math.fmod(math.mininteger, -1)` returning zero without integer overflow.
 - The table-library conformance and differential matrix now covers
   `table.sort` preserving non-array hash fields while sorting the array part.
+- The table-library conformance and differential matrix now covers
+  `table.insert` preserving non-array hash fields while shifting array values.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains seven hundred thirteen smoke fixtures across
+- `tests/conformance` currently contains seven hundred fourteen smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
