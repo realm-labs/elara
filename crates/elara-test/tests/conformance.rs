@@ -2425,6 +2425,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(3), Value::integer(2), Value::integer(1)],
     );
     assert_success_fixture(
+        "stdlib/table_sort_comparator_truthy.lua",
+        vec![Value::integer(3), Value::integer(2), Value::integer(1)],
+    );
+    assert_success_fixture(
         "stdlib/table_sort_errors.lua",
         vec![
             Value::boolean(false),
