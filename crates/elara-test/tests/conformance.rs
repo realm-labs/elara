@@ -2958,6 +2958,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(12), Value::integer(46), Value::integer(67)],
     );
     assert_success_fixture(
+        "stdlib/package_searchpath_extra_args.lua",
+        vec![Value::integer(12), Value::integer(46), Value::integer(67)],
+    );
+    assert_success_fixture(
         "stdlib/package_searchpath_separators.lua",
         vec![
             Value::boolean(true),

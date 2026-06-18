@@ -457,6 +457,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/package_searcher_path_errors.lua",
     "stdlib/package_searchpath.lua",
     "stdlib/package_searchpath_found.lua",
+    "stdlib/package_searchpath_extra_args.lua",
     "stdlib/package_searchpath_separators.lua",
     "stdlib/package_searchpath_errors.lua",
     "stdlib/package_config.lua",
