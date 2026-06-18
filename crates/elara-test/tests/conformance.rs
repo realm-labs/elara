@@ -2104,6 +2104,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_unpack_position.lua",
+        vec![Value::integer(3), Value::integer(42), Value::integer(3)],
+    );
+    assert_success_fixture(
         "stdlib/string_len_embedded_nul.lua",
         vec![Value::integer(4), Value::integer(0)],
     );
