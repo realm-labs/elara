@@ -208,6 +208,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_sub_nil_end.lua",
     "stdlib/string_sub_full_range.lua",
     "stdlib/string_sub_middle.lua",
+    "stdlib/string_sub_extra_args.lua",
     "stdlib/string_sub_overlong_end.lua",
     "stdlib/string_sub_past_end.lua",
     "stdlib/string_sub_negative_end.lua",
