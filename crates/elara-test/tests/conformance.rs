@@ -3135,6 +3135,18 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/table_move_non_positive_indices.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(97),
+            Value::integer(98),
+            Value::integer(99),
+            Value::integer(97),
+            Value::integer(98),
+            Value::integer(99),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_move_errors.lua",
         vec![
             Value::boolean(false),

@@ -435,6 +435,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_move_nil_slot.lua",
     "stdlib/table_move_empty.lua",
     "stdlib/table_move_empty_destination.lua",
+    "stdlib/table_move_non_positive_indices.lua",
     "stdlib/table_move_errors.lua",
     "stdlib/table_integer_argument_coercion.lua",
     "stdlib/table_pack_nil.lua",
