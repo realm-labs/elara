@@ -2850,6 +2850,15 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(102), Value::integer(105), Value::integer(114)],
     );
     assert_success_fixture(
+        "stdlib/math_random_bounds.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(105),
+            Value::boolean(true),
+            Value::integer(105),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/math_randomseed_extra_args.lua",
         vec![Value::integer(7), Value::integer(9)],
     );
