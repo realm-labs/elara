@@ -545,6 +545,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(-255), Value::integer(5), Value::integer(-35)],
     );
     assert_success_fixture(
+        "stdlib/base_tonumber_radix_whitespace.lua",
+        vec![Value::integer(10), Value::integer(-255), Value::integer(35)],
+    );
+    assert_success_fixture(
         "stdlib/base_tonumber_number.lua",
         vec![Value::integer(12), Value::float(12.5)],
     );
