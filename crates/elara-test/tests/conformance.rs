@@ -982,6 +982,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_pcall_call_metamethod_error.lua",
+        vec![Value::boolean(false), Value::integer(9)],
+    );
+    assert_success_fixture(
         "stdlib/base_pcall_multi.lua",
         vec![
             Value::boolean(true),
