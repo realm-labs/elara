@@ -1836,6 +1836,9 @@ Delivered:
 - The table-library conformance and differential matrix now covers
   `table.move` ignoring trailing arguments beyond the optional destination.
 - The table-library conformance and differential matrix now covers
+  `table.move` treating an explicit nil destination table like the source
+  table.
+- The table-library conformance and differential matrix now covers
   `table.sort` ignoring trailing arguments beyond the optional comparator.
 - The package conformance and differential matrix now covers the portable
   newline-delimited shape of `package.config`.
@@ -2109,7 +2112,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred seventy-two smoke fixtures across
+- `tests/conformance` currently contains six hundred seventy-three smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
