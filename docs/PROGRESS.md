@@ -2148,12 +2148,14 @@ Delivered:
   `tests/conformance`, and the optional official-Lua differential list includes
   the portable recent stdlib additions while leaving intentionally divergent
   host/unsupported cases out of the comparison set.
+- The language conformance and differential matrix now covers raw string
+  relational comparisons for `<`, `<=`, `>`, and `>=` through the public API.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred eighty-seven smoke fixtures across
+- `tests/conformance` currently contains six hundred eighty-eight smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,

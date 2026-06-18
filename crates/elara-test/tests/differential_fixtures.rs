@@ -10,6 +10,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "language/generic_for_custom_iterator.lua",
     "language/bitwise.lua",
     "language/comparisons.lua",
+    "language/string_comparisons.lua",
     "language/not_truthiness.lua",
     "language/logical_operators.lua",
     "language/length_operator.lua",

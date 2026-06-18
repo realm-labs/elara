@@ -45,6 +45,19 @@ fn conformance_language_fixtures() {
         ],
     );
     assert_success_fixture(
+        "language/string_comparisons.lua",
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "language/not_truthiness.lua",
         vec![
             Value::boolean(true),
