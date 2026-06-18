@@ -525,10 +525,10 @@ fn tostring_output_bytes(
     if let Some(metamethod) = tostring_metamethod(runtime, value)? {
         return call_tostring_metamethod(runtime, metamethod, value);
     }
-    if let Some(kind) = metatable_name(runtime, value)? {
-        if let Some(index) = value.as_table_index() {
-            return Ok(format!("{kind}: 0x{index:x}").into_bytes());
-        }
+    if let Some(kind) = metatable_name(runtime, value)?
+        && let Some(index) = value.as_table_index()
+    {
+        return Ok(format!("{kind}: 0x{index:x}").into_bytes());
     }
     Ok(tostring_bytes(value).into_bytes())
 }

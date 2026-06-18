@@ -178,9 +178,8 @@ impl SimpleCompiler {
         }
 
         let Ok(param_count) = u8::try_from(fixed_params.len()) else {
-            self.diagnostics.push(
-                Diagnostic::error("too many function parameters").with_primary_span(span),
-            );
+            self.diagnostics
+                .push(Diagnostic::error("too many function parameters").with_primary_span(span));
             return;
         };
 
@@ -751,12 +750,8 @@ impl SimpleCompiler {
         {
             let left_register = self.compile_expr(left);
             let result = self.alloc_register();
-            self.builder.emit_abc(
-                Op::AddInt,
-                result,
-                u32::from(left_register),
-                immediate,
-            );
+            self.builder
+                .emit_abc(Op::AddInt, result, u32::from(left_register), immediate);
             return result;
         }
 
@@ -775,12 +770,8 @@ impl SimpleCompiler {
             if op == BinaryOp::Ne {
                 let false_register = self.alloc_register();
                 self.builder.emit_abc(Op::LoadBool, false_register, 0, 0);
-                self.builder.emit_abc(
-                    Op::Eq,
-                    result,
-                    u32::from(result),
-                    u32::from(false_register),
-                );
+                self.builder
+                    .emit_abc(Op::Eq, result, u32::from(result), u32::from(false_register));
             }
             return result;
         }

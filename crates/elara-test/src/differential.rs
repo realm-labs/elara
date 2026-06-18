@@ -212,7 +212,9 @@ fn serialize_values(values: &[Value]) -> Result<String, String> {
                 output.push('\n');
             }
             tag => {
-                return Err(format!("unsupported differential return value tag: {tag:?}"));
+                return Err(format!(
+                    "unsupported differential return value tag: {tag:?}"
+                ));
             }
         }
     }
@@ -259,12 +261,7 @@ fn lua_long_literal(value: &str) -> String {
     for level in 0..=16 {
         let delimiter = format!("]{}]", "=".repeat(level));
         if !value.contains(&delimiter) {
-            return format!(
-                "[{}[{}]{}]",
-                "=".repeat(level),
-                value,
-                "=".repeat(level)
-            );
+            return format!("[{}[{}]{}]", "=".repeat(level), value, "=".repeat(level));
         }
     }
     panic!("fixture source contains too many long-string delimiters");
@@ -272,11 +269,11 @@ fn lua_long_literal(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
+    use super::DifferentialRunner;
     use super::{
         DifferentialComparison, LuaRunner, RunClass, RunOutput, lua_long_literal, serialize_values,
     };
-    #[cfg(unix)]
-    use super::DifferentialRunner;
     use elara_core::Value;
 
     #[test]

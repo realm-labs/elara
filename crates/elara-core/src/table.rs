@@ -588,8 +588,7 @@ impl Hash for TableKey {
 #[cfg(test)]
 mod tests {
     use crate::{
-        GcArena, GcKind, GcObject, LongString, StringInterner, Table, Value,
-        float_to_integer_exact,
+        GcArena, GcKind, GcObject, LongString, StringInterner, Table, Value, float_to_integer_exact,
     };
 
     #[test]
@@ -736,9 +735,12 @@ mod tests {
     #[test]
     fn table_hash_stores_long_string_keys_by_value() {
         let mut arena = GcArena::new();
-        let key = arena.allocate(LongString::new(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
-        let same_key =
-            arena.allocate(LongString::new(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        let key = arena.allocate(LongString::new(
+            b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        ));
+        let same_key = arena.allocate(LongString::new(
+            b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        ));
         let mut table = Table::new();
 
         assert!(table.raw_set_value(Value::long_string(key), Value::integer(9)));

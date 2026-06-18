@@ -68,7 +68,8 @@ fn simple_expr_compiles_unary_length() {
 
 #[test]
 fn simple_expr_compiles_unary_without_clobbering_operand_register() {
-    let compiled = compile_simple_chunk(SourceId::new(0), "local value = 'ab'\nreturn #value, value");
+    let compiled =
+        compile_simple_chunk(SourceId::new(0), "local value = 'ab'\nreturn #value, value");
     assert_eq!(compiled.diagnostics, Vec::new());
     let proto = compiled.proto.expect("expected compiled proto");
 
@@ -696,7 +697,10 @@ fn functions_compile_fixed_parameters() {
 
     assert_eq!(proto.children.len(), 1);
     assert_eq!(proto.children[0].params, 1);
-    assert_snapshot_eq(disassemble(&proto.children[0]), "0000 RETURN        A=0 B=1 C=0\n");
+    assert_snapshot_eq(
+        disassemble(&proto.children[0]),
+        "0000 RETURN        A=0 B=1 C=0\n",
+    );
 }
 
 #[test]

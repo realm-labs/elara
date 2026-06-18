@@ -804,7 +804,8 @@ fn assert_fixture_values(runner: &DifferentialRunner, path: &str) -> io::Result<
         comparison.elara.class()
     );
     assert_eq!(
-        comparison.official.stdout, comparison.elara.stdout,
+        comparison.official.stdout,
+        comparison.elara.stdout,
         "fixture {path} returned different values\nofficial stdout:\n{}\nelara stdout:\n{}\nofficial stderr:\n{}\nelara stderr:\n{}",
         comparison.official.stdout,
         comparison.elara.stdout,

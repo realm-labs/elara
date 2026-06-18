@@ -388,16 +388,17 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/base_raw_access.lua",
-        vec![Value::integer(42), Value::boolean(true), Value::boolean(true)],
+        vec![
+            Value::integer(42),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/base_rawget_extra_args.lua",
         vec![Value::integer(42)],
     );
-    assert_success_fixture(
-        "stdlib/base_rawget_nil_key.lua",
-        vec![Value::boolean(true)],
-    );
+    assert_success_fixture("stdlib/base_rawget_nil_key.lua", vec![Value::boolean(true)]);
     assert_success_fixture(
         "stdlib/base_raw_access_integer_keys.lua",
         vec![
@@ -410,11 +411,19 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/base_raw_access_negative_integer_key.lua",
-        vec![Value::integer(42), Value::boolean(true), Value::boolean(true)],
+        vec![
+            Value::integer(42),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/base_raw_access_boolean_key.lua",
-        vec![Value::integer(42), Value::boolean(true), Value::boolean(true)],
+        vec![
+            Value::integer(42),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/base_raw_access_long_string_key.lua",
@@ -436,7 +445,11 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/base_rawset_extra_args.lua",
-        vec![Value::boolean(true), Value::integer(42), Value::boolean(true)],
+        vec![
+            Value::boolean(true),
+            Value::integer(42),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/base_rawset_nil_key.lua",
@@ -444,11 +457,7 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/base_rawset_metamethod.lua",
-        vec![
-            Value::boolean(true),
-            Value::integer(42),
-            Value::integer(0),
-        ],
+        vec![Value::boolean(true), Value::integer(42), Value::integer(0)],
     );
     assert_success_fixture(
         "stdlib/base_rawequal_values.lua",
@@ -496,7 +505,10 @@ fn conformance_standard_library_fixtures() {
         "stdlib/base_ipairs_float_key.lua",
         vec![Value::integer(1), Value::integer(11)],
     );
-    assert_success_fixture("stdlib/base_ipairs_missing_first.lua", vec![Value::integer(0)]);
+    assert_success_fixture(
+        "stdlib/base_ipairs_missing_first.lua",
+        vec![Value::integer(0)],
+    );
     assert_success_fixture(
         "stdlib/base_ipairs_false_value.lua",
         vec![Value::integer(2), Value::boolean(true), Value::integer(22)],
@@ -525,7 +537,11 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/base_pairs_metamethod.lua",
-        vec![Value::integer(42), Value::boolean(true), Value::boolean(true)],
+        vec![
+            Value::integer(42),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/base_metatable.lua",
@@ -637,7 +653,11 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture("stdlib/base_next_end.lua", vec![Value::boolean(true)]);
     assert_success_fixture(
         "stdlib/base_next_extra_args.lua",
-        vec![Value::boolean(true), Value::integer(42), Value::boolean(true)],
+        vec![
+            Value::boolean(true),
+            Value::integer(42),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/base_next_string_key.lua",
@@ -913,10 +933,7 @@ fn conformance_standard_library_fixtures() {
         "stdlib/base_select_first.lua",
         vec![Value::integer(10), Value::nil(), Value::integer(30)],
     );
-    assert_success_fixture(
-        "stdlib/base_select_negative.lua",
-        vec![Value::integer(30)],
-    );
+    assert_success_fixture("stdlib/base_select_negative.lua", vec![Value::integer(30)]);
     assert_success_fixture(
         "stdlib/base_select_negative_multi.lua",
         vec![Value::nil(), Value::integer(30)],
@@ -974,7 +991,11 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/base_pcall_call_metamethod.lua",
-        vec![Value::boolean(true), Value::boolean(true), Value::integer(42)],
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::integer(42),
+        ],
     );
     assert_success_fixture(
         "stdlib/base_pcall_call_metamethod_chain.lua",
@@ -1012,7 +1033,11 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/base_pcall_integer_error.lua",
-        vec![Value::boolean(false), Value::integer(42), Value::boolean(true)],
+        vec![
+            Value::boolean(false),
+            Value::integer(42),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/base_pcall_false_error.lua",
@@ -1028,11 +1053,19 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/base_pcall_nil_target.lua",
-        vec![Value::boolean(false), Value::integer(115), Value::boolean(true)],
+        vec![
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/base_pcall_missing_callable.lua",
-        vec![Value::boolean(false), Value::integer(115), Value::boolean(true)],
+        vec![
+            Value::boolean(false),
+            Value::integer(115),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/base_xpcall.lua",
@@ -1049,7 +1082,11 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/base_xpcall_call_metamethod.lua",
-        vec![Value::boolean(true), Value::boolean(true), Value::integer(42)],
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::integer(42),
+        ],
     );
     assert_success_fixture(
         "stdlib/base_xpcall_call_metamethod_chain.lua",
@@ -1108,7 +1145,11 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/base_xpcall_handler_scalar_error.lua",
-        vec![Value::boolean(false), Value::integer(110), Value::integer(42)],
+        vec![
+            Value::boolean(false),
+            Value::integer(110),
+            Value::integer(42),
+        ],
     );
     assert_success_fixture(
         "stdlib/base_xpcall_handler_required.lua",
@@ -1410,10 +1451,7 @@ fn conformance_standard_library_fixtures() {
             Value::integer(5),
         ],
     );
-    assert_success_fixture(
-        "stdlib/string_find_missing.lua",
-        vec![Value::boolean(true)],
-    );
+    assert_success_fixture("stdlib/string_find_missing.lua", vec![Value::boolean(true)]);
     assert_success_fixture(
         "stdlib/string_position_captures.lua",
         vec![Value::integer(3), Value::integer(5)],
@@ -2780,7 +2818,11 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture("stdlib/string_char_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture(
         "stdlib/string_dump.lua",
-        vec![Value::integer(102), Value::integer(115), Value::boolean(true)],
+        vec![
+            Value::integer(102),
+            Value::integer(115),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/string_dump_native_error.lua",
@@ -2788,7 +2830,11 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/string_dump_strip.lua",
-        vec![Value::integer(115), Value::integer(115), Value::boolean(true)],
+        vec![
+            Value::integer(115),
+            Value::integer(115),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/string_dump_truthy_strip.lua",
@@ -2837,10 +2883,7 @@ fn conformance_standard_library_fixtures() {
         "stdlib/string_byte_overlong_end.lua",
         vec![Value::integer(66)],
     );
-    assert_success_fixture(
-        "stdlib/string_byte_zero_start.lua",
-        Vec::new(),
-    );
+    assert_success_fixture("stdlib/string_byte_zero_start.lua", Vec::new());
     assert_success_fixture(
         "stdlib/string_byte_negative_start.lua",
         vec![Value::integer(66)],
@@ -2922,10 +2965,16 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture("stdlib/math_log_base2.lua", vec![Value::float(3.0)]);
     assert_success_fixture("stdlib/math_log_extra_args.lua", vec![Value::float(3.0)]);
     assert_success_fixture("stdlib/math_log_base10.lua", vec![Value::float(2.0)]);
-    assert_success_fixture("stdlib/math_log_custom_base.lua", vec![Value::integer(3000)]);
+    assert_success_fixture(
+        "stdlib/math_log_custom_base.lua",
+        vec![Value::integer(3000)],
+    );
     assert_success_fixture("stdlib/math_sqrt_zero.lua", vec![Value::float(0.0)]);
     assert_success_fixture("stdlib/math_sqrt_extra_args.lua", vec![Value::float(9.0)]);
-    assert_success_fixture("stdlib/math_sqrt_perfect_square.lua", vec![Value::float(9.0)]);
+    assert_success_fixture(
+        "stdlib/math_sqrt_perfect_square.lua",
+        vec![Value::float(9.0)],
+    );
     assert_success_fixture("stdlib/math_exp_identity.lua", vec![Value::float(1.0)]);
     assert_success_fixture(
         "stdlib/math_trig.lua",
@@ -3027,7 +3076,11 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/math_nil_results.lua",
-        vec![Value::boolean(true), Value::boolean(true), Value::boolean(true)],
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/math_type_subtypes.lua",
@@ -3058,11 +3111,7 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/math_constants.lua",
-        vec![
-            Value::integer(-1),
-            Value::integer(102),
-            Value::integer(102),
-        ],
+        vec![Value::integer(-1), Value::integer(102), Value::integer(102)],
     );
     assert_success_fixture("stdlib/math_tointeger_float.lua", vec![Value::integer(7)]);
     assert_success_fixture(
@@ -3110,7 +3159,10 @@ fn conformance_standard_library_fixtures() {
         "stdlib/math_fmod_negative_divisor.lua",
         vec![Value::integer(2)],
     );
-    assert_success_fixture("stdlib/math_fmod_both_negative.lua", vec![Value::integer(-2)]);
+    assert_success_fixture(
+        "stdlib/math_fmod_both_negative.lua",
+        vec![Value::integer(-2)],
+    );
     assert_success_fixture("stdlib/math_fmod_extra_args.lua", vec![Value::integer(2)]);
     assert_success_fixture("stdlib/math_fmod_float.lua", vec![Value::float(1.5)]);
     assert_success_fixture(
@@ -3131,7 +3183,11 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/math_random_modes.lua",
-        vec![Value::integer(102), Value::integer(105), Value::integer(114)],
+        vec![
+            Value::integer(102),
+            Value::integer(105),
+            Value::integer(114),
+        ],
     );
     assert_success_fixture(
         "stdlib/math_random_bounds.lua",
@@ -3532,7 +3588,11 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/table_pack_booleans.lua",
-        vec![Value::integer(2), Value::boolean(false), Value::boolean(true)],
+        vec![
+            Value::integer(2),
+            Value::boolean(false),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/table_pack_strings.lua",
@@ -3919,11 +3979,7 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/utf8_codes_lax.lua",
-        vec![
-            Value::integer(1),
-            Value::integer(1),
-            Value::integer(55296),
-        ],
+        vec![Value::integer(1), Value::integer(1), Value::integer(55296)],
     );
     assert_success_fixture(
         "stdlib/utf8_codes_extra_args.lua",
@@ -3992,10 +4048,7 @@ fn conformance_standard_library_fixtures() {
         "stdlib/utf8_codepoint_negative_index.lua",
         vec![Value::integer(233), Value::integer(67)],
     );
-    assert_success_fixture(
-        "stdlib/utf8_codepoint_lax.lua",
-        vec![Value::integer(55296)],
-    );
+    assert_success_fixture("stdlib/utf8_codepoint_lax.lua", vec![Value::integer(55296)]);
     assert_success_fixture(
         "stdlib/utf8_multibyte.lua",
         vec![
@@ -4015,10 +4068,7 @@ fn conformance_standard_library_fixtures() {
             Value::integer(50),
         ],
     );
-    assert_success_fixture(
-        "stdlib/utf8_offset_missing.lua",
-        vec![Value::boolean(true)],
-    );
+    assert_success_fixture("stdlib/utf8_offset_missing.lua", vec![Value::boolean(true)]);
     assert_success_fixture(
         "stdlib/utf8_offset_forward_multibyte.lua",
         vec![Value::integer(1), Value::integer(2)],
@@ -4461,7 +4511,11 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/debug_getinfo_vararg_function.lua",
-        vec![Value::integer(1), Value::boolean(true), Value::boolean(true)],
+        vec![
+            Value::integer(1),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/debug_registry.lua",
@@ -4521,27 +4575,15 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/debug_upvalueid_shared.lua",
-        vec![
-            Value::boolean(true),
-            Value::integer(41),
-            Value::integer(41),
-        ],
+        vec![Value::boolean(true), Value::integer(41), Value::integer(41)],
     );
     assert_success_fixture(
         "stdlib/debug_upvalueid_extra_args.lua",
-        vec![
-            Value::boolean(true),
-            Value::integer(41),
-            Value::integer(41),
-        ],
+        vec![Value::boolean(true), Value::integer(41), Value::integer(41)],
     );
     assert_success_fixture(
         "stdlib/debug_upvalueid_distinct.lua",
-        vec![
-            Value::boolean(false),
-            Value::integer(1),
-            Value::integer(2),
-        ],
+        vec![Value::boolean(false), Value::integer(1), Value::integer(2)],
     );
     assert_success_fixture(
         "stdlib/debug_upvaluejoin_return.lua",
@@ -4755,7 +4797,11 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/debug_hook_clear_nil.lua",
-        vec![Value::boolean(true), Value::boolean(true), Value::boolean(true)],
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/debug_hook_mask_normalized.lua",
@@ -5334,10 +5380,16 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture("stdlib/os_clock.lua", vec![Value::integer(110)]);
     assert_success_fixture("stdlib/os_clock_extra_args.lua", vec![Value::integer(110)]);
     assert_success_fixture("stdlib/os_tmpname.lua", vec![Value::integer(115)]);
-    assert_success_fixture("stdlib/os_tmpname_extra_args.lua", vec![Value::integer(115)]);
+    assert_success_fixture(
+        "stdlib/os_tmpname_extra_args.lua",
+        vec![Value::integer(115)],
+    );
     assert_success_fixture("stdlib/os_tmpname_result.lua", vec![Value::integer(115)]);
     assert_success_fixture("stdlib/os_getenv.lua", vec![Value::boolean(true)]);
-    assert_success_fixture("stdlib/os_getenv_extra_args.lua", vec![Value::boolean(true)]);
+    assert_success_fixture(
+        "stdlib/os_getenv_extra_args.lua",
+        vec![Value::boolean(true)],
+    );
     assert_success_fixture(
         "stdlib/os_remove.lua",
         vec![
@@ -5492,7 +5544,11 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture(
         "stdlib/os_time_nil_arg.lua",
-        vec![Value::integer(110), Value::boolean(true), Value::boolean(true)],
+        vec![
+            Value::integer(110),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
     );
     assert_success_fixture(
         "stdlib/package_required_nil_errors.lua",
