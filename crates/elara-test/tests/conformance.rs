@@ -3580,6 +3580,18 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(115), Value::integer(10)],
     );
     assert_success_fixture(
+        "stdlib/package_config_shape.lua",
+        vec![
+            Value::integer(10),
+            Value::integer(10),
+            Value::integer(59),
+            Value::integer(63),
+            Value::integer(33),
+            Value::integer(45),
+            Value::integer(10),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/package_default_paths.lua",
         vec![
             Value::integer(115),
