@@ -2161,12 +2161,15 @@ Delivered:
   `__eq` fallback, so independently allocated long strings with the same bytes
   compare equal; language conformance and differential fixtures cover that
   public behavior.
+- Table hash keys now accept long strings and compare all string keys by byte
+  value while still tracing the stored GC reference; language conformance and
+  differential fixtures cover long-string key lookup.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred ninety-one smoke fixtures across
+- `tests/conformance` currently contains six hundred ninety-two smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,

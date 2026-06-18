@@ -3,9 +3,10 @@
 use std::collections::HashMap;
 
 use crate::{
-    GcHeader, GcKind, GcObject, GcRef, GcTracer, GcWeakSweeper, LuaFloat, LuaInteger, ShortString,
-    Value,
+    GcHeader, GcKind, GcObject, GcRef, GcTracer, GcWeakSweeper, LongString, LuaFloat, LuaInteger,
+    ShortString, Value,
 };
+use std::hash::{Hash, Hasher};
 
 /// Placeholder cache flags for table metatable lookups.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -421,28 +422,36 @@ fn array_offset(index: LuaInteger) -> Option<usize> {
     usize::try_from(index - 1).ok()
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug)]
 enum TableKey {
     Bool(bool),
     Integer(LuaInteger),
     Float(u64),
     ShortString(GcRef<ShortString>),
+    LongString(GcRef<LongString>),
 }
 
 impl TableKey {
     fn trace(self, tracer: &mut GcTracer<'_>) {
-        if let Self::ShortString(reference) = self {
-            tracer.mark_ref(reference);
+        match self {
+            Self::ShortString(reference) => {
+                tracer.mark_ref(reference);
+            }
+            Self::LongString(reference) => {
+                tracer.mark_ref(reference);
+            }
+            Self::Bool(_) | Self::Integer(_) | Self::Float(_) => {}
         }
     }
 
     fn is_collectable(self) -> bool {
-        matches!(self, Self::ShortString(_))
+        matches!(self, Self::ShortString(_) | Self::LongString(_))
     }
 
     fn is_live(self, sweeper: &GcWeakSweeper<'_>) -> bool {
         match self {
             Self::ShortString(reference) => sweeper.is_ref_live(reference),
+            Self::LongString(reference) => sweeper.is_ref_live(reference),
             Self::Bool(_) | Self::Integer(_) | Self::Float(_) => true,
         }
     }
@@ -459,6 +468,9 @@ impl TableKey {
         }
         if let Some(value) = value.as_short_string() {
             return Some(Self::ShortString(value));
+        }
+        if let Some(value) = value.as_long_string() {
+            return Some(Self::LongString(value));
         }
 
         None
@@ -483,13 +495,102 @@ impl TableKey {
             Self::Integer(value) => Value::integer(value),
             Self::Float(value) => Value::float(LuaFloat::from_bits(value)),
             Self::ShortString(value) => Value::short_string(value),
+            Self::LongString(value) => Value::long_string(value),
+        }
+    }
+
+    fn string_bytes_eq(left: Self, right: Self) -> Option<bool> {
+        match (left, right) {
+            (Self::ShortString(left), Self::ShortString(right)) => {
+                // SAFETY: Table keys keep referenced immutable strings marked
+                // while entries are live, and string bytes never mutate.
+                Some(unsafe { left.as_ref() }.as_bytes() == unsafe { right.as_ref() }.as_bytes())
+            }
+            (Self::ShortString(left), Self::LongString(right)) => {
+                // SAFETY: Table keys keep referenced immutable strings marked
+                // while entries are live, and string bytes never mutate.
+                Some(unsafe { left.as_ref() }.as_bytes() == unsafe { right.as_ref() }.as_bytes())
+            }
+            (Self::LongString(left), Self::ShortString(right)) => {
+                // SAFETY: Table keys keep referenced immutable strings marked
+                // while entries are live, and string bytes never mutate.
+                Some(unsafe { left.as_ref() }.as_bytes() == unsafe { right.as_ref() }.as_bytes())
+            }
+            (Self::LongString(left), Self::LongString(right)) => {
+                // SAFETY: Table keys keep referenced immutable strings marked
+                // while entries are live, and string bytes never mutate.
+                Some(unsafe { left.as_ref() }.as_bytes() == unsafe { right.as_ref() }.as_bytes())
+            }
+            _ => None,
+        }
+    }
+
+    fn hash_string<H: Hasher>(self, state: &mut H) -> bool {
+        match self {
+            Self::ShortString(reference) => {
+                3_u8.hash(state);
+                // SAFETY: Table keys keep the referenced immutable string marked
+                // while the table entry is live, and string bytes never mutate.
+                unsafe { reference.as_ref() }.as_bytes().hash(state);
+                true
+            }
+            Self::LongString(reference) => {
+                3_u8.hash(state);
+                // SAFETY: Table keys keep the referenced immutable string marked
+                // while the table entry is live, and string bytes never mutate.
+                unsafe { reference.as_ref() }.as_bytes().hash(state);
+                true
+            }
+            Self::Bool(_) | Self::Integer(_) | Self::Float(_) => false,
+        }
+    }
+}
+
+impl PartialEq for TableKey {
+    fn eq(&self, other: &Self) -> bool {
+        if let Some(equal) = Self::string_bytes_eq(*self, *other) {
+            return equal;
+        }
+        match (*self, *other) {
+            (Self::Bool(left), Self::Bool(right)) => left == right,
+            (Self::Integer(left), Self::Integer(right)) => left == right,
+            (Self::Float(left), Self::Float(right)) => left == right,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for TableKey {}
+
+impl Hash for TableKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        if self.hash_string(state) {
+            return;
+        }
+        match *self {
+            Self::Bool(value) => {
+                0_u8.hash(state);
+                value.hash(state);
+            }
+            Self::Integer(value) => {
+                1_u8.hash(state);
+                value.hash(state);
+            }
+            Self::Float(value) => {
+                2_u8.hash(state);
+                value.hash(state);
+            }
+            Self::ShortString(_) | Self::LongString(_) => unreachable!("handled string keys"),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{GcArena, GcKind, GcObject, StringInterner, Table, Value, float_to_integer_exact};
+    use crate::{
+        GcArena, GcKind, GcObject, LongString, StringInterner, Table, Value,
+        float_to_integer_exact,
+    };
 
     #[test]
     fn table_array_new_table_is_empty() {
@@ -629,6 +730,23 @@ mod tests {
         assert_eq!(
             table.raw_get_value(Value::short_string(same_key)),
             Value::integer(7)
+        );
+    }
+
+    #[test]
+    fn table_hash_stores_long_string_keys_by_value() {
+        let mut arena = GcArena::new();
+        let key = arena.allocate(LongString::new(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        let same_key =
+            arena.allocate(LongString::new(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        let mut table = Table::new();
+
+        assert!(table.raw_set_value(Value::long_string(key), Value::integer(9)));
+
+        assert_eq!(table.hash_len(), 1);
+        assert_eq!(
+            table.raw_get_value(Value::long_string(same_key)),
+            Value::integer(9)
         );
     }
 

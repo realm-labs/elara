@@ -90,6 +90,10 @@ fn conformance_language_fixtures() {
         vec![Value::boolean(true), Value::boolean(true)],
     );
     assert_success_fixture(
+        "language/long_string_table_key.lua",
+        vec![Value::integer(42), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "language/long_bracket_string_literal.lua",
         vec![
             Value::integer(5),
