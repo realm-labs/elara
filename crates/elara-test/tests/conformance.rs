@@ -3422,6 +3422,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(1), Value::integer(2), Value::integer(3)],
     );
     assert_success_fixture(
+        "stdlib/table_unpack_ignores_hash_fields.lua",
+        vec![Value::integer(1), Value::integer(2)],
+    );
+    assert_success_fixture(
         "stdlib/table_unpack_nil_bounds.lua",
         vec![Value::integer(10), Value::integer(20), Value::integer(30)],
     );

@@ -2217,12 +2217,14 @@ Delivered:
   `table.move` preserving destination hash fields while copying array values.
 - The table-library conformance and differential matrix now covers
   `table.concat` ignoring hash fields while joining the array range.
+- The table-library conformance and differential matrix now covers
+  `table.unpack` ignoring hash fields while returning the array range.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains seven hundred seventeen smoke fixtures across
+- `tests/conformance` currently contains seven hundred eighteen smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,

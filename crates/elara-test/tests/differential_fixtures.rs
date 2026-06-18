@@ -473,6 +473,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_ranges.lua",
     "stdlib/table_unpack.lua",
     "stdlib/table_unpack_default_bounds.lua",
+    "stdlib/table_unpack_ignores_hash_fields.lua",
     "stdlib/table_unpack_nil_bounds.lua",
     "stdlib/table_unpack_extra_args.lua",
     "stdlib/table_unpack_single_bound.lua",
