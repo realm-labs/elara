@@ -383,10 +383,7 @@ fn base_tonumber(
         ]);
     };
 
-    let base = base.as_integer().ok_or(NativeErrorKind::TypeError {
-        index: 2,
-        expected: "integer",
-    })?;
+    let base = integer_arg(runtime, *base, 2)?;
     if !(2..=36).contains(&base) {
         return Err(NativeErrorKind::ArgumentOutOfRange { index: 2 }.into());
     }

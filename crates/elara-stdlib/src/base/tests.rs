@@ -1101,6 +1101,7 @@ fn base_tonumber_parses_explicit_base_integers() {
     let mut runtime = TestRuntime::default();
     let binary = runtime.push_string(b" 1010 ");
     let base36 = runtime.push_string(b"z");
+    let string_base = runtime.push_string(b"2");
 
     assert_eq!(
         call_with_runtime(&mut runtime, base_tonumber, &[binary, Value::integer(2)]),
@@ -1109,6 +1110,14 @@ fn base_tonumber_parses_explicit_base_integers() {
     assert_eq!(
         call_with_runtime(&mut runtime, base_tonumber, &[base36, Value::integer(36)]),
         vec![Value::integer(35)]
+    );
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_tonumber, &[binary, string_base]),
+        vec![Value::integer(10)]
+    );
+    assert_eq!(
+        call_with_runtime(&mut runtime, base_tonumber, &[binary, Value::float(2.9)]),
+        vec![Value::integer(10)]
     );
 }
 
@@ -1155,6 +1164,16 @@ fn base_tonumber_reports_base_errors() {
             .expect_err("base must be in range")
             .kind(),
         &NativeErrorKind::ArgumentOutOfRange { index: 2 }
+    );
+    let invalid_base = runtime.push_string(b"bad");
+    assert_eq!(
+        base_tonumber(&mut runtime, &[text, invalid_base])
+            .expect_err("base must be integer")
+            .kind(),
+        &NativeErrorKind::TypeError {
+            index: 2,
+            expected: "integer",
+        }
     );
 }
 
