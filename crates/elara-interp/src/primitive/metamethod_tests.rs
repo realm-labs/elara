@@ -1,5 +1,5 @@
 use elara_bytecode::{Instr, Op, ProtoBuilder};
-use elara_core::{LuaThread, Table, Value};
+use elara_core::{LuaThread, SHORT_STRING_MAX_BYTES, Table, Value};
 
 use super::{
     RuntimeClosure, RuntimeGlobals, RuntimeNatives, RuntimeStrings, RuntimeTables, execute_add_int,
@@ -302,6 +302,35 @@ fn metamethods_comparison_executes_raw_string_less_equal() {
         &mut globals,
     )
     .expect("raw string less-or-equal should execute");
+
+    assert_eq!(thread.stack_value(2), Some(Value::boolean(true)));
+}
+
+#[test]
+fn metamethods_comparison_executes_raw_long_string_equality() {
+    let mut closures = Vec::new();
+    let mut tables = RuntimeTables::new();
+    let mut strings = RuntimeStrings::new();
+    let mut globals = runtime_globals(&mut tables);
+    let natives = RuntimeNatives::new();
+    let bytes = vec![b'a'; SHORT_STRING_MAX_BYTES + 1];
+    let left = strings.intern_value(&bytes);
+    let right = strings.intern_value(&bytes);
+    let mut thread = LuaThread::new();
+    thread.push_value(left);
+    thread.push_value(right);
+    thread.push_value(Value::nil());
+
+    execute_comparison(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Eq, 2, 0, 1),
+        &mut tables,
+        &mut strings,
+        &natives,
+        &mut globals,
+    )
+    .expect("raw long string equality should execute");
 
     assert_eq!(thread.stack_value(2), Some(Value::boolean(true)));
 }

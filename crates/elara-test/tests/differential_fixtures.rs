@@ -16,6 +16,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "language/length_operator.lua",
     "language/long_string_literal.lua",
     "language/long_string_concat.lua",
+    "language/long_string_equality.lua",
     "language/long_bracket_string_literal.lua",
     "language/string_escapes.lua",
     "language/numeric_concat.lua",

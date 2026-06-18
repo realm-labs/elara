@@ -407,6 +407,9 @@ fn equality_comparison(
     if left == right {
         return Ok(true);
     }
+    if let (Some(left), Some(right)) = (strings.string_bytes(left), strings.string_bytes(right)) {
+        return Ok(left == right);
+    }
     if left.tag() != right.tag() {
         return Ok(false);
     }

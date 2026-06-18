@@ -2157,12 +2157,16 @@ Delivered:
   control escapes, escaped quotes/backslashes, hexadecimal and decimal byte
   escapes, UTF-8 codepoint escapes, escaped newlines, and `\z` whitespace
   skipping, with matching language conformance and differential coverage.
+- Raw equality comparison now compares runtime string byte contents before
+  `__eq` fallback, so independently allocated long strings with the same bytes
+  compare equal; language conformance and differential fixtures cover that
+  public behavior.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred ninety smoke fixtures across
+- `tests/conformance` currently contains six hundred ninety-one smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
