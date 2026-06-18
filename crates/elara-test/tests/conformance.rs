@@ -2749,6 +2749,7 @@ fn conformance_standard_library_fixtures() {
     );
     assert_success_fixture("stdlib/utf8_len_empty.lua", vec![Value::integer(0)]);
     assert_success_fixture("stdlib/utf8_len_bounds.lua", vec![Value::integer(2)]);
+    assert_success_fixture("stdlib/utf8_len_extra_args.lua", vec![Value::integer(2)]);
     assert_success_fixture("stdlib/utf8_len_relative.lua", vec![Value::integer(3)]);
     assert_success_fixture(
         "stdlib/utf8_len_multibyte.lua",
