@@ -2450,6 +2450,7 @@ fn conformance_standard_library_fixtures() {
         vec![Value::float(-12.0)],
     );
     assert_success_fixture("stdlib/math_ldexp_negative.lua", vec![Value::float(0.5)]);
+    assert_success_fixture("stdlib/math_ldexp_zero.lua", vec![Value::float(0.0)]);
     assert_success_fixture(
         "stdlib/math_modf.lua",
         vec![Value::integer(-3), Value::float(-0.25)],

@@ -341,6 +341,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/math_ldexp_extra_args.lua",
     "stdlib/math_ldexp_negative_mantissa.lua",
     "stdlib/math_ldexp_negative.lua",
+    "stdlib/math_ldexp_zero.lua",
     "stdlib/math_modf.lua",
     "stdlib/math_modf_positive.lua",
     "stdlib/math_modf_extra_args.lua",
