@@ -396,6 +396,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/math_fmod_both_negative.lua",
     "stdlib/math_fmod_extra_args.lua",
     "stdlib/math_fmod_float.lua",
+    "stdlib/math_fmod_mininteger_negative_one.lua",
     "stdlib/math_ult_false.lua",
     "stdlib/math_ult_equal.lua",
     "stdlib/math_ult_extrema.lua",
