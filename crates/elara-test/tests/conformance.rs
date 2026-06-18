@@ -3368,6 +3368,16 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/table_concat_ignores_hash_fields.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(97),
+            Value::integer(45),
+            Value::integer(98),
+            Value::integer(7),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_concat_long_strings.lua",
         vec![Value::integer(301), Value::integer(97), Value::integer(124)],
     );
