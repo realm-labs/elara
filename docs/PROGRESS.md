@@ -2000,6 +2000,8 @@ Delivered:
   missing-format, non-string-format, missing-value, and non-integer-value
   argument errors.
 - The string conformance and differential matrix now covers `string.pack`
+  ignoring extra values beyond those consumed by the format string.
+- The string conformance and differential matrix now covers `string.pack`
   malformed fixed-format errors for missing sizes, invalid alignment,
   oversize integers, invalid options, and invalid `X` next options.
 - The string conformance and differential matrix now covers `string.pack`
@@ -2126,7 +2128,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred seventy-eight smoke fixtures across
+- `tests/conformance` currently contains six hundred seventy-nine smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
