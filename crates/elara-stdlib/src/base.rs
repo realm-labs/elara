@@ -208,7 +208,9 @@ fn base_pairs(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
 }
 
 fn base_pcall(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
-    let function = args.first().copied().unwrap_or_else(Value::nil);
+    let function = *args
+        .first()
+        .ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
     let call_args = args.get(1..).unwrap_or_default();
     match runtime.protected_call(function, call_args)? {
         Ok(values) => {

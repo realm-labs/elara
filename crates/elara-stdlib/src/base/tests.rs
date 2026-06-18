@@ -413,6 +413,19 @@ fn base_pcall_returns_false_and_error_message_for_caught_error() {
 }
 
 #[test]
+fn base_pcall_requires_callable_argument_before_calling_target() {
+    let mut runtime = TestRuntime {
+        protected_results: vec![Ok(vec![Value::integer(42)])],
+        ..TestRuntime::default()
+    };
+
+    let error = base_pcall(&mut runtime, &[]).expect_err("missing callable should fail");
+
+    assert_eq!(error.kind(), &NativeErrorKind::MissingArgument { index: 1 });
+    assert!(runtime.protected_calls.is_empty());
+}
+
+#[test]
 fn base_xpcall_returns_true_and_values_for_successful_call() {
     let mut runtime = TestRuntime {
         protected_results: vec![Ok(vec![Value::integer(42)])],
