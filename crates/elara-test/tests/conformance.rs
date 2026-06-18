@@ -350,6 +350,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(3), Value::integer(3)],
     );
     assert_success_fixture(
+        "stdlib/base_rawlen_ignores_hash_fields.lua",
+        vec![Value::integer(2)],
+    );
+    assert_success_fixture(
         "stdlib/base_rawlen_binary_string.lua",
         vec![Value::integer(3)],
     );

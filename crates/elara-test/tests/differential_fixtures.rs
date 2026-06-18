@@ -53,6 +53,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_rawlen_extra_args.lua",
     "stdlib/base_rawlen_metamethod.lua",
     "stdlib/base_rawlen_empty.lua",
+    "stdlib/base_rawlen_ignores_hash_fields.lua",
     "stdlib/base_raw_access.lua",
     "stdlib/base_rawget_extra_args.lua",
     "stdlib/base_raw_access_integer_keys.lua",

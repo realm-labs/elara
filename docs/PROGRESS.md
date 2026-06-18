@@ -2227,12 +2227,14 @@ Delivered:
   traversing a negative integer key.
 - The base-library conformance and differential matrix now covers raw access
   through negative integer keys.
+- The base-library conformance and differential matrix now covers `rawlen`
+  ignoring hash fields when reporting table array length.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains seven hundred twenty-two smoke fixtures across
+- `tests/conformance` currently contains seven hundred twenty-three smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
