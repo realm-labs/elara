@@ -513,6 +513,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/os_time_leap_day.lua",
     "stdlib/os_time_defaults.lua",
     "stdlib/os_date_format.lua",
+    "stdlib/os_date_extra_args.lua",
     "stdlib/os_date_table_fields.lua",
     "stdlib/os_date_leap_day_table.lua",
     "stdlib/os_date_names.lua",
