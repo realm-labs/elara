@@ -2259,6 +2259,17 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_case_number_receivers.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(49),
+            Value::integer(51),
+            Value::integer(3),
+            Value::integer(52),
+            Value::integer(54),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_byte_char.lua",
         vec![
             Value::integer(3),
