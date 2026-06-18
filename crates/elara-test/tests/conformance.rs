@@ -1902,6 +1902,19 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_pack_signed_endianness.lua",
+        vec![
+            Value::integer(4),
+            Value::integer(255),
+            Value::integer(254),
+            Value::integer(254),
+            Value::integer(255),
+            Value::integer(-2),
+            Value::integer(-2),
+            Value::integer(5),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_pack_argument_errors.lua",
         vec![
             Value::boolean(false),
