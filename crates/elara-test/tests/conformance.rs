@@ -1915,6 +1915,17 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_pack_number_value.lua",
+        vec![
+            Value::integer(8),
+            Value::integer(0),
+            Value::integer(12),
+            Value::integer(64),
+            Value::float(3.5),
+            Value::integer(9),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_packsize.lua",
         vec![
             Value::integer(57),
