@@ -29,7 +29,7 @@ pub(super) fn string_find(
         2,
     )?;
     let init = relative_start(optional_integer_arg(runtime, args, 3, 1)?, subject.len());
-    if init > subject.len() {
+    if init > subject.len().saturating_add(1) {
         return Ok(vec![Value::nil()]);
     }
 
@@ -154,6 +154,32 @@ mod tests {
             )
             .expect("find should pass"),
             vec![Value::integer(5), Value::integer(7)]
+        );
+    }
+
+    #[test]
+    fn string_find_allows_empty_match_after_subject_end() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abc");
+        let pattern = runtime.push_string(b"");
+
+        assert_eq!(
+            string_find(&mut runtime, &[subject, pattern, Value::integer(4)])
+                .expect("find should pass"),
+            vec![Value::integer(4), Value::integer(3)]
+        );
+        assert_eq!(
+            string_find(
+                &mut runtime,
+                &[subject, pattern, Value::integer(4), Value::boolean(true)]
+            )
+            .expect("plain find should pass"),
+            vec![Value::integer(4), Value::integer(3)]
+        );
+        assert_eq!(
+            string_find(&mut runtime, &[subject, pattern, Value::integer(5)])
+                .expect("past-end find should pass"),
+            vec![Value::nil()]
         );
     }
 

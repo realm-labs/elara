@@ -29,7 +29,7 @@ pub(super) fn string_match(
         2,
     )?;
     let init = relative_start(optional_integer_arg(runtime, args, 3, 1)?, subject.len());
-    if init > subject.len() {
+    if init > subject.len().saturating_add(1) {
         return Ok(vec![Value::nil()]);
     }
     if let Some(error) = unsupported_pattern_error_with_captures(&pattern) {
@@ -124,6 +124,23 @@ mod tests {
         assert_eq!(
             runtime.short_string_bytes(values[0]),
             Some(b"ab".as_slice())
+        );
+    }
+
+    #[test]
+    fn string_match_allows_empty_match_after_subject_end() {
+        let mut runtime = TestRuntime::default();
+        let subject = runtime.push_string(b"abc");
+        let pattern = runtime.push_string(b"");
+
+        let values = string_match(&mut runtime, &[subject, pattern, Value::integer(4)])
+            .expect("match should pass");
+
+        assert_eq!(runtime.short_string_bytes(values[0]), Some(b"".as_slice()));
+        assert_eq!(
+            string_match(&mut runtime, &[subject, pattern, Value::integer(5)])
+                .expect("past-end match should pass"),
+            vec![Value::nil()]
         );
     }
 

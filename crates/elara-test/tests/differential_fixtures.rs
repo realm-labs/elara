@@ -150,6 +150,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_pattern_bracket_literals.lua",
     "stdlib/string_pattern_errors.lua",
     "stdlib/string_empty_pattern.lua",
+    "stdlib/string_empty_pattern_final_init.lua",
     "stdlib/string_argument_errors.lua",
     "stdlib/string_more_argument_errors.lua",
     "stdlib/string_find_positions.lua",
