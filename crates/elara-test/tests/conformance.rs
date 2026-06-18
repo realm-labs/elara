@@ -3884,6 +3884,7 @@ fn conformance_standard_library_fixtures() {
     assert_success_fixture("stdlib/os_clock.lua", vec![Value::integer(110)]);
     assert_success_fixture("stdlib/os_clock_extra_args.lua", vec![Value::integer(110)]);
     assert_success_fixture("stdlib/os_tmpname.lua", vec![Value::integer(115)]);
+    assert_success_fixture("stdlib/os_tmpname_extra_args.lua", vec![Value::integer(115)]);
     assert_success_fixture("stdlib/os_tmpname_result.lua", vec![Value::integer(115)]);
     assert_success_fixture("stdlib/os_getenv.lua", vec![Value::boolean(true)]);
     assert_success_fixture("stdlib/os_getenv_extra_args.lua", vec![Value::boolean(true)]);

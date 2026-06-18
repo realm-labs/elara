@@ -529,6 +529,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/os_clock.lua",
     "stdlib/os_clock_extra_args.lua",
     "stdlib/os_tmpname.lua",
+    "stdlib/os_tmpname_extra_args.lua",
     "stdlib/os_tmpname_result.lua",
     "stdlib/os_getenv.lua",
     "stdlib/os_getenv_extra_args.lua",
