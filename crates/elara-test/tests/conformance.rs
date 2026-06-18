@@ -319,6 +319,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_rawequal_extra_args.lua",
+        vec![Value::boolean(true), Value::boolean(false)],
+    );
+    assert_success_fixture(
         "stdlib/base_rawequal_metamethod.lua",
         vec![
             Value::boolean(true),
