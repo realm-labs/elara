@@ -2627,6 +2627,14 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(true), Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/io_type_extra_args.lua",
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/io_type_non_files.lua",
         vec![
             Value::boolean(true),
