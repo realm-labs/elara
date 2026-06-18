@@ -3274,6 +3274,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(true), Value::integer(115)],
     );
     assert_success_fixture(
+        "stdlib/io_open_nil_mode.lua",
+        vec![Value::boolean(true), Value::integer(115)],
+    );
+    assert_success_fixture(
         "stdlib/io_open_extra_args.lua",
         vec![Value::boolean(true), Value::integer(115)],
     );
