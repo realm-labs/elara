@@ -218,6 +218,14 @@ fn conformance_language_fixtures() {
     );
     assert_success_fixture("language/call_statement.lua", vec![Value::integer(42)]);
     assert_success_fixture(
+        "language/call_metamethod_chain.lua",
+        vec![
+            Value::boolean(true),
+            Value::boolean(true),
+            Value::integer(42),
+        ],
+    );
+    assert_success_fixture(
         "language/call_metamethod_self.lua",
         vec![Value::boolean(true), Value::integer(42)],
     );

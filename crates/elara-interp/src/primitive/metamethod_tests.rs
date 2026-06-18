@@ -563,6 +563,55 @@ fn metamethods_call_invokes_native_function_fallback() {
 }
 
 #[test]
+fn metamethods_call_chains_callable_fallbacks() {
+    let mut strings = RuntimeStrings::new();
+    let mut tables = RuntimeTables::new();
+    let table = tables.push_table(Table::new());
+    let proxy = tables.push_table(Table::new());
+    let call_key = strings.intern_short_value("__call");
+    let natives = RuntimeNatives::new();
+    let native = natives.push(move |_context, args| {
+        assert_eq!(args.first().copied(), Some(Value::table_index(proxy)));
+        assert_eq!(args.get(1).copied(), Some(Value::table_index(table)));
+        assert_eq!(args.get(2).copied(), Some(Value::integer(7)));
+        Ok(vec![Value::integer(654)])
+    });
+
+    let mut table_metatable = Table::new();
+    assert!(table_metatable.raw_set_value(call_key, Value::table_index(proxy)));
+    let table_metatable = tables.push_table(table_metatable);
+    tables
+        .set_metatable(table as usize, Some(table_metatable))
+        .expect("metatable link should be valid");
+
+    let mut proxy_metatable = Table::new();
+    assert!(proxy_metatable.raw_set_value(call_key, Value::native_function_index(native)));
+    let proxy_metatable = tables.push_table(proxy_metatable);
+    tables
+        .set_metatable(proxy as usize, Some(proxy_metatable))
+        .expect("proxy metatable link should be valid");
+
+    let mut closures = Vec::new();
+    let mut globals = runtime_globals(&mut tables);
+    let mut thread = LuaThread::new();
+    thread.push_value(Value::table_index(table));
+    thread.push_value(Value::integer(7));
+
+    execute_call(
+        &mut thread,
+        &mut closures,
+        Instr::abc(Op::Call, 0, 2, 1),
+        &mut tables,
+        &mut strings,
+        &natives,
+        &mut globals,
+    )
+    .expect("chained __call should execute");
+
+    assert_eq!(thread.stack_value(0), Some(Value::integer(654)));
+}
+
+#[test]
 fn metamethods_concat_executes_raw_short_strings() {
     let mut closures = Vec::new();
     let mut tables = RuntimeTables::new();

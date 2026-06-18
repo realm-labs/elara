@@ -1843,6 +1843,8 @@ enum CoroutinePause {
     Yield(Vec<Value>),
 }
 
+const MAX_CALL_METAMETHOD_CHAIN: usize = 2000;
+
 fn jump_target(pc: usize, instr: Instr) -> RuntimeResult<usize> {
     let target = pc as isize + instr.sbx() as isize;
     usize::try_from(target)
@@ -2109,43 +2111,33 @@ fn callable_function(
 }
 
 fn callable_from_value(
-    callee: Value,
-    args: Vec<Value>,
+    mut callee: Value,
+    mut args: Vec<Value>,
     tables: &mut RuntimeTables,
     strings: &mut RuntimeStrings,
 ) -> RuntimeResult<CallableFunction> {
-    if let Some(closure_index) = callee.as_closure_index() {
-        return Ok(CallableFunction::Lua {
-            closure_index: closure_index as usize,
-            args,
-        });
-    }
-    if let Some(native_index) = callee.as_native_function_index() {
-        return Ok(CallableFunction::Native {
-            native_index: native_index as usize,
-            args,
-        });
+    for _ in 0..MAX_CALL_METAMETHOD_CHAIN {
+        if let Some(closure_index) = callee.as_closure_index() {
+            return Ok(CallableFunction::Lua {
+                closure_index: closure_index as usize,
+                args,
+            });
+        }
+        if let Some(native_index) = callee.as_native_function_index() {
+            return Ok(CallableFunction::Native {
+                native_index: native_index as usize,
+                args,
+            });
+        }
+
+        let Some(metamethod) = tables.metamethod_for_value(callee, "__call", strings)? else {
+            return Err(RuntimeErrorKind::NonCallableValue.into());
+        };
+        args.insert(0, callee);
+        callee = metamethod;
     }
 
-    let Some(metamethod) = tables.metamethod_for_value(callee, "__call", strings)? else {
-        return Err(RuntimeErrorKind::NonCallableValue.into());
-    };
-    let mut args_with_self = Vec::with_capacity(args.len() + 1);
-    args_with_self.push(callee);
-    args_with_self.extend(args);
-    if let Some(closure_index) = metamethod.as_closure_index() {
-        return Ok(CallableFunction::Lua {
-            closure_index: closure_index as usize,
-            args: args_with_self,
-        });
-    }
-    if let Some(native_index) = metamethod.as_native_function_index() {
-        return Ok(CallableFunction::Native {
-            native_index: native_index as usize,
-            args: args_with_self,
-        });
-    }
-    Err(RuntimeErrorKind::UnsupportedMetamethod { name: "__call" }.into())
+    Err(RuntimeErrorKind::MetamethodChainTooLong { name: "__call" }.into())
 }
 
 fn dispatch_debug_hook(
