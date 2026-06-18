@@ -2438,6 +2438,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(10), Value::integer(20), Value::integer(30)],
     );
     assert_success_fixture(
+        "stdlib/table_unpack_extra_args.lua",
+        vec![Value::integer(6), Value::integer(7)],
+    );
+    assert_success_fixture(
         "stdlib/table_unpack_single_bound.lua",
         vec![Value::integer(6)],
     );
