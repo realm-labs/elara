@@ -1473,6 +1473,18 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(1), Value::integer(0), Value::integer(0)],
     );
     assert_success_fixture(
+        "stdlib/string_gmatch_init_positions.lua",
+        vec![
+            Value::integer(1),
+            Value::integer(2),
+            Value::integer(98),
+            Value::integer(99),
+            Value::integer(2),
+            Value::integer(98),
+            Value::integer(0),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_gmatch_nil_init.lua",
         vec![
             Value::integer(1),

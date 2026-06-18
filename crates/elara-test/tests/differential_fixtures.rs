@@ -225,6 +225,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_gmatch_start_anchor.lua",
     "stdlib/string_gmatch_empty_matches.lua",
     "stdlib/string_gmatch_empty_final_init.lua",
+    "stdlib/string_gmatch_init_positions.lua",
     "stdlib/string_gmatch_nil_init.lua",
     "stdlib/string_gmatch_extra_args.lua",
     "stdlib/string_rep_empty.lua",

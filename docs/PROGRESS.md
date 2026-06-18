@@ -2177,12 +2177,14 @@ Delivered:
   stopping for larger init positions.
 - The string-library conformance and differential matrix now covers empty
   subject handling across `find`, `match`, `gsub`, and `gmatch`.
+- The string-library conformance and differential matrix now covers
+  `string.gmatch` negative, zero, and past-end init positions.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred ninety-eight smoke fixtures across
+- `tests/conformance` currently contains six hundred ninety-nine smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
