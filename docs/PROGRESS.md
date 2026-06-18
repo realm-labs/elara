@@ -2211,12 +2211,14 @@ Delivered:
   `table.sort` preserving non-array hash fields while sorting the array part.
 - The table-library conformance and differential matrix now covers
   `table.insert` preserving non-array hash fields while shifting array values.
+- The table-library conformance and differential matrix now covers
+  `table.remove` preserving non-array hash fields while shifting array values.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains seven hundred fourteen smoke fixtures across
+- `tests/conformance` currently contains seven hundred fifteen smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
