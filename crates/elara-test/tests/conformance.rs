@@ -3343,6 +3343,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/debug_gethook_extra_args.lua",
+        vec![Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/debug_hook_metadata.lua",
         vec![
             Value::boolean(true),
