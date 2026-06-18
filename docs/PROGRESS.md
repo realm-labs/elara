@@ -2229,12 +2229,14 @@ Delivered:
   through negative integer keys.
 - The base-library conformance and differential matrix now covers `rawlen`
   ignoring hash fields when reporting table array length.
+- The base-library conformance and differential matrix now covers protected
+  metatable errors when clearing a locked metatable with nil.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains seven hundred twenty-three smoke fixtures across
+- `tests/conformance` currently contains seven hundred twenty-four smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,

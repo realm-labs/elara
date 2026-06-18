@@ -86,6 +86,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_metatable.lua",
     "stdlib/base_metatable_extra_args.lua",
     "stdlib/base_metatable_protected_set.lua",
+    "stdlib/base_metatable_protected_clear.lua",
     "stdlib/base_metatable_protected_marker.lua",
     "stdlib/base_assert.lua",
     "stdlib/base_assert_multi.lua",
