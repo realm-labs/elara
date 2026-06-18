@@ -469,6 +469,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/io_open_result.lua",
     "stdlib/io_open_nil_mode.lua",
     "stdlib/io_open_extra_args.lua",
+    "stdlib/io_popen_nil_mode.lua",
     "stdlib/io_type.lua",
     "stdlib/io_type_extra_args.lua",
     "stdlib/io_type_non_files.lua",
