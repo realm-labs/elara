@@ -1993,6 +1993,9 @@ Delivered:
   reporting.
 - The string conformance and differential matrix now covers `string.unpack`
   positive initial-position reads and next-position reporting.
+- The string conformance and differential matrix now covers `string.unpack`
+  treating an explicit nil initial position like the default first byte while
+  ignoring trailing arguments.
 - The string conformance and differential matrix now covers `string.pack`
   missing-format, non-string-format, missing-value, and non-integer-value
   argument errors.
@@ -2123,7 +2126,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred seventy-seven smoke fixtures across
+- `tests/conformance` currently contains six hundred seventy-eight smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
