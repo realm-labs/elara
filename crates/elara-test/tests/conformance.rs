@@ -3303,6 +3303,17 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(false), Value::integer(115)],
     );
     assert_success_fixture(
+        "stdlib/table_concat_ignores_outside_holes.lua",
+        vec![
+            Value::integer(3),
+            Value::integer(97),
+            Value::integer(45),
+            Value::integer(98),
+            Value::boolean(true),
+            Value::integer(100),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/table_concat_long_strings.lua",
         vec![Value::integer(301), Value::integer(97), Value::integer(124)],
     );

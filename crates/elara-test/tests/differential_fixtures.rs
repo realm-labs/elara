@@ -458,6 +458,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/table_concat_nil_separator.lua",
     "stdlib/table_concat_nil_bounds.lua",
     "stdlib/table_concat_nil_hole_error.lua",
+    "stdlib/table_concat_ignores_outside_holes.lua",
     "stdlib/table_concat_long_strings.lua",
     "stdlib/table_concat_errors.lua",
     "stdlib/table_operand_type_errors.lua",
