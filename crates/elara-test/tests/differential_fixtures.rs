@@ -30,6 +30,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "language/function_parameters.lua",
     "language/function_parameters_vararg.lua",
     "stdlib/math_abs.lua",
+    "stdlib/math_abs_extra_args.lua",
     "stdlib/math_abs_float.lua",
     "stdlib/base_table.lua",
     "stdlib/base_globals.lua",
