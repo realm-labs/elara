@@ -1607,6 +1607,21 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_format_quote_escapes.lua",
+        vec![
+            Value::integer(9),
+            Value::integer(34),
+            Value::integer(97),
+            Value::integer(92),
+            Value::integer(34),
+            Value::integer(92),
+            Value::integer(92),
+            Value::integer(92),
+            Value::integer(10),
+            Value::integer(34),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_format_quote_scalars.lua",
         vec![
             Value::integer(20),
