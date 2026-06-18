@@ -93,6 +93,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/base_assert_multi.lua",
     "stdlib/base_assert_pcall.lua",
     "stdlib/base_assert_default_message.lua",
+    "stdlib/base_assert_missing_condition.lua",
     "stdlib/base_error_nil_message.lua",
     "stdlib/base_error_level_zero.lua",
     "stdlib/base_warn_controls.lua",

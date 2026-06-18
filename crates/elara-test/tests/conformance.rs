@@ -559,6 +559,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_assert_missing_condition.lua",
+        vec![Value::boolean(false), Value::integer(115)],
+    );
+    assert_success_fixture(
         "stdlib/base_error_nil_message.lua",
         vec![
             Value::boolean(false),
