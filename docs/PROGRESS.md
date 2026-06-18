@@ -2188,12 +2188,14 @@ Delivered:
   and false or nil function results.
 - The table-library conformance and differential matrix now covers
   `table.move` over negative and zero integer source indices.
+- The table-library conformance and differential matrix now covers
+  `table.move` into negative and zero integer destination indices.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains seven hundred three smoke fixtures across
+- `tests/conformance` currently contains seven hundred four smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
