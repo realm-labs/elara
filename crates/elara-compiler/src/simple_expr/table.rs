@@ -15,7 +15,7 @@ impl SimpleCompiler {
             );
             return self.alloc_register();
         };
-        self.emit_string_constant(bytes)
+        self.emit_string_constant(&bytes)
     }
 
     pub(super) fn compile_string_key(&mut self, _span: Span, text: &str) -> u16 {
@@ -114,15 +114,48 @@ impl SimpleCompiler {
     }
 }
 
-fn string_literal_bytes(text: &str) -> Option<&[u8]> {
+fn string_literal_bytes(text: &str) -> Option<Vec<u8>> {
     let bytes = text.as_bytes();
     let quote = *bytes.first()?;
-    if !matches!(quote, b'\'' | b'"') || bytes.last().copied() != Some(quote) {
+    if matches!(quote, b'\'' | b'"') {
+        if bytes.last().copied() != Some(quote) {
+            return None;
+        }
+        let inner = &bytes[1..bytes.len().checked_sub(1)?];
+        if inner.contains(&b'\\') {
+            return None;
+        }
+        return Some(inner.to_vec());
+    }
+
+    if quote != b'[' {
         return None;
     }
-    let inner = &bytes[1..bytes.len().checked_sub(1)?];
-    if inner.contains(&b'\\') {
+    let mut level = 0;
+    while bytes.get(level + 1).copied() == Some(b'=') {
+        level += 1;
+    }
+    if bytes.get(level + 1).copied() != Some(b'[') {
         return None;
     }
-    Some(inner)
+
+    let open_end = level + 2;
+    let close_start = bytes.len().checked_sub(level + 2)?;
+    if close_start < open_end
+        || bytes.get(close_start).copied() != Some(b']')
+        || bytes.last().copied() != Some(b']')
+        || bytes[close_start + 1..bytes.len() - 1]
+            .iter()
+            .any(|byte| *byte != b'=')
+    {
+        return None;
+    }
+
+    let mut inner = &bytes[open_end..close_start];
+    if inner.starts_with(b"\r\n") {
+        inner = &inner[2..];
+    } else if inner.starts_with(b"\n") || inner.starts_with(b"\r") {
+        inner = &inner[1..];
+    }
+    Some(inner.to_vec())
 }

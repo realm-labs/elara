@@ -95,6 +95,21 @@ fn simple_expr_compiles_long_string_literal() {
 }
 
 #[test]
+fn simple_expr_compiles_long_bracket_string_literal() {
+    let compiled = compile_simple_chunk(SourceId::new(0), "return [=[alpha]=], [=[\nbeta]=]");
+    assert_eq!(compiled.diagnostics, Vec::new());
+    let proto = compiled.proto.expect("expected compiled proto");
+
+    assert_eq!(proto.string_constants.len(), 2);
+    assert_eq!(proto.string_constants[0].as_ref(), b"alpha");
+    assert_eq!(proto.string_constants[1].as_ref(), b"beta");
+    assert_snapshot_eq(
+        disassemble(&proto),
+        "0000 LOAD_STRING   A=0 Bx=0 ; \"alpha\"\n0001 LOAD_STRING   A=1 Bx=1 ; \"beta\"\n0002 RETURN        A=0 B=2 C=0\n",
+    );
+}
+
+#[test]
 fn simple_expr_compiles_logical_short_circuit() {
     let compiled = compile_simple_chunk(SourceId::new(0), "return false and 1, true or 2");
     assert_eq!(compiled.diagnostics, Vec::new());

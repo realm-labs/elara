@@ -2150,12 +2150,15 @@ Delivered:
   host/unsupported cases out of the comparison set.
 - The language conformance and differential matrix now covers raw string
   relational comparisons for `<`, `<=`, `>`, and `>=` through the public API.
+- The simple compiler now lowers long-bracket string literals in expression
+  positions, including Lua's skipped-initial-newline rule, with matching
+  language conformance and differential coverage.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred eighty-eight smoke fixtures across
+- `tests/conformance` currently contains six hundred eighty-nine smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
