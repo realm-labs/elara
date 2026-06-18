@@ -2468,6 +2468,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(5), Value::float(0.0)],
     );
     assert_success_fixture(
+        "stdlib/math_modf_zero.lua",
+        vec![Value::integer(0), Value::float(0.0)],
+    );
+    assert_success_fixture(
         "stdlib/math_nil_results.lua",
         vec![Value::boolean(true), Value::boolean(true), Value::boolean(true)],
     );
