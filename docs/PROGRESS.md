@@ -2235,12 +2235,14 @@ Delivered:
   rejecting non-string values when an explicit base is provided.
 - The base-library conformance and differential matrix now covers `select`
   rejecting negative indexes outside the available argument range.
+- The base-library conformance and differential matrix now covers `xpcall`
+  preserving nil handler return values after a protected failure.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains seven hundred twenty-six smoke fixtures across
+- `tests/conformance` currently contains seven hundred twenty-seven smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
