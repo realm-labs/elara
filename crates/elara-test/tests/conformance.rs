@@ -951,6 +951,23 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/string_empty_pattern.lua",
+        vec![
+            Value::integer(1),
+            Value::integer(0),
+            Value::integer(3),
+            Value::integer(2),
+            Value::integer(0),
+            Value::integer(5),
+            Value::integer(45),
+            Value::integer(97),
+            Value::integer(45),
+            Value::integer(98),
+            Value::integer(45),
+            Value::integer(3),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/string_argument_errors.lua",
         vec![
             Value::boolean(false),
