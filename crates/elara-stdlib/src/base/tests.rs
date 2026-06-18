@@ -625,13 +625,33 @@ fn base_error_accepts_absent_or_nil_message() {
 
 #[test]
 fn base_error_validates_optional_level() {
+    let mut runtime = TestRuntime::default();
+    let message = runtime.push_string(b"boom");
+    let string_level = runtime.push_string(b"0");
+    let error = base_error(&mut runtime, &[message, string_level])
+        .expect_err("string level should be accepted before raising");
+    assert_eq!(error.kind(), &NativeErrorKind::LuaError);
+    assert_eq!(error.message(), "boom");
+
+    let error = base_error(&mut runtime, &[message, Value::float(0.9)])
+        .expect_err("float level should be accepted before raising");
+    assert_eq!(error.kind(), &NativeErrorKind::LuaError);
+    assert_eq!(error.message(), "boom");
+
+    let bad_level = runtime.push_string(b"bad");
     assert_eq!(
-        base_error(
-            &mut TestRuntime::default(),
-            &[Value::integer(1), Value::boolean(false)]
-        )
-        .expect_err("level should be integer")
-        .kind(),
+        base_error(&mut runtime, &[message, bad_level])
+            .expect_err("level should be integer")
+            .kind(),
+        &NativeErrorKind::TypeError {
+            index: 2,
+            expected: "integer",
+        }
+    );
+    assert_eq!(
+        base_error(&mut runtime, &[Value::integer(1), Value::boolean(false)])
+            .expect_err("level should be integer")
+            .kind(),
         &NativeErrorKind::TypeError {
             index: 2,
             expected: "integer",

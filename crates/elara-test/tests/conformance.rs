@@ -580,6 +580,17 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/base_error_level_conversion.lua",
+        vec![
+            Value::boolean(false),
+            Value::boolean(true),
+            Value::boolean(false),
+            Value::boolean(true),
+            Value::boolean(false),
+            Value::integer(115),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/base_warn_controls.lua",
         vec![Value::integer(0), Value::integer(0)],
     );

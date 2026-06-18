@@ -89,10 +89,7 @@ fn base_dofile(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Va
 
 fn base_error(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     if let Some(level) = args.get(1).filter(|value| !value.is_nil()) {
-        level.as_integer().ok_or(NativeErrorKind::TypeError {
-            index: 2,
-            expected: "integer",
-        })?;
+        integer_arg(runtime, *level, 2)?;
     }
     let value = args.first().copied().unwrap_or_else(Value::nil);
     Err(NativeError::lua_error_object(
@@ -733,13 +730,21 @@ fn select_start(index: i64, value_count: usize) -> Result<usize, NativeError> {
 
 fn select_index(runtime: &dyn NativeRuntime, value: Option<Value>) -> Result<i64, NativeError> {
     let value = value.ok_or(NativeErrorKind::MissingArgument { index: 1 })?;
+    integer_arg(runtime, value, 1)
+}
+
+fn integer_arg(
+    runtime: &dyn NativeRuntime,
+    value: Value,
+    index: usize,
+) -> Result<i64, NativeError> {
     if let Some(integer) = value.as_integer() {
         return Ok(integer);
     }
     if let Some(float) = value.as_float() {
         return float_to_integer_floor(float).ok_or_else(|| {
             NativeErrorKind::TypeError {
-                index: 1,
+                index,
                 expected: "integer",
             }
             .into()
@@ -748,10 +753,10 @@ fn select_index(runtime: &dyn NativeRuntime, value: Option<Value>) -> Result<i64
     if let Some(bytes) = runtime.string_bytes(value)
         && let Some(number) = parse_standard_number(bytes)
     {
-        return select_index(runtime, Some(number));
+        return integer_arg(runtime, number, index);
     }
     Err(NativeErrorKind::TypeError {
-        index: 1,
+        index,
         expected: "integer",
     }
     .into())
