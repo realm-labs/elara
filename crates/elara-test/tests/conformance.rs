@@ -2867,6 +2867,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::integer(7), Value::integer(0)],
     );
     assert_success_fixture(
+        "stdlib/math_randomseed_no_args.lua",
+        vec![Value::integer(105), Value::integer(105)],
+    );
+    assert_success_fixture(
         "stdlib/math_argument_errors.lua",
         vec![
             Value::boolean(false),

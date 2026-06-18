@@ -2203,12 +2203,14 @@ Delivered:
   float inputs.
 - The math-library conformance and differential matrix now covers bounded
   `math.random` calls returning integer-typed values inside requested ranges.
+- The math-library conformance and differential matrix now covers
+  no-argument `math.randomseed` returning integer-typed effective seeds.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains seven hundred ten smoke fixtures across
+- `tests/conformance` currently contains seven hundred eleven smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
