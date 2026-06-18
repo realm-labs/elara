@@ -4103,6 +4103,10 @@ fn conformance_standard_library_fixtures() {
         vec![Value::boolean(true), Value::boolean(true)],
     );
     assert_success_fixture(
+        "stdlib/debug_getuservalue_nil_index.lua",
+        vec![Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/debug_setuservalue_error.lua",
         vec![Value::boolean(false), Value::integer(115)],
     );
