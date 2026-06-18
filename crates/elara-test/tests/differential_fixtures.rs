@@ -287,6 +287,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/string_unpack_position.lua",
     "stdlib/string_len_embedded_nul.lua",
     "stdlib/string_len_empty.lua",
+    "stdlib/string_len_extra_args.lua",
     "stdlib/string_ops.lua",
     "stdlib/string_case_empty.lua",
     "stdlib/string_case_mapping.lua",
