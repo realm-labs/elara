@@ -1980,6 +1980,9 @@ Delivered:
   using Elara's internal bytecode dump format, while preserving native-function
   rejection; a portable conformance/differential fixture covers the function
   surface and string result shape.
+- The standard-library descriptor registry now covers the executable
+  `string.pack`, `string.packsize`, and `string.unpack` functions, with a
+  parity test that keeps public string-native descriptors aligned.
 - The string library now exposes executable `string.packsize` for fixed-size
   binary packing formats, including Lua-style alignment and variable-length
   format rejection; a shared conformance/differential fixture covers portable
@@ -2427,10 +2430,9 @@ M20.4 is complete.
 Latest focused verification passed:
 
 ```bash
-cargo fmt -p elara-stdlib -p elara-api -p elara-interp -- --check
-cargo test -p elara-stdlib string_dump
-cargo test -p elara-test conformance_standard_library_fixtures
-cargo test -p elara-test --test differential_fixtures
+cargo fmt -p elara-stdlib -- --check
+cargo test -p elara-stdlib string_descriptors_cover_public_native_functions
+cargo test -p elara-stdlib sandbox_profile_registers_allowed_essential_functions
 git diff --check
 ```
 

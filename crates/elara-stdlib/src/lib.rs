@@ -520,9 +520,12 @@ pub const STRING_FUNCTIONS: &[FunctionSpec] = &[
     FunctionSpec::new(StdLib::String, "len"),
     FunctionSpec::new(StdLib::String, "lower"),
     FunctionSpec::new(StdLib::String, "match"),
+    FunctionSpec::new(StdLib::String, "pack"),
+    FunctionSpec::new(StdLib::String, "packsize"),
     FunctionSpec::new(StdLib::String, "rep"),
     FunctionSpec::new(StdLib::String, "reverse"),
     FunctionSpec::new(StdLib::String, "sub"),
+    FunctionSpec::new(StdLib::String, "unpack"),
     FunctionSpec::new(StdLib::String, "upper"),
 ];
 
@@ -675,7 +678,8 @@ impl<Target> Default for StdLibRegistry<Target> {
 mod tests {
     use super::{
         FunctionRegistry, FunctionSpec, GlobalLibrary, GlobalRegistry, Library, RegisterError,
-        StdLib, StdLibProfile, StdLibRegistry, StdLibSet, essential_registry, native_functions,
+        STRING_FUNCTIONS, STRING_NATIVE_FUNCTIONS, StdLib, StdLibProfile, StdLibRegistry,
+        StdLibSet, essential_registry, native_functions,
     };
 
     struct NamedLibrary(&'static str);
@@ -818,6 +822,17 @@ mod tests {
                 .0
                 .contains(&FunctionSpec::new(StdLib::Debug, "getinfo"))
         );
+    }
+
+    #[test]
+    fn string_descriptors_cover_public_native_functions() {
+        for native in STRING_NATIVE_FUNCTIONS {
+            assert!(
+                STRING_FUNCTIONS.contains(&native.descriptor()),
+                "missing descriptor for string.{}",
+                native.descriptor().name()
+            );
+        }
     }
 
     #[test]
