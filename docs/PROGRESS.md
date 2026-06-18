@@ -2198,12 +2198,15 @@ Delivered:
   `table.sort` ordering mixed integer and float values.
 - The table-library conformance and differential matrix now covers
   `table.sort` comparator error propagation through `pcall`.
+- The math-library conformance and differential matrix now covers
+  `math.floor` and `math.ceil` returning integer-typed results for rounded
+  float inputs.
 
 ## Remaining Gaps
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains seven hundred eight smoke fixtures across
+- `tests/conformance` currently contains seven hundred nine smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
