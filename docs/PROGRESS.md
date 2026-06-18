@@ -1825,6 +1825,9 @@ Delivered:
 - The table-library conformance and differential matrix now covers
   `table.sort` on an empty table.
 - The table-library conformance and differential matrix now covers
+  `table.insert` rejecting an explicit nil position in the three-argument
+  insertion form.
+- The table-library conformance and differential matrix now covers
   `table.remove` ignoring trailing arguments beyond the optional position.
 - The table-library conformance and differential matrix now covers
   explicit zero-position `table.remove` behavior for empty and non-empty
@@ -2130,7 +2133,7 @@ Delivered:
 
 ### Release Conformance Dashboard
 
-- `tests/conformance` currently contains six hundred eighty smoke fixtures across
+- `tests/conformance` currently contains six hundred eighty-one smoke fixtures across
   language, standard-library, runtime-error, and coroutine cases. Success
   fixtures check exact portable primitive result vectors through the public API.
 - `crates/elara-api/tests` provides broader public-API coverage for `debug`,
