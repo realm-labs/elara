@@ -3923,6 +3923,14 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/os_rename_extra_args.lua",
+        vec![
+            Value::boolean(true),
+            Value::integer(115),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/os_argument_errors.lua",
         vec![
             Value::boolean(false),

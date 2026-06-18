@@ -538,6 +538,7 @@ const DIFFERENTIAL_FIXTURES: &[&str] = &[
     "stdlib/os_remove.lua",
     "stdlib/os_remove_extra_args.lua",
     "stdlib/os_rename.lua",
+    "stdlib/os_rename_extra_args.lua",
     "stdlib/os_argument_errors.lua",
     "coroutine/wrap.lua",
     "coroutine/wrap_dead.lua",
