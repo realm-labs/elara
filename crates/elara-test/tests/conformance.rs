@@ -3798,6 +3798,15 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/debug_getinfo_nil_options.lua",
+        vec![
+            Value::integer(76),
+            Value::integer(0),
+            Value::boolean(false),
+            Value::boolean(true),
+        ],
+    );
+    assert_success_fixture(
         "stdlib/debug_getinfo_extra_args.lua",
         vec![
             Value::boolean(true),
