@@ -3305,6 +3305,10 @@ fn conformance_standard_library_fixtures() {
         ],
     );
     assert_success_fixture(
+        "stdlib/debug_metatable_extra_args.lua",
+        vec![Value::boolean(true), Value::boolean(true)],
+    );
+    assert_success_fixture(
         "stdlib/debug_metatable_clear.lua",
         vec![
             Value::boolean(true),
