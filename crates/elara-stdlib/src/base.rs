@@ -223,7 +223,16 @@ fn base_pcall(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Val
 
 fn base_xpcall(runtime: &mut dyn NativeRuntime, args: &[Value]) -> Result<Vec<Value>, NativeError> {
     let function = args.first().copied().unwrap_or_else(Value::nil);
-    let handler = args.get(1).copied().unwrap_or_else(Value::nil);
+    let handler = *args
+        .get(1)
+        .ok_or(NativeErrorKind::MissingArgument { index: 2 })?;
+    if !is_function(handler) {
+        return Err(NativeErrorKind::TypeError {
+            index: 2,
+            expected: "function",
+        }
+        .into());
+    }
     let call_args = args.get(2..).unwrap_or_default();
     match runtime.protected_call(function, call_args)? {
         Ok(values) => {

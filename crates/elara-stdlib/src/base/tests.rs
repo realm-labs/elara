@@ -438,6 +438,20 @@ fn base_xpcall_returns_true_and_values_for_successful_call() {
 }
 
 #[test]
+fn base_xpcall_requires_handler_function_before_calling_target() {
+    let mut runtime = TestRuntime {
+        protected_results: vec![Ok(vec![Value::integer(42)])],
+        ..TestRuntime::default()
+    };
+
+    let error = base_xpcall(&mut runtime, &[Value::native_function_index(3)])
+        .expect_err("missing handler should fail before target call");
+
+    assert_eq!(error.kind(), &NativeErrorKind::MissingArgument { index: 2 });
+    assert!(runtime.protected_calls.is_empty());
+}
+
+#[test]
 fn base_xpcall_calls_handler_for_caught_error() {
     let mut runtime = TestRuntime::default();
     let message = runtime.push_string(b"boom");
